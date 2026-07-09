@@ -4,7 +4,7 @@ from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
 TOKEN = os.getenv("BOT_TOKEN")
 
-WARNING = Media Removed
+WARNING = """⚠️ Media Removed
 
 Please resend your picture or video using Telegram's Hide with Spoiler option.
 
@@ -15,7 +15,7 @@ How to do it:
 3. Choose Hide with Spoiler.
 4. Send the media again.
 
-Thank you for helping keep the group comfortable for everyone. 
+Thank you for helping keep the group comfortable for everyone. 🙏
 """
 
 async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
