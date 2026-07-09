@@ -1,4 +1,4 @@
-WARNING = """⚠️ Media Removed
+WARNING = ⚠️ Media Removed
 
 Please resend your picture or video using Telegram's Hide with Spoiler option.
 
