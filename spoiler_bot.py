@@ -10,7 +10,9 @@ TOKEN = os.getenv("BOT_TOKEN")
 
 WARNING = """⚠️ Media Removed
 
-Please resend your picture or video using Telegram's Hide with Spoiler option.
+To help prevent accidental exposure, this group requires all pictures and videos to be sent using Telegram's Hide with Spoiler option.
+
+Please resend your picture or video with the spoiler setting enabled.
 
 How to do it:
 
@@ -19,7 +21,7 @@ How to do it:
 3. Choose Hide with Spoiler.
 4. Send the media again.
 
-Thank you for helping keep the group comfortable for everyone. 🙏
+Thank you for helping keep the group comfortable and safe for everyone. 🙏
 """
 
 
