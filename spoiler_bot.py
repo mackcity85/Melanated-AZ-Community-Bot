@@ -1,4 +1,3 @@
-
 import os
 import threading
 import logging
@@ -9,6 +8,7 @@ from datetime import datetime
 from flask import Flask
 
 from telegram import Update
+
 from telegram.ext import (
     Application,
     MessageHandler,
@@ -45,6 +45,7 @@ logging.basicConfig(
 )
 
 
+
 # ==========================
 # DATABASE
 # ==========================
@@ -79,7 +80,9 @@ web_app = Flask(__name__)
 
 @web_app.route("/")
 def home():
-    return "Spoiler bot is running!"
+
+    return "Melanated AZ Bot is running!"
+
 
 
 def run_web():
@@ -94,7 +97,19 @@ def run_web():
 
 
 # ==========================
-# BIRTHDAY COMMANDS
+# GET CHAT ID
+# ==========================
+
+async def get_id(update, context):
+
+    await update.message.reply_text(
+        f"Chat ID: {update.effective_chat.id}"
+    )
+
+
+
+# ==========================
+# BIRTHDAY SYSTEM
 # ==========================
 
 async def set_birthday(
@@ -105,7 +120,7 @@ async def set_birthday(
     if not context.args:
 
         await update.message.reply_text(
-            "Usage:\n/birthday MM/DD\n\nExample:\n/birthday 07/15"
+            "Usage:\n/birthday MM/DD\nExample:\n/birthday 07/15"
         )
 
         return
@@ -124,7 +139,7 @@ async def set_birthday(
     except ValueError:
 
         await update.message.reply_text(
-            "❌ Invalid format. Use MM/DD"
+            "❌ Invalid date format. Use MM/DD"
         )
 
         return
@@ -163,10 +178,7 @@ async def set_birthday(
 
 
 
-async def my_birthday(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def my_birthday(update, context):
 
     user = update.effective_user
     chat = update.effective_chat
@@ -209,10 +221,7 @@ async def my_birthday(
 
 
 
-async def remove_birthday(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def remove_birthday(update, context):
 
     user = update.effective_user
     chat = update.effective_chat
@@ -245,9 +254,7 @@ async def remove_birthday(
 
 
 
-async def check_birthdays(
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def check_birthdays(context):
 
     today = datetime.now().strftime("%m/%d")
 
@@ -278,8 +285,8 @@ async def check_birthdays(
             chat_id=chat_id,
             text=(
                 f"🎉🎂 Happy Birthday {username}! 🎂🎉\n\n"
-                "Wishing you a day full of happiness, "
-                "good energy, and great memories! 🥳"
+                "Everyone help us wish them a wonderful birthday!\n"
+                "May your day be filled with happiness and good energy. 🥳"
             )
         )
 
@@ -289,10 +296,7 @@ async def check_birthdays(
 # MEDIA CHECK
 # ==========================
 
-async def check_media(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def check_media(update, context):
 
     message = update.effective_message
 
@@ -385,7 +389,7 @@ def main():
     )
 
 
-    # Media moderation
+    # Media
 
     app.add_handler(
         MessageHandler(
@@ -399,7 +403,14 @@ def main():
     )
 
 
-    # Birthday commands
+    # Commands
+
+    app.add_handler(
+        CommandHandler(
+            "getid",
+            get_id
+        )
+    )
 
     app.add_handler(
         CommandHandler(
@@ -408,14 +419,12 @@ def main():
         )
     )
 
-
     app.add_handler(
         CommandHandler(
             "mybirthday",
             my_birthday
         )
     )
-
 
     app.add_handler(
         CommandHandler(
@@ -439,7 +448,7 @@ def main():
 
 
     logging.info(
-        "Spoiler + Birthday bot running"
+        "🎉 Melanated AZ Bot is running!"
     )
 
 
