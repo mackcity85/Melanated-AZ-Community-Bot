@@ -4,6 +4,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from birthdays import check_birthdays
 
+from pin_cleanup import cleanup_old_pins
+
+from inactivity import check_inactive_members
+
 
 
 scheduler = None
@@ -11,34 +15,22 @@ scheduler = None
 
 
 # ==========================
-# COMMUNITY TASK PLACEHOLDERS
+# COMMUNITY FEEDBACK
 # ==========================
 
-
-async def run_feedback_poll():
+async def run_feedback_poll(app):
 
     logging.info(
         "60-day community feedback poll check executed"
     )
 
-    # Poll system will be added here
-
-
-
-async def run_pin_cleanup():
-
-    logging.info(
-        "90-day pin cleanup check executed"
-    )
-
-    # Pin cleanup system will be added here
+    # Future poll system will be added here
 
 
 
 # ==========================
 # START SCHEDULER
 # ==========================
-
 
 async def start_scheduler(app):
 
@@ -49,7 +41,9 @@ async def start_scheduler(app):
 
 
 
-    # Daily birthday check
+    # --------------------------
+    # Daily Birthday Check
+    # --------------------------
 
     scheduler.add_job(
 
@@ -67,7 +61,10 @@ async def start_scheduler(app):
 
 
 
-    # Every 60 days
+    # --------------------------
+    # Community Feedback
+    # Every 60 Days
+    # --------------------------
 
     scheduler.add_job(
 
@@ -75,21 +72,47 @@ async def start_scheduler(app):
 
         "interval",
 
-        days=60
+        days=60,
+
+        args=[app]
 
     )
 
 
 
-    # Daily pin cleanup check
+    # --------------------------
+    # Pin Cleanup
+    # Daily Check
+    # --------------------------
 
     scheduler.add_job(
 
-        run_pin_cleanup,
+        cleanup_old_pins,
 
         "interval",
 
-        days=1
+        days=1,
+
+        args=[app]
+
+    )
+
+
+
+    # --------------------------
+    # Inactivity Check
+    # Every 30 Days
+    # --------------------------
+
+    scheduler.add_job(
+
+        check_inactive_members,
+
+        "interval",
+
+        days=30,
+
+        args=[app]
 
     )
 
