@@ -10,10 +10,8 @@ from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
-    ChatMemberHandler,
     filters
 )
-
 
 
 from config import TOKEN, STARTUP_CHAT_ID
@@ -47,12 +45,13 @@ from polls import suggestion
 from scheduler import start_scheduler
 
 
+from inactivity import track_activity
+
 
 
 # ==========================
 # LOGGING
 # ==========================
-
 
 logging.basicConfig(
 
@@ -64,23 +63,17 @@ logging.basicConfig(
 
 
 
-
-
 # ==========================
 # RENDER WEB SERVER
 # ==========================
 
-
 web_app = Flask(__name__)
-
 
 
 @web_app.route("/")
 def home():
 
     return "Melanated AZ Community Bot is running!"
-
-
 
 
 
@@ -109,12 +102,9 @@ def run_web():
 
 
 
-
-
 # ==========================
 # STARTUP MESSAGE
 # ==========================
-
 
 async def startup_message(app):
 
@@ -141,9 +131,11 @@ async def startup_message(app):
 
                 "✅ Birthday Celebrations\n"
 
-                "✅ Community Automation\n"
+                "✅ Community Feedback\n"
 
-                "✅ Welcome System\n\n"
+                "✅ Welcome System\n"
+
+                "✅ Member Activity Tracking\n\n"
 
                 "💜 Ready to serve the community!"
 
@@ -153,18 +145,14 @@ async def startup_message(app):
 
 
 
-
-
 # ==========================
 # MAIN
 # ==========================
-
 
 def main():
 
 
     if not TOKEN:
-
 
         raise RuntimeError(
 
@@ -188,7 +176,6 @@ def main():
 
 
 
-
     application = (
 
         Application
@@ -207,12 +194,29 @@ def main():
 
 
 
+    # ----------------------
+    # USER ACTIVITY TRACKING
+    # ----------------------
+
+    application.add_handler(
+
+        MessageHandler(
+
+            filters.ALL,
+
+            track_activity
+
+        ),
+
+        group=0
+
+    )
+
 
 
     # ----------------------
     # MEDIA MODERATION
     # ----------------------
-
 
     media_filter = (
 
@@ -229,7 +233,6 @@ def main():
     )
 
 
-
     application.add_handler(
 
         MessageHandler(
@@ -238,18 +241,17 @@ def main():
 
             check_media
 
-        )
+        ),
+
+        group=1
 
     )
-
-
 
 
 
     # ----------------------
     # COMMANDS
     # ----------------------
-
 
     application.add_handler(
 
@@ -330,12 +332,9 @@ def main():
 
 
 
-
-
     # ----------------------
-    # WELCOME NEW USERS
+    # WELCOME SYSTEM
     # ----------------------
-
 
     application.add_handler(
 
@@ -348,8 +347,6 @@ def main():
         )
 
     )
-
-
 
 
 
@@ -366,8 +363,6 @@ def main():
         drop_pending_updates=True
 
     )
-
-
 
 
 
