@@ -1,58 +1,81 @@
 import os
 import threading
+import logging
 
 from flask import Flask
-from telegram import Update
-from telegram.ext import Application, MessageHandler, ContextTypes, filters
-
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 
 TOKEN = os.getenv("BOT_TOKEN")
 
-
 WARNING = """⚠️ Media Removed
 
-This group requires all photos, videos, and GIFs to be sent using Telegram's Hide with Spoiler option.
+This group requires all photos, videos, GIFs, and media files to be sent using Telegram's Hide with Spoiler option.
 
 Please resend your media with the spoiler enabled.
 """
 
+# Render health check
+web_app = Flask(__name__)
 
-app_web = Flask(__name__)
 
-
-@app_web.route("/")
+@web_app.route("/")
 def home():
     return "Spoiler bot is running!"
 
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
-    app_web.run(
+    web_app.run(
         host="0.0.0.0",
         port=port
     )
 
 
-async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def check_media(update, context: ContextTypes.DEFAULT_TYPE):
 
     message = update.message
 
     if not message:
         return
 
-    is_media = (
-        message.photo
-        or message.video
-        or message.animation
-    )
+    is_media = False
+
+    if message.photo:
+        is_media = True
+
+    elif message.video:
+        is_media = True
+
+    elif message.animation:
+        is_media = True
+
+    elif message.document:
+
+        mime = message.document.mime_type
+
+        if mime and (
+            mime.startswith("image/")
+            or mime.startswith("video/")
+        ):
+            is_media = True
+
 
     if not is_media:
         return
 
+
+    # Allow Telegram spoiler media
     if message.has_media_spoiler:
         return
 
+
     try:
+
         await message.delete()
 
         await context.bot.send_message(
@@ -60,16 +83,25 @@ async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=WARNING
         )
 
-        print("Removed non-spoiler media")
+        logging.info(
+            "Removed non-spoiler media"
+        )
 
     except Exception as e:
-        print("Error:", e)
+
+        logging.exception(
+            "Failed removing media: %s",
+            e
+        )
 
 
 def main():
 
     if not TOKEN:
-        raise RuntimeError("BOT_TOKEN missing")
+        raise RuntimeError(
+            "BOT_TOKEN missing"
+        )
+
 
     threading.Thread(
         target=run_web,
@@ -77,12 +109,12 @@ def main():
     ).start()
 
 
-    bot = Application.builder()\
+    app = Application.builder()\
         .token(TOKEN)\
         .build()
 
 
-    bot.add_handler(
+    app.add_handler(
         MessageHandler(
             filters.ALL,
             check_media
@@ -90,9 +122,12 @@ def main():
     )
 
 
-    print("Spoiler moderation bot running")
+    print(
+        "Spoiler moderation bot running"
+    )
 
-    bot.run_polling(
+
+    app.run_polling(
         drop_pending_updates=True
     )
 
