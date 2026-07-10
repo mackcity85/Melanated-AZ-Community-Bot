@@ -3,7 +3,12 @@ import threading
 
 from flask import Flask
 from telegram import Update
-from telegram.ext import Application, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 
 
 TOKEN = os.getenv("BOT_TOKEN")
@@ -17,7 +22,7 @@ Please resend your media with the spoiler enabled.
 """
 
 
-# Render keep alive
+# Render health check
 web_app = Flask(__name__)
 
 
@@ -42,25 +47,25 @@ async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
-    is_media = False
+    media_found = False
 
 
     # Photo
     if message.photo:
-        is_media = True
+        media_found = True
 
 
     # Video
     elif message.video:
-        is_media = True
+        media_found = True
 
 
     # GIF
     elif message.animation:
-        is_media = True
+        media_found = True
 
 
-    # Image/video uploaded as a file
+    # Uploaded image/video file
     elif message.document:
 
         mime = message.document.mime_type
@@ -69,12 +74,77 @@ async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mime.startswith("image/")
             or mime.startswith("video/")
         ):
-            is_media = True
+            media_found = True
 
 
-    if not is_media:
+    if not media_found:
         return
 
+
+    # Allow spoiler media
+    if message.has_media_spoiler:
+        return
+
+
+    try:
+        await message.delete()
+
+        await context.bot.send_message(
+            chat_id=message.chat.id,
+            text=WARNING
+        )
+
+        print(
+            "Removed non-spoiler media"
+        )
+
+
+    except Exception as e:
+        print(
+            "Delete error:",
+            e
+        )
+
+
+def main():
+
+    if not TOKEN:
+        raise RuntimeError(
+            "BOT_TOKEN missing"
+        )
+
+
+    threading.Thread(
+        target=run_web,
+        daemon=True
+    ).start()
+
+
+    app = Application.builder()\
+        .token(TOKEN)\
+        .build()
+
+
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            check_media
+        )
+    )
+
+
+    print(
+        "Spoiler moderation bot running..."
+    )
+
+
+    app.run_polling(
+        drop_pending_updates=True
+    )
+
+
+if __name__ == "__main__":
+    main()
 
     # Allow Telegram Spoiler media
     if message.has_media_spoiler:
