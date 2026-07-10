@@ -1,5 +1,10 @@
+# bot.py
+# Telegram Spoiler Moderation Bot
+# python-telegram-bot v21+
+
 import os
 import threading
+import logging
 
 from flask import Flask
 from telegram import Update
@@ -10,24 +15,25 @@ from telegram.ext import (
     filters
 )
 
+logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.getenv("BOT_TOKEN")
 
 
 WARNING = """⚠️ Media Removed
 
-To help prevent accidental exposure, this group requires all pictures and videos to be sent using Telegram's Hide with Spoiler option.
+This group requires all photos, videos, GIFs, and media files to be sent using Telegram's Hide with Spoiler option.
 
-Please resend your picture or video with the spoiler setting enabled.
+Please resend your media with the spoiler enabled.
 
 How to do it:
 
 1. Select your photo or video.
-2. Before sending, tap the ⋮ menu (or options button).
-3. Choose Hide with Spoiler.
-4. Send the media again.
+2. Tap the ⋮ menu/options button.
+3. Select "Hide with Spoiler".
+4. Send it again.
 
-Thank you for helping keep the group comfortable and safe for everyone. 🙏
+Thank you for helping keep the group comfortable and safe. 🙏
 """
 
 
@@ -45,14 +51,20 @@ def home():
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
-    web_app.run(host="0.0.0.0", port=port)
+    web_app.run(
+        host="0.0.0.0",
+        port=port
+    )
 
 
 # -------------------------
-# Media Check
+# Media Detection
 # -------------------------
 
-async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def check_media(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     message = update.message
 
@@ -63,22 +75,22 @@ async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_media = False
 
 
-    # Normal photos
+    # Photo
     if message.photo:
         is_media = True
 
 
-    # Normal videos
+    # Video
     elif message.video:
         is_media = True
 
 
-    # GIF / Animation
+    # GIF
     elif message.animation:
         is_media = True
 
 
-    # Images/videos sent as files
+    # Files
     elif message.document:
 
         mime = message.document.mime_type
@@ -86,7 +98,8 @@ async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if mime:
             if (
                 mime.startswith("image/")
-                or mime.startswith("video/")
+                or
+                mime.startswith("video/")
             ):
                 is_media = True
 
@@ -95,77 +108,74 @@ async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
-    # Allow Telegram spoiler media
+    # Allow spoiler media
     if message.has_media_spoiler:
         return
 
 
     try:
+
         await message.delete()
 
-        await update.effective_chat.send_message(
-            WARNING
+        await context.bot.send_message(
+            chat_id=message.chat.id,
+            text=WARNING
         )
 
-        print(
-            f"Removed non-spoiler media from "
-            f"{message.from_user.id}"
+        logging.info(
+            "Removed non-spoiler media from %s",
+            message.from_user.id
         )
 
 
     except Exception as e:
-        print(
-            "Media removal error:",
+
+        logging.exception(
+            "Failed removing media: %s",
             e
         )
 
 
 # -------------------------
-# Main
+# Start Bot
 # -------------------------
 
 def main():
 
     if not TOKEN:
-        raise ValueError(
-            "BOT_TOKEN is missing"
+        raise RuntimeError(
+            "BOT_TOKEN missing"
         )
 
 
-    # Start Render listener
     threading.Thread(
         target=run_web,
         daemon=True
     ).start()
 
 
-    app = Application.builder().token(
-        TOKEN
-    ).build()
+    app = Application.builder()\
+        .token(TOKEN)\
+        .build()
 
 
-    media_filter = (
-        filters.PHOTO
-        | filters.VIDEO
-        | filters.ANIMATION
-        | filters.Document.ALL
-    )
-
-
+    # Catch all messages
     app.add_handler(
         MessageHandler(
-            media_filter,
+            filters.ALL,
             check_media
         )
     )
 
 
-    print(
-        "Spoiler moderation bot is running..."
+    logging.info(
+        "Spoiler moderation bot running..."
     )
 
 
-    app.run_polling()
+    app.run_polling(
+        drop_pending_updates=True
+    )
 
 
 if __name__ == "__main__":
