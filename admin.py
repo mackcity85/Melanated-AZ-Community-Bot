@@ -57,11 +57,12 @@ async def get_id(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    print(
+        "GETID COMMAND RECEIVED"
+    )
+
     await update.message.reply_text(
-
-        f"🆔 Chat ID:\n\n"
-        f"{update.effective_chat.id}"
-
+        f"🆔 Chat ID:\n\n{update.effective_chat.id}"
     )
 
 
