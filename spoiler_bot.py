@@ -1,21 +1,10 @@
-# bot.py
-# Telegram Spoiler Moderation Bot
-# python-telegram-bot v21+
-
 import os
 import threading
-import logging
 
 from flask import Flask
 from telegram import Update
-from telegram.ext import (
-    Application,
-    MessageHandler,
-    ContextTypes,
-    filters
-)
+from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
-logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -25,22 +14,10 @@ WARNING = """⚠️ Media Removed
 This group requires all photos, videos, GIFs, and media files to be sent using Telegram's Hide with Spoiler option.
 
 Please resend your media with the spoiler enabled.
-
-How to do it:
-
-1. Select your photo or video.
-2. Tap the ⋮ menu/options button.
-3. Select "Hide with Spoiler".
-4. Send it again.
-
-Thank you for helping keep the group comfortable and safe. 🙏
 """
 
 
-# -------------------------
-# Render Keep Alive
-# -------------------------
-
+# Render keep alive
 web_app = Flask(__name__)
 
 
@@ -57,14 +34,7 @@ def run_web():
     )
 
 
-# -------------------------
-# Media Detection
-# -------------------------
-
-async def check_media(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def check_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message = update.message
 
@@ -75,6 +45,94 @@ async def check_media(
     is_media = False
 
 
+    # Photo
+    if message.photo:
+        is_media = True
+
+
+    # Video
+    elif message.video:
+        is_media = True
+
+
+    # GIF
+    elif message.animation:
+        is_media = True
+
+
+    # Image/video uploaded as a file
+    elif message.document:
+
+        mime = message.document.mime_type
+
+        if mime and (
+            mime.startswith("image/")
+            or mime.startswith("video/")
+        ):
+            is_media = True
+
+
+    if not is_media:
+        return
+
+
+    # Allow Telegram Spoiler media
+    if message.has_media_spoiler:
+        return
+
+
+    try:
+        await message.delete()
+
+        await context.bot.send_message(
+            chat_id=message.chat.id,
+            text=WARNING
+        )
+
+    except Exception as e:
+        print("Delete error:", e)
+
+
+def main():
+
+    if not TOKEN:
+        raise RuntimeError(
+            "BOT_TOKEN missing"
+        )
+
+
+    threading.Thread(
+        target=run_web,
+        daemon=True
+    ).start()
+
+
+    app = Application.builder()\
+        .token(TOKEN)\
+        .build()
+
+
+    # Watch all messages for media
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            check_media
+        )
+    )
+
+
+    print(
+        "Spoiler moderation bot running..."
+    )
+
+
+    app.run_polling(
+        drop_pending_updates=True
+    )
+
+
+if __name__ == "__main__":
+    main()
     # Photo
     if message.photo:
         is_media = True
