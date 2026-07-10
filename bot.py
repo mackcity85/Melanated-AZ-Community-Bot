@@ -64,7 +64,7 @@ logging.basicConfig(
 
 
 # ==========================
-# RENDER WEB SERVER
+# FLASK SERVER
 # ==========================
 
 web_app = Flask(__name__)
@@ -131,17 +131,48 @@ async def startup_message(app):
 
                 "✅ Birthday Celebrations\n"
 
-                "✅ Community Feedback\n"
+                "✅ Member Activity Tracking\n"
 
                 "✅ Welcome System\n"
 
-                "✅ Member Activity Tracking\n\n"
+                "✅ Community Feedback\n"
+
+                "✅ Automation Enabled\n\n"
 
                 "💜 Ready to serve the community!"
 
             )
 
         )
+
+
+
+# ==========================
+# POST INIT
+# ==========================
+
+async def post_startup(app):
+
+
+    logging.info(
+
+        "🚀 Starting scheduler..."
+
+    )
+
+
+    await start_scheduler(app)
+
+
+    await startup_message(app)
+
+
+
+    logging.info(
+
+        "✅ Startup tasks completed"
+
+    )
 
 
 
@@ -184,9 +215,7 @@ def main():
 
         .token(TOKEN)
 
-        .post_init(start_scheduler)
-
-        .post_init(startup_message)
+        .post_init(post_startup)
 
         .build()
 
@@ -194,9 +223,9 @@ def main():
 
 
 
-    # ----------------------
-    # USER ACTIVITY TRACKING
-    # ----------------------
+    # ======================
+    # ACTIVITY TRACKING
+    # ======================
 
     application.add_handler(
 
@@ -214,9 +243,9 @@ def main():
 
 
 
-    # ----------------------
+    # ======================
     # MEDIA MODERATION
-    # ----------------------
+    # ======================
 
     media_filter = (
 
@@ -249,9 +278,9 @@ def main():
 
 
 
-    # ----------------------
+    # ======================
     # COMMANDS
-    # ----------------------
+    # ======================
 
     application.add_handler(
 
@@ -332,9 +361,9 @@ def main():
 
 
 
-    # ----------------------
-    # WELCOME SYSTEM
-    # ----------------------
+    # ======================
+    # WELCOME
+    # ======================
 
     application.add_handler(
 
