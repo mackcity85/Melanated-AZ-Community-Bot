@@ -496,7 +496,7 @@ async def birthday_command(
     if not context.args:
 
         await update.message.reply_text(
-            "Usage: /birthday MM-DD"
+            "Usage: /birthday MM/DD"
         )
 
         return
@@ -841,53 +841,60 @@ async def is_admin(
 
 
 # ==========================================================
-# PHOTO SPOILER PROTECTION
+# MEDIA SPOILER PROTECTION
+# PHOTOS AND VIDEOS
 # ==========================================================
 
-async def photo_protection(
+
+async def media_protection(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
     message = update.message
 
-
     if not message:
         return
 
 
-    if not message.photo:
+    media_type = None
+
+
+    if message.photo:
+
+        media_type = "PHOTO"
+
+
+    elif message.video:
+
+        media_type = "VIDEO"
+
+
+    else:
+
         return
 
 
 
     spoiler = getattr(
-
         message,
-
         "has_media_spoiler",
-
         False
-
     )
 
 
     logger.info(
-
-        f"PHOTO RECEIVED | Spoiler={spoiler}"
-
+        f"{media_type} RECEIVED | Spoiler={spoiler}"
     )
 
 
 
-    # Allow spoiler photos
+    # Allow spoiler media
 
     if spoiler:
 
         logger.info(
-
-            "PHOTO ALLOWED | Spoiler"
-
+            f"{media_type} ALLOWED | Spoiler"
         )
 
         return
@@ -899,9 +906,7 @@ async def photo_protection(
     if await is_admin(update, context):
 
         logger.info(
-
-            "PHOTO ALLOWED | Admin"
-
+            f"{media_type} ALLOWED | Admin"
         )
 
         return
@@ -914,11 +919,8 @@ async def photo_protection(
 
 
         logger.info(
-
-            "PHOTO REMOVED | No Spoiler"
-
+            f"{media_type} REMOVED | No Spoiler"
         )
-
 
 
         conn = get_db()
@@ -926,15 +928,25 @@ async def photo_protection(
         cursor = conn.cursor()
 
 
-        cursor.execute(
+        if media_type == "PHOTO":
 
-            """
-            UPDATE stats
-            SET value=value+1
-            WHERE name='photos_removed'
-            """
+            cursor.execute(
+                """
+                UPDATE stats
+                SET value=value+1
+                WHERE name='photos_removed'
+                """
+            )
 
-        )
+        else:
+
+            cursor.execute(
+                """
+                UPDATE stats
+                SET value=value+1
+                WHERE name='videos_removed'
+                """
+            )
 
 
         conn.commit()
@@ -952,139 +964,10 @@ async def photo_protection(
         )
 
 
-
     except Exception as e:
 
         logger.error(
-
-            f"PHOTO ERROR: {e}"
-
-        )
-
-
-
-# ==========================================================
-# VIDEO SPOILER PROTECTION
-# ==========================================================
-
-async def video_protection(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    message = update.message
-
-
-    if not message:
-        return
-
-
-    if not message.video:
-        return
-
-
-
-    spoiler = getattr(
-
-        message,
-
-        "has_media_spoiler",
-
-        False
-
-    )
-
-
-
-    logger.info(
-
-        f"VIDEO RECEIVED | Spoiler={spoiler}"
-
-    )
-
-
-
-    # Allow spoiler videos
-
-    if spoiler:
-
-        logger.info(
-
-            "VIDEO ALLOWED | Spoiler"
-
-        )
-
-        return
-
-
-
-    # Allow admins
-
-    if await is_admin(update, context):
-
-        logger.info(
-
-            "VIDEO ALLOWED | Admin"
-
-        )
-
-        return
-
-
-
-    try:
-
-        await message.delete()
-
-
-        logger.info(
-
-            "VIDEO REMOVED | No Spoiler"
-
-        )
-
-
-
-        conn = get_db()
-
-        cursor = conn.cursor()
-
-
-
-        cursor.execute(
-
-            """
-            UPDATE stats
-            SET value=value+1
-            WHERE name='videos_removed'
-            """
-
-        )
-
-
-
-        conn.commit()
-
-        conn.close()
-
-
-
-        await send_temporary_warning(
-
-            context,
-
-            update.effective_chat.id
-
-        )
-
-
-
-    except Exception as e:
-
-        logger.error(
-
-            f"VIDEO ERROR: {e}"
-
+            f"{media_type} ERROR: {e}"
         )
 # ==========================================================
 # PART 4 - SCHEDULER, STARTUP & MAIN BOT
@@ -1668,39 +1551,22 @@ def main():
 
 
 
-    # Photos
+    # Photos and Videos
 
-    app.add_handler(
+app.add_handler(
 
-        MessageHandler(
+    MessageHandler(
 
-            filters.PHOTO,
+        filters.PHOTO |
+        filters.VIDEO,
 
-            photo_protection
+        media_protection
 
-        ),
+    ),
 
-        group=1
+    group=1
 
-    )
-
-
-
-    # Videos
-
-    app.add_handler(
-
-        MessageHandler(
-
-            filters.VIDEO,
-
-            video_protection
-
-        ),
-
-        group=1
-
-    )
+)
 
 
 
