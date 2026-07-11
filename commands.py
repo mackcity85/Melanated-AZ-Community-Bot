@@ -7,132 +7,94 @@ RULES_MESSAGE = """
 
 📜 GROUP RULES 📜
 
-Please review the community guidelines:
-
-━━━━━━━━━━━━━━━
-
 1️⃣ Consent Is Everything
-• No means no.
-• Respect boundaries at all times.
-• No pressure, manipulation, or guilt trips.
+• Respect boundaries.
+• No pressure, manipulation, or harassment.
 
 2️⃣ Respect Everyone
-• No bullying, harassment, discrimination, or personal attacks.
-• Different lifestyles, dynamics, interests, and experience levels are welcome.
-• Disagreements are okay. Disrespect is not.
+• No bullying, discrimination, or personal attacks.
+• Different lifestyles and dynamics are welcome.
 
 3️⃣ Keep Drama Out
-• Personal issues stay private.
-• Do not bring outside conflicts into the group.
-• Contact an admin if help is needed.
+• Handle personal issues privately.
+• Contact admins if needed.
 
 4️⃣ Privacy Matters
 • What is shared here stays here.
-• No screenshots, recordings, or sharing conversations without permission.
+• No screenshots or sharing conversations without permission.
 
 5️⃣ Adults Only
 • All members must be 18+.
 
 6️⃣ No Unsolicited Messages
 • Ask before sending DMs.
-• Respect someone's answer if they decline.
+• Respect people's answers.
 
 7️⃣ Verify Before You Trust
-• Take time to get to know people.
-• Prioritize your safety when meeting others.
+• Protect yourself when meeting others.
 
 8️⃣ No Predatory Behavior
-• Manipulation, coercion, intimidation, or abuse will not be tolerated.
-• Consent always comes first.
+• Manipulation or coercion will not be tolerated.
 
 9️⃣ Keep It Classy
 • Adult conversations are welcome.
-• Avoid spam, excessive explicit content, and attention-seeking behavior.
+• Avoid spam and excessive content.
 
 🔟 Community First
-• Support one another.
+• Support each other.
 • Welcome new members.
-• Leave egos at the door.
 
 ━━━━━━━━━━━━━━━
 
 ⚠️ MEDIA SPOILER REQUIREMENT ⚠️
 
-All photos, videos, GIFs, and media must use:
+Photos, videos, and GIFs must use:
 
 👁 Hide With Spoiler
-
-This helps keep the community comfortable and prevents accidental exposure.
-
-━━━━━━━━━━━━━━━
-
-👑 ADMIN RULE 👑
-
-Admins reserve the right to remove anyone whose behavior negatively impacts the safety, privacy, or atmosphere of the group.
 
 Consent • Respect • Communication • Accountability
 """
 
 
 INTRO_MESSAGE = """
-👋 Melanated AZ Introduction Format
+👋 Melanated AZ Introduction
 
 Please introduce yourself:
 
-👤 Name:
-🎂 Age:
-📍 Location:
-💞 Status:
-🎯 What you're here for:
-📩 DMs Open or Closed:
-
-Example:
-
-King | 40 | Vail, AZ | Partnered | Networking and meeting like-minded people | DMs Open
+Name:
+Age:
+Location:
+Status:
+What you're here for:
+DMs Open or Closed:
 """
 
 
 SPOILER_MESSAGE = """
-⚠️ Media Spoiler Reminder ⚠️
+⚠️ Media Spoiler Reminder
 
-All photos, videos, GIFs, and media must be sent using Telegram's:
+All photos, videos, and GIFs must use:
 
 👁 Hide With Spoiler
 
-📱 Mobile:
-1. Select your media
-2. Open media options
-3. Choose "Hide With Spoiler"
-4. Send
-
-💻 Desktop:
-1. Select your media
-2. Right-click the preview
-3. Choose "Hide With Spoiler"
-4. Send
-
-Thank you for helping keep Melanated AZ comfortable for everyone. ❤️
+This helps keep the community comfortable.
 """
 
 
 HELP_MESSAGE = """
-🤖 Melanated AZ Bot
+🤖 Melanated AZ Bot Commands
 
-Available Commands:
+/rules
+View community rules
 
-📜 /rules
-View community guidelines
+/intro
+Introduction format
 
-👋 /intro
-View introduction format
+/spoiler
+Media instructions
 
-⚠️ /spoiler
-View media spoiler instructions
-
-🔥 Media Protection
-🎂 Birthday Celebrations
-📅 Community Check-ins
-👑 Group Management Tools
+/help
+Show commands
 """
 
 
@@ -153,6 +115,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def get_command_handlers():
+
     from telegram.ext import CommandHandler
 
     return [
