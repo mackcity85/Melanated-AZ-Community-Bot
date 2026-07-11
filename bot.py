@@ -1184,18 +1184,163 @@ async def community_check(
 ):
 
     logger.info(
-        "Running community check"
+        "Running community engagement check"
     )
 
 
-    # Future expansion:
-    #
-    # Find members inactive 30 days
-    # Send friendly reminder
-    # Thank active members
-    #
+    conn = get_db()
+    cursor = conn.cursor()
 
-    return
+
+    today = datetime.now()
+
+
+    cursor.execute(
+        """
+        SELECT 
+            user_id,
+            username,
+            first_name,
+            last_active
+        FROM members
+        """
+    )
+
+
+    members = cursor.fetchall()
+
+
+    for member in members:
+
+        user_id = member[0]
+        username = member[1] or member[2] or "Member"
+        last_active = member[3]
+
+
+        try:
+
+            last_date = datetime.strptime(
+                last_active,
+                "%Y-%m-%d"
+            )
+
+
+        except:
+
+            continue
+
+
+        days_inactive = (
+            today - last_date
+        ).days
+
+
+
+        # ==============================
+        # INACTIVE MEMBER MESSAGE
+        # ==============================
+
+        if days_inactive >= 30:
+
+
+            try:
+
+                await context.bot.send_message(
+
+                    chat_id=user_id,
+
+                    text=f"""
+👋 Hey {username}!
+
+We haven't seen you around Melanated AZ lately.
+
+We hope everything is good with you ❤️
+
+The community is always here whenever you want to reconnect.
+
+👑 Melanated AZ
+Consent • Respect • Communication
+"""
+
+                )
+
+
+                cursor.execute(
+                    """
+                    UPDATE stats
+                    SET value=value+1
+                    WHERE name='inactive_messages_sent'
+                    """
+                )
+
+
+                logger.info(
+                    f"Sent inactive message to {user_id}"
+                )
+
+
+            except Exception as e:
+
+                logger.info(
+                    f"Could not message {user_id}: {e}"
+                )
+
+
+
+        # ==============================
+        # ACTIVE MEMBER THANK YOU
+        # ==============================
+
+        elif days_inactive <= 30:
+
+
+            try:
+
+                await context.bot.send_message(
+
+                    chat_id=user_id,
+
+                    text=f"""
+👑 Thank you {username}!
+
+We appreciate you being part of Melanated AZ.
+
+Your conversations, participation, and positive energy help make this community what it is.
+
+❤️ Thank you for being active!
+"""
+
+                )
+
+
+                cursor.execute(
+                    """
+                    UPDATE stats
+                    SET value=value+1
+                    WHERE name='active_thanks_sent'
+                    """
+                )
+
+
+                logger.info(
+                    f"Thanked active member {user_id}"
+                )
+
+
+            except Exception as e:
+
+                logger.info(
+                    f"Could not thank {user_id}: {e}"
+                )
+
+
+    conn.commit()
+    conn.close()
+
+
+    logger.info(
+        "Community engagement check complete"
+    )
 
 
 
