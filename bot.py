@@ -14,6 +14,12 @@ from telegram.ext import (
 from config import TOKEN, STARTUP_CHAT_ID
 from database import init_db
 
+from birthdays import (
+    set_birthday,
+    my_birthday,
+    remove_birthday
+)
+
 
 # ==========================
 # LOGGING
@@ -76,15 +82,18 @@ async def get_id(
     user = update.effective_user
     chat = update.effective_chat
 
-
     await update.message.reply_text(
         f"👤 User ID: {user.id}\n"
         f"💬 Chat ID: {chat.id}"
     )
 
 
+# ==========================
+# STARTUP
+# ==========================
+
 async def startup_message(
-    app
+    app: Application
 ):
 
     logging.info(
@@ -94,15 +103,40 @@ async def startup_message(
 
     if STARTUP_CHAT_ID:
 
-        await app.bot.send_message(
-            chat_id=STARTUP_CHAT_ID,
-            text=(
-                "🤖 Melanated AZ Bot v2 is online!\n\n"
-                "✅ Core System Running\n"
-                "✅ Database Connected\n"
-                "✅ Ready for features"
+        try:
+
+            await app.bot.send_message(
+                chat_id=STARTUP_CHAT_ID,
+                text=(
+                    "🤖 Melanated AZ Bot v2 is online!\n\n"
+                    "✅ Core System Running\n"
+                    "✅ Database Connected\n"
+                    "✅ Birthday System Enabled\n"
+                    "✅ Ready for the community 💜"
+                )
             )
-        )
+
+        except Exception as e:
+
+            logging.error(
+                "Startup message failed: %s",
+                e
+            )
+
+
+# ==========================
+# ERROR HANDLER
+# ==========================
+
+async def error_handler(
+    update,
+    context
+):
+
+    logging.error(
+        "Exception while processing update:",
+        exc_info=context.error
+    )
 
 
 # ==========================
@@ -136,7 +170,9 @@ def main():
     )
 
 
-    # Commands
+    # ======================
+    # BASIC COMMANDS
+    # ======================
 
     application.add_handler(
         CommandHandler(
@@ -154,6 +190,41 @@ def main():
     )
 
 
+    # ======================
+    # BIRTHDAY COMMANDS
+    # ======================
+
+    application.add_handler(
+        CommandHandler(
+            "birthday",
+            set_birthday
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "mybirthday",
+            my_birthday
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "removebirthday",
+            remove_birthday
+        )
+    )
+
+
+    # Error handler
+
+    application.add_error_handler(
+        error_handler
+    )
+
+
     logging.info(
         "🚀 Starting Telegram bot..."
     )
@@ -165,4 +236,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
