@@ -709,26 +709,15 @@ Consent • Respect • Communication • Accountability
 # AUTO DELETE WARNING MESSAGE
 # ==========================================================
 
-async def send_temporary_warning(
-    context,
-    chat_id
+async def delete_warning_later(
+    message
 ):
-
-    warning = await context.bot.send_message(
-
-        chat_id=chat_id,
-
-        text=MEDIA_WARNING
-
-    )
-
 
     await asyncio.sleep(60)
 
-
     try:
 
-        await warning.delete()
+        await message.delete()
 
         logger.info(
             "Media warning deleted after 60 seconds"
@@ -743,50 +732,25 @@ async def send_temporary_warning(
 
 
 
-async def welcome_new_member(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+async def send_temporary_warning(
+    context,
+    chat_id
 ):
 
-    if not update.chat_member:
+    warning = await context.bot.send_message(
 
-        return
+        chat_id=chat_id,
 
+        text=MEDIA_WARNING
 
-    member = update.chat_member.new_chat_member
-
-
-    if member.status == "member":
-
-        user = member.user
+    )
 
 
-        await context.bot.send_message(
+    asyncio.create_task(
 
-            chat_id=update.effective_chat.id,
+        delete_warning_later(warning)
 
-            text=WELCOME_MESSAGE
-
-        )
-
-
-        update_activity(
-
-            user,
-
-            update.effective_chat.id
-
-        )
-
-
-        logger.info(
-
-            f"Welcomed {user.id}"
-
-        )
-
-
-
+    )
 # ==========================================================
 # TRACK ALL MEMBER ACTIVITY
 # ==========================================================
