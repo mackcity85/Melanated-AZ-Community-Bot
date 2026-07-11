@@ -1,10 +1,36 @@
 import sqlite3
 import random
+import logging
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from config import DB_FILE, RAFFLE_PAYMENT_INFO
+
+
+# ==========================
+# CHECK ADMIN
+# ==========================
+
+async def is_admin(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    user = update.effective_user
+    chat = update.effective_chat
+
+
+    member = await context.bot.get_chat_member(
+        chat.id,
+        user.id
+    )
+
+
+    return member.status in [
+        "administrator",
+        "creator"
+    ]
 
 
 
@@ -17,11 +43,20 @@ async def start_raffle(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    if not await is_admin(update, context):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+
+        return
+
+
     if len(context.args) < 2:
 
         await update.message.reply_text(
 
-            "Use:\n"
+            "Usage:\n"
             "/raffle_start amount prize\n\n"
             "Example:\n"
             "/raffle_start 5 $100 Gift Card"
@@ -37,7 +72,6 @@ async def start_raffle(
     prize = " ".join(
         context.args[1:]
     )
-
 
     chat_id = update.effective_chat.id
 
@@ -77,23 +111,24 @@ async def start_raffle(
 
 
     conn.commit()
-
     conn.close()
 
 
 
     await update.message.reply_text(
 
-        "🎟️ RAFFLE OPEN 🎟️\n\n"
+        "💜 MELANATED AZ RAFFLE 💜\n\n"
 
         f"🏆 Prize:\n{prize}\n\n"
 
-        f"💰 Entry Cost:\n${amount}\n\n"
+        f"🎟 Entry Cost:\n${amount}\n\n"
 
         f"{RAFFLE_PAYMENT_INFO}\n"
 
-        "After payment use:\n"
-        "/enter"
+        "After payment:\n"
+        "/enter\n\n"
+
+        "Good luck everyone! 🍀"
 
     )
 
@@ -109,7 +144,6 @@ async def enter_raffle(
 ):
 
     user = update.effective_user
-
     chat = update.effective_chat
 
 
@@ -120,7 +154,7 @@ async def enter_raffle(
 
     cursor.execute(
         """
-        SELECT id, amount, prize
+        SELECT id, prize, amount
         FROM raffles
         WHERE chat_id=?
         AND active=1
@@ -132,21 +166,21 @@ async def enter_raffle(
     raffle = cursor.fetchone()
 
 
+
     if not raffle:
 
         conn.close()
 
         await update.message.reply_text(
-
             "❌ No active raffle."
-
         )
 
         return
 
 
 
-    raffle_id, amount, prize = raffle
+    raffle_id, prize, amount = raffle
+
 
 
     try:
@@ -159,9 +193,7 @@ async def enter_raffle(
                 user_id,
                 username
             )
-
             VALUES (?, ?, ?)
-
             """,
             (
                 raffle_id,
@@ -179,18 +211,16 @@ async def enter_raffle(
 
             "✅ You are entered!\n\n"
 
-            f"🏆 Prize:\n{prize}\n"
+            f"🏆 Prize:\n{prize}\n\n"
 
-            f"💰 Entry Cost: ${amount}\n\n"
+            f"🎟 Entry: ${amount}\n\n"
 
             "Good luck! 🍀"
 
         )
 
 
-
     except sqlite3.IntegrityError:
-
 
         await update.message.reply_text(
 
@@ -224,7 +254,7 @@ async def raffle_list(
 
     cursor.execute(
         """
-        SELECT id
+        SELECT id, prize
         FROM raffles
         WHERE chat_id=?
         AND active=1
@@ -236,13 +266,14 @@ async def raffle_list(
     raffle = cursor.fetchone()
 
 
+
     if not raffle:
+
+        conn.close()
 
         await update.message.reply_text(
             "No active raffle."
         )
-
-        conn.close()
 
         return
 
@@ -260,36 +291,32 @@ async def raffle_list(
 
     entries = cursor.fetchall()
 
-
     conn.close()
 
 
 
-    if not entries:
+    message = (
 
-        await update.message.reply_text(
+        "🎟️ Raffle Entries\n\n"
 
-            "🎟️ No entries yet."
-
-        )
-
-        return
+    )
 
 
+    for number, entry in enumerate(entries, 1):
 
-    text = "🎟️ Current Entries:\n\n"
-
-
-    for i, entry in enumerate(entries, 1):
-
-        text += f"{i}. {entry[0]}\n"
-
-
-    text += f"\nTotal Entries: {len(entries)}"
+        message += f"{number}. {entry[0]}\n"
 
 
 
-    await update.message.reply_text(text)
+    message += (
+        f"\nTotal Entries: {len(entries)}"
+    )
+
+
+
+    await update.message.reply_text(
+        message
+    )
 
 
 
@@ -301,6 +328,16 @@ async def draw_raffle(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+
+    if not await is_admin(update, context):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+
+        return
+
+
 
     chat = update.effective_chat
 
@@ -323,6 +360,7 @@ async def draw_raffle(
 
 
     raffle = cursor.fetchone()
+
 
 
     if not raffle:
@@ -360,9 +398,7 @@ async def draw_raffle(
         conn.close()
 
         await update.message.reply_text(
-
             "No entries."
-
         )
 
         return
@@ -384,19 +420,67 @@ async def draw_raffle(
 
 
     conn.commit()
-
     conn.close()
 
 
 
     await update.message.reply_text(
 
-        "🎉 RAFFLE WINNER 🎉\n\n"
+        "🎉 WINNER 🎉\n\n"
 
         f"🏆 Prize:\n{prize}\n\n"
 
         f"👑 Winner:\n{winner}\n\n"
 
         "Congratulations! 💜"
+
+    )
+
+
+
+# ==========================
+# CLOSE RAFFLE
+# ==========================
+
+async def close_raffle(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not await is_admin(update, context):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+
+        return
+
+
+    chat_id = update.effective_chat.id
+
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        UPDATE raffles
+        SET active=0
+        WHERE chat_id=?
+        """,
+        (chat_id,)
+    )
+
+
+    conn.commit()
+    conn.close()
+
+
+
+    await update.message.reply_text(
+
+        "🛑 Raffle closed."
 
     )
