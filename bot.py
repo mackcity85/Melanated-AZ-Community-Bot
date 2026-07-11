@@ -567,6 +567,72 @@ def update_activity(user, chat_id):
     conn.commit()
     conn.close()
 # ==========================================================
+# STATUS COMMAND
+# ==========================================================
+
+async def status_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM members"
+    )
+
+    members = cursor.fetchone()[0]
+
+    conn.close()
+
+
+    await update.message.reply_text(
+        f"""
+🤖 Melanated AZ Bot
+
+Status: Online ✅
+
+Members Tracked:
+{members}
+
+Database:
+Connected ✅
+
+Started:
+{START_TIME}
+"""
+    )
+
+# ==========================================================
+# UPDATE MEMBER ACTIVITY
+# ==========================================================
+
+def update_activity(user, chat_id):
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        INSERT OR REPLACE INTO members
+        VALUES (?,?,?,?,?,?)
+        """,
+        (
+            user.id,
+            user.username,
+            user.first_name,
+            datetime.now().strftime("%Y-%m-%d"),
+            datetime.now().strftime("%Y-%m-%d"),
+            chat_id
+        )
+    )
+
+
+    conn.commit()
+    conn.close()
+# ==========================================================
 # PART 3 - WELCOME SYSTEM & MEDIA PROTECTION
 # ==========================================================
 
@@ -954,7 +1020,6 @@ from telegram.ext import JobQueue
 # BIRTHDAY SYSTEM (MM/DD FORMAT)
 # ==========================================================
 
-
 async def birthday_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
@@ -977,19 +1042,14 @@ Use:
 Example:
 
 /birthday 07/25
-
-Your birthday will be saved for the Melanated AZ birthday list. 👑
 """
         )
 
         return
 
 
-
     birthday = context.args[0]
 
-
-    # Validate MM/DD format
 
     try:
 
@@ -997,6 +1057,7 @@ Your birthday will be saved for the Melanated AZ birthday list. 👑
             birthday,
             "%m/%d"
         )
+
 
     except ValueError:
 
@@ -1028,11 +1089,8 @@ Example:
     )
 
 
-
     conn = get_db()
-
     cursor = conn.cursor()
-
 
 
     cursor.execute(
@@ -1043,10 +1101,8 @@ Example:
             birthday,
             username
         )
-
         VALUES (?,?,?)
         """,
-
         (
             user.id,
             birthday,
@@ -1054,9 +1110,6 @@ Example:
         )
     )
 
-
-
-    # Update birthday statistics
 
     cursor.execute(
         """
@@ -1067,15 +1120,11 @@ Example:
     )
 
 
-
     conn.commit()
-
     conn.close()
 
 
-
     await update.message.reply_text(
-
         f"""
 🎂 Birthday saved!
 
@@ -1084,7 +1133,6 @@ Example:
 
 You have been added to the Melanated AZ birthday list.
 """
-
     )
 
 
@@ -1093,28 +1141,19 @@ You have been added to the Melanated AZ birthday list.
 # VIEW BIRTHDAYS
 # ==========================================================
 
-
 async def birthdays_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not update.message:
-        return
-
-
     conn = get_db()
-
     cursor = conn.cursor()
-
 
 
     cursor.execute(
         """
         SELECT username, birthday
-
         FROM birthdays
-
         ORDER BY birthday
         """
     )
@@ -1122,9 +1161,7 @@ async def birthdays_command(
 
     birthdays = cursor.fetchall()
 
-
     conn.close()
-
 
 
     if not birthdays:
@@ -1136,11 +1173,7 @@ async def birthdays_command(
         return
 
 
-
-    message = """
-🎂 Melanated AZ Birthdays 🎂
-
-"""
+    message = "🎂 Melanated AZ Birthdays 🎂\n\n"
 
 
     for username, birthday in birthdays:
@@ -1150,13 +1183,9 @@ async def birthdays_command(
         )
 
 
-
     await update.message.reply_text(
         message
     )
-
-
-
 # ==========================================================
 # DAILY BIRTHDAY CHECK
 # ==========================================================
