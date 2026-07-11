@@ -752,6 +752,50 @@ async def send_temporary_warning(
 
     )
 # ==========================================================
+# WELCOME NEW MEMBERS
+# ==========================================================
+
+async def welcome_new_member(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not update.chat_member:
+        return
+
+
+    member = update.chat_member.new_chat_member
+
+
+    if member.status == "member":
+
+        user = member.user
+
+
+        await context.bot.send_message(
+
+            chat_id=update.effective_chat.id,
+
+            text=WELCOME_MESSAGE
+
+        )
+
+
+        update_activity(
+
+            user,
+
+            update.effective_chat.id
+
+        )
+
+
+        logger.info(
+
+            f"Welcomed {user.id}"
+
+        )
+# ==========================================================
 # TRACK ALL MEMBER ACTIVITY
 # ==========================================================
 
