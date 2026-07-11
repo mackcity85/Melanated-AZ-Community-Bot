@@ -558,9 +558,10 @@ def update_activity(user, chat_id):
     conn = get_db()
     cursor = conn.cursor()
 
-    # Insert new member if they don't already exist
+    today = datetime.now().strftime("%Y-%m-%d")
+
     cursor.execute("""
-    INSERT OR IGNORE INTO members
+    INSERT INTO members
     (
         user_id,
         username,
@@ -570,32 +571,23 @@ def update_activity(user, chat_id):
         chat_id
     )
     VALUES (?,?,?,?,?,?)
+
+    ON CONFLICT(user_id)
+    DO UPDATE SET
+
+        username=excluded.username,
+        first_name=excluded.first_name,
+        last_active=excluded.last_active,
+        chat_id=excluded.chat_id
+
     """,
     (
         user.id,
         user.username,
         user.first_name,
-        datetime.now().strftime("%Y-%m-%d"),
-        datetime.now().strftime("%Y-%m-%d"),
+        today,
+        today,
         chat_id
-    ))
-
-    # Update existing member information
-    cursor.execute("""
-    UPDATE members
-    SET
-        username=?,
-        first_name=?,
-        last_active=?,
-        chat_id=?
-    WHERE user_id=?
-    """,
-    (
-        user.username,
-        user.first_name,
-        datetime.now().strftime("%Y-%m-%d"),
-        chat_id,
-        user.id
     ))
 
     conn.commit()
