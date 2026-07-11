@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+
 from datetime import datetime
 
 from telegram import Update
@@ -9,12 +10,13 @@ from config import DB_FILE
 
 
 # ==========================
-# DATABASE CHECK
+# MAKE SURE TABLE EXISTS
 # ==========================
 
-def ensure_table():
+def create_birthday_table():
 
     conn = sqlite3.connect(DB_FILE)
+
     cursor = conn.cursor()
 
     cursor.execute(
@@ -44,110 +46,88 @@ async def set_birthday(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    logging.info("🎂 /birthday command received")
+    create_birthday_table()
+
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "🎂 Please enter your birthday:\n\n"
+            "Example:\n"
+            "/birthday 07/15"
+        )
+
+        return
+
+
+    birthday = context.args[0]
 
 
     try:
 
-        ensure_table()
-
-
-        if not context.args:
-
-            await update.message.reply_text(
-                "🎂 Please use:\n\n"
-                "/birthday MM/DD\n\n"
-                "Example:\n"
-                "/birthday 07/15"
-            )
-
-            return
-
-
-        birthday = context.args[0]
-
-
-        try:
-
-            datetime.strptime(
-                birthday,
-                "%m/%d"
-            )
-
-        except ValueError:
-
-            await update.message.reply_text(
-                "❌ Invalid date.\n\n"
-                "Use MM/DD format."
-            )
-
-            return
-
-
-
-        user = update.effective_user
-        chat = update.effective_chat
-
-
-        conn = sqlite3.connect(DB_FILE)
-
-        cursor = conn.cursor()
-
-
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO birthdays
-            (
-                user_id,
-                chat_id,
-                username,
-                birthday
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                user.id,
-                chat.id,
-                user.first_name,
-                birthday
-            )
+        datetime.strptime(
+            birthday,
+            "%m/%d"
         )
 
+    except ValueError:
 
-        conn.commit()
-        conn.close()
+        await update.message.reply_text(
+            "❌ Invalid birthday format.\n\n"
+            "Use MM/DD\n"
+            "Example: /birthday 07/15"
+        )
+
+        return
 
 
 
-        logging.info(
-            "🎂 Birthday saved for %s %s",
+    user = update.effective_user
+    chat = update.effective_chat
+
+
+    conn = sqlite3.connect(DB_FILE)
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        INSERT OR REPLACE INTO birthdays
+        (
+            user_id,
+            chat_id,
+            username,
+            birthday
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            user.id,
+            chat.id,
             user.first_name,
             birthday
         )
+    )
 
 
-        await update.message.reply_text(
-            "🎉 Birthday saved!\n\n"
-            f"📅 {birthday}\n\n"
-            "We will celebrate with you! 💜"
-        )
+    conn.commit()
+    conn.close()
 
 
-    except Exception as e:
 
-        logging.exception(
-            "Birthday save failed"
-        )
+    await update.message.reply_text(
 
+        "🎉 Birthday saved!\n\n"
+        f"🎂 Date: {birthday}\n\n"
+        "We will celebrate with you on your special day! 💜"
 
-        await update.message.reply_text(
-            f"❌ Birthday error:\n{e}"
-        )
+    )
 
 
 
 # ==========================
-# VIEW BIRTHDAY
+# VIEW MY BIRTHDAY
 # ==========================
 
 async def my_birthday(
@@ -155,10 +135,7 @@ async def my_birthday(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    logging.info("🎂 /mybirthday command received")
-
-
-    ensure_table()
+    create_birthday_table()
 
 
     user = update.effective_user
@@ -186,6 +163,7 @@ async def my_birthday(
 
     result = cursor.fetchone()
 
+
     conn.close()
 
 
@@ -193,16 +171,20 @@ async def my_birthday(
     if result:
 
         await update.message.reply_text(
-            "🎂 Your birthday:\n\n"
+
+            "🎂 Your saved birthday:\n\n"
             f"📅 {result[0]}"
+
         )
 
     else:
 
         await update.message.reply_text(
-            "❌ No birthday saved.\n\n"
+
+            "❌ No birthday saved yet.\n\n"
             "Use:\n"
             "/birthday MM/DD"
+
         )
 
 
@@ -216,10 +198,7 @@ async def remove_birthday(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    logging.info("🎂 /removebirthday command received")
-
-
-    ensure_table()
+    create_birthday_table()
 
 
     user = update.effective_user
@@ -250,18 +229,20 @@ async def remove_birthday(
 
 
     await update.message.reply_text(
-        "✅ Birthday removed."
+
+        "✅ Your birthday has been removed."
+
     )
 
 
 
 # ==========================
-# DAILY BIRTHDAY CHECK
+# DAILY BIRTHDAY ANNOUNCER
 # ==========================
 
 async def check_birthdays(app):
 
-    ensure_table()
+    create_birthday_table()
 
 
     today = datetime.now().strftime(
@@ -286,28 +267,35 @@ async def check_birthdays(app):
     )
 
 
-    birthdays = cursor.fetchall()
+    results = cursor.fetchall()
+
 
     conn.close()
 
 
 
-    for username, chat_id in birthdays:
+    for username, chat_id in results:
 
         try:
 
             await app.bot.send_message(
+
                 chat_id=chat_id,
+
                 text=(
+
                     "🎉🎂 HAPPY BIRTHDAY! 🎂🎉\n\n"
-                    f"Today we celebrate {username}! 💜"
+                    f"Today we celebrate {username}! 💜\n\n"
+                    "Everyone show them some love! 🥳"
+
                 )
+
             )
 
 
         except Exception as e:
 
-            logging.exception(
-                "Birthday announcement failed: %s",
+            logging.error(
+                "Birthday notification failed: %s",
                 e
             )
