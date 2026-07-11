@@ -1469,18 +1469,12 @@ def main():
     # Track messages
 
     app.add_handler(
-
-        MessageHandler(
-
-            filters.ALL,
-
-            track_messages
-
-        ),
-
-        group=10
-
-    )
+    MessageHandler(
+        filters.ALL & ~filters.COMMAND,
+        track_messages
+    ),
+    group=10
+)
 
 
 
