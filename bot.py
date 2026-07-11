@@ -705,6 +705,42 @@ Thank you for helping keep Melanated AZ comfortable and respectful for everyone.
 Consent • Respect • Communication • Accountability
 """
 
+# ==========================================================
+# AUTO DELETE WARNING MESSAGE
+# ==========================================================
+
+async def send_temporary_warning(
+    context,
+    chat_id
+):
+
+    warning = await context.bot.send_message(
+
+        chat_id=chat_id,
+
+        text=MEDIA_WARNING
+
+    )
+
+
+    await asyncio.sleep(60)
+
+
+    try:
+
+        await warning.delete()
+
+        logger.info(
+            "Media warning deleted after 60 seconds"
+        )
+
+
+    except Exception as e:
+
+        logger.error(
+            f"Warning delete error: {e}"
+        )
+
 
 
 async def welcome_new_member(
@@ -817,34 +853,45 @@ async def photo_protection(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not update.message:
-        return
-
-
     message = update.message
+
+
+    if not message:
+        return
 
 
     if not message.photo:
         return
 
 
+
     spoiler = getattr(
+
         message,
+
         "has_media_spoiler",
+
         False
+
     )
 
 
     logger.info(
+
         f"PHOTO RECEIVED | Spoiler={spoiler}"
+
     )
 
 
+
     # Allow spoiler photos
+
     if spoiler:
 
         logger.info(
-            "PHOTO ALLOWED | Spoiler detected"
+
+            "PHOTO ALLOWED | Spoiler"
+
         )
 
         return
@@ -852,10 +899,13 @@ async def photo_protection(
 
 
     # Allow admins
+
     if await is_admin(update, context):
 
         logger.info(
+
             "PHOTO ALLOWED | Admin"
+
         )
 
         return
@@ -868,8 +918,11 @@ async def photo_protection(
 
 
         logger.info(
-            "PHOTO REMOVED | No spoiler"
+
+            "PHOTO REMOVED | No Spoiler"
+
         )
+
 
 
         conn = get_db()
@@ -878,33 +931,40 @@ async def photo_protection(
 
 
         cursor.execute(
+
             """
             UPDATE stats
             SET value=value+1
             WHERE name='photos_removed'
             """
+
         )
 
 
         conn.commit()
+
         conn.close()
 
 
 
-        await context.bot.send_message(
+        await send_temporary_warning(
 
-            chat_id=update.effective_chat.id,
+            context,
 
-            text=MEDIA_WARNING
+            update.effective_chat.id
 
         )
+
 
 
     except Exception as e:
 
         logger.error(
+
             f"PHOTO ERROR: {e}"
+
         )
+
 
 
 # ==========================================================
@@ -916,11 +976,11 @@ async def video_protection(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not update.message:
-        return
-
-
     message = update.message
+
+
+    if not message:
+        return
 
 
     if not message.video:
@@ -929,23 +989,33 @@ async def video_protection(
 
 
     spoiler = getattr(
+
         message,
+
         "has_media_spoiler",
+
         False
+
     )
 
 
+
     logger.info(
+
         f"VIDEO RECEIVED | Spoiler={spoiler}"
+
     )
 
 
 
     # Allow spoiler videos
+
     if spoiler:
 
         logger.info(
-            "VIDEO ALLOWED | Spoiler detected"
+
+            "VIDEO ALLOWED | Spoiler"
+
         )
 
         return
@@ -953,10 +1023,13 @@ async def video_protection(
 
 
     # Allow admins
+
     if await is_admin(update, context):
 
         logger.info(
+
             "VIDEO ALLOWED | Admin"
+
         )
 
         return
@@ -969,7 +1042,9 @@ async def video_protection(
 
 
         logger.info(
-            "VIDEO REMOVED | No spoiler"
+
+            "VIDEO REMOVED | No Spoiler"
+
         )
 
 
@@ -981,32 +1056,39 @@ async def video_protection(
 
 
         cursor.execute(
+
             """
             UPDATE stats
             SET value=value+1
             WHERE name='videos_removed'
             """
+
         )
 
 
+
         conn.commit()
+
         conn.close()
 
 
 
-        await context.bot.send_message(
+        await send_temporary_warning(
 
-            chat_id=update.effective_chat.id,
+            context,
 
-            text=MEDIA_WARNING
+            update.effective_chat.id
 
         )
+
 
 
     except Exception as e:
 
         logger.error(
+
             f"VIDEO ERROR: {e}"
+
         )
 # ==========================================================
 # PART 4 - SCHEDULER, STARTUP & MAIN BOT
