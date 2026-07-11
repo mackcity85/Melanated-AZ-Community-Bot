@@ -1592,14 +1592,16 @@ def main():
 
     app.run_polling(
 
-        allowed_updates=[
+    allowed_updates=[
 
-            Update.MESSAGE,
+        Update.MESSAGE,
 
-            Update.CHAT_MEMBER
+        Update.CHAT_MEMBER
 
-        ]
+    ],
 
-    )
+    drop_pending_updates=True
+
+)
 if __name__ == "__main__":
     main()
