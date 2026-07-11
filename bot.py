@@ -1015,7 +1015,7 @@ async def birthday_check(
         return
 
 
-    today = datetime.now().strftime("%m-%d")
+    today = datetime.now().strftime("%m/%d")
 
 
     logger.info(
