@@ -1,165 +1,132 @@
-import threading
+import os
+import logging
 
 from flask import Flask
+from threading import Thread
+
 from telegram import Update
 from telegram.ext import (
     Application,
-    CommandHandler,
-    MessageHandler,
     ContextTypes,
-    filters
+    ChatMemberHandler
 )
 
-from config import BOT_TOKEN
-from database import initialize_database, update_member
-from moderation import check_media
+from commands import get_command_handlers
+from welcome import welcome_new_member
 
 
-app = Flask(__name__)
+# =========================
+# CONFIG
+# =========================
+
+TOKEN = os.getenv("BOT_TOKEN")
+
+if not TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is missing")
 
 
-@app.route("/")
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+
+
+# =========================
+# FLASK HEALTH CHECK
+# =========================
+
+flask_app = Flask(__name__)
+
+
+@flask_app.route("/")
 def home():
-    return "🔥 Melanated AZ Community Bot v4 is running."
+    return "Melanated AZ Bot is running."
 
 
 def run_flask():
-    app.run(
+    flask_app.run(
         host="0.0.0.0",
-        port=8080
+        port=int(os.environ.get("PORT", 10000))
     )
 
 
-RULES_MESSAGE = """
-🔥 Melanated AZ Community Guidelines 🔥
+# =========================
+# WELCOME NEW MEMBERS
+# =========================
 
-Welcome to the community!
+async def new_member_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-📌 Please remember:
+    if update.chat_member:
 
-✅ Respect all members
-✅ Consent and communication matter
-✅ Protect everyone's privacy
-✅ What is shared here stays here
+        new_member = update.chat_member.new_chat_member
 
-⚠️ MEDIA SPOILER RULE
+        if new_member.status == "member":
 
-All photos, videos, GIFs, and media must use:
-
-👁 Hide With Spoiler
-
-How to use:
-
-📱 Mobile:
-1. Select your photo/video
-2. Open media options
-3. Choose "Hide With Spoiler"
-4. Send
-
-💻 Desktop:
-1. Select your media
-2. Right-click the preview
-3. Choose "Hide With Spoiler"
-4. Send
-
-Thank you for helping keep Melanated AZ a safe space ❤️
-"""
+            await welcome_new_member(
+                update,
+                context
+            )
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================
+# BOT STARTUP
+# =========================
 
-    await update.message.reply_text(
-        "🔥 Melanated AZ Community Bot v4 is online!"
-    )
+async def startup(app):
 
-
-async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    await update.message.reply_text(
-        f"Chat ID:\n{update.effective_chat.id}"
-    )
+    print("🔥 Melanated AZ Bot Started")
+    print("✅ Rules System Active")
+    print("✅ Welcome System Active")
+    print("✅ Media Protection Ready")
 
 
-async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    await update.message.reply_text(
-        RULES_MESSAGE
-    )
-
-
-async def track_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    if update.effective_user:
-        update_member(update.effective_user)
-
+# =========================
+# MAIN
+# =========================
 
 def main():
 
-    initialize_database()
-
-    application = (
-        Application
-        .builder()
-        .token(BOT_TOKEN)
-        .build()
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "start",
-            start
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "getid",
-            get_id
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "rules",
-            rules
-        )
-    )
-
-
-    application.add_handler(
-        MessageHandler(
-            filters.ALL,
-            track_activity
-        ),
-        group=1
-    )
-
-
-    application.add_handler(
-        MessageHandler(
-            filters.ALL,
-            check_media
-        ),
-        group=2
-    )
-
-
-    print(
-        "🔥 Melanated AZ Community Bot v4 is running"
-    )
-
-
-    application.run_polling()
-
-
-if __name__ == "__main__":
-
-    threading.Thread(
+    Thread(
         target=run_flask,
         daemon=True
     ).start()
 
+
+    app = (
+        Application
+        .builder()
+        .token(TOKEN)
+        .post_init(startup)
+        .build()
+    )
+
+
+    # Commands
+    for handler in get_command_handlers():
+        app.add_handler(handler)
+
+
+    # Welcome system
+    app.add_handler(
+        ChatMemberHandler(
+            new_member_handler,
+            ChatMemberHandler.CHAT_MEMBER
+        )
+    )
+
+
+    print("🚀 Starting Telegram Bot...")
+
+    app.run_polling(
+        allowed_updates=[
+            Update.CHAT_MEMBER,
+            Update.MESSAGE
+        ]
+    )
+
+
+if __name__ == "__main__":
     main()
