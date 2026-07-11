@@ -5,49 +5,32 @@ from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 
-from telegram import Update
-from telegram.ext import (
-    Application,
-    ContextTypes,
-    ChatMemberHandler
-)
+from telegram.ext import Application
 
 from commands import get_command_handlers
-from welcome import welcome_new_member
 
-
-# =========================
-# LOAD ENVIRONMENT
-# =========================
 
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 
 if not TOKEN:
-    raise ValueError("BOT_TOKEN environment variable is missing")
+    raise ValueError("BOT_TOKEN missing")
 
-
-# =========================
-# LOGGING
-# =========================
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 
 
-# =========================
-# FLASK HEALTH CHECK
-# =========================
+# Render health check
 
 flask_app = Flask(__name__)
 
 
 @flask_app.route("/")
 def home():
-    return "Melanated AZ Bot is running."
+    return "Melanated AZ Bot Running"
 
 
 def run_flask():
@@ -57,37 +40,21 @@ def run_flask():
     )
 
 
-# =========================
-# WELCOME NEW MEMBERS
-# =========================
-
-async def new_member_handler(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if update.chat_member:
-
-        new_member = update.chat_member.new_chat_member
-
-        if new_member.status == "member":
-            await welcome_new_member(update, context)
-
-
-# =========================
-# STARTUP MESSAGE
-# =========================
-
 async def startup(app):
 
     print("🔥 Melanated AZ Bot Started")
-    print("✅ Rules System Active")
-    print("✅ Welcome System Active")
 
+    commands = get_command_handlers()
 
-# =========================
-# MAIN
-# =========================
+    print(f"Loaded {len(commands)} commands")
+
+    await app.bot.set_my_commands([
+        ("rules", "View community rules"),
+        ("intro", "Introduction format"),
+        ("spoiler", "Media instructions"),
+        ("help", "Bot help"),
+    ])
+
 
 def main():
 
@@ -106,21 +73,11 @@ def main():
     )
 
 
-    # Register commands
     for handler in get_command_handlers():
         app.add_handler(handler)
 
 
-    # Welcome system
-    app.add_handler(
-        ChatMemberHandler(
-            new_member_handler,
-            ChatMemberHandler.CHAT_MEMBER
-        )
-    )
-
-
-    print("🚀 Starting Telegram Bot...")
+    print("🚀 Starting Telegram Bot")
 
     app.run_polling()
 
