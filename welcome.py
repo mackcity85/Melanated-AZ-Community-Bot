@@ -50,30 +50,24 @@ King | 40 | Vail, AZ | Partnered | Looking to network, make connections, and mee
 4️⃣ Privacy Matters
 • What is shared here stays here.
 • No screenshots, recordings, or sharing conversations without permission.
-• Protect everyone's privacy.
 
 5️⃣ Adults Only
 • All members must be 18+.
-• No minors or inappropriate discussions involving minors.
 
 6️⃣ No Unsolicited Messages
 • Ask before sending DMs.
 • Respect someone's answer if they decline.
-• Repeated unwanted contact may result in removal.
 
 7️⃣ Verify Before You Trust
 • Take time to get to know people.
-• Prioritize your safety when meeting others.
-• The group is not responsible for individual interactions.
+• Prioritize your safety.
 
 8️⃣ No Predatory Behavior
 • Manipulation, coercion, intimidation, or abuse will not be tolerated.
-• Titles, roles, or dynamics never override consent.
 
 9️⃣ Keep It Classy
 • Adult conversations are welcome.
-• Avoid excessive explicit content, spam, or attention-seeking behavior.
-• Remember there are real people behind every profile.
+• Avoid spam or attention-seeking behavior.
 
 🔟 Community First
 • Support one another.
@@ -84,23 +78,11 @@ King | 40 | Vail, AZ | Partnered | Looking to network, make connections, and mee
 
 ⚠️ MEDIA SPOILER REQUIREMENT ⚠️
 
-All photos, videos, GIFs, and media must be sent using Telegram's:
+All photos, videos, GIFs, and media must use Telegram:
 
 👁 Hide With Spoiler
 
-📱 Mobile:
-1. Select your photo/video
-2. Open media options
-3. Choose "Hide With Spoiler"
-4. Send
-
-💻 Desktop:
-1. Select your media
-2. Right-click the preview
-3. Choose "Hide With Spoiler"
-4. Send
-
-This helps prevent accidental exposure and keeps the community comfortable for everyone.
+This helps prevent accidental exposure and keeps the community comfortable.
 
 ━━━━━━━━━━━━━━━
 
@@ -124,3 +106,17 @@ Consent • Respect • Communication • Accountability
 
 Thank you for helping make Melanated AZ a respectful and welcoming community. ❤️👑
 """
+
+
+async def welcome_new_member(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    chat = update.effective_chat
+
+    if chat:
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=WELCOME_MESSAGE
+        )
