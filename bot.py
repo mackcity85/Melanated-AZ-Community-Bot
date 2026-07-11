@@ -466,11 +466,42 @@ async def status_command(
     conn = get_db()
     cursor = conn.cursor()
 
+
     cursor.execute(
         "SELECT COUNT(*) FROM members"
     )
 
     members = cursor.fetchone()[0]
+
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM birthdays"
+    )
+
+    birthdays = cursor.fetchone()[0]
+
+
+    cursor.execute(
+        """
+        SELECT value
+        FROM stats
+        WHERE name='photos_removed'
+        """
+    )
+
+    photos_removed = cursor.fetchone()[0]
+
+
+    cursor.execute(
+        """
+        SELECT value
+        FROM stats
+        WHERE name='videos_removed'
+        """
+    )
+
+    videos_removed = cursor.fetchone()[0]
+
 
     conn.close()
 
@@ -479,94 +510,27 @@ async def status_command(
         f"""
 🤖 Melanated AZ Bot
 
-Status: Online
+Status: Online ✅
 
-Members Tracked:
+👥 Members Tracked:
 {members}
 
-Database:
-Connected
+🎂 Birthdays Saved:
+{birthdays}
 
-Started:
+📸 Photos Removed:
+{photos_removed}
+
+🎥 Videos Removed:
+{videos_removed}
+
+💾 Database:
+Connected ✅
+
+⏰ Started:
 {START_TIME}
 """
     )
-    
-
-
-
-
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute(
-        """
-        SELECT birthday, username
-        FROM birthdays
-        ORDER BY birthday
-        """
-    )
-
-
-    results = cursor.fetchall()
-
-    conn.close()
-
-
-    if not results:
-
-        await update.message.reply_text(
-            "No birthdays saved yet."
-        )
-
-        return
-
-
-    message = "🎂 Upcoming Birthdays\n\n"
-
-
-    for birthday, username in results:
-
-        name = username or "Member"
-
-        message += (
-            f"🎉 {name} - {birthday}\n"
-        )
-
-
-    await update.message.reply_text(
-        message
-    )
-
-
-
-def update_activity(user, chat_id):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute(
-        """
-        INSERT OR REPLACE INTO members
-        VALUES (?,?,?,?,?,?)
-        """,
-        (
-            user.id,
-            user.username,
-            user.first_name,
-            datetime.now().strftime("%Y-%m-%d"),
-            datetime.now().strftime("%Y-%m-%d"),
-            chat_id
-        )
-    )
-
-
-    conn.commit()
-    conn.close()
-
 
 # ==========================================================
 # UPDATE MEMBER ACTIVITY
@@ -1583,12 +1547,10 @@ def main():
     app.run_polling(
 
     allowed_updates=[
-
-        Update.MESSAGE,
-
-        Update.CHAT_MEMBER
-
-    ],
+    Update.MESSAGE,
+    Update.CHAT_MEMBER,
+    Update.MY_CHAT_MEMBER
+],
 
     drop_pending_updates=True
 
