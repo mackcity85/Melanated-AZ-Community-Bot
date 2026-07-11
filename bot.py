@@ -616,7 +616,7 @@ def update_activity(user, chat_id):
 
     conn.commit()
     conn.close()
-    # ==========================================================
+# ==========================================================
 # PART 3 - WELCOME SYSTEM & MEDIA PROTECTION
 # ==========================================================
 
@@ -1104,6 +1104,18 @@ Example:
 
 
 
+    # Update birthday statistics
+
+    cursor.execute(
+        """
+        UPDATE stats
+        SET value=value+1
+        WHERE name='birthdays_saved'
+        """
+    )
+
+
+
     conn.commit()
 
     conn.close()
@@ -1134,6 +1146,10 @@ async def birthdays_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+
+    if not update.message:
+        return
+
 
     conn = get_db()
 
@@ -1231,6 +1247,19 @@ async def birthday_check(
 
 
 
+    chat_id = os.getenv(
+        "STARTUP_CHAT_ID"
+    )
+
+
+    if not chat_id:
+        logger.warning(
+            "STARTUP_CHAT_ID missing. Birthday announcement skipped."
+        )
+        return
+
+
+
     for birthday in birthdays:
 
         username = birthday[0] or "Member"
@@ -1238,9 +1267,7 @@ async def birthday_check(
 
         await context.bot.send_message(
 
-            chat_id=os.getenv(
-                "STARTUP_CHAT_ID"
-            ),
+            chat_id=chat_id,
 
             text=f"""
 🎂🎉 Happy Birthday {username}! 🎉🎂
