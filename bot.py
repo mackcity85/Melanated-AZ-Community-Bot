@@ -989,7 +989,7 @@ async def video_protection(
         logger.error(
             f"Video removal error: {e}"
         )
-        # ==========================================================
+# ==========================================================
 # PART 4 - SCHEDULER, STARTUP & MAIN BOT
 # ==========================================================
 
@@ -999,28 +999,82 @@ from telegram.ext import JobQueue
 
 
 # ==========================================================
-# BIRTHDAY CHECKER
+# BIRTHDAY SYSTEM (MM/DD FORMAT)
 # ==========================================================
 
-async def birthday_check(
+
+async def birthday_command(
+    update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not STARTUP_CHAT_ID:
+    if not update.message:
+        return
 
-        logger.warning(
-            "Birthday check skipped - STARTUP_CHAT_ID missing"
+
+    if not context.args:
+
+        await update.message.reply_text(
+            """
+🎂 Birthday Setup
+
+Use:
+
+/birthday MM/DD
+
+Example:
+
+/birthday 07/25
+
+Your birthday will be saved for the Melanated AZ birthday list. 👑
+"""
         )
 
         return
 
 
-    today = datetime.now().strftime("%m/%d")
+
+    birthday = context.args[0]
 
 
-    logger.info(
-        f"Checking birthdays for {today}"
+    # Validate MM/DD format
+
+    try:
+
+        datetime.strptime(
+            birthday,
+            "%m/%d"
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            """
+❌ Invalid format.
+
+Please use:
+
+/birthday MM/DD
+
+Example:
+
+/birthday 07/25
+"""
+        )
+
+        return
+
+
+
+    user = update.effective_user
+
+
+    username = (
+        user.username
+        or user.first_name
+        or "Member"
     )
+
 
 
     conn = get_db()
@@ -1028,13 +1082,73 @@ async def birthday_check(
     cursor = conn.cursor()
 
 
+
     cursor.execute(
         """
-        SELECT username
-        FROM birthdays
-        WHERE birthday=?
+        INSERT OR REPLACE INTO birthdays
+        (
+            user_id,
+            birthday,
+            username
+        )
+
+        VALUES (?,?,?)
         """,
-        (today,)
+
+        (
+            user.id,
+            birthday,
+            username
+        )
+    )
+
+
+
+    conn.commit()
+
+    conn.close()
+
+
+
+    await update.message.reply_text(
+
+        f"""
+🎂 Birthday saved!
+
+👑 {username}
+📅 {birthday}
+
+You have been added to the Melanated AZ birthday list.
+"""
+
+    )
+
+
+
+# ==========================================================
+# VIEW BIRTHDAYS
+# ==========================================================
+
+
+async def birthdays_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+
+    cursor.execute(
+        """
+        SELECT username, birthday
+
+        FROM birthdays
+
+        ORDER BY birthday
+        """
     )
 
 
@@ -1047,61 +1161,96 @@ async def birthday_check(
 
     if not birthdays:
 
-        logger.info(
-            "No birthdays today"
+        await update.message.reply_text(
+            "🎂 No birthdays saved yet."
         )
 
         return
 
 
 
+    message = """
+🎂 Melanated AZ Birthdays 🎂
+
+"""
+
+
+    for username, birthday in birthdays:
+
+        message += (
+            f"👑 {username} - {birthday}\n"
+        )
+
+
+
+    await update.message.reply_text(
+        message
+    )
+
+
+
+# ==========================================================
+# DAILY BIRTHDAY CHECK
+# ==========================================================
+
+
+async def birthday_check(
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    today = datetime.now().strftime(
+        "%m/%d"
+    )
+
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+
+    cursor.execute(
+        """
+        SELECT username
+
+        FROM birthdays
+
+        WHERE birthday=?
+        """,
+
+        (
+            today,
+        )
+    )
+
+
+    birthdays = cursor.fetchall()
+
+
+    conn.close()
+
+
+
     for birthday in birthdays:
 
-
-        username = birthday[0]
-
-
-        if not username:
-
-            username = "Melanated AZ Member"
+        username = birthday[0] or "Member"
 
 
+        await context.bot.send_message(
 
-        try:
+            chat_id=os.getenv(
+                "STARTUP_CHAT_ID"
+            ),
 
-
-            await context.bot.send_message(
-
-                chat_id=int(STARTUP_CHAT_ID),
-
-                text=f"""
-🎂🎉 HAPPY BIRTHDAY 🎉🎂
-
-👑 {username}
+            text=f"""
+🎂🎉 Happy Birthday {username}! 🎉🎂
 
 The Melanated AZ family wishes you an amazing birthday!
 
-May your day be filled with good energy, happiness, and great memories.
-
-Enjoy your special day! ❤️👑
-
-Consent • Respect • Communication • Accountability
+Enjoy your special day. 👑❤️
 """
 
-            )
-
-
-            logger.info(
-                f"Birthday message sent to {username}"
-            )
-
-
-        except Exception as e:
-
-
-            logger.error(
-                f"Birthday announcement failed: {e}"
-            )
+        )
 # ==========================================================
 # COMMUNITY CHECK-IN
 # ==========================================================
