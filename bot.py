@@ -347,7 +347,7 @@ How to introduce yourself
 /spoiler
 How to send hidden media
 
-/birthday MM-DD
+/birthday MM/DD
 Save your birthday
 
 /birthdays
@@ -622,9 +622,7 @@ def update_activity(user, chat_id):
 
 
 WELCOME_MESSAGE = """
-🔥 Welcome to Melanated AZ 🔥
-
-👑 Welcome to the community 👑
+👑 Welcome to Melanated AZ 👑
 
 This space was created for networking, connection, good energy, and meeting like-minded adults.
 
@@ -679,9 +677,9 @@ Enjoy the room! ❤️👑
 
 
 MEDIA_WARNING = """
-⚠️ Sorry, you media Removed
+⚠️ Sorry, your media was removed!⚠️
 
-Photos and videos in Melanated AZ must be sent using:
+For everyone's security photos and videos in Melanated AZ must be sent using:
 
 👁 Hide With Spoiler
 
