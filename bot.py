@@ -718,26 +718,49 @@ async def send_temporary_warning(
     try:
 
         warning = await context.bot.send_message(
+
             chat_id=chat_id,
+
             text=MEDIA_WARNING
+
+        )
+
+
+        logger.info(
+            "Media warning sent"
         )
 
 
         await asyncio.sleep(60)
 
 
-        await warning.delete()
+        try:
+
+            await context.bot.delete_message(
+
+                chat_id=chat_id,
+
+                message_id=warning.message_id
+
+            )
 
 
-        logger.info(
-            "✅ Media warning deleted after 60 seconds"
-        )
+            logger.info(
+                "✅ Media warning deleted after 60 seconds"
+            )
+
+
+        except Exception as e:
+
+            logger.error(
+                f"❌ Warning delete failed: {e}"
+            )
 
 
     except Exception as e:
 
         logger.error(
-            f"❌ Warning delete failed: {e}"
+            f"❌ Warning send failed: {e}"
         )
 # ==========================================================
 # WELCOME NEW MEMBERS
