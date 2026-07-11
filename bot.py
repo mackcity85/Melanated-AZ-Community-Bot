@@ -145,9 +145,7 @@ def main():
     app.add_handler(
         MessageHandler(
             filters.PHOTO
-            | filters.VIDEO
-            | filters.ANIMATION
-            | filters.Document.ALL,
+            | filters.VIDEO,
             check_media
         )
     )
