@@ -8,18 +8,22 @@ from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
-    ContextTypes
+    MessageHandler,
+    ContextTypes,
+    filters
 )
 
 from config import TOKEN, STARTUP_CHAT_ID
 
 from database import init_db
 
+
 from birthdays import (
     set_birthday,
     my_birthday,
     remove_birthday
 )
+
 
 from raffles import (
     start_raffle,
@@ -30,13 +34,24 @@ from raffles import (
 )
 
 
+from community import (
+    help_command,
+    track_activity,
+    raffle_history
+)
+
+
+
 # ==========================
 # LOGGING
 # ==========================
 
 logging.basicConfig(
+
     level=logging.INFO,
+
     format="%(asctime)s - %(levelname)s - %(message)s"
+
 )
 
 
@@ -66,8 +81,11 @@ def run_web():
 
 
     web_app.run(
+
         host="0.0.0.0",
+
         port=port
+
     )
 
 
@@ -82,8 +100,10 @@ async def ping(
 ):
 
     await update.message.reply_text(
+
         "🏓 Pong!\n\n"
         "Melanated AZ Community Bot is online."
+
     )
 
 
@@ -103,14 +123,14 @@ async def get_id(
 
 
 # ==========================
-# STARTUP MESSAGE
+# STARTUP
 # ==========================
 
 async def startup_message(app):
 
 
     logging.info(
-        "🤖 Melanated AZ Community Bot started"
+        "🤖 Melanated AZ Community Bot Started"
     )
 
 
@@ -128,7 +148,8 @@ async def startup_message(app):
                 "✅ Database Connected\n"
                 "✅ Birthday System Active\n"
                 "✅ Raffle System Active\n"
-                "✅ Admin Controls Enabled\n\n"
+                "✅ Activity Tracking Active\n"
+                "✅ Community Tools Active\n\n"
 
                 "🚀 Ready to serve the community!"
 
@@ -183,22 +204,36 @@ def main():
 
 
     # ======================
-    # TEST COMMANDS
+    # BASIC
     # ======================
 
     application.add_handler(
+
         CommandHandler(
             "ping",
             ping
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "getid",
             get_id
         )
+
+    )
+
+
+    application.add_handler(
+
+        CommandHandler(
+            "help",
+            help_command
+        )
+
     )
 
 
@@ -208,26 +243,32 @@ def main():
     # ======================
 
     application.add_handler(
+
         CommandHandler(
             "birthday",
             set_birthday
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "mybirthday",
             my_birthday
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "removebirthday",
             remove_birthday
         )
+
     )
 
 
@@ -237,54 +278,98 @@ def main():
     # ======================
 
     application.add_handler(
+
         CommandHandler(
             "raffle_start",
             start_raffle
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "enter",
             enter_raffle
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "raffle_list",
             raffle_list
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "raffle_draw",
             draw_raffle
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "raffle_close",
             close_raffle
         )
+
+    )
+
+
+    application.add_handler(
+
+        CommandHandler(
+            "raffle_history",
+            raffle_history
+        )
+
+    )
+
+
+
+    # ======================
+    # ACTIVITY TRACKING
+    # ======================
+
+    application.add_handler(
+
+        MessageHandler(
+
+            filters.ALL,
+
+            track_activity
+
+        ),
+
+        group=0
+
     )
 
 
 
     logging.info(
+
         "🚀 Starting Telegram bot..."
+
     )
 
 
 
     application.run_polling(
+
         drop_pending_updates=True
+
     )
 
 
