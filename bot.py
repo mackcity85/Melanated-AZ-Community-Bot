@@ -1002,12 +1002,25 @@ from telegram.ext import JobQueue
 # BIRTHDAY CHECKER
 # ==========================================================
 
-
 async def birthday_check(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    if not STARTUP_CHAT_ID:
+
+        logger.warning(
+            "Birthday check skipped - STARTUP_CHAT_ID missing"
+        )
+
+        return
+
+
     today = datetime.now().strftime("%m-%d")
+
+
+    logger.info(
+        f"Checking birthdays for {today}"
+    )
 
 
     conn = get_db()
@@ -1016,15 +1029,12 @@ async def birthday_check(
 
 
     cursor.execute(
-
         """
         SELECT username
         FROM birthdays
         WHERE birthday=?
         """,
-
         (today,)
-
     )
 
 
@@ -1035,29 +1045,63 @@ async def birthday_check(
 
 
 
-    for birthday in birthdays:
+    if not birthdays:
 
-        username = birthday[0] or "Member"
-
-
-        await context.bot.send_message(
-
-            chat_id=STARTUP_CHAT_ID,
-
-            text=f"""
-🎂🎉 Happy Birthday {username}! 🎉🎂
-
-The Melanated AZ family wishes you an amazing day!
-
-Enjoy your special day. 👑❤️
-"""
-
+        logger.info(
+            "No birthdays today"
         )
 
+        return
 
 
 
+    for birthday in birthdays:
 
+
+        username = birthday[0]
+
+
+        if not username:
+
+            username = "Melanated AZ Member"
+
+
+
+        try:
+
+
+            await context.bot.send_message(
+
+                chat_id=int(STARTUP_CHAT_ID),
+
+                text=f"""
+🎂🎉 HAPPY BIRTHDAY 🎉🎂
+
+👑 {username}
+
+The Melanated AZ family wishes you an amazing birthday!
+
+May your day be filled with good energy, happiness, and great memories.
+
+Enjoy your special day! ❤️👑
+
+Consent • Respect • Communication • Accountability
+"""
+
+            )
+
+
+            logger.info(
+                f"Birthday message sent to {username}"
+            )
+
+
+        except Exception as e:
+
+
+            logger.error(
+                f"Birthday announcement failed: {e}"
+            )
 # ==========================================================
 # COMMUNITY CHECK-IN
 # ==========================================================
