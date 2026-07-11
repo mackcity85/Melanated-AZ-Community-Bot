@@ -566,43 +566,7 @@ def update_activity(user, chat_id):
 
     conn.commit()
     conn.close()
-# ==========================================================
-# STATUS COMMAND
-# ==========================================================
 
-async def status_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT COUNT(*) FROM members"
-    )
-
-    members = cursor.fetchone()[0]
-
-    conn.close()
-
-
-    await update.message.reply_text(
-        f"""
-🤖 Melanated AZ Bot
-
-Status: Online ✅
-
-Members Tracked:
-{members}
-
-Database:
-Connected ✅
-
-Started:
-{START_TIME}
-"""
-    )
 
 # ==========================================================
 # UPDATE MEMBER ACTIVITY
