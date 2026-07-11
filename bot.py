@@ -797,52 +797,69 @@ async def is_admin(
 # PHOTO SPOILER PROTECTION
 # ==========================================================
 
-
 async def photo_protection(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    message = update.message
 
-    if not update.message:
-
+    if not message:
         return
 
 
-    if not update.message.photo:
-
+    if not message.photo:
         return
 
 
-    if update.message.has_media_spoiler:
+    spoiler = getattr(
+        message,
+        "has_media_spoiler",
+        False
+    )
 
+
+    logger.info(
+        f"PHOTO RECEIVED | Spoiler={spoiler}"
+    )
+
+
+    # Allow spoiler photos
+    if spoiler:
+        logger.info(
+            "Spoiler photo allowed"
+        )
         return
 
 
+    # Allow admins
     if await is_admin(update, context):
-
+        logger.info(
+            "Admin photo allowed"
+        )
         return
-
 
 
     try:
 
-        await update.message.delete()
+        await message.delete()
+
+
+        logger.info(
+            "Deleted non-spoiler photo"
+        )
 
 
         conn = get_db()
 
         cursor = conn.cursor()
 
-
         cursor.execute(
-
             """
             UPDATE stats
             SET value=value+1
             WHERE name='photos_removed'
             """
-
         )
 
 
@@ -864,9 +881,7 @@ async def photo_protection(
     except Exception as e:
 
         logger.error(
-
             f"Photo removal error: {e}"
-
         )
 
 
@@ -875,29 +890,53 @@ async def photo_protection(
 # VIDEO SPOILER PROTECTION
 # ==========================================================
 
-
 async def video_protection(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    message = update.message
 
-    if not update.message:
+
+    if not message:
+        return
+
+
+    if not message.video:
+        return
+
+
+
+    spoiler = getattr(
+        message,
+        "has_media_spoiler",
+        False
+    )
+
+
+    logger.info(
+        f"VIDEO RECEIVED | Spoiler={spoiler}"
+    )
+
+
+
+    # Allow spoiler videos
+    if spoiler:
+
+        logger.info(
+            "Spoiler video allowed"
+        )
 
         return
 
 
-    if not update.message.video:
 
-        return
-
-
-    if update.message.has_media_spoiler:
-
-        return
-
-
+    # Allow admins
     if await is_admin(update, context):
+
+        logger.info(
+            "Admin video allowed"
+        )
 
         return
 
@@ -905,7 +944,14 @@ async def video_protection(
 
     try:
 
-        await update.message.delete()
+
+        await message.delete()
+
+
+        logger.info(
+            "Deleted non-spoiler video"
+        )
+
 
 
         conn = get_db()
@@ -914,13 +960,11 @@ async def video_protection(
 
 
         cursor.execute(
-
             """
             UPDATE stats
             SET value=value+1
             WHERE name='videos_removed'
             """
-
         )
 
 
@@ -943,9 +987,7 @@ async def video_protection(
     except Exception as e:
 
         logger.error(
-
             f"Video removal error: {e}"
-
         )
         # ==========================================================
 # PART 4 - SCHEDULER, STARTUP & MAIN BOT
@@ -1000,7 +1042,7 @@ async def birthday_check(
 
         await context.bot.send_message(
 
-            chat_id=context.job.chat_id,
+            chat_id=STARTUP_CHAT_ID,
 
             text=f"""
 🎂🎉 Happy Birthday {username}! 🎉🎂
