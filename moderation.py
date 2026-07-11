@@ -7,11 +7,25 @@ from database import log_action
 WARNING = """
 ⚠️ Media Removed
 
-To help protect the community, pictures and videos must be sent using Telegram's "Hide With Spoiler" option.
+To help keep Melanated AZ a safe space, all pictures, videos, GIFs, and media must be sent using Telegram's **Hide With Spoiler** feature.
 
-Please resend your media with the spoiler setting enabled.
+How to add a spoiler:
 
-Thank you for helping keep Melanated AZ a safe space. ❤️
+📱 Mobile:
+1. Select your photo or video
+2. Before sending, tap the three dots (⋮) or media options
+3. Choose **Hide With Spoiler**
+4. Send the media
+
+💻 Desktop:
+1. Select your photo or video
+2. Right-click the media preview
+3. Select **Hide With Spoiler**
+4. Send the media
+
+Your media will remain hidden until someone chooses to reveal it.
+
+Thank you for helping protect our community ❤️
 """
 
 
