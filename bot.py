@@ -1574,23 +1574,23 @@ def main():
 
 
 
-    # Photos and Videos
+    # ==========================================================
+    # PHOTOS AND VIDEOS
+    # ==========================================================
 
-app.add_handler(
+    app.add_handler(
 
-    MessageHandler(
+        MessageHandler(
 
-        filters.PHOTO |
-        filters.VIDEO,
+            filters.PHOTO | filters.VIDEO,
 
-        media_protection
+            media_protection
 
-    ),
+        ),
 
-    group=1
+        group=1
 
-)
-
+    )
 
 
     # ==========================================================
@@ -1631,3 +1631,21 @@ app.add_handler(
             first=300
 
         )
+
+
+    logger.info(
+        "🚀 Starting Telegram polling"
+    )
+
+
+    app.run_polling(
+
+        allowed_updates=[
+
+            Update.MESSAGE,
+
+            Update.CHAT_MEMBER
+
+        ]
+
+    )
