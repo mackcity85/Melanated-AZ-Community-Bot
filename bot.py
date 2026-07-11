@@ -558,6 +558,7 @@ def update_activity(user, chat_id):
     conn = get_db()
     cursor = conn.cursor()
 
+    # Insert new member if they don't already exist
     cursor.execute("""
     INSERT OR IGNORE INTO members
     (
@@ -579,6 +580,7 @@ def update_activity(user, chat_id):
         chat_id
     ))
 
+    # Update existing member information
     cursor.execute("""
     UPDATE members
     SET
@@ -595,26 +597,6 @@ def update_activity(user, chat_id):
         chat_id,
         user.id
     ))
-
-    conn.commit()
-    conn.close()
-
-
-    cursor.execute(
-        """
-        INSERT OR REPLACE INTO members
-        VALUES (?,?,?,?,?,?)
-        """,
-        (
-            user.id,
-            user.username,
-            user.first_name,
-            datetime.now().strftime("%Y-%m-%d"),
-            datetime.now().strftime("%Y-%m-%d"),
-            chat_id
-        )
-    )
-
 
     conn.commit()
     conn.close()
