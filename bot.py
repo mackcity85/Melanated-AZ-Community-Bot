@@ -20,6 +20,7 @@ from telegram.ext import (
     MessageHandler,
     ChatMemberHandler,
     ContextTypes,
+    JobQueue,
     filters
 )
 
@@ -1600,3 +1601,5 @@ def main():
         ]
 
     )
+if __name__ == "__main__":
+    main()
