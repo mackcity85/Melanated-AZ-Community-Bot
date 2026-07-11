@@ -1593,21 +1593,19 @@ app.add_handler(
 
 
 
-    # Scheduler
+    # ==========================================================
+    # SCHEDULER
+    # ==========================================================
 
     if app.job_queue:
-
 
         app.job_queue.run_daily(
 
             birthday_check,
 
             time=datetime.strptime(
-
                 "09:00",
-
                 "%H:%M"
-
             ).time()
 
         )
@@ -1633,32 +1631,3 @@ app.add_handler(
             first=300
 
         )
-
-
-
-    logger.info(
-
-        "🚀 Starting Telegram polling"
-
-    )
-
-
-
-    app.run_polling(
-
-        allowed_updates=[
-
-            Update.MESSAGE,
-
-            Update.CHAT_MEMBER
-
-        ]
-
-    )
-
-
-
-
-if __name__ == "__main__":
-
-    main()
