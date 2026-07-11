@@ -5,13 +5,11 @@ from telegram.ext import ContextTypes
 WARNING_MESSAGE = """
 ⚠️ Media Removed
 
-Melanated AZ requires all photos and videos to be sent using Telegram's:
+Melanated AZ requires all photos and videos to be sent using:
 
 👁 Hide With Spoiler
 
-Please resend your photo/video with the spoiler option enabled.
-
-Thank you for helping keep the community comfortable. ❤️👑
+Please resend your media with the spoiler option enabled.
 """
 
 
@@ -26,20 +24,17 @@ async def check_media(
         return
 
 
-    # Only check photos and videos
-    has_media = (
-        message.photo
-        or message.video
-    )
+    print("MEDIA RECEIVED")
+    print("Photo:", bool(message.photo))
+    print("Video:", bool(message.video))
+    print("Spoiler:", message.has_media_spoiler)
 
 
-    if has_media:
+    if message.photo or message.video:
 
-        # Allow spoiler media
         if not message.has_media_spoiler:
 
             try:
-
                 await message.delete()
 
                 await context.bot.send_message(
@@ -47,9 +42,7 @@ async def check_media(
                     text=WARNING_MESSAGE
                 )
 
+                print("MEDIA DELETED")
 
             except Exception as e:
-
-                print(
-                    f"Media moderation error: {e}"
-                )
+                print(f"DELETE ERROR: {e}")
