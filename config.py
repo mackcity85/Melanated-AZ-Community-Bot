@@ -1,28 +1,62 @@
 import os
 
 
-TOKEN = os.getenv("BOT_TOKEN")
-
-STARTUP_CHAT_ID = os.getenv("STARTUP_CHAT_ID")
-
-
-DB_FILE = "data/community.db"
 # ==========================
-# RAFFLE PAYMENT INFO
+# TELEGRAM BOT TOKEN
 # ==========================
+
+TOKEN = os.environ.get(
+    "BOT_TOKEN"
+)
+
+
+# ==========================
+# STARTUP MESSAGE CHAT ID
+# ==========================
+
+STARTUP_CHAT_ID = os.environ.get(
+    "STARTUP_CHAT_ID"
+)
+
+
+# ==========================
+# DATABASE
+# ==========================
+
+DB_FILE = "melanatedaz.db"
+
+
+# ==========================
+# RAFFLE SETTINGS
+# ==========================
+
+RAFFLE_COST = "$5"
 
 RAFFLE_PAYMENT_INFO = """
+💰 Raffle Payment Information
 
-💰 Payment Options:
+Entry Cost:
+$5 per entry
 
-Cash App: $YourCashApp
-Venmo: @YourVenmo
-PayPal: your@email.com
+Payment Options:
 
-After payment, type:
+Cash App:
+$YOUR_CASHAPP
 
-/enter
+Venmo:
+@YOUR_VENMO
 
-Thank you for supporting Melanated AZ 💜
+PayPal:
+YOUR_PAYPAL
 
+After payment, send confirmation to an admin.
 """
+
+
+# ==========================
+# COMMUNITY SETTINGS
+# ==========================
+
+BOT_NAME = "Melanated AZ Community Bot"
+
+COMMUNITY_NAME = "Melanated AZ"
