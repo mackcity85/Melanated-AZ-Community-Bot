@@ -143,7 +143,11 @@ def initialize_database():
 
     ("documents_removed", 0),
 
-    ("birthdays_saved", 0)
+    ("birthdays_saved", 0),
+
+    ("inactive_messages_sent", 0),
+
+    ("active_thanks_sent", 0)
 
 ]
 
