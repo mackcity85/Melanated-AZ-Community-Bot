@@ -147,7 +147,11 @@ def initialize_database():
 
     ("inactive_messages_sent", 0),
 
-    ("active_thanks_sent", 0)
+    ("active_thanks_sent", 0), 
+        
+    ("members_joined", 0),
+        
+    ("warnings_sent", 0),
 
 ]
 
@@ -501,37 +505,61 @@ async def status_command(
 
     videos_removed = cursor.fetchone()[0]
 
+    cursor.execute(
+    """
+    SELECT value
+    FROM stats
+    WHERE name='inactive_messages_sent'
+    """
+    )
+
+    inactive_sent = cursor.fetchone()[0]
+
+
+    cursor.execute(
+    """
+    SELECT value
+    FROM stats
+    WHERE name='active_thanks_sent'
+    """
+)
+
+    active_thanks = cursor.fetchone()[0]
     conn.close()
 
 
     await update.message.reply_text(
-        f"""
+f"""
 🤖 Melanated AZ Bot
 
-Status: Online ✅
+Status: ✅ Online
 
-👥 Members Tracked:
-{members}
+👥 Members Tracked: {members}
 
-📸 Photos Removed:
-{photos_removed}
+📸 Photos Removed: {photos_removed}
+🎥 Videos Removed: {videos_removed}
 
-🎥 Videos Removed:
-{videos_removed}
+💌 Active Thank You Messages: {active_thanks}
+😴 Inactive Check-ins Sent: {inactive_sent}
 
-💾 Database:
-Connected ✅
+💾 Database: Connected ✅
 
-🕒 Started:
-{START_TIME}
+🕒 Running Since:
+{START_TIME.strftime("%Y-%m-%d %I:%M %p")}
 """
-    )
+)
 
 # ==========================================================
 # UPDATE MEMBER ACTIVITY
 # ==========================================================
 
 def update_activity(user, chat_id):
+    cursor.execute("""
+UPDATE stats
+SET value=value+1
+WHERE name='members_joined'
+""")
+    
 
     conn = get_db()
     cursor = conn.cursor()
