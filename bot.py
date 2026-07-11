@@ -495,10 +495,7 @@ Started:
 
 
 
-async def birthdays_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+
 
     conn = get_db()
     cursor = conn.cursor()
@@ -956,12 +953,6 @@ from telegram.ext import JobQueue
 # ==========================================================
 # BIRTHDAY SYSTEM (MM/DD FORMAT)
 # ==========================================================
-
-
-async def birthday_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
 
     if not update.message:
         return
