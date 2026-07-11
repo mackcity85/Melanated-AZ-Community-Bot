@@ -6,6 +6,7 @@
 import os
 import logging
 import sqlite3
+import asyncio
 from datetime import datetime, date
 from threading import Thread
 
@@ -709,48 +710,35 @@ Consent • Respect • Communication • Accountability
 # AUTO DELETE WARNING MESSAGE
 # ==========================================================
 
-async def delete_warning_later(
-    message
+async def send_temporary_warning(
+    context,
+    chat_id
 ):
-
-    await asyncio.sleep(60)
 
     try:
 
-        await message.delete()
+        warning = await context.bot.send_message(
+            chat_id=chat_id,
+            text=MEDIA_WARNING
+        )
+
+
+        await asyncio.sleep(60)
+
+
+        await warning.delete()
+
 
         logger.info(
-            "Media warning deleted after 60 seconds"
+            "✅ Media warning deleted after 60 seconds"
         )
 
 
     except Exception as e:
 
         logger.error(
-            f"Warning delete error: {e}"
+            f"❌ Warning delete failed: {e}"
         )
-
-
-
-async def send_temporary_warning(
-    context,
-    chat_id
-):
-
-    warning = await context.bot.send_message(
-
-        chat_id=chat_id,
-
-        text=MEDIA_WARNING
-
-    )
-
-
-    asyncio.create_task(
-
-        delete_warning_later(warning)
-
-    )
 # ==========================================================
 # WELCOME NEW MEMBERS
 # ==========================================================
