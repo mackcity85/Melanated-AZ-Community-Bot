@@ -370,9 +370,11 @@ async def help_command(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    await update.message.reply_text(
-        HELP_MESSAGE
-    )
+    if update.message:
+
+        await update.message.reply_text(
+            HELP_MESSAGE
+        )
 
 
 
@@ -488,61 +490,7 @@ Started:
 {START_TIME}
 """
     )
-
-
-
-async def birthday_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not context.args:
-
-        await update.message.reply_text(
-            "Usage: /birthday MM/DD"
-        )
-
-        return
-
-
-    birthday = context.args[0]
-
-    user = update.effective_user
-
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute(
-        """
-        INSERT OR REPLACE INTO birthdays
-        VALUES (?,?,?)
-        """,
-        (
-            user.id,
-            birthday,
-            user.username
-        )
-    )
-
-
-    cursor.execute(
-        """
-        UPDATE stats
-        SET value=value+1
-        WHERE name='birthdays_saved'
-        """
-    )
-
-
-    conn.commit()
-    conn.close()
-
-
-    await update.message.reply_text(
-        f"🎂 Birthday saved: {birthday}"
-    )
+    
 
 
 
