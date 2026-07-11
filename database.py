@@ -12,7 +12,7 @@ def init_db():
 
 
     # ==========================
-    # BIRTHDAYS TABLE
+    # BIRTHDAYS
     # ==========================
 
     cursor.execute(
@@ -35,7 +35,7 @@ def init_db():
 
 
     # ==========================
-    # RAFFLES TABLE
+    # RAFFLES
     # ==========================
 
     cursor.execute(
@@ -48,6 +48,8 @@ def init_db():
 
             prize TEXT,
 
+            amount TEXT,
+
             active INTEGER DEFAULT 1
 
         )
@@ -56,7 +58,7 @@ def init_db():
 
 
     # ==========================
-    # RAFFLE ENTRIES TABLE
+    # RAFFLE ENTRIES
     # ==========================
 
     cursor.execute(
