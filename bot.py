@@ -21,13 +21,12 @@ from birthdays import (
     remove_birthday
 )
 
-from scheduler import start_scheduler
-
 from raffles import (
     start_raffle,
     enter_raffle,
     raffle_list,
-    draw_raffle
+    draw_raffle,
+    close_raffle
 )
 
 
@@ -52,7 +51,7 @@ web_app = Flask(__name__)
 @web_app.route("/")
 def home():
 
-    return "Melanated AZ Bot v2 is running!"
+    return "Melanated AZ Community Bot is running!"
 
 
 
@@ -64,6 +63,7 @@ def run_web():
             10000
         )
     )
+
 
     web_app.run(
         host="0.0.0.0",
@@ -83,7 +83,7 @@ async def ping(
 
     await update.message.reply_text(
         "🏓 Pong!\n\n"
-        "Melanated AZ Bot v2 is online."
+        "Melanated AZ Community Bot is online."
     )
 
 
@@ -93,62 +93,48 @@ async def get_id(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    user = update.effective_user
-    chat = update.effective_chat
-
-
     await update.message.reply_text(
 
-        f"👤 User ID: {user.id}\n"
-        f"💬 Chat ID: {chat.id}"
+        f"👤 User ID: {update.effective_user.id}\n"
+        f"💬 Chat ID: {update.effective_chat.id}"
 
     )
 
 
 
 # ==========================
-# STARTUP
+# STARTUP MESSAGE
 # ==========================
 
-async def startup(app):
+async def startup_message(app):
+
 
     logging.info(
-        "🤖 Melanated AZ Bot v2 started"
+        "🤖 Melanated AZ Community Bot started"
     )
-
-
-    await start_scheduler(app)
 
 
     if STARTUP_CHAT_ID:
 
-        try:
 
-            await app.bot.send_message(
+        await app.bot.send_message(
 
-                chat_id=STARTUP_CHAT_ID,
+            chat_id=STARTUP_CHAT_ID,
 
-                text=(
+            text=(
 
-                    "🤖 Melanated AZ Bot v2 is online!\n\n"
+                "💜 Melanated AZ Community Bot Online 💜\n\n"
 
-                    "✅ Database Connected\n"
-                    "✅ Birthday System Active\n"
-                    "✅ Scheduler Running\n"
-                    "✅ Raffle System Active\n\n"
+                "✅ Database Connected\n"
+                "✅ Birthday System Active\n"
+                "✅ Raffle System Active\n"
+                "✅ Admin Controls Enabled\n\n"
 
-                    "💜 Ready for the community!"
-
-                )
+                "🚀 Ready to serve the community!"
 
             )
 
-        except Exception as e:
-
-            logging.error(
-                "Startup message failed: %s",
-                e
-            )
+        )
 
 
 
@@ -158,6 +144,7 @@ async def startup(app):
 
 def main():
 
+
     if not TOKEN:
 
         raise RuntimeError(
@@ -165,14 +152,9 @@ def main():
         )
 
 
-
-    # Initialize database
-
     init_db()
 
 
-
-    # Start Render web server
 
     threading.Thread(
 
@@ -187,9 +169,13 @@ def main():
     application = (
 
         Application
+
         .builder()
+
         .token(TOKEN)
-        .post_init(startup)
+
+        .post_init(startup_message)
+
         .build()
 
     )
@@ -197,9 +183,8 @@ def main():
 
 
     # ======================
-    # COMMANDS
+    # TEST COMMANDS
     # ======================
-
 
     application.add_handler(
         CommandHandler(
@@ -221,7 +206,6 @@ def main():
     # ======================
     # BIRTHDAYS
     # ======================
-
 
     application.add_handler(
         CommandHandler(
@@ -252,7 +236,6 @@ def main():
     # RAFFLES
     # ======================
 
-
     application.add_handler(
         CommandHandler(
             "raffle_start",
@@ -281,6 +264,14 @@ def main():
         CommandHandler(
             "raffle_draw",
             draw_raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "raffle_close",
+            close_raffle
         )
     )
 
