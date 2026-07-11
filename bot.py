@@ -13,6 +13,7 @@ from telegram.ext import (
 
 from config import BOT_TOKEN
 from database import initialize_database, update_member
+from moderation import check_media
 
 
 # -----------------------------
@@ -24,7 +25,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Melanated AZ Community Bot v4 is running."
+    return "🔥 Melanated AZ Community Bot v4 is running."
 
 
 def run_flask():
@@ -38,14 +39,20 @@ def run_flask():
 # Commands
 # -----------------------------
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
     await update.message.reply_text(
         "🔥 Melanated AZ Community Bot v4 is online!\n\n"
-        "Community protection and features are active."
+        "Community protection features are active."
     )
 
 
-async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_id(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
     chat = update.effective_chat
 
     await update.message.reply_text(
@@ -54,17 +61,22 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # -----------------------------
-# Track Members
+# Member Activity Tracking
 # -----------------------------
 
-async def track_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def track_activity(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     if update.effective_user:
-        update_member(update.effective_user)
+        update_member(
+            update.effective_user
+        )
 
 
 # -----------------------------
-# Main
+# Main Bot
 # -----------------------------
 
 async def main():
@@ -78,6 +90,8 @@ async def main():
         .build()
     )
 
+
+    # Commands
     application.add_handler(
         CommandHandler(
             "start",
@@ -92,11 +106,24 @@ async def main():
         )
     )
 
+
+    # Track users
     application.add_handler(
         MessageHandler(
             filters.ALL,
             track_activity
-        )
+        ),
+        group=1
+    )
+
+
+    # Media protection
+    application.add_handler(
+        MessageHandler(
+            filters.ALL,
+            check_media
+        ),
+        group=2
     )
 
 
@@ -108,6 +135,7 @@ async def main():
     await application.run_polling()
 
 
+
 if __name__ == "__main__":
 
     threading.Thread(
@@ -115,4 +143,7 @@ if __name__ == "__main__":
         daemon=True
     ).start()
 
-    asyncio.run(main())
+
+    asyncio.run(
+        main()
+    )
