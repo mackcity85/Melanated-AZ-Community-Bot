@@ -1334,9 +1334,13 @@ def register_commands(app):
 
 
     app.add_handler(
-    CommandHandler(
-        "community",
-        community_command
+
+        CommandHandler(
+
+            "community",
+
+            community_command
+        
     )
 )
     
