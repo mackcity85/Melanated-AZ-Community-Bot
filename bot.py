@@ -1,62 +1,59 @@
 # ==========================================================
+# Melanated AZ Bot
 # bot.py
-# Melanated AZ Bot v3
+# Main Integration File
 # ==========================================================
 
+import os
+import asyncio
 import logging
-import threading
+from threading import Thread
 
 from flask import Flask
 
 from telegram import Update
 from telegram.ext import (
     Application,
+    ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    ChatMemberHandler,
     ContextTypes,
     filters
 )
 
 from config import BOT_TOKEN
 
-
-# Database
 from database import (
     initialize_database,
-    create_raffle_tables
+    update_member
 )
 
-
-# Welcome
 from welcome import (
     welcome_new_member,
+    profile_check,
     intro
 )
 
-
-# Rules
 from rules import rules
 
+from admin import (
+    admin_help,
+    remove_member,
+    ban_member
+)
 
-# Raffle
 from raffle import (
     start_raffle,
-    join_raffle,
-    raffle_entries,
-    raffle_winner,
-    end_raffle
+    enter_raffle,
+    raffle_status,
+    draw_raffle
 )
 
+from activity_scheduler import activity_check
 
-# Admin
-from admin import (
-    announce,
-    purge,
-    kick,
-    ban,
-    mute,
-    unmute
-)
+from birthday_scheduler import birthday_check
+
 
 
 # ==========================================================
@@ -64,11 +61,14 @@ from admin import (
 # ==========================================================
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO
 )
 
-logger = logging.getLogger(__name__)
+
+logger = logging.getLogger(
+    __name__
+)
+
 
 
 # ==========================================================
@@ -87,74 +87,65 @@ def home():
 
 def run_flask():
 
+    port = int(
+        os.environ.get(
+            "PORT",
+            10000
+        )
+    )
+
+
     app.run(
         host="0.0.0.0",
-        port=10000
+        port=port
     )
 
 
 
 # ==========================================================
-# COMMANDS
+# TRACK ALL MESSAGES
 # ==========================================================
 
-async def start(
+async def activity_tracker(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    await update.message.reply_text(
-        "👑 Welcome to Melanated AZ\n\n"
+    if update.effective_user:
 
-        "Commands:\n\n"
+        update_member(
+            update.effective_user.id,
+            update.effective_chat.id,
+            update.effective_user.username,
+            update.effective_user.first_name
+        )
 
-        "/rules - Community guidelines\n"
-        "/intro - Introduce yourself\n"
-        "/help - Show commands\n\n"
 
-        "Activities:\n"
-        "/birthday\n"
-        "/activities\n\n"
 
-        "Raffle:\n"
-        "/joinraffle\n"
-        "/raffleentries"
+# ==========================================================
+# STARTUP TASKS
+# ==========================================================
+
+async def post_init(
+    application: Application
+):
+
+    print(
+        "Melanated AZ Bot is running"
     )
 
 
+    application.create_task(
+        birthday_check(
+            application
+        )
+    )
 
-async def help_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
 
-    await update.message.reply_text(
-        """
-👑 Melanated AZ Commands
-
-Community:
- /rules
- /intro
- /birthday
- /activities
-
-Raffle:
- /joinraffle
- /raffleentries
-
-Admin:
- /announce
- /purge
- /kick
- /ban
- /mute
- /unmute
-
-Admin Raffle:
- /startraffle
- /rafflewinner
- /endraffle
-"""
+    application.create_task(
+        activity_check(
+            application
+        )
     )
 
 
@@ -169,7 +160,7 @@ async def error_handler(
 ):
 
     logger.error(
-        "Bot Error:",
+        "Exception:",
         exc_info=context.error
     )
 
@@ -181,169 +172,162 @@ async def error_handler(
 
 def main():
 
-
     initialize_database()
 
-    create_raffle_tables()
 
-
-    # Flask thread
-
-    flask_thread = threading.Thread(
+    Thread(
         target=run_flask,
         daemon=True
-    )
-
-    flask_thread.start()
+    ).start()
 
 
 
     application = (
-        Application
-        .builder()
-        .token(BOT_TOKEN)
+
+        ApplicationBuilder()
+
+        .token(
+            BOT_TOKEN
+        )
+
+        .post_init(
+            post_init
+        )
+
         .build()
+
     )
 
 
-    # Basic commands
+
+    # ------------------------------
+    # Member Events
+    # ------------------------------
 
     application.add_handler(
-        CommandHandler(
-            "start",
-            start
+
+        MessageHandler(
+
+            filters.StatusUpdate.NEW_CHAT_MEMBERS,
+
+            welcome_new_member
+
         )
+
     )
 
 
+
     application.add_handler(
-        CommandHandler(
-            "help",
-            help_command
+
+        MessageHandler(
+
+            filters.ALL,
+
+            activity_tracker
+
         )
+
     )
 
 
+
+    # ------------------------------
+    # Commands
+    # ------------------------------
+
     application.add_handler(
+
         CommandHandler(
             "rules",
             rules
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "intro",
             intro
         )
+
     )
 
 
-    # Welcome
-
     application.add_handler(
-        MessageHandler(
-            filters.StatusUpdate.NEW_CHAT_MEMBERS,
-            welcome_new_member
+
+        CommandHandler(
+            "admin",
+            admin_help
         )
+
     )
 
 
-    # ======================================================
-    # RAFFLE
-    # ======================================================
+    application.add_handler(
+
+        CommandHandler(
+            "remove",
+            remove_member
+        )
+
+    )
+
 
     application.add_handler(
+
+        CommandHandler(
+            "ban",
+            ban_member
+        )
+
+    )
+
+
+
+    # ------------------------------
+    # Raffle
+    # ------------------------------
+
+    application.add_handler(
+
         CommandHandler(
             "startraffle",
             start_raffle
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
-            "joinraffle",
-            join_raffle
+            "enter",
+            enter_raffle
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
-            "raffleentries",
-            raffle_entries
+            "raffle",
+            raffle_status
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
-            "rafflewinner",
-            raffle_winner
+            "drawraffle",
+            draw_raffle
         )
-    )
 
-
-    application.add_handler(
-        CommandHandler(
-            "endraffle",
-            end_raffle
-        )
-    )
-
-
-
-    # ======================================================
-    # ADMIN
-    # ======================================================
-
-    application.add_handler(
-        CommandHandler(
-            "announce",
-            announce
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "purge",
-            purge
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "kick",
-            kick
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "ban",
-            ban
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "mute",
-            mute
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "unmute",
-            unmute
-        )
     )
 
 
@@ -353,16 +337,20 @@ def main():
     )
 
 
-    print(
-        "Melanated AZ Bot is running"
-    )
 
+    # ------------------------------
+    # Start Bot
+    # ------------------------------
 
     application.run_polling(
         drop_pending_updates=True
     )
 
 
+
+# ==========================================================
+# RUN
+# ==========================================================
 
 if __name__ == "__main__":
 
