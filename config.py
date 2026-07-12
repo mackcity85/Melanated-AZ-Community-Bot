@@ -18,30 +18,40 @@ BOT_TOKEN = os.environ.get(
 # ==========================================================
 # ADMIN USERS
 # ==========================================================
+#
+# Render Environment Variable Example:
+#
+# ADMIN_IDS=5879167814,123456789
+#
+# ==========================================================
 
-ADMIN_IDS = []
+
+DEFAULT_ADMIN_IDS = "5879167814"
 
 
 admin_ids = os.environ.get(
     "ADMIN_IDS",
-    ""
+    DEFAULT_ADMIN_IDS
 )
 
 
-if admin_ids:
-
-    ADMIN_IDS = [
-        int(user_id.strip())
-        for user_id in admin_ids.split(",")
-        if user_id.strip().isdigit()
-    ]
+ADMIN_IDS = [
+    int(user_id.strip())
+    for user_id in admin_ids.split(",")
+    if user_id.strip().isdigit()
+]
 
 
-# Local fallback admin
-# Remove this after Render ADMIN_IDS is configured
+# ==========================================================
+# DEBUG
+# ==========================================================
 
-if not ADMIN_IDS:
+if not BOT_TOKEN:
+    print(
+        "WARNING: BOT_TOKEN is not set"
+    )
 
-    ADMIN_IDS = [
-        5879167814
-    ]
+
+print(
+    f"Loaded Admin IDs: {ADMIN_IDS}"
+)
