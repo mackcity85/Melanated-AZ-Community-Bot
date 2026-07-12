@@ -64,7 +64,7 @@ from raffle import (
 
 from trivia import trivia
 
-from truth_dare import truth_dare
+from truth_dare import truth_or_dare
 
 
 
