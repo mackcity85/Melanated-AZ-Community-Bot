@@ -1,12 +1,14 @@
 import os
 import logging
 import threading
+
+from dotenv import load_dotenv
+from flask import Flask
+
 from database import (
     initialize_database,
     update_member
 )
-
-from flask import Flask
 
 from telegram import Update
 from telegram.ext import (
@@ -21,8 +23,6 @@ from telegram.ext import (
 # ==========================================================
 # CONFIG
 # ==========================================================
-
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -43,11 +43,15 @@ flask_app = Flask(__name__)
 
 @flask_app.route("/")
 def health():
+
     return "Melanated AZ Bot is running. Media Spoiler and Birthdays"
 
 
+
 def run_flask():
+
     port = int(os.getenv("PORT", 10000))
+
     flask_app.run(
         host="0.0.0.0",
         port=port
@@ -58,7 +62,10 @@ def run_flask():
 # COMMANDS
 # ==========================================================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     await update.message.reply_text(
         "🔥 Melanated AZ Bot is online.\n\n"
@@ -67,7 +74,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def rules(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     await update.message.reply_text(
         "📜 Melanated AZ Rules\n\n"
@@ -80,10 +91,32 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================================
+# MEMBER ACTIVITY TRACKING
+# ==========================================================
+
+async def track_activity(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if update.effective_user and update.effective_chat:
+
+        update_member(
+            update.effective_user.id,
+            update.effective_chat.id,
+            update.effective_user.username,
+            update.effective_user.first_name
+        )
+
+
+# ==========================================================
 # MEDIA SPOILER PROTECTION
 # ==========================================================
 
-async def media_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def media_check(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     message = update.message
 
@@ -101,7 +134,6 @@ async def media_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if has_media:
 
-        # Telegram marks spoiler media here
         if not message.has_media_spoiler:
 
             try:
@@ -115,6 +147,7 @@ async def media_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "media must be posted using Telegram spoiler protection."
                     )
                 )
+
 
             except Exception as e:
 
@@ -130,6 +163,7 @@ async def media_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
 
     if not TOKEN:
+
         raise Exception(
             "BOT_TOKEN is missing"
         )
@@ -140,6 +174,10 @@ def main():
         target=run_flask,
         daemon=True
     ).start()
+
+
+    # Create database tables
+    initialize_database()
 
 
     application = (
@@ -179,6 +217,16 @@ def main():
     )
 
 
+    # Track member activity
+    application.add_handler(
+        MessageHandler(
+            filters.ALL,
+            track_activity
+        ),
+        group=1
+    )
+
+
     print(
         "Melanated AZ Bot is running. Media Spoiler and Birthdays"
     )
@@ -187,5 +235,8 @@ def main():
     application.run_polling()
 
 
+
 if __name__ == "__main__":
+
     main()
+```
