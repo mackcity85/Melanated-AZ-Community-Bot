@@ -10,8 +10,9 @@ from datetime import datetime
 DATABASE = "bot.db"
 
 
+
 # ==========================================================
-# DATABASE CONNECTION
+# CONNECTION
 # ==========================================================
 
 def get_db():
@@ -32,7 +33,7 @@ def initialize_database():
     cursor = conn.cursor()
 
 
-    # Members table
+    # Members
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS members
@@ -48,7 +49,7 @@ def initialize_database():
 
 
 
-    # Birthdays table
+    # Birthdays
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS birthdays
@@ -62,7 +63,7 @@ def initialize_database():
 
 
 
-    # Activity table
+    # Activity
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS activity
@@ -72,6 +73,18 @@ def initialize_database():
     )
     """)
 
+
+
+    # Raffle
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS raffle_entries
+    (
+        user_id INTEGER PRIMARY KEY,
+        first_name TEXT,
+        username TEXT
+    )
+    """)
 
 
     conn.commit()
@@ -111,6 +124,7 @@ def update_member(
     VALUES (?,?,?,?,?,?)
 
     ON CONFLICT(user_id)
+
     DO UPDATE SET
 
     username=?,
@@ -137,7 +151,7 @@ def update_member(
 
 
 # ==========================================================
-# SAVE BIRTHDAY
+# BIRTHDAYS
 # ==========================================================
 
 def save_birthday(
@@ -153,16 +167,10 @@ def save_birthday(
 
     cursor.execute("""
     INSERT INTO birthdays
-    (
-        user_id,
-        first_name,
-        username,
-        birthday
-    )
-
     VALUES (?,?,?,?)
 
     ON CONFLICT(user_id)
+
     DO UPDATE SET
 
     first_name=?,
@@ -186,42 +194,39 @@ def save_birthday(
 
 
 
-# ==========================================================
-# GET TODAY BIRTHDAYS
-# ==========================================================
-
 def get_birthdays_today(
-    today
+    birthday
 ):
 
     conn = get_db()
+
     conn.row_factory = sqlite3.Row
 
     cursor = conn.cursor()
 
 
-    cursor.execute("""
-    SELECT *
-    FROM birthdays
-    WHERE birthday=?
-    """,
-    (
-        today,
-    ))
+    cursor.execute(
+        """
+        SELECT *
+        FROM birthdays
+        WHERE birthday=?
+        """,
+        (
+            birthday,
+        )
+    )
 
 
     results = cursor.fetchall()
 
-
     conn.close()
-
 
     return results
 
 
 
 # ==========================================================
-# ACTIVITY UPDATE
+# ACTIVITY
 # ==========================================================
 
 def update_activity(
@@ -232,16 +237,16 @@ def update_activity(
     cursor = conn.cursor()
 
 
+    now = datetime.now().isoformat()
+
+
     cursor.execute("""
     INSERT INTO activity
-    (
-        user_id,
-        last_seen
-    )
 
     VALUES (?,?)
 
     ON CONFLICT(user_id)
+
     DO UPDATE SET
 
     last_seen=?
@@ -249,10 +254,102 @@ def update_activity(
     """,
     (
         user_id,
-        datetime.now().isoformat(),
-        datetime.now().isoformat()
+        now,
+        now
     ))
 
 
     conn.commit()
+    conn.close()
+
+
+
+# ==========================================================
+# RAFFLE SYSTEM
+# ==========================================================
+
+def create_raffle():
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        "DELETE FROM raffle_entries"
+    )
+
+
+    conn.commit()
+    conn.close()
+
+
+
+def add_raffle_entry(
+    user_id,
+    first_name,
+    username
+):
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO raffle_entries
+
+    VALUES (?,?,?)
+
+    """,
+    (
+        user_id,
+        first_name,
+        username
+    ))
+
+
+    conn.commit()
+    conn.close()
+
+
+
+def get_raffle_entries():
+
+    conn = get_db()
+
+    conn.row_factory = sqlite3.Row
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM raffle_entries
+        """
+    )
+
+
+    results = cursor.fetchall()
+
+
+    conn.close()
+
+    return results
+
+
+
+def clear_raffle():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        "DELETE FROM raffle_entries"
+    )
+
+
+    conn.commit()
+
     conn.close()
