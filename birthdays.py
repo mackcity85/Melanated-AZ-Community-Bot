@@ -1,94 +1,188 @@
 # ==========================================================
 # Melanated AZ Bot
 # birthdays.py
-# Birthday Commands
+# Birthday Management (MM/DD)
 # ==========================================================
 
-from telegram import Update
-from telegram.ext import ContextTypes
+import sqlite3
+from datetime import datetime
 
-from database import (
-    save_birthday
-)
-
+DB_FILE = "melanatedaz.db"
 
 
 # ==========================================================
-# /setbirthday
+# DATABASE SETUP
 # ==========================================================
 
-async def set_birthday(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+def init_birthdays():
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS birthdays (
+        user_id INTEGER PRIMARY KEY,
+        username TEXT,
+        first_name TEXT,
+        birthday TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+
+# ==========================================================
+# SAVE BIRTHDAY
+# Format: MM/DD
+# ==========================================================
+
+def save_birthday(
+    user_id,
+    username,
+    first_name,
+    birthday
 ):
-
-
-    user = update.effective_user
-
-
-    if not context.args:
-
-        await update.message.reply_text(
-
-            "Usage:\n"
-            "/setbirthday MM-DD-YYYY\n\n"
-            "Example:\n"
-            "/setbirthday 07-25-1985"
-
-        )
-
-        return
-
-
-
-    birthday = context.args[0]
-
-
-
-    # Basic format check
 
     try:
 
-        month, day, year = birthday.split("-")
-
-
-        if len(month) != 2 or len(day) != 2:
-
-            raise ValueError
-
-
-
-    except:
-
-        await update.message.reply_text(
-
-            "❌ Invalid format.\n\n"
-            "Use:\n"
-            "/setbirthday MM-DD-YYYY"
-
+        datetime.strptime(
+            birthday,
+            "%m/%d"
         )
 
-        return
+    except ValueError:
+
+        return False
 
 
 
-    save_birthday(
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
 
-        user.id,
+
+    cursor.execute("""
+    INSERT INTO birthdays
+    (
+        user_id,
+        username,
+        first_name,
         birthday
-
     )
+    VALUES (?,?,?,?)
+
+    ON CONFLICT(user_id)
+    DO UPDATE SET
+
+        username=excluded.username,
+        first_name=excluded.first_name,
+        birthday=excluded.birthday
+
+    """,
+    (
+        user_id,
+        username,
+        first_name,
+        birthday
+    ))
+
+
+    conn.commit()
+    conn.close()
+
+    return True
 
 
 
-    await update.message.reply_text(
+# ==========================================================
+# GET TODAY'S BIRTHDAYS
+# ==========================================================
 
-f"""
-🎂 Birthday saved!
+def get_today_birthdays():
 
-{user.first_name}, your birthday has been added.
+    today = datetime.now().strftime("%m/%d")
 
-We will celebrate with the community when your day arrives! 🎉
-"""
 
-    )
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+    SELECT
+        user_id,
+        username,
+        first_name
+    FROM birthdays
+    WHERE birthday = ?
+    """,
+    (
+        today,
+    ))
+
+
+    results = cursor.fetchall()
+
+
+    conn.close()
+
+
+    return results
+
+
+
+# ==========================================================
+# GET USER BIRTHDAY
+# ==========================================================
+
+def get_birthday(user_id):
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+    SELECT birthday
+    FROM birthdays
+    WHERE user_id = ?
+    """,
+    (
+        user_id,
+    ))
+
+
+    result = cursor.fetchone()
+
+
+    conn.close()
+
+
+    if result:
+        return result[0]
+
+
+    return None
+
+
+
+# ==========================================================
+# DELETE BIRTHDAY
+# ==========================================================
+
+def delete_birthday(user_id):
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+    DELETE FROM birthdays
+    WHERE user_id = ?
+    """,
+    (
+        user_id,
+    ))
+
+
+    conn.commit()
+    conn.close()
