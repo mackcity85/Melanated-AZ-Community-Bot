@@ -1,190 +1,72 @@
 # ==========================================================
 # Melanated AZ Bot
 # welcome.py
-# Member Welcome System
+# New Member Welcome System
 # ==========================================================
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from database import (
-    update_member
-)
-
-
 
 # ==========================================================
-# NEW MEMBER WELCOME
+# WELCOME NEW MEMBERS
 # ==========================================================
 
-async def welcome_new_member(
+async def welcome(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not update.message:
+    if not update.chat_member:
         return
 
 
+    new_member = update.chat_member.new_chat_member
 
-    for member in update.message.new_chat_members:
 
-
-        # Ignore bot accounts
-
-        if member.is_bot:
-            continue
+    old_member = update.chat_member.old_chat_member
 
 
 
-        update_member(
+    # Only welcome new joins
 
-            member.id,
-            update.effective_chat.id,
-            member.username,
-            member.first_name
-
-        )
+    if old_member.status in (
+        "left",
+        "kicked"
+    ) and new_member.status == "member":
 
 
-
-        await update.message.reply_text(
-
-f"""
-🔥 Welcome {member.first_name} to Melanated AZ! 👑
-
-We are glad to have you here.
-
-Before joining conversations, please:
-
-📸 Add a profile picture
-
-📝 Introduce yourself:
-
-• Name
-• Age
-• Location
-• Status
-• What you're here for
-• DMs Open or Closed
+        user = update.chat_member.from_user
 
 
-Example:
-
-King | 40 | Arizona | Partnered | Networking & connections | DMs Open
+        name = user.first_name or "New Member"
 
 
-Please review our community guidelines:
 
-📜 /rules
+        message = f"""
+👋 Welcome {name}!
 
+Welcome to **Melanated AZ** 🖤
 
-Useful commands:
+Please take a moment to:
 
-❓ /help
-🎉 /activities
-🎂 /setbirthday MM-DD-YYYY
-🎟 /raffle
+✅ Read the group rules
+✅ Introduce yourself
+✅ Add a profile picture
+✅ Respect everyone's boundaries
 
+This is a community built on respect, communication, and good energy.
 
-Respect • Consent • Communication • Good Energy
-
-Welcome to the community! 👑
+Enjoy the group!
 """
 
-        )
 
+        await context.bot.send_message(
 
+            chat_id=update.chat_member.chat.id,
 
-# ==========================================================
-# PROFILE CHECK
-# ==========================================================
+            text=message,
 
-async def profile_check(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not update.message:
-        return
-
-
-    user = update.effective_user
-
-
-    if not user:
-        return
-
-
-
-    try:
-
-        photos = await context.bot.get_user_profile_photos(
-
-            user.id,
-            limit=1
+            parse_mode="Markdown"
 
         )
-
-
-        if photos.total_count == 0:
-
-
-            await update.message.reply_text(
-
-                f"👋 {user.first_name}, "
-                "please add a profile picture "
-                "to complete your community profile."
-
-            )
-
-
-    except Exception:
-
-        pass
-
-
-
-# ==========================================================
-# INTRO COMMAND
-# ==========================================================
-
-async def intro(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-
-    if not context.args:
-
-
-        await update.message.reply_text(
-
-            "Usage:\n"
-            "/intro Your introduction"
-
-        )
-
-        return
-
-
-
-    introduction = " ".join(
-
-        context.args
-
-    )
-
-
-
-    await update.message.reply_text(
-
-f"""
-✅ Introduction received!
-
-{introduction}
-
-Welcome to Melanated AZ 👑
-"""
-
-    )
