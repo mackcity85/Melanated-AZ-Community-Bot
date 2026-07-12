@@ -3,72 +3,37 @@
 # raffle.py
 # ==========================================================
 
-
 import random
-
+import logging
 
 from telegram import Update
-
 from telegram.ext import ContextTypes
 
-
 from database import (
-    create_raffle,
-    get_active_raffle,
-    join_raffle,
+    create_raffle_entry,
     get_raffle_entries,
-    close_raffle
+    clear_raffle_entries
 )
 
 
 
 # ==========================================================
-# CREATE RAFFLE
+# ADMIN CHECK
 # ==========================================================
 
-async def create_raffle_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+def is_admin(user_id, context):
 
-    if not context.args:
-
-        await update.message.reply_text(
-            "Usage:\n/createraffle Prize Name"
-        )
-
-        return
-
-
-    title = " ".join(
-        context.args
+    admin_ids = context.bot_data.get(
+        "ADMIN_IDS",
+        []
     )
 
-
-    raffle_id = create_raffle(
-        update.effective_chat.id,
-        title
-    )
-
-
-    await update.message.reply_text(
-        f"""
-🎟️ NEW RAFFLE CREATED!
-
-{title}
-
-Enter now:
-
-/joinraffle
-
-Good luck 🔥
-"""
-    )
+    return user_id in admin_ids
 
 
 
 # ==========================================================
-# VIEW RAFFLE
+# VIEW CURRENT RAFFLE
 # ==========================================================
 
 async def raffle(
@@ -76,15 +41,24 @@ async def raffle(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    raffle = get_active_raffle(
+    entries = get_raffle_entries(
         update.effective_chat.id
     )
 
 
-    if not raffle:
+    if not entries:
 
         await update.message.reply_text(
-            "🎟️ No active raffle."
+            """
+🎟️ Current Raffle
+
+No entries yet.
+
+Use:
+/joinraffle
+
+to enter!
+"""
         )
 
         return
@@ -93,13 +67,16 @@ async def raffle(
 
     await update.message.reply_text(
         f"""
-🎟️ Current Raffle
+🎟️ Melanated AZ Raffle
 
-{raffle[1]}
+Current Entries:
+{len(entries)}
 
-Join:
+Good luck everyone! 🍀
 
+Use:
 /joinraffle
+to enter.
 """
     )
 
@@ -114,37 +91,73 @@ async def join_raffle_command(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    raffle = get_active_raffle(
-        update.effective_chat.id
+    user = update.effective_user
+
+
+    create_raffle_entry(
+        update.effective_chat.id,
+        user.id,
+        user.first_name,
+        user.username
     )
 
 
-    if not raffle:
+    await update.message.reply_text(
+        f"""
+🎟️ Entry Added!
+
+Good luck {user.first_name}! 🍀
+
+You are now entered into the Melanated AZ raffle.
+"""
+    )
+
+
+
+# ==========================================================
+# CREATE RAFFLE (ADMIN ONLY)
+# ==========================================================
+
+async def create_raffle_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(
+        update.effective_user.id,
+        context
+    ):
 
         await update.message.reply_text(
-            "No active raffle."
+            "❌ Admins only."
         )
 
         return
 
 
 
-    join_raffle(
-        raffle[0],
-        update.effective_user.id,
-        update.effective_user.username,
-        update.effective_user.first_name
+    clear_raffle_entries(
+        update.effective_chat.id
     )
 
 
+
     await update.message.reply_text(
-        "✅ You have been entered into the raffle!"
+        """
+🎟️ New Raffle Started!
+
+Everyone can enter using:
+
+/joinraffle
+
+Good luck! 🍀
+"""
     )
 
 
 
 # ==========================================================
-# DRAW WINNER
+# DRAW RAFFLE (ADMIN ONLY)
 # ==========================================================
 
 async def draw_raffle(
@@ -152,15 +165,14 @@ async def draw_raffle(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    raffle = get_active_raffle(
-        update.effective_chat.id
-    )
 
-
-    if not raffle:
+    if not is_admin(
+        update.effective_user.id,
+        context
+    ):
 
         await update.message.reply_text(
-            "No active raffle."
+            "❌ Admins only."
         )
 
         return
@@ -168,14 +180,16 @@ async def draw_raffle(
 
 
     entries = get_raffle_entries(
-        raffle[0]
+        update.effective_chat.id
     )
+
 
 
     if not entries:
 
+
         await update.message.reply_text(
-            "No entries yet."
+            "❌ No raffle entries."
         )
 
         return
@@ -187,21 +201,21 @@ async def draw_raffle(
     )
 
 
-    close_raffle(
-        raffle[0]
-    )
-
 
     await update.message.reply_text(
         f"""
 🎉 RAFFLE WINNER 🎉
 
-Congratulations {winner[2]}!
+👑 {winner['first_name']}
 
-You won:
+Congratulations!
 
-{raffle[1]}
-
-🔥
+Thank you everyone who participated.
 """
+    )
+
+
+
+    clear_raffle_entries(
+        update.effective_chat.id
     )
