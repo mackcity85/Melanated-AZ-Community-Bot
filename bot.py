@@ -1,117 +1,71 @@
 # ==========================================================
-# Melanated AZ Bot
 # bot.py
+# Melanated AZ Bot v3
 # ==========================================================
 
-import os
 import logging
 import threading
-
+import asyncio
 
 from flask import Flask
-from dotenv import load_dotenv
-
 
 from telegram import Update
-
-
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    ChatMemberHandler,
     ContextTypes,
     filters
 )
 
+from config import BOT_TOKEN
 
 
+# Database
 from database import (
     initialize_database,
-    update_member
+    create_raffle_tables
 )
 
 
-
+# Features
 from welcome import (
     welcome_new_member,
-    intro,
-    help_command
+    profile_check,
+    intro
 )
-
-
-
-from rules import rules
-
-
-
-from birthdays import (
-    birthday,
-    birthday_help
-)
-
-
-
-from birthday_scheduler import birthday_check
-
-
-from activity_scheduler import activity_check
-
-
 
 from raffle import (
-    raffle,
-    join_raffle_command,
-    create_raffle_command,
-    draw_raffle
+    start_raffle,
+    join_raffle,
+    raffle_entries,
+    raffle_winner,
+    end_raffle
 )
 
 
-
 # ==========================================================
-# CONFIG
+# LOGGING
 # ==========================================================
-
-load_dotenv()
-
-
-TOKEN = os.getenv(
-    "BOT_TOKEN"
-)
-
-
-
-ADMIN_IDS = [
-
-    int(x)
-
-    for x in os.getenv(
-        "ADMIN_IDS",
-        ""
-    ).split(",")
-
-    if x
-
-]
-
-
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
+logger = logging.getLogger(__name__)
 
 
 # ==========================================================
 # FLASK HEALTH CHECK
 # ==========================================================
 
-flask_app = Flask(__name__)
+app = Flask(__name__)
 
 
-
-@flask_app.route("/")
-def health():
+@app.route("/")
+def home():
 
     return "Melanated AZ Bot is running"
 
@@ -119,52 +73,15 @@ def health():
 
 def run_flask():
 
-    port = int(
-        os.getenv(
-            "PORT",
-            10000
-        )
-    )
-
-
-    flask_app.run(
+    app.run(
         host="0.0.0.0",
-        port=port
+        port=10000
     )
 
 
 
 # ==========================================================
-# BACKGROUND TASKS
-# ==========================================================
-
-async def post_init(
-    application
-):
-
-    application.bot_data["ADMIN_IDS"] = ADMIN_IDS
-
-
-
-    application.create_task(
-        birthday_check(application)
-    )
-
-
-    application.create_task(
-        activity_check(application)
-    )
-
-
-
-    logging.info(
-        "Background schedulers started"
-    )
-
-
-
-# ==========================================================
-# START COMMAND
+# BASIC COMMANDS
 # ==========================================================
 
 async def start(
@@ -172,133 +89,71 @@ async def start(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    await update.message.reply_text(
+        "👑 Melanated AZ Bot Online\n\n"
+        "Commands:\n"
+        "/rules - View community rules\n"
+        "/intro - Create introduction\n"
+        "/help - Show commands\n"
+        "/birthday - Birthday settings\n"
+        "/activities - Community activities\n"
+    )
+
+
+
+async def help_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     await update.message.reply_text(
-        """
-🔥 Melanated AZ Bot Online 🔥
+        "👑 Melanated AZ Commands\n\n"
 
+        "Community:\n"
+        "/rules\n"
+        "/intro\n"
+        "/birthday\n"
+        "/activities\n\n"
 
-Commands:
+        "Raffle:\n"
+        "/joinraffle\n"
+        "/raffleentries\n\n"
 
-
-📜 Rules
-/rules
-
-
-❓ Help
-/help
-
-
-👋 Introduction
-/intro
-
-
-🎂 Birthday
-/birthday MM-DD
-
-
-🎟️ Raffle
-/raffle
-
-
-Welcome to Melanated AZ 👑
-"""
+        "Admin:\n"
+        "/startraffle\n"
+        "/rafflewinner\n"
+        "/endraffle"
     )
 
 
 
 # ==========================================================
-# MEMBER ACTIVITY TRACKER
+# ERROR HANDLER
 # ==========================================================
 
-async def activity_tracker(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+async def error_handler(
+    update,
+    context
 ):
 
-
-    if update.effective_user and update.effective_chat:
-
-
-        update_member(
-
-            update.effective_user.id,
-
-            update.effective_chat.id,
-
-            update.effective_user.username,
-
-            update.effective_user.first_name
-
-        )
-
-
-
-# ==========================================================
-# MEDIA SPOILER PROTECTION
-# ==========================================================
-
-async def media_check(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-
-    message = update.message
-
-
-    if not message:
-        return
-
-
-
-    has_media = (
-
-        message.photo
-        or message.video
-        or message.animation
-        or message.document
-
+    logger.error(
+        "Exception:",
+        exc_info=context.error
     )
 
 
 
-    if has_media:
+# ==========================================================
+# STARTUP
+# ==========================================================
 
+async def post_init(
+    application
+):
 
-        if not message.has_media_spoiler:
-
-
-            try:
-
-
-                await message.delete()
-
-
-
-                await context.bot.send_message(
-
-                    chat_id=message.chat.id,
-
-                    text=(
-
-                        f"⚠️ {message.from_user.first_name}, "
-
-                        "please use Telegram Spoiler protection "
-                        "for photos and videos."
-
-                    )
-
-                )
-
-
-            except Exception as e:
-
-
-                logging.error(
-                    f"Media protection error: {e}"
-                )
-
+    logger.info(
+        "Melanated AZ Bot started"
+    )
 
 
 # ==========================================================
@@ -307,48 +162,35 @@ async def media_check(
 
 def main():
 
-
-    if not TOKEN:
-
-        raise Exception(
-            "BOT_TOKEN missing"
-        )
-
-
+    # Database startup
 
     initialize_database()
 
+    create_raffle_tables()
 
 
-    threading.Thread(
+    # Flask thread
 
+    flask_thread = threading.Thread(
         target=run_flask,
-
         daemon=True
+    )
 
-    ).start()
+    flask_thread.start()
 
 
 
     application = (
-
         Application
-
         .builder()
-
-        .token(TOKEN)
-
+        .token(BOT_TOKEN)
         .post_init(post_init)
-
         .build()
-
     )
 
 
 
-    # -------------------------
     # Commands
-    # -------------------------
 
     application.add_handler(
         CommandHandler(
@@ -360,16 +202,18 @@ def main():
 
     application.add_handler(
         CommandHandler(
-            "rules",
-            rules
+            "help",
+            help_command
         )
     )
 
 
+    # Welcome
+
     application.add_handler(
-        CommandHandler(
-            "help",
-            help_command
+        MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS,
+            welcome_new_member
         )
     )
 
@@ -383,35 +227,12 @@ def main():
 
 
 
-    # -------------------------
-    # Birthdays
-    # -------------------------
-
-    application.add_handler(
-        CommandHandler(
-            "birthday",
-            birthday
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "birthdayhelp",
-            birthday_help
-        )
-    )
-
-
-
-    # -------------------------
     # Raffle
-    # -------------------------
 
     application.add_handler(
         CommandHandler(
-            "raffle",
-            raffle
+            "startraffle",
+            start_raffle
         )
     )
 
@@ -419,86 +240,38 @@ def main():
     application.add_handler(
         CommandHandler(
             "joinraffle",
-            join_raffle_command
+            join_raffle
         )
     )
 
 
     application.add_handler(
         CommandHandler(
-            "createraffle",
-            create_raffle_command
+            "raffleentries",
+            raffle_entries
         )
     )
 
 
     application.add_handler(
         CommandHandler(
-            "drawraffle",
-            draw_raffle
+            "rafflewinner",
+            raffle_winner
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "endraffle",
+            end_raffle
         )
     )
 
 
 
-    # -------------------------
-    # Welcome
-    # -------------------------
-
-    application.add_handler(
-
-        MessageHandler(
-
-            filters.StatusUpdate.NEW_CHAT_MEMBERS,
-
-            welcome_new_member
-
-        )
-
-    )
-
-
-
-    # -------------------------
-    # Media Protection
-    # -------------------------
-
-    application.add_handler(
-
-        MessageHandler(
-
-            filters.PHOTO
-            |
-            filters.VIDEO
-            |
-            filters.ANIMATION
-            |
-            filters.Document.ALL,
-
-            media_check
-
-        )
-
-    )
-
-
-
-    # -------------------------
-    # Activity Logging
-    # -------------------------
-
-    application.add_handler(
-
-        MessageHandler(
-
-            filters.ALL,
-
-            activity_tracker
-
-        ),
-
-        group=10
-
+    application.add_error_handler(
+        error_handler
     )
 
 
