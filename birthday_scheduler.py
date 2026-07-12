@@ -1,22 +1,46 @@
+# ==========================================================
+# Melanated AZ Bot
+# birthday_scheduler.py
+# ==========================================================
+
 import asyncio
 import logging
 from datetime import datetime
 
-from database import get_birthdays_today
+
+from database import (
+    get_birthdays_today
+)
 
 
-logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
 
 
-async def birthday_check(application):
 
-    logging.info("Birthday scheduler started")
+# ==========================================================
+# BIRTHDAY CHECK LOOP
+# ==========================================================
 
-    try:
+async def birthday_check(
+    application
+):
 
-        while True:
 
-            today = datetime.now().strftime("%m/%d")
+    logger.info(
+        "Birthday scheduler started"
+    )
+
+
+    while True:
+
+        try:
+
+
+            today = datetime.now().strftime(
+                "%m-%d"
+            )
+
 
 
             birthdays = get_birthdays_today(
@@ -24,34 +48,68 @@ async def birthday_check(application):
             )
 
 
-            for chat_id, user_id, name in birthdays:
+
+            for birthday in birthdays:
+
 
                 try:
 
+
                     await application.bot.send_message(
-                        chat_id=chat_id,
+
+                        chat_id=birthday["chat_id"],
+
                         text=(
-                            f"🎂 Happy Birthday {name}! 🎉\n\n"
-                            "Wishing you an amazing day from everyone at Melanated AZ!"
+
+                            "🎂🎉 Happy Birthday "
+                            f"{birthday['first_name']}! 🎉🎂\n\n"
+
+                            "Everyone at Melanated AZ "
+                            "wishes you an amazing day!\n\n"
+
+                            "👑 Enjoy your day and celebrate!"
+
                         )
+
                     )
+
 
                 except Exception as e:
 
-                    logging.error(
+
+                    logger.error(
                         f"Birthday message error: {e}"
                     )
 
+
+
+            # Wait 24 hours
 
             await asyncio.sleep(
                 86400
             )
 
 
-    except asyncio.CancelledError:
 
-        logging.info(
-            "Birthday scheduler stopped cleanly"
-        )
+        except asyncio.CancelledError:
 
-        raise
+
+            logger.info(
+                "Birthday scheduler stopped"
+            )
+
+            break
+
+
+
+        except Exception as e:
+
+
+            logger.error(
+                f"Birthday scheduler error: {e}"
+            )
+
+
+            await asyncio.sleep(
+                300
+            )
