@@ -3,15 +3,12 @@
 # bot.py
 # ==========================================================
 
-
 import os
 import logging
 import threading
 
 
 from flask import Flask
-
-
 from dotenv import load_dotenv
 
 
@@ -34,6 +31,7 @@ from database import (
 )
 
 
+
 from welcome import (
     welcome_new_member,
     intro,
@@ -41,7 +39,17 @@ from welcome import (
 )
 
 
+
 from rules import rules
+
+
+
+from raffle import (
+    raffle,
+    join_raffle_command,
+    create_raffle_command,
+    draw_raffle
+)
 
 
 
@@ -57,10 +65,37 @@ TOKEN = os.getenv(
 )
 
 
+
+# Admin Telegram IDs
+# Add yours in .env
+
+ADMIN_IDS = [
+    int(x)
+    for x in os.getenv(
+        "ADMIN_IDS",
+        ""
+    ).split(",")
+    if x
+]
+
+
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
+
+
+
+# ==========================================================
+# ADMIN CHECK
+# ==========================================================
+
+def is_admin(
+    user_id
+):
+
+    return user_id in ADMIN_IDS
 
 
 
@@ -90,6 +125,7 @@ def run_flask():
         )
     )
 
+
     flask_app.run(
         host="0.0.0.0",
         port=port
@@ -98,7 +134,7 @@ def run_flask():
 
 
 # ==========================================================
-# START COMMAND
+# START
 # ==========================================================
 
 async def start(
@@ -117,13 +153,17 @@ Commands:
 /rules
 /help
 /intro
+
+🎲 Activities
+🎂 Birthdays
+🎟️ Raffles
 """
     )
 
 
 
 # ==========================================================
-# TRACK MEMBERS
+# MEMBER ACTIVITY TRACKING
 # ==========================================================
 
 async def activity_tracker(
@@ -158,11 +198,14 @@ async def media_check(
         return
 
 
+
     has_media = (
+
         message.photo
         or message.video
         or message.animation
         or message.document
+
     )
 
 
@@ -181,7 +224,7 @@ async def media_check(
                     chat_id=message.chat.id,
                     text=(
                         f"⚠️ {message.from_user.first_name}, "
-                        "please use Telegram spoiler protection "
+                        "please use Telegram Spoiler protection "
                         "for photos and videos."
                     )
                 )
@@ -190,7 +233,7 @@ async def media_check(
             except Exception as e:
 
                 logging.error(
-                    e
+                    f"Media error: {e}"
                 )
 
 
@@ -201,11 +244,13 @@ async def media_check(
 
 def main():
 
+
     if not TOKEN:
 
         raise Exception(
             "BOT_TOKEN missing"
         )
+
 
 
     initialize_database()
@@ -220,13 +265,19 @@ def main():
 
 
     application = (
+
         Application
         .builder()
         .token(TOKEN)
         .build()
+
     )
 
 
+
+    # --------------------------
+    # Commands
+    # --------------------------
 
     application.add_handler(
         CommandHandler(
@@ -261,6 +312,47 @@ def main():
 
 
 
+    # --------------------------
+    # Raffles
+    # --------------------------
+
+    application.add_handler(
+        CommandHandler(
+            "raffle",
+            raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "joinraffle",
+            join_raffle_command
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "createraffle",
+            create_raffle_command
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "drawraffle",
+            draw_raffle
+        )
+    )
+
+
+
+    # --------------------------
+    # Welcome New Members
+    # --------------------------
+
     application.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
@@ -269,6 +361,10 @@ def main():
     )
 
 
+
+    # --------------------------
+    # Media Protection
+    # --------------------------
 
     application.add_handler(
         MessageHandler(
@@ -281,6 +377,10 @@ def main():
     )
 
 
+
+    # --------------------------
+    # Activity Tracking
+    # --------------------------
 
     application.add_handler(
         MessageHandler(
