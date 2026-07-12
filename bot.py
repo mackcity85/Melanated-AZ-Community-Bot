@@ -24,10 +24,12 @@ from telegram.ext import (
 )
 
 
+
 from database import (
     initialize_database,
     update_member
 )
+
 
 
 from welcome import (
@@ -37,7 +39,9 @@ from welcome import (
 )
 
 
+
 from rules import rules
+
 
 
 from birthdays import (
@@ -46,7 +50,12 @@ from birthdays import (
 )
 
 
+
 from birthday_scheduler import birthday_check
+
+
+from activity_scheduler import activity_check
+
 
 
 from raffle import (
@@ -68,6 +77,7 @@ load_dotenv()
 TOKEN = os.getenv(
     "BOT_TOKEN"
 )
+
 
 
 ADMIN_IDS = [
@@ -103,9 +113,7 @@ flask_app = Flask(__name__)
 @flask_app.route("/")
 def health():
 
-    return (
-        "Melanated AZ Bot is running"
-    )
+    return "Melanated AZ Bot is running"
 
 
 
@@ -127,7 +135,7 @@ def run_flask():
 
 
 # ==========================================================
-# STARTUP TASKS
+# BACKGROUND TASKS
 # ==========================================================
 
 async def post_init(
@@ -137,19 +145,26 @@ async def post_init(
     application.bot_data["ADMIN_IDS"] = ADMIN_IDS
 
 
+
     application.create_task(
         birthday_check(application)
     )
 
 
+    application.create_task(
+        activity_check(application)
+    )
+
+
+
     logging.info(
-        "Background tasks started"
+        "Background schedulers started"
     )
 
 
 
 # ==========================================================
-# COMMANDS
+# START COMMAND
 # ==========================================================
 
 async def start(
@@ -157,16 +172,21 @@ async def start(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+
     await update.message.reply_text(
         """
 🔥 Melanated AZ Bot Online 🔥
 
 
-Available Commands:
+Commands:
 
 
 📜 Rules
 /rules
+
+
+❓ Help
+/help
 
 
 👋 Introduction
@@ -181,24 +201,21 @@ Available Commands:
 /raffle
 
 
-❓ Help
-/help
-
-
-Welcome to the community 👑
+Welcome to Melanated AZ 👑
 """
     )
 
 
 
 # ==========================================================
-# ACTIVITY TRACKING
+# MEMBER ACTIVITY TRACKER
 # ==========================================================
 
 async def activity_tracker(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+
 
     if update.effective_user and update.effective_chat:
 
@@ -226,6 +243,7 @@ async def media_check(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+
     message = update.message
 
 
@@ -237,14 +255,12 @@ async def media_check(
     has_media = (
 
         message.photo
-
         or message.video
-
         or message.animation
-
         or message.document
 
     )
+
 
 
     if has_media:
@@ -255,7 +271,9 @@ async def media_check(
 
             try:
 
+
                 await message.delete()
+
 
 
                 await context.bot.send_message(
@@ -266,7 +284,8 @@ async def media_check(
 
                         f"⚠️ {message.from_user.first_name}, "
 
-                        "media must be posted using Telegram spoiler protection."
+                        "please use Telegram Spoiler protection "
+                        "for photos and videos."
 
                     )
 
@@ -275,8 +294,9 @@ async def media_check(
 
             except Exception as e:
 
+
                 logging.error(
-                    f"Media removal error: {e}"
+                    f"Media protection error: {e}"
                 )
 
 
@@ -293,6 +313,7 @@ def main():
         raise Exception(
             "BOT_TOKEN missing"
         )
+
 
 
     initialize_database()
@@ -325,9 +346,9 @@ def main():
 
 
 
-    # --------------------------
-    # Basic Commands
-    # --------------------------
+    # -------------------------
+    # Commands
+    # -------------------------
 
     application.add_handler(
         CommandHandler(
@@ -362,9 +383,9 @@ def main():
 
 
 
-    # --------------------------
-    # Birthday
-    # --------------------------
+    # -------------------------
+    # Birthdays
+    # -------------------------
 
     application.add_handler(
         CommandHandler(
@@ -383,9 +404,9 @@ def main():
 
 
 
-    # --------------------------
+    # -------------------------
     # Raffle
-    # --------------------------
+    # -------------------------
 
     application.add_handler(
         CommandHandler(
@@ -420,9 +441,9 @@ def main():
 
 
 
-    # --------------------------
+    # -------------------------
     # Welcome
-    # --------------------------
+    # -------------------------
 
     application.add_handler(
 
@@ -438,20 +459,20 @@ def main():
 
 
 
-    # --------------------------
+    # -------------------------
     # Media Protection
-    # --------------------------
+    # -------------------------
 
     application.add_handler(
 
         MessageHandler(
 
-            filters.PHOTO |
-
-            filters.VIDEO |
-
-            filters.ANIMATION |
-
+            filters.PHOTO
+            |
+            filters.VIDEO
+            |
+            filters.ANIMATION
+            |
             filters.Document.ALL,
 
             media_check
@@ -462,9 +483,9 @@ def main():
 
 
 
-    # --------------------------
-    # Activity Tracking
-    # --------------------------
+    # -------------------------
+    # Activity Logging
+    # -------------------------
 
     application.add_handler(
 
@@ -489,9 +510,7 @@ def main():
 
 
     application.run_polling(
-
         drop_pending_updates=True
-
     )
 
 
