@@ -15,10 +15,39 @@ from database import (
 from birthday_scheduler import birthday_check
 from activity_scheduler import activity_check
 
+
 from admin import (
     announce,
-    botstatus
+    botstatus,
+    members
 )
+
+
+from pin_cleanup import (
+    pinmessage,
+    unpinold,
+    pin_cleanup_task
+)
+
+
+from welcome import (
+    welcome_new_member,
+    intro
+)
+
+
+from trivia import (
+    trivia,
+    trivia_answer
+)
+
+
+from truth_dare import (
+    truth,
+    dare
+)
+
+
 
 from telegram import Update
 from telegram.ext import (
@@ -26,8 +55,10 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ContextTypes,
+    ChatMemberHandler,
     filters
 )
+
 
 
 # ==========================================================
@@ -56,13 +87,15 @@ flask_app = Flask(__name__)
 @flask_app.route("/")
 def health():
 
-    return "Melanated AZ Bot is running. Media Spoiler and Birthdays"
+    return "Melanated AZ Bot is running"
 
 
 
 def run_flask():
 
-    port = int(os.getenv("PORT", 10000))
+    port = int(
+        os.getenv("PORT", 10000)
+    )
 
     flask_app.run(
         host="0.0.0.0",
@@ -72,7 +105,7 @@ def run_flask():
 
 
 # ==========================================================
-# COMMANDS
+# BASIC COMMANDS
 # ==========================================================
 
 async def start(
@@ -81,13 +114,12 @@ async def start(
 ):
 
     await update.message.reply_text(
-        "🔥 Melanated AZ Bot is online.\n\n"
-        "🛡 Media spoiler protection active\n"
-        "🎂 Birthday system active\n"
-        "👋 Activity tracking active\n\n"
-        "Commands:\n"
-        "/rules\n"
-        "/birthday MM/DD"
+        "🔥 Melanated AZ Bot Online\n\n"
+        "🛡 Spoiler Protection\n"
+        "🎂 Birthdays\n"
+        "👋 Welcome System\n"
+        "🎲 Games Active\n\n"
+        "Use /rules"
     )
 
 
@@ -100,16 +132,16 @@ async def rules(
     await update.message.reply_text(
         "📜 Melanated AZ Rules\n\n"
         "1. Respect everyone.\n"
-        "2. No harassment, bullying, or drama.\n"
+        "2. No harassment or drama.\n"
         "3. Adults only community.\n"
         "4. Follow admin instructions.\n"
-        "5. Photos/videos must use Telegram spoiler protection."
+        "5. Media must use spoiler protection."
     )
 
 
 
 # ==========================================================
-# BIRTHDAY COMMAND
+# BIRTHDAY
 # ==========================================================
 
 async def birthday(
@@ -120,13 +152,10 @@ async def birthday(
     if not context.args:
 
         await update.message.reply_text(
-            "🎂 Usage:\n/birthday MM/DD\n\nExample:\n/birthday 07/12"
+            "Use:\n/birthday MM/DD"
         )
 
         return
-
-
-    birthday_date = context.args[0]
 
 
     update_member(
@@ -140,7 +169,7 @@ async def birthday(
     save_birthday(
         update.effective_user.id,
         update.effective_chat.id,
-        birthday_date
+        context.args[0]
     )
 
 
@@ -151,7 +180,7 @@ async def birthday(
 
 
 # ==========================================================
-# MEMBER ACTIVITY TRACKING
+# ACTIVITY TRACKING
 # ==========================================================
 
 async def track_activity(
@@ -159,7 +188,7 @@ async def track_activity(
     context
 ):
 
-    if update.effective_user and update.effective_chat:
+    if update.effective_user:
 
         update_member(
             update.effective_user.id,
@@ -171,7 +200,7 @@ async def track_activity(
 
 
 # ==========================================================
-# MEDIA SPOILER PROTECTION
+# SPOILER PROTECTION
 # ==========================================================
 
 async def media_check(
@@ -186,7 +215,7 @@ async def media_check(
         return
 
 
-    has_media = (
+    media = (
 
         message.photo or
         message.video or
@@ -196,7 +225,7 @@ async def media_check(
     )
 
 
-    if has_media:
+    if media:
 
         if not message.has_media_spoiler:
 
@@ -204,29 +233,26 @@ async def media_check(
 
                 await message.delete()
 
-
                 await context.bot.send_message(
-                    chat_id=message.chat.id,
+                    chat_id=update.effective_chat.id,
                     text=(
-                        f"⚠️ {message.from_user.first_name}, "
-                        "media must use Telegram spoiler protection."
+                        "⚠️ Media removed.\n"
+                        "Please use Telegram spoiler protection."
                     )
                 )
 
-
             except Exception as e:
 
-                logging.error(
-                    f"Media error: {e}"
-                )
+                logging.error(e)
 
 
 
 # ==========================================================
-# BACKGROUND TASKS
+# STARTUP TASKS
 # ==========================================================
 
 async def startup(application):
+
 
     asyncio.create_task(
         birthday_check(application)
@@ -238,6 +264,11 @@ async def startup(application):
     )
 
 
+    asyncio.create_task(
+        pin_cleanup_task(application)
+    )
+
+
 
 # ==========================================================
 # MAIN
@@ -245,10 +276,11 @@ async def startup(application):
 
 def main():
 
+
     if not TOKEN:
 
         raise Exception(
-            "BOT_TOKEN is missing"
+            "BOT_TOKEN missing"
         )
 
 
@@ -258,7 +290,9 @@ def main():
     ).start()
 
 
+
     initialize_database()
+
 
 
     application = (
@@ -270,9 +304,8 @@ def main():
     )
 
 
-    # --------------------------
-    # User Commands
-    # --------------------------
+
+    # Commands
 
     application.add_handler(
         CommandHandler(
@@ -298,10 +331,6 @@ def main():
     )
 
 
-    # --------------------------
-    # Admin Commands
-    # --------------------------
-
     application.add_handler(
         CommandHandler(
             "announce",
@@ -318,9 +347,87 @@ def main():
     )
 
 
-    # --------------------------
-    # Media Protection
-    # --------------------------
+    application.add_handler(
+        CommandHandler(
+            "members",
+            members
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "pinmessage",
+            pinmessage
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "unpinold",
+            unpinold
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "intro",
+            intro
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "trivia",
+            trivia
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "truth",
+            truth
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "dare",
+            dare
+        )
+    )
+
+
+
+    # Welcome new members
+
+    application.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS,
+            welcome_new_member
+        )
+    )
+
+
+
+    # Trivia answers
+
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT,
+            trivia_answer
+        ),
+        group=1
+    )
+
+
+
+    # Media
 
     application.add_handler(
         MessageHandler(
@@ -333,21 +440,21 @@ def main():
     )
 
 
-    # --------------------------
-    # Activity Tracking
-    # --------------------------
+
+    # Activity
 
     application.add_handler(
         MessageHandler(
             filters.ALL,
             track_activity
         ),
-        group=1
+        group=2
     )
 
 
+
     print(
-        "Melanated AZ Bot is running. Media Spoiler and Birthdays"
+        "Melanated AZ Bot is running"
     )
 
 
