@@ -1,8 +1,13 @@
+# ==========================================================
+# Melanated AZ Bot
+# database.py
+# ==========================================================
+
 import sqlite3
-from datetime import datetime
+import logging
 
 
-DB_NAME = "melanated_az.db"
+DATABASE = "melanatedaz.db"
 
 
 
@@ -12,7 +17,9 @@ DB_NAME = "melanated_az.db"
 
 def get_db():
 
-    return sqlite3.connect(DB_NAME)
+    return sqlite3.connect(
+        DATABASE
+    )
 
 
 
@@ -23,10 +30,10 @@ def get_db():
 def initialize_database():
 
     conn = get_db()
+
     cursor = conn.cursor()
 
 
-    # Members
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS members
@@ -35,37 +42,65 @@ def initialize_database():
         chat_id INTEGER,
         username TEXT,
         first_name TEXT,
-        joined_date TEXT,
-        last_active TEXT,
-        birthday TEXT,
-
+        joined_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY(user_id, chat_id)
     )
     """)
 
 
 
-    # Pins
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS birthdays
+    (
+        user_id INTEGER,
+        chat_id INTEGER,
+        birthday TEXT,
+        first_name TEXT
+    )
+    """)
+
+
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS pins
+    CREATE TABLE IF NOT EXISTS raffles
     (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER,
-        message_id INTEGER,
-        description TEXT,
-        pinned_date TEXT
+        title TEXT,
+        active INTEGER DEFAULT 1,
+        created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS raffle_entries
+    (
+        raffle_id INTEGER,
+        user_id INTEGER,
+        username TEXT,
+        first_name TEXT,
+        joined_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
 
 
     conn.commit()
+
     conn.close()
+
+
+    logging.info(
+        "Database initialized"
+    )
 
 
 
 # ==========================================================
-# UPDATE MEMBER
+# MEMBER UPDATE
 # ==========================================================
 
 def update_member(
@@ -76,322 +111,246 @@ def update_member(
 ):
 
     conn = get_db()
-    cursor = conn.cursor()
 
-
-    now = datetime.now().strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-
-    cursor.execute("""
-    INSERT INTO members
-    (
-        user_id,
-        chat_id,
-        username,
-        first_name,
-        joined_date,
-        last_active
-    )
-
-    VALUES (?, ?, ?, ?, ?, ?)
-
-    ON CONFLICT(user_id, chat_id)
-
-    DO UPDATE SET
-
-        username=?,
-        first_name=?,
-        last_active=?
-
-    """,
-    (
-        user_id,
-        chat_id,
-        username,
-        first_name,
-        now,
-        now,
-        username,
-        first_name,
-        now
-    ))
-
-
-    conn.commit()
-    conn.close()
-
-
-
-# ==========================================================
-# SAVE BIRTHDAY
-# ==========================================================
-
-def save_birthday(
-    user_id,
-    chat_id,
-    birthday
-):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-    UPDATE members
-
-    SET birthday=?
-
-    WHERE user_id=?
-    AND chat_id=?
-
-    """,
-    (
-        birthday,
-        user_id,
-        chat_id
-    ))
-
-
-    conn.commit()
-    conn.close()
-
-
-
-# ==========================================================
-# GET BIRTHDAYS
-# ==========================================================
-
-def get_birthdays_today(
-    birthday
-):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-    SELECT
-        chat_id,
-        user_id,
-        first_name
-
-    FROM members
-
-    WHERE birthday=?
-
-    """,
-    (
-        birthday,
-    ))
-
-
-    results = cursor.fetchall()
-
-    conn.close()
-
-    return results
-
-
-
-# ==========================================================
-# MEMBER COUNT
-# ==========================================================
-
-def get_member_count():
-
-    conn = get_db()
     cursor = conn.cursor()
 
 
     cursor.execute(
-        "SELECT COUNT(*) FROM members"
-    )
-
-
-    count = cursor.fetchone()[0]
-
-
-    conn.close()
-
-    return count
-
-
-
-# ==========================================================
-# ACTIVE MEMBERS
-# ==========================================================
-
-def get_active_members(
-    cutoff
-):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-    SELECT
-        user_id,
-        chat_id,
-        first_name
-
-    FROM members
-
-    WHERE last_active >= ?
-
-    """,
-    (
-        cutoff,
-    ))
-
-
-    results = cursor.fetchall()
-
-    conn.close()
-
-    return results
-
-
-
-# ==========================================================
-# INACTIVE MEMBERS
-# ==========================================================
-
-def get_inactive_members(
-    cutoff
-):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-    SELECT
-        user_id,
-        chat_id,
-        first_name
-
-    FROM members
-
-    WHERE last_active < ?
-
-    """,
-    (
-        cutoff,
-    ))
-
-
-    results = cursor.fetchall()
-
-    conn.close()
-
-    return results
-
-
-
-# ==========================================================
-# SAVE PIN
-# ==========================================================
-
-def save_pin(
-    chat_id,
-    message_id,
-    description
-):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-    INSERT INTO pins
-    (
-        chat_id,
-        message_id,
-        description,
-        pinned_date
-    )
-
-    VALUES (?, ?, ?, ?)
-
-    """,
-    (
-        chat_id,
-        message_id,
-        description,
-        datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
+        """
+        INSERT INTO members
+        (
+            user_id,
+            chat_id,
+            username,
+            first_name
         )
-    ))
+
+        VALUES (?,?,?,?)
+
+        ON CONFLICT(user_id,chat_id)
+
+        DO UPDATE SET
+
+        last_active=CURRENT_TIMESTAMP
+
+        """,
+
+        (
+            user_id,
+            chat_id,
+            username,
+            first_name
+        )
+    )
 
 
     conn.commit()
+
     conn.close()
 
 
 
 # ==========================================================
-# GET OLD PINS
+# RAFFLE FUNCTIONS
 # ==========================================================
 
-def get_old_pins(
-    cutoff
+def create_raffle(
+    chat_id,
+    title
 ):
 
     conn = get_db()
+
     cursor = conn.cursor()
 
 
-    cursor.execute("""
-    SELECT
-        chat_id,
-        message_id
+    cursor.execute(
+        """
+        UPDATE raffles
 
-    FROM pins
+        SET active = 0
 
-    WHERE pinned_date < ?
+        WHERE chat_id=?
 
-    """,
-    (
-        cutoff.strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
-    ))
+        """,
+        (
+            chat_id,
+        )
+    )
+
+
+    cursor.execute(
+        """
+        INSERT INTO raffles
+        (
+            chat_id,
+            title
+        )
+
+        VALUES (?,?)
+
+        """,
+
+        (
+            chat_id,
+            title
+        )
+    )
+
+
+    raffle_id = cursor.lastrowid
+
+
+    conn.commit()
+
+    conn.close()
+
+
+    return raffle_id
+
+
+
+def get_active_raffle(
+    chat_id
+):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        SELECT id,title
+
+        FROM raffles
+
+        WHERE chat_id=?
+        AND active=1
+
+        ORDER BY id DESC
+
+        LIMIT 1
+
+        """,
+
+        (
+            chat_id,
+        )
+    )
+
+
+    result = cursor.fetchone()
+
+
+    conn.close()
+
+
+    return result
+
+
+
+def join_raffle(
+    raffle_id,
+    user_id,
+    username,
+    first_name
+):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        INSERT INTO raffle_entries
+        (
+            raffle_id,
+            user_id,
+            username,
+            first_name
+        )
+
+        VALUES (?,?,?,?)
+
+        """,
+
+        (
+            raffle_id,
+            user_id,
+            username,
+            first_name
+        )
+    )
+
+
+    conn.commit()
+
+    conn.close()
+
+
+
+def get_raffle_entries(
+    raffle_id
+):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        SELECT user_id,username,first_name
+
+        FROM raffle_entries
+
+        WHERE raffle_id=?
+
+        """,
+
+        (
+            raffle_id,
+        )
+    )
 
 
     results = cursor.fetchall()
 
+
     conn.close()
+
 
     return results
 
 
 
-# ==========================================================
-# REMOVE PIN RECORD
-# ==========================================================
-
-def remove_pin(
-    message_id
+def close_raffle(
+    raffle_id
 ):
 
     conn = get_db()
+
     cursor = conn.cursor()
 
 
-    cursor.execute("""
-    DELETE FROM pins
+    cursor.execute(
+        """
+        UPDATE raffles
 
-    WHERE message_id=?
+        SET active=0
 
-    """,
-    (
-        message_id,
-    ))
+        WHERE id=?
+
+        """,
+
+        (
+            raffle_id,
+        )
+    )
 
 
     conn.commit()
-    conn.close()
 
+    conn.close()
