@@ -7,7 +7,8 @@ from flask import Flask
 
 from database import (
     initialize_database,
-    update_member
+    update_member,
+    save_birthday
 )
 
 from telegram import Update
@@ -35,7 +36,7 @@ logging.basicConfig(
 
 
 # ==========================================================
-# FLASK HEALTH CHECK (RENDER)
+# FLASK HEALTH CHECK
 # ==========================================================
 
 flask_app = Flask(__name__)
@@ -70,7 +71,8 @@ async def start(
     await update.message.reply_text(
         "🔥 Melanated AZ Bot is online.\n\n"
         "Media spoiler protection is active.\n"
-        "Use /rules to view group rules."
+        "Use /rules for group rules.\n"
+        "Use /birthday MM/DD to save your birthday."
     )
 
 
@@ -87,6 +89,40 @@ async def rules(
         "3. Adults only community.\n"
         "4. Follow admin instructions.\n"
         "5. Photos/videos must use Telegram spoiler protection."
+    )
+
+
+
+# ==========================================================
+# BIRTHDAY COMMAND
+# ==========================================================
+
+async def birthday(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "🎂 Usage:\n/birthday MM/DD\n\nExample:\n/birthday 07/12"
+        )
+
+        return
+
+
+    birthday_date = context.args[0]
+
+
+    save_birthday(
+        update.effective_user.id,
+        update.effective_chat.id,
+        birthday_date
+    )
+
+
+    await update.message.reply_text(
+        "🎂 Birthday saved!"
     )
 
 
@@ -169,14 +205,12 @@ def main():
         )
 
 
-    # Start Render health server
     threading.Thread(
         target=run_flask,
         daemon=True
     ).start()
 
 
-    # Create database tables
     initialize_database()
 
 
@@ -189,6 +223,7 @@ def main():
 
 
     # Commands
+
     application.add_handler(
         CommandHandler(
             "start",
@@ -205,7 +240,16 @@ def main():
     )
 
 
+    application.add_handler(
+        CommandHandler(
+            "birthday",
+            birthday
+        )
+    )
+
+
     # Media protection
+
     application.add_handler(
         MessageHandler(
             filters.PHOTO |
@@ -217,7 +261,8 @@ def main():
     )
 
 
-    # Track member activity
+    # Activity tracking
+
     application.add_handler(
         MessageHandler(
             filters.ALL,
@@ -239,4 +284,4 @@ def main():
 if __name__ == "__main__":
 
     main()
-```
+
