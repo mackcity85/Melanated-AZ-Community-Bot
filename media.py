@@ -2,7 +2,6 @@
 # Melanated AZ Bot
 # media.py
 # Photo / Video Spoiler Protection
-# GIFs Allowed
 # ==========================================================
 
 import asyncio
@@ -23,15 +22,9 @@ How to send with Spoiler:
 3️⃣ Choose "Hide with Spoiler"
 4️⃣ Send again
 
-✅ GIFs are allowed
-
 Thank you for helping keep Melanated AZ organized.
 """
 
-
-# ==========================================================
-# DELETE WARNING AFTER 30 SECONDS
-# ==========================================================
 
 async def remove_warning(message):
 
@@ -44,10 +37,6 @@ async def remove_warning(message):
         pass
 
 
-
-# ==========================================================
-# MEDIA CHECK
-# ==========================================================
 
 async def check_media(
     update: Update,
@@ -73,7 +62,7 @@ async def check_media(
 
 
 
-    # Photos
+    # Photo
 
     if message.photo:
 
@@ -81,73 +70,43 @@ async def check_media(
 
 
 
-    # Videos
+    # Video
 
-    elif message.video:
+    if message.video:
 
         blocked = True
 
 
 
-    # Videos sent as files
-
-    elif message.document:
-
-        mime = message.document.mime_type or ""
-
-        if mime.startswith("video/"):
-
-            blocked = True
-
-
-
-    # GIFs/animations allowed
-
-
-
     if not blocked:
-
         return
 
 
 
     try:
 
+        # Send warning first
 
-        chat_id = message.chat.id
+        warning = await context.bot.send_message(
+            chat_id=message.chat.id,
+            text=WARNING_MESSAGE
+        )
 
 
-
-        # Delete bad media first
+        # Delete media
 
         await message.delete()
 
 
 
-        # Send warning
-
-        warning = await context.bot.send_message(
-
-            chat_id=chat_id,
-
-            text=WARNING_MESSAGE
-
-        )
-
-
-        # Remove warning after 30 seconds
+        # Delete warning after 30 seconds
 
         asyncio.create_task(
-
-            remove_warning(
-                warning
-            )
-
+            remove_warning(warning)
         )
 
 
     except Exception as e:
-
 
         print(
             f"Media restriction error: {e}"
