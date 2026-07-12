@@ -758,13 +758,61 @@ async def welcome_new_member(
         user = member.user
 
 
-        await context.bot.send_message(
+        name = (
+    user.first_name
+    or user.username
+    or "there"
+)
 
-            chat_id=update.effective_chat.id,
+await context.bot.send_message(
+    chat_id=update.effective_chat.id,
+    text=f"""
+👋 Welcome to Melanated AZ, {name}! 👑
 
-            text=WELCOME_MESSAGE
+We're happy to have you here.
 
-        )
+This space was created for networking, connection, good energy, and meeting like-minded adults.
+
+Before participating:
+
+📸 Profile picture required.
+
+Please introduce yourself with:
+
+• Name
+• Age
+• Location
+• Status
+• What you're here for
+• DMs Open or Closed
+
+━━━━━━━━━━━━━━━
+
+⚠️ MEDIA SPOILER REQUIREMENT ⚠️
+
+All photos and videos must use:
+
+👁 Hide With Spoiler
+
+📱 Mobile
+1. Select your photo/video
+2. Open options
+3. Choose Hide With Spoiler
+4. Send
+
+💻 Desktop
+1. Attach your media
+2. Right-click the preview
+3. Choose Hide With Spoiler
+4. Send
+
+━━━━━━━━━━━━━━━
+
+Have fun, be respectful, and enjoy the community!
+
+❤️ Welcome, {name}!
+"""
+)
 
 
         update_activity(
