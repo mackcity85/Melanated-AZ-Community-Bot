@@ -1,64 +1,57 @@
 import asyncio
+import logging
 from datetime import datetime
 
 from database import get_birthdays_today
 
 
-# ==========================================================
-# DAILY BIRTHDAY CHECK
-# ==========================================================
+logging.basicConfig(level=logging.INFO)
+
 
 async def birthday_check(application):
 
-    while True:
+    logging.info("Birthday scheduler started")
 
-        today = datetime.now().strftime(
-            "%m/%d"
-        )
+    try:
 
+        while True:
 
-        birthdays = get_birthdays_today(
-            today
-        )
+            today = datetime.now().strftime("%m/%d")
 
 
-        for birthday in birthdays:
-
-            chat_id = birthday[0]
-            first_name = birthday[2]
-            username = birthday[3]
+            birthdays = get_birthdays_today(
+                today
+            )
 
 
-            if username:
+            for chat_id, user_id, name in birthdays:
 
-                name = f"@{username}"
+                try:
 
-            else:
-
-                name = first_name
-
-
-            try:
-
-                await application.bot.send_message(
-                    chat_id=chat_id,
-                    text=(
-                        f"🎂 Happy Birthday {name}!\n\n"
-                        "The Melanated AZ family wishes "
-                        "you an amazing birthday! 🎉"
+                    await application.bot.send_message(
+                        chat_id=chat_id,
+                        text=(
+                            f"🎂 Happy Birthday {name}! 🎉\n\n"
+                            "Wishing you an amazing day from everyone at Melanated AZ!"
+                        )
                     )
-                )
+
+                except Exception as e:
+
+                    logging.error(
+                        f"Birthday message error: {e}"
+                    )
 
 
-            except Exception as e:
-
-                print(
-                    f"Birthday notification error: {e}"
-                )
+            await asyncio.sleep(
+                86400
+            )
 
 
-        # Run once every 24 hours
+    except asyncio.CancelledError:
 
-        await asyncio.sleep(
-            86400
+        logging.info(
+            "Birthday scheduler stopped cleanly"
         )
+
+        raise
