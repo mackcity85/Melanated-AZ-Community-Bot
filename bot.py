@@ -13,6 +13,7 @@ from database import (
 )
 
 from birthday_scheduler import birthday_check
+from activity_scheduler import activity_check
 
 from telegram import Update
 from telegram.ext import (
@@ -73,10 +74,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🔥 Melanated AZ Bot is online.\n\n"
-        "Media spoiler protection is active.\n\n"
         "Commands:\n"
         "/rules\n"
-        "/birthday MM/DD"
+        "/birthday MM/DD\n\n"
+        "Media spoiler protection active."
     )
 
 
@@ -86,10 +87,10 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📜 Melanated AZ Rules\n\n"
         "1. Respect everyone.\n"
-        "2. No harassment or drama.\n"
+        "2. No harassment, bullying, or drama.\n"
         "3. Adults only community.\n"
         "4. Follow admin instructions.\n"
-        "5. Use spoiler protection for media."
+        "5. Photos/videos must use Telegram spoiler protection."
     )
 
 
@@ -134,10 +135,13 @@ async def birthday(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================================
-# MEMBER ACTIVITY TRACKING
+# ACTIVITY TRACKING
 # ==========================================================
 
-async def track_activity(update, context):
+async def track_activity(
+    update,
+    context
+):
 
     if update.effective_user and update.effective_chat:
 
@@ -154,7 +158,10 @@ async def track_activity(update, context):
 # MEDIA SPOILER PROTECTION
 # ==========================================================
 
-async def media_check(update, context):
+async def media_check(
+    update,
+    context
+):
 
     message = update.message
 
@@ -181,6 +188,7 @@ async def media_check(update, context):
 
                 await message.delete()
 
+
                 await context.bot.send_message(
                     chat_id=message.chat.id,
                     text=(
@@ -192,7 +200,9 @@ async def media_check(update, context):
 
             except Exception as e:
 
-                logging.error(e)
+                logging.error(
+                    f"Media error: {e}"
+                )
 
 
 
@@ -204,6 +214,11 @@ async def startup(application):
 
     asyncio.create_task(
         birthday_check(application)
+    )
+
+
+    asyncio.create_task(
+        activity_check(application)
     )
 
 
@@ -295,4 +310,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-
