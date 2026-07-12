@@ -64,8 +64,10 @@ from raffle import (
 
 from trivia import trivia
 
-from truth_dare import truth_or_dare
-
+from truth_dare import (
+    truth,
+    dare
+)
 
 
 # ==========================================================
@@ -78,7 +80,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
 
 
 # ==========================================================
@@ -108,7 +109,6 @@ def run_web():
     )
 
 
-
 # ==========================================================
 # STARTUP MESSAGE
 # ==========================================================
@@ -124,7 +124,8 @@ async def startup_message(application):
                 text=
                 "🟢 Melanated AZ Bot is online\n\n"
                 "🛡 Media Protection Active\n"
-                "🎂 Birthday System Active"
+                "🎂 Birthday System Active\n"
+                "🔥 Truth or Dare Active"
             )
 
         except Exception as e:
@@ -134,13 +135,11 @@ async def startup_message(application):
             )
 
 
-
 # ==========================================================
 # MAIN
 # ==========================================================
 
 def main():
-
 
     Thread(
         target=run_web,
@@ -148,9 +147,7 @@ def main():
     ).start()
 
 
-
     init_birthdays()
-
 
 
     application = (
@@ -160,7 +157,6 @@ def main():
         .post_init(startup_message)
         .build()
     )
-
 
 
     # =========================
@@ -211,7 +207,15 @@ def main():
     application.add_handler(
         CommandHandler(
             "truth",
-            truth_or_dare
+            truth
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "dare",
+            dare
         )
     )
 
@@ -240,7 +244,6 @@ def main():
     )
 
 
-
     # =========================
     # MEDIA PROTECTION
     # PHOTOS + VIDEOS ONLY
@@ -255,7 +258,6 @@ def main():
     )
 
 
-
     # =========================
     # WELCOME
     # =========================
@@ -268,11 +270,9 @@ def main():
     )
 
 
-
     print(
         "🟢 Melanated AZ Bot Started"
     )
-
 
 
     application.run_polling(
