@@ -5,7 +5,6 @@
 
 import logging
 import threading
-import asyncio
 
 from flask import Flask
 
@@ -14,7 +13,6 @@ from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
-    ChatMemberHandler,
     ContextTypes,
     filters
 )
@@ -29,19 +27,35 @@ from database import (
 )
 
 
-# Features
+# Welcome
 from welcome import (
     welcome_new_member,
-    profile_check,
     intro
 )
 
+
+# Rules
+from rules import rules
+
+
+# Raffle
 from raffle import (
     start_raffle,
     join_raffle,
     raffle_entries,
     raffle_winner,
     end_raffle
+)
+
+
+# Admin
+from admin import (
+    announce,
+    purge,
+    kick,
+    ban,
+    mute,
+    unmute
 )
 
 
@@ -81,7 +95,7 @@ def run_flask():
 
 
 # ==========================================================
-# BASIC COMMANDS
+# COMMANDS
 # ==========================================================
 
 async def start(
@@ -90,13 +104,21 @@ async def start(
 ):
 
     await update.message.reply_text(
-        "👑 Melanated AZ Bot Online\n\n"
-        "Commands:\n"
-        "/rules - View community rules\n"
-        "/intro - Create introduction\n"
-        "/help - Show commands\n"
-        "/birthday - Birthday settings\n"
-        "/activities - Community activities\n"
+        "👑 Welcome to Melanated AZ\n\n"
+
+        "Commands:\n\n"
+
+        "/rules - Community guidelines\n"
+        "/intro - Introduce yourself\n"
+        "/help - Show commands\n\n"
+
+        "Activities:\n"
+        "/birthday\n"
+        "/activities\n\n"
+
+        "Raffle:\n"
+        "/joinraffle\n"
+        "/raffleentries"
     )
 
 
@@ -107,22 +129,32 @@ async def help_command(
 ):
 
     await update.message.reply_text(
-        "👑 Melanated AZ Commands\n\n"
+        """
+👑 Melanated AZ Commands
 
-        "Community:\n"
-        "/rules\n"
-        "/intro\n"
-        "/birthday\n"
-        "/activities\n\n"
+Community:
+ /rules
+ /intro
+ /birthday
+ /activities
 
-        "Raffle:\n"
-        "/joinraffle\n"
-        "/raffleentries\n\n"
+Raffle:
+ /joinraffle
+ /raffleentries
 
-        "Admin:\n"
-        "/startraffle\n"
-        "/rafflewinner\n"
-        "/endraffle"
+Admin:
+ /announce
+ /purge
+ /kick
+ /ban
+ /mute
+ /unmute
+
+Admin Raffle:
+ /startraffle
+ /rafflewinner
+ /endraffle
+"""
     )
 
 
@@ -137,23 +169,10 @@ async def error_handler(
 ):
 
     logger.error(
-        "Exception:",
+        "Bot Error:",
         exc_info=context.error
     )
 
-
-
-# ==========================================================
-# STARTUP
-# ==========================================================
-
-async def post_init(
-    application
-):
-
-    logger.info(
-        "Melanated AZ Bot started"
-    )
 
 
 # ==========================================================
@@ -162,7 +181,6 @@ async def post_init(
 
 def main():
 
-    # Database startup
 
     initialize_database()
 
@@ -184,13 +202,11 @@ def main():
         Application
         .builder()
         .token(BOT_TOKEN)
-        .post_init(post_init)
         .build()
     )
 
 
-
-    # Commands
+    # Basic commands
 
     application.add_handler(
         CommandHandler(
@@ -208,12 +224,10 @@ def main():
     )
 
 
-    # Welcome
-
     application.add_handler(
-        MessageHandler(
-            filters.StatusUpdate.NEW_CHAT_MEMBERS,
-            welcome_new_member
+        CommandHandler(
+            "rules",
+            rules
         )
     )
 
@@ -226,8 +240,19 @@ def main():
     )
 
 
+    # Welcome
 
-    # Raffle
+    application.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS,
+            welcome_new_member
+        )
+    )
+
+
+    # ======================================================
+    # RAFFLE
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -270,16 +295,67 @@ def main():
 
 
 
+    # ======================================================
+    # ADMIN
+    # ======================================================
+
+    application.add_handler(
+        CommandHandler(
+            "announce",
+            announce
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "purge",
+            purge
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "kick",
+            kick
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "ban",
+            ban
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "mute",
+            mute
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "unmute",
+            unmute
+        )
+    )
+
+
+
     application.add_error_handler(
         error_handler
     )
 
 
-
     print(
         "Melanated AZ Bot is running"
     )
-
 
 
     application.run_polling(
