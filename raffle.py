@@ -12,26 +12,24 @@ from telegram.ext import ContextTypes
 from admin import is_admin
 
 
+# ==========================================================
+# TEMP RAFFLE STORAGE
+# Will move to database.py
+# ==========================================================
+
 raffle_data = {
+
     "active": False,
     "prize": "",
     "entries": []
+
 }
 
-
-# ==========================================================
-# ADMIN CHECK HELPER
-# ==========================================================
-
-def check_admin(update):
-
-    return is_admin(
-        update.effective_user.id
-    )
 
 
 # ==========================================================
 # START RAFFLE
+# ADMIN ONLY
 # ==========================================================
 
 async def start_raffle(
@@ -39,19 +37,22 @@ async def start_raffle(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not check_admin(update):
+    if not await is_admin(update, context):
 
         await update.message.reply_text(
             "❌ Admins only."
         )
+
         return
 
 
     if not context.args:
 
         await update.message.reply_text(
-            "Usage:\n/startraffle Prize Name"
+            "Usage:\n"
+            "/startraffle Prize Name"
         )
+
         return
 
 
@@ -64,18 +65,20 @@ async def start_raffle(
 
 
     await update.message.reply_text(
+
         f"""
 🎟️ RAFFLE STARTED 🎟️
 
 🏆 Prize:
 {prize}
 
-Enter:
+To enter:
  /enter
 
-Good luck!
+Good luck everyone! 🍀
 """
     )
+
 
 
 # ==========================================================
@@ -87,43 +90,55 @@ async def enter_raffle(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+    if not update.effective_user:
+        return
+
+
     user = update.effective_user
 
 
     if not raffle_data["active"]:
 
         await update.message.reply_text(
-            "❌ No active raffle."
+            "❌ There is no active raffle."
         )
+
         return
 
 
-    if any(
-        entry["id"] == user.id
-        for entry in raffle_data["entries"]
-    ):
 
-        await update.message.reply_text(
-            "✅ You are already entered."
-        )
-        return
+    for entry in raffle_data["entries"]:
+
+        if entry["id"] == user.id:
+
+            await update.message.reply_text(
+                "✅ You are already entered."
+            )
+
+            return
+
 
 
     raffle_data["entries"].append(
+
         {
             "id": user.id,
             "name": user.first_name
         }
+
     )
 
 
     await update.message.reply_text(
+
         f"🎟️ {user.first_name}, you are entered!"
+
     )
 
 
+
 # ==========================================================
-# STATUS
+# RAFFLE STATUS
 # ==========================================================
 
 async def raffle_status(
@@ -131,32 +146,40 @@ async def raffle_status(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
+
     if not raffle_data["active"]:
 
         await update.message.reply_text(
-            "No active raffle."
+            "❌ No active raffle."
         )
+
         return
 
 
+
     await update.message.reply_text(
+
         f"""
-🎟️ Current Raffle
+🎟️ CURRENT RAFFLE
 
 🏆 Prize:
-{raffle_data['prize']}
+{raffle_data["prize"]}
 
 👥 Entries:
-{len(raffle_data['entries'])}
+{len(raffle_data["entries"])}
 
-Use:
-/enter
+Type:
+ /enter
+
+to join!
 """
     )
 
 
+
 # ==========================================================
 # DRAW WINNER
+# ADMIN ONLY
 # ==========================================================
 
 async def draw_raffle(
@@ -164,20 +187,35 @@ async def draw_raffle(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not check_admin(update):
+
+    if not await is_admin(update, context):
 
         await update.message.reply_text(
             "❌ Admins only."
         )
+
         return
+
+
+
+    if not raffle_data["active"]:
+
+        await update.message.reply_text(
+            "❌ No active raffle."
+        )
+
+        return
+
 
 
     if not raffle_data["entries"]:
 
         await update.message.reply_text(
-            "❌ No entries."
+            "❌ No entries yet."
         )
+
         return
+
 
 
     winner = random.choice(
@@ -187,10 +225,13 @@ async def draw_raffle(
 
     prize = raffle_data["prize"]
 
+
     raffle_data["active"] = False
+    raffle_data["entries"] = []
 
 
     await update.message.reply_text(
+
         f"""
 🎉 RAFFLE WINNER 🎉
 
@@ -198,23 +239,42 @@ async def draw_raffle(
 {prize}
 
 👑 Winner:
-{winner['name']}
+{winner["name"]}
 
-Congratulations!
+Congratulations! 🎊
 """
     )
 
 
+
 # ==========================================================
-# BOT IMPORT COMPATIBILITY
+# CANCEL RAFFLE
+# ADMIN ONLY
 # ==========================================================
 
-async def raffle_command(
+async def cancel_raffle(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    await raffle_status(
-        update,
-        context
+
+    if not await is_admin(update, context):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+
+        return
+
+
+
+    raffle_data["active"] = False
+    raffle_data["prize"] = ""
+    raffle_data["entries"] = []
+
+
+    await update.message.reply_text(
+
+        "🛑 Raffle cancelled."
+
     )
