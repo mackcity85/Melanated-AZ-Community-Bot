@@ -593,96 +593,34 @@ def update_activity(user, chat_id):
     conn.commit()
     conn.close()
 # ==========================================================
-# PART 3 - WELCOME SYSTEM & MEDIA PROTECTION
+# PART 3 - WELCOME SYSTEM
 # ==========================================================
-
-
-WELCOME_MESSAGE = """
-👑 Welcome to Melanated AZ 👑
-
-This space was created for networking, connection, good energy, and meeting like-minded adults.
-
-Before participating:
-
-📸 Profile picture required
-
-Please introduce yourself:
-
-• Name
-• Age
-• Location
-• Status
-• What you're here for
-• DMs Open or Closed
-
-
-━━━━━━━━━━━━━━━
-
-⚠️ MEDIA SPOILER REQUIREMENT ⚠️
-
-All photos and videos must be sent using:
-
-👁 Hide With Spoiler
-
-
-📱 Mobile:
-
-1. Select photo/video
-2. Open media options
-3. Choose "Hide With Spoiler"
-4. Send
-
-
-💻 Desktop:
-
-1. Select media
-2. Right-click preview
-3. Choose "Hide With Spoiler"
-4. Send
-
-
-━━━━━━━━━━━━━━━
-
-Remember:
-
-Consent • Respect • Communication • Accountability
-
-Enjoy the room! ❤️👑
-"""
-
-
 
 MEDIA_WARNING = """
-⚠️ Sorry, your media was removed!⚠️
+⚠️ Sorry, your media was removed!
 
-For everyone's security photos and videos in Melanated AZ must be sent using:
+For everyone's security, all photos and videos must be sent using:
 
 👁 Hide With Spoiler
 
+📱 Mobile
+1. Select your photo or video
+2. Tap the ⋮ menu
+3. Choose "Hide With Spoiler"
+4. Send
 
-📱 Mobile:
+💻 Desktop
+1. Attach your media
+2. Right-click the preview
+3. Choose "Hide With Spoiler"
+4. Send
 
-1️⃣ Select your photo or video
-2️⃣ Tap the ⋮ (three dots) menu
-3️⃣ Select "Hide With Spoiler"
-4️⃣ Send your media
-
-
-💻 Desktop:
-
-1️⃣ Attach your photo or video
-2️⃣ Right-click the media preview
-3️⃣ Select "Hide With Spoiler"
-4️⃣ Send your media
-
-
-Thank you for helping keep Melanated AZ comfortable and respectful for everyone. 👑
-
-Consent • Respect • Communication • Accountability
+Thank you for helping keep Melanated AZ safe and respectful. 👑
 """
 
+
 # ==========================================================
-# AUTO DELETE WARNING MESSAGE
+# AUTO DELETE MEDIA WARNING
 # ==========================================================
 
 async def send_temporary_warning(
@@ -693,50 +631,76 @@ async def send_temporary_warning(
     try:
 
         warning = await context.bot.send_message(
-
             chat_id=chat_id,
-
             text=MEDIA_WARNING
-
         )
-
-
-        logger.info(
-            "Media warning sent"
-        )
-
 
         await asyncio.sleep(60)
 
-
         try:
-
-            await context.bot.delete_message(
-
-                chat_id=chat_id,
-
-                message_id=warning.message_id
-
-            )
-
-
-            logger.info(
-                "✅ Media warning deleted after 60 seconds"
-            )
-
-
-        except Exception as e:
-
-            logger.error(
-                f"❌ Warning delete failed: {e}"
-            )
-
+            await warning.delete()
+        except:
+            pass
 
     except Exception as e:
 
         logger.error(
-            f"❌ Warning send failed: {e}"
+            f"Warning message failed: {e}"
         )
+
+
+# ==========================================================
+# PROFILE PHOTO CHECK
+# ==========================================================
+
+async def check_profile_photo(
+    user,
+    chat_id,
+    context
+):
+
+    try:
+
+        photos = await context.bot.get_user_profile_photos(
+            user.id,
+            limit=1
+        )
+
+        if photos.total_count == 0:
+
+            reminder = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"""
+📸 {user.first_name or "Friend"},
+
+We noticed your Telegram account doesn't have a profile picture.
+
+For everyone's comfort and safety, Melanated AZ requires members to have a profile photo.
+
+Please add one to your Telegram account when you have a chance.
+
+Thank you! 👑❤️
+"""
+            )
+
+            await asyncio.sleep(30)
+
+            try:
+                await reminder.delete()
+            except:
+                pass
+
+            logger.info(
+                f"Profile reminder sent to {user.id}"
+            )
+
+    except Exception as e:
+
+        logger.warning(
+            f"Profile photo check failed: {e}"
+        )
+
+
 # ==========================================================
 # WELCOME NEW MEMBERS
 # ==========================================================
@@ -749,86 +713,89 @@ async def welcome_new_member(
     if not update.chat_member:
         return
 
-
     member = update.chat_member.new_chat_member
 
+    if member.status != "member":
+        return
 
-    if member.status == "member":
+    user = member.user
 
-        user = member.user
+    name = (
+        user.first_name
+        or user.username
+        or "Friend"
+    )
 
-
-        name = (
-    user.first_name
-    or user.username
-    or "there"
-)
-
-await context.bot.send_message(
-    chat_id=update.effective_chat.id,
-    text=f"""
+    welcome = await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"""
 👋 Welcome to Melanated AZ, {name}! 👑
 
-We're happy to have you here.
+We're excited to have you join our community.
 
-This space was created for networking, connection, good energy, and meeting like-minded adults.
+Before participating, please complete a few quick steps.
 
-Before participating:
+━━━━━━━━━━━━━━━
 
-📸 Profile picture required.
+📸 PROFILE PHOTO REQUIRED
 
-Please introduce yourself with:
+Please make sure your Telegram account has a profile picture.
+
+━━━━━━━━━━━━━━━
+
+🙋 INTRODUCE YOURSELF
 
 • Name
 • Age
 • Location
 • Status
-• What you're here for
+• What you're looking for
 • DMs Open or Closed
 
 ━━━━━━━━━━━━━━━
 
-⚠️ MEDIA SPOILER REQUIREMENT ⚠️
+👁 MEDIA RULE
 
-All photos and videos must use:
+All photos and videos must be sent using:
 
-👁 Hide With Spoiler
-
-📱 Mobile
-1. Select your photo/video
-2. Open options
-3. Choose Hide With Spoiler
-4. Send
-
-💻 Desktop
-1. Attach your media
-2. Right-click the preview
-3. Choose Hide With Spoiler
-4. Send
+Hide With Spoiler
 
 ━━━━━━━━━━━━━━━
 
-Have fun, be respectful, and enjoy the community!
+📌 Please review the pinned messages and group rules.
 
-❤️ Welcome, {name}!
+Consent • Respect • Communication • Accountability
+
+Enjoy your stay, {name}! ❤️
 """
-)
+    )
 
+    update_activity(
+        user,
+        update.effective_chat.id
+    )
 
-        update_activity(
+    conn = get_db()
+    cursor = conn.cursor()
 
-            user,
+    cursor.execute("""
+        UPDATE stats
+        SET value=value+1
+        WHERE name='members_joined'
+    """)
 
-            update.effective_chat.id
+    conn.commit()
+    conn.close()
 
-        )
+    await check_profile_photo(
+        user,
+        update.effective_chat.id,
+        context
+    )
 
-
-        logger.info(
-
-            f"Welcomed {user.id}"
-
-        )
+    logger.info(
+        f"Welcomed {user.id}"
+    )
 # ==========================================================
 # TRACK ALL MEMBER ACTIVITY
 # ==========================================================
