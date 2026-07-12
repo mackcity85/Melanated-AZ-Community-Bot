@@ -1,9 +1,11 @@
 # ==========================================================
 # Melanated AZ Bot
 # Media Restriction System
-# Blocks Photos and Videos
-# Allows GIFs
+# Photos/Videos Require Spoiler
+# GIFs Allowed
 # ==========================================================
+
+import asyncio
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -12,18 +14,37 @@ from telegram.ext import ContextTypes
 WARNING_MESSAGE = """
 🚫 Media Removed
 
-Photos and videos must be posted using Telegram's Spoiler feature.
+Photos and videos must be posted using Telegram Spoiler.
 
-To share media:
+How to send:
+
 1️⃣ Select your photo/video
 2️⃣ Tap the ⋮ menu
-3️⃣ Choose "Hide with Spoiler"
-4️⃣ Send it again
+3️⃣ Select "Hide with Spoiler"
+4️⃣ Send again
 
 GIFs are allowed ✅
 
 Thank you for helping keep Melanated AZ organized.
 """
+
+
+async def remove_warning(
+    message
+):
+
+    await asyncio.sleep(
+        30
+    )
+
+    try:
+
+        await message.delete()
+
+    except Exception:
+
+        pass
+
 
 
 async def check_media(
@@ -33,13 +54,16 @@ async def check_media(
 
     message = update.message
 
+
     if not message:
         return
 
 
-    # Allow spoiler protected media
+
+    # Allow spoiler media
 
     if message.has_media_spoiler:
+
         return
 
 
@@ -48,7 +72,7 @@ async def check_media(
 
 
 
-    # Block photos
+    # Photos
 
     if message.photo:
 
@@ -56,7 +80,7 @@ async def check_media(
 
 
 
-    # Block videos
+    # Videos
 
     elif message.video:
 
@@ -64,11 +88,15 @@ async def check_media(
 
 
 
-    # Block video files sent as documents
+    # Video files sent as documents
 
     elif message.document:
 
-        mime = message.document.mime_type or ""
+        mime = (
+            message.document.mime_type
+            or ""
+        )
+
 
         if mime.startswith(
             "video/"
@@ -79,30 +107,47 @@ async def check_media(
 
 
     # GIFs are allowed
-    # message.animation is ignored
+    # Animations are ignored
 
 
 
     if blocked:
 
+
         try:
+
+            # Delete media
 
             await message.delete()
 
 
-            await context.bot.send_message(
+
+            # Send warning
+
+            warning = await context.bot.send_message(
 
                 chat_id=update.effective_chat.id,
 
-                text=WARNING_MESSAGE,
+                text=WARNING_MESSAGE
 
-                reply_to_message_id=message.id
+            )
+
+
+
+            # Delete warning after 30 seconds
+
+            asyncio.create_task(
+
+                remove_warning(
+                    warning
+                )
 
             )
 
 
         except Exception as e:
 
+
             print(
-                f"Media delete error: {e}"
+                f"Media restriction error: {e}"
             )
