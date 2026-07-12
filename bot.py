@@ -24,12 +24,10 @@ from telegram.ext import (
 )
 
 
-
 from database import (
     initialize_database,
     update_member
 )
-
 
 
 from welcome import (
@@ -39,9 +37,16 @@ from welcome import (
 )
 
 
-
 from rules import rules
 
+
+from birthdays import (
+    birthday,
+    birthday_help
+)
+
+
+from birthday_scheduler import birthday_check
 
 
 from raffle import (
@@ -65,17 +70,17 @@ TOKEN = os.getenv(
 )
 
 
-
-# Admin Telegram IDs
-# Add yours in .env
-
 ADMIN_IDS = [
+
     int(x)
+
     for x in os.getenv(
         "ADMIN_IDS",
         ""
     ).split(",")
+
     if x
+
 ]
 
 
@@ -84,18 +89,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
-
-
-
-# ==========================================================
-# ADMIN CHECK
-# ==========================================================
-
-def is_admin(
-    user_id
-):
-
-    return user_id in ADMIN_IDS
 
 
 
@@ -134,7 +127,29 @@ def run_flask():
 
 
 # ==========================================================
-# START
+# STARTUP TASKS
+# ==========================================================
+
+async def post_init(
+    application
+):
+
+    application.bot_data["ADMIN_IDS"] = ADMIN_IDS
+
+
+    application.create_task(
+        birthday_check(application)
+    )
+
+
+    logging.info(
+        "Background tasks started"
+    )
+
+
+
+# ==========================================================
+# COMMANDS
 # ==========================================================
 
 async def start(
@@ -146,24 +161,38 @@ async def start(
         """
 🔥 Melanated AZ Bot Online 🔥
 
-Welcome!
 
-Commands:
+Available Commands:
 
+
+📜 Rules
 /rules
-/help
+
+
+👋 Introduction
 /intro
 
-🎲 Activities
-🎂 Birthdays
-🎟️ Raffles
+
+🎂 Birthday
+/birthday MM-DD
+
+
+🎟️ Raffle
+/raffle
+
+
+❓ Help
+/help
+
+
+Welcome to the community 👑
 """
     )
 
 
 
 # ==========================================================
-# MEMBER ACTIVITY TRACKING
+# ACTIVITY TRACKING
 # ==========================================================
 
 async def activity_tracker(
@@ -171,13 +200,19 @@ async def activity_tracker(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if update.effective_user:
+    if update.effective_user and update.effective_chat:
+
 
         update_member(
+
             update.effective_user.id,
+
             update.effective_chat.id,
+
             update.effective_user.username,
+
             update.effective_user.first_name
+
         )
 
 
@@ -202,8 +237,11 @@ async def media_check(
     has_media = (
 
         message.photo
+
         or message.video
+
         or message.animation
+
         or message.document
 
     )
@@ -221,19 +259,24 @@ async def media_check(
 
 
                 await context.bot.send_message(
+
                     chat_id=message.chat.id,
+
                     text=(
+
                         f"⚠️ {message.from_user.first_name}, "
-                        "please use Telegram Spoiler protection "
-                        "for photos and videos."
+
+                        "media must be posted using Telegram spoiler protection."
+
                     )
+
                 )
 
 
             except Exception as e:
 
                 logging.error(
-                    f"Media error: {e}"
+                    f"Media removal error: {e}"
                 )
 
 
@@ -252,14 +295,16 @@ def main():
         )
 
 
-
     initialize_database()
 
 
 
     threading.Thread(
+
         target=run_flask,
+
         daemon=True
+
     ).start()
 
 
@@ -267,8 +312,13 @@ def main():
     application = (
 
         Application
+
         .builder()
+
         .token(TOKEN)
+
+        .post_init(post_init)
+
         .build()
 
     )
@@ -276,7 +326,7 @@ def main():
 
 
     # --------------------------
-    # Commands
+    # Basic Commands
     # --------------------------
 
     application.add_handler(
@@ -313,7 +363,28 @@ def main():
 
 
     # --------------------------
-    # Raffles
+    # Birthday
+    # --------------------------
+
+    application.add_handler(
+        CommandHandler(
+            "birthday",
+            birthday
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "birthdayhelp",
+            birthday_help
+        )
+    )
+
+
+
+    # --------------------------
+    # Raffle
     # --------------------------
 
     application.add_handler(
@@ -350,14 +421,19 @@ def main():
 
 
     # --------------------------
-    # Welcome New Members
+    # Welcome
     # --------------------------
 
     application.add_handler(
+
         MessageHandler(
+
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
+
             welcome_new_member
+
         )
+
     )
 
 
@@ -367,13 +443,21 @@ def main():
     # --------------------------
 
     application.add_handler(
+
         MessageHandler(
+
             filters.PHOTO |
+
             filters.VIDEO |
+
             filters.ANIMATION |
+
             filters.Document.ALL,
+
             media_check
+
         )
+
     )
 
 
@@ -383,11 +467,17 @@ def main():
     # --------------------------
 
     application.add_handler(
+
         MessageHandler(
+
             filters.ALL,
+
             activity_tracker
+
         ),
+
         group=10
+
     )
 
 
@@ -399,7 +489,9 @@ def main():
 
 
     application.run_polling(
+
         drop_pending_updates=True
+
     )
 
 
