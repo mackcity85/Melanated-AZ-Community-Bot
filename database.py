@@ -1,12 +1,15 @@
 # ==========================================================
-# RAFFLE DATABASE FUNCTIONS
-# Melanated AZ Bot v3
+# Melanated AZ Bot
+# database.py
+# SQLite Database Manager
 # ==========================================================
 
 import sqlite3
+from datetime import datetime, timedelta
 
 
-DATABASE = "melanatedaz.db"
+DB_NAME = "melanatedaz.db"
+
 
 
 # ==========================================================
@@ -16,28 +19,32 @@ DATABASE = "melanatedaz.db"
 def get_db():
 
     return sqlite3.connect(
-        DATABASE
+        DB_NAME
     )
 
 
+
 # ==========================================================
-# CREATE RAFFLE TABLES
+# INITIALIZE DATABASE
 # ==========================================================
 
-def create_raffle_tables():
+def initialize_database():
 
     conn = get_db()
+
     cursor = conn.cursor()
 
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS raffles
+    CREATE TABLE IF NOT EXISTS members
     (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER PRIMARY KEY,
+        username TEXT,
+        first_name TEXT,
         chat_id INTEGER,
-        prize TEXT,
-        active INTEGER DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        joined_date TEXT,
+        last_active TEXT,
+        birthday TEXT
     )
     """)
 
@@ -46,10 +53,9 @@ def create_raffle_tables():
     CREATE TABLE IF NOT EXISTS raffle_entries
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        raffle_id INTEGER,
         user_id INTEGER,
-        name TEXT,
-        UNIQUE(raffle_id,user_id)
+        raffle TEXT,
+        entered_date TEXT
     )
     """)
 
@@ -60,40 +66,60 @@ def create_raffle_tables():
 
 
 # ==========================================================
-# CREATE RAFFLE
+# UPDATE MEMBER ACTIVITY
 # ==========================================================
 
-def create_raffle(
+def update_member(
+    user_id,
     chat_id,
-    prize
+    username,
+    first_name
 ):
 
     conn = get_db()
     cursor = conn.cursor()
 
 
-    # close old raffles
-    cursor.execute("""
-    UPDATE raffles
-    SET active=0
-    WHERE chat_id=?
-    """,
-    (
-        chat_id,
-    ))
+    now = datetime.now().isoformat()
 
 
     cursor.execute("""
-    INSERT INTO raffles
+
+    INSERT INTO members
     (
+        user_id,
+        username,
+        first_name,
         chat_id,
-        prize
+        joined_date,
+        last_active
     )
-    VALUES (?,?)
+
+    VALUES (?,?,?,?,?,?)
+
+    ON CONFLICT(user_id)
+
+    DO UPDATE SET
+
+        username=?,
+        first_name=?,
+        last_active=?
+
     """,
+
     (
+
+        user_id,
+        username,
+        first_name,
         chat_id,
-        prize
+        now,
+        now,
+
+        username,
+        first_name,
+        now
+
     ))
 
 
@@ -103,113 +129,38 @@ def create_raffle(
 
 
 # ==========================================================
-# GET ACTIVE RAFFLE
+# GET INACTIVE MEMBERS
 # ==========================================================
 
-def get_active_raffle(
-    chat_id
+def get_inactive_members(
+    days=30
 ):
 
+    cutoff = (
+        datetime.now()
+        -
+        timedelta(days=days)
+    ).isoformat()
+
+
+
     conn = get_db()
+
     cursor = conn.cursor()
 
 
     cursor.execute("""
-    SELECT *
-    FROM raffles
-    WHERE chat_id=?
-    AND active=1
-    ORDER BY id DESC
-    LIMIT 1
+
+    SELECT user_id,
+           first_name
+
+    FROM members
+
+    WHERE last_active < ?
+
     """,
-    (
-        chat_id,
-    ))
 
-
-    row = cursor.fetchone()
-
-    conn.close()
-
-
-    if row:
-
-        return {
-            "id": row[0],
-            "chat_id": row[1],
-            "prize": row[2]
-        }
-
-
-    return None
-
-
-
-# ==========================================================
-# ADD ENTRY
-# ==========================================================
-
-def add_raffle_entry(
-    raffle_id,
-    user_id,
-    name
-):
-
-    try:
-
-        conn = get_db()
-        cursor = conn.cursor()
-
-
-        cursor.execute("""
-        INSERT INTO raffle_entries
-        (
-            raffle_id,
-            user_id,
-            name
-        )
-        VALUES (?,?,?)
-        """,
-        (
-            raffle_id,
-            user_id,
-            name
-        ))
-
-
-        conn.commit()
-        conn.close()
-
-
-        return True
-
-
-    except sqlite3.IntegrityError:
-
-        return False
-
-
-
-# ==========================================================
-# GET ENTRIES
-# ==========================================================
-
-def get_raffle_entries(
-    raffle_id
-):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-    SELECT user_id,name
-    FROM raffle_entries
-    WHERE raffle_id=?
-    """,
-    (
-        raffle_id,
-    ))
+    (cutoff,))
 
 
     rows = cursor.fetchall()
@@ -217,35 +168,101 @@ def get_raffle_entries(
     conn.close()
 
 
+
     return [
+
         {
-            "user_id": row[0],
-            "name": row[1]
+            "user_id": r[0],
+            "first_name": r[1]
         }
-        for row in rows
+
+        for r in rows
+
     ]
 
 
 
 # ==========================================================
-# CLOSE RAFFLE
+# GET ACTIVE MEMBERS
 # ==========================================================
 
-def close_raffle(
-    chat_id
+def get_active_members(
+    days=30
 ):
 
+    cutoff = (
+        datetime.now()
+        -
+        timedelta(days=days)
+    ).isoformat()
+
+
+
     conn = get_db()
+
     cursor = conn.cursor()
 
 
     cursor.execute("""
-    UPDATE raffles
-    SET active=0
-    WHERE chat_id=?
+
+    SELECT user_id,
+           first_name
+
+    FROM members
+
+    WHERE last_active >= ?
+
     """,
+
+    (cutoff,))
+
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+
+
+    return [
+
+        {
+            "user_id": r[0],
+            "first_name": r[1]
+        }
+
+        for r in rows
+
+    ]
+
+
+
+# ==========================================================
+# SAVE BIRTHDAY
+# ==========================================================
+
+def save_birthday(
+    user_id,
+    birthday
+):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+
+    UPDATE members
+
+    SET birthday=?
+
+    WHERE user_id=?
+
+    """,
+
     (
-        chat_id,
+        birthday,
+        user_id
     ))
 
 
@@ -255,19 +272,50 @@ def close_raffle(
 
 
 # ==========================================================
-# CLEAR ENTRIES
+# GET TODAY BIRTHDAYS
 # ==========================================================
 
-def clear_raffle():
+def get_todays_birthdays():
+
+    today = datetime.now().strftime(
+        "%m-%d"
+    )
+
 
     conn = get_db()
+
     cursor = conn.cursor()
 
 
     cursor.execute("""
-    DELETE FROM raffle_entries
-    """)
+
+    SELECT first_name,
+           birthday
+
+    FROM members
+
+    WHERE birthday LIKE ?
+
+    """,
+
+    (
+        f"%{today}",
+    ))
 
 
-    conn.commit()
+    rows = cursor.fetchall()
+
+
     conn.close()
+
+
+    return [
+
+        {
+            "first_name": r[0],
+            "birthday": r[1]
+        }
+
+        for r in rows
+
+    ]
