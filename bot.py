@@ -56,17 +56,15 @@ from birthdays import (
 
 from rules import rules
 
-
 from raffle import (
     start_raffle,
     draw_raffle,
     cancel_raffle
 )
 
-
 from trivia import trivia
 
-from truth_dare import truth_or_dare
+from truth_dare import truth_dare
 
 
 
@@ -78,7 +76,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +140,7 @@ async def startup_message(application):
 # ==========================================================
 
 def main():
+
 
     Thread(
         target=run_web,
@@ -213,7 +211,7 @@ def main():
     application.add_handler(
         CommandHandler(
             "truth",
-            truth_or_dare
+            truth_dare
         )
     )
 
@@ -278,14 +276,11 @@ def main():
 
 
     application.run_polling(
-        allowed_updates=None
+        allowed_updates=None,
+        drop_pending_updates=True
     )
 
 
-
-# ==========================================================
-# START
-# ==========================================================
 
 if __name__ == "__main__":
 
