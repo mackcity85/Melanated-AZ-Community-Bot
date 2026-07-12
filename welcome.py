@@ -1,6 +1,6 @@
 # ==========================================================
 # Melanated AZ Bot
-# welcome.py
+# Welcome System
 # ==========================================================
 
 from telegram import Update
@@ -9,9 +9,8 @@ from telegram.ext import ContextTypes
 from database import update_member
 
 
-
 # ==========================================================
-# NEW MEMBER WELCOME
+# WELCOME NEW MEMBERS
 # ==========================================================
 
 async def welcome_new_member(
@@ -26,10 +25,11 @@ async def welcome_new_member(
     for member in update.message.new_chat_members:
 
 
-        # Ignore bots joining
+        # Ignore bot accounts
 
         if member.is_bot:
             continue
+
 
 
         update_member(
@@ -40,180 +40,146 @@ async def welcome_new_member(
         )
 
 
+
         welcome_message = f"""
-👑 Welcome to Melanated AZ 👑
+👑 Welcome {member.first_name} to Melanated AZ 👑
 
-Welcome {member.first_name}! 🔥
+🔥 We're glad you joined our community.
 
-This space was created for networking, good vibes, and meeting like-minded adults.
+This is a space for adults to network, connect, socialize, and meet like-minded people.
 
-Please introduce yourself and review our guidelines.
+Before participating, please complete your introduction.
 
 ━━━━━━━━━━━━━━━
 
-📸 PROFILE REQUIREMENTS
+📌 REQUIRED INTRODUCTION
 
-A profile picture is required.
+Please share:
 
-Please introduce yourself with:
-
-• Name
-• Age
-• Location
-• Status
-  (Single, Partnered, Poly, etc.)
-• What you're here for
-• DMs Open or Closed
-
+✅ Name
+✅ Age
+✅ Location
+✅ Status
+   (Single / Partnered / Poly / Other)
+✅ What you're here for
+✅ DMs Open or Closed
 
 Example:
 
 King | 40 | Arizona | Partnered |
-Networking, connections, meeting people |
+Networking, friendships, connections |
 DMs Open
 
-
 ━━━━━━━━━━━━━━━
 
-👑 GROUP GUIDELINES
+📜 IMPORTANT
 
-• Respect everyone
-• Consent is everything
-• No means no
-• Respect boundaries
-• No harassment
-• No unwanted messages
-• No flooding DMs
-• No drama
-• No personal attacks
-• Respect privacy
-• What is shared here stays here
-• Adults only (18+)
-
-
-If someone says no or is not interested,
-respect it and keep it moving.
-
-
-━━━━━━━━━━━━━━━
-
-🆘 BOT HELP
-
-Need help?
-
-/help
-
-
-📜 View rules:
+Please review:
 
 /rules
 
+Community standards:
 
-👋 Introduce yourself:
-
-/intro Your introduction
-
-
-━━━━━━━━━━━━━━━
-
-🎉 COMMUNITY ACTIVITIES
-
-Join the fun:
-
-🎲 Trivia
-
-/trivia
-
-
-🔥 Truth or Dare
-
-/truth
-
-/dare
-
-
-🎂 Birthdays
-
-Save your birthday:
-
-/birthday MM/DD
-
-
-🎟️ Raffles
-
-View active raffle:
-
-/raffle
-
-
-Enter a raffle:
-
-/joinraffle
-
+✅ Respect everyone
+✅ Respect boundaries
+✅ No harassment
+✅ No unwanted DMs
+✅ No drama
+✅ Adults 18+ only
+✅ Protect privacy
 
 ━━━━━━━━━━━━━━━
 
-🔒 MEDIA SPOILER GUIDE
+🔒 MEDIA SPOILERS
 
-Sensitive photos and videos must use Telegram Spoiler protection.
+Photos and videos must use Telegram spoiler protection.
 
-📸 Hide Photos/Videos:
+How to hide media:
 
-1. Attach your photo or video
+📸 Photos/Videos:
 
-2. Tap the ⋮ menu
+1️⃣ Attach media
+2️⃣ Tap the ⋮ menu
+3️⃣ Select:
 
-3. Select:
+👁 Hide with Spoiler
 
-"Hide with Spoiler"
+4️⃣ Send
 
-4. Send your message
+Text spoilers:
 
-
-📝 Hide Text:
-
-1. Type your message
-
-2. Highlight the text
-
-3. Select:
-
-"Spoiler"
-
-4. Send
-
-
-Spoilers help everyone control what they view.
+1️⃣ Highlight text
+2️⃣ Select "Spoiler"
+3️⃣ Send
 
 ━━━━━━━━━━━━━━━
 
-👑 ADMIN NOTE
+🎉 COMMUNITY FEATURES
 
-Admins reserve the right to remove anyone whose behavior negatively impacts:
+Available commands:
 
-• Safety
-• Privacy
-• Respect
-• The atmosphere of the group
+📜 /rules
+View group guidelines
 
+🎂 /birthday
+Save your birthday
 
-I have no personal ties to anyone here.
-I'm getting to know everyone just like everyone else.
+🎲 /activities
+View group activities
 
-This is a place for adults to connect,
-network, communicate, and enjoy the community.
+🎟 /raffle
+Join upcoming giveaways
+
+❓ /help
+See all commands
 
 ━━━━━━━━━━━━━━━
+
+👑 Have fun, introduce yourself, and enjoy the room!
 
 Consent • Respect • Communication • Accountability
-
-🔥 Welcome to Melanated AZ 🔥
 """
 
 
         await update.message.reply_text(
             welcome_message
         )
+
+
+
+# ==========================================================
+# INTRO COMMAND
+# ==========================================================
+
+async def intro(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not update.message:
+        return
+
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage:\n\n"
+            "/intro Your introduction"
+        )
+
+        return
+
+
+
+    intro_text = " ".join(
+        context.args
+    )
+
+
+    await update.message.reply_text(
+        "✅ Introduction received!\n\n"
+        f"{intro_text}"
+    )
 
 
 
@@ -244,8 +210,8 @@ async def profile_check(
         if photos.total_count == 0:
 
             await update.message.reply_text(
-                f"📸 {user.first_name}, "
-                "please add a profile picture "
+                f"👋 {user.first_name},\n\n"
+                "Please add a profile picture "
                 "to complete your community profile."
             )
 
@@ -253,92 +219,3 @@ async def profile_check(
     except Exception:
 
         pass
-
-
-
-# ==========================================================
-# INTRO COMMAND
-# ==========================================================
-
-async def intro(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not context.args:
-
-        await update.message.reply_text(
-            """
-👋 Introduce yourself!
-
-Please include:
-
-• Name
-• Age
-• Location
-• Status
-• What you're here for
-• DMs Open or Closed
-
-
-Example:
-
-King | 40 | Arizona | Partnered |
-Networking and meeting like-minded people |
-DMs Open
-"""
-        )
-
-        return
-
-
-    introduction = " ".join(
-        context.args
-    )
-
-
-    await update.message.reply_text(
-        "✅ Introduction received!\n\n"
-        f"{introduction}"
-    )
-
-
-
-# ==========================================================
-# HELP COMMAND
-# ==========================================================
-
-async def help_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    await update.message.reply_text(
-        """
-🆘 Melanated AZ Help
-
-📜 Rules
-/rules
-
-👋 Introduction
-/intro
-
-🎲 Trivia
-/trivia
-
-🔥 Truth or Dare
-/truth
-/dare
-
-🎂 Birthday
-/birthday MM/DD
-
-🎟️ Raffle
-/raffle
-/joinraffle
-
-
-Need an admin?
-Contact the moderators.
-"""
-    )
