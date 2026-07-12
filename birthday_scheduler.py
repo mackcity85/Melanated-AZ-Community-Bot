@@ -1,115 +1,130 @@
 # ==========================================================
 # Melanated AZ Bot
-# birthday_scheduler.py
+# birthdays.py
 # ==========================================================
 
-import asyncio
-import logging
-from datetime import datetime
+from telegram import Update
+from telegram.ext import ContextTypes
 
-
-from database import (
-    get_birthdays_today
-)
-
-
-
-logger = logging.getLogger(__name__)
-
+from database import save_birthday
 
 
 # ==========================================================
-# BIRTHDAY CHECK LOOP
+# SAVE BIRTHDAY
 # ==========================================================
 
-async def birthday_check(
-    application
+async def birthday(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
+    user = update.effective_user
+    chat = update.effective_chat
 
-    logger.info(
-        "Birthday scheduler started"
+
+    if not context.args:
+
+        await update.message.reply_text(
+            """
+🎂 Birthday Setup
+
+Use:
+
+/birthday MM-DD
+
+Example:
+
+/birthday 07-25
+
+Your birthday will be saved for community shoutouts.
+"""
+        )
+
+        return
+
+
+
+    birthday_date = context.args[0]
+
+
+    # Basic format check
+
+    if len(birthday_date) != 5 or birthday_date[2] != "-":
+
+        await update.message.reply_text(
+            "❌ Please use this format:\n\n/birthday MM-DD"
+        )
+
+        return
+
+
+
+    save_birthday(
+
+        user.id,
+
+        chat.id,
+
+        birthday_date,
+
+        user.username,
+
+        user.first_name
+
     )
 
 
-    while True:
 
-        try:
+    await update.message.reply_text(
+        f"""
+🎂 Birthday saved!
 
+{user.first_name}, your birthday has been added.
 
-            today = datetime.now().strftime(
-                "%m-%d"
-            )
-
-
-
-            birthdays = get_birthdays_today(
-                today
-            )
+You will receive a birthday shoutout from Melanated AZ 👑
+"""
+    )
 
 
 
-            for birthday in birthdays:
+# ==========================================================
+# REMOVE BIRTHDAY
+# ==========================================================
 
+async def remove_birthday(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-                try:
+    await update.message.reply_text(
+        """
+🎂 Birthday removal
 
-
-                    await application.bot.send_message(
-
-                        chat_id=birthday["chat_id"],
-
-                        text=(
-
-                            "🎂🎉 Happy Birthday "
-                            f"{birthday['first_name']}! 🎉🎂\n\n"
-
-                            "Everyone at Melanated AZ "
-                            "wishes you an amazing day!\n\n"
-
-                            "👑 Enjoy your day and celebrate!"
-
-                        )
-
-                    )
-
-
-                except Exception as e:
-
-
-                    logger.error(
-                        f"Birthday message error: {e}"
-                    )
+Contact an admin if you would like your birthday removed.
+"""
+    )
 
 
 
-            # Wait 24 hours
+# ==========================================================
+# BIRTHDAY HELP
+# ==========================================================
 
-            await asyncio.sleep(
-                86400
-            )
+async def birthday_help(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
+    await update.message.reply_text(
+        """
+🎂 Birthday Commands
 
+/birthday MM-DD
+Save your birthday
 
-        except asyncio.CancelledError:
+Example:
+/birthday 12-31
 
-
-            logger.info(
-                "Birthday scheduler stopped"
-            )
-
-            break
-
-
-
-        except Exception as e:
-
-
-            logger.error(
-                f"Birthday scheduler error: {e}"
-            )
-
-
-            await asyncio.sleep(
-                300
-            )
+Your birthday will be announced to the group.
+"""
+    )
