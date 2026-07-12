@@ -1,17 +1,14 @@
 # ==========================================================
 # Melanated AZ Bot
-# bot.py
 # Main Bot Controller
 # ==========================================================
 
 import os
-import asyncio
 import logging
 import threading
-
+import asyncio
 
 from flask import Flask
-
 
 from telegram.ext import (
     Application,
@@ -21,10 +18,7 @@ from telegram.ext import (
     filters
 )
 
-
-
 from config import BOT_TOKEN
-
 
 
 # ==========================================================
@@ -33,9 +27,8 @@ from config import BOT_TOKEN
 
 from database import (
     initialize_database,
-    update_activity
+    update_member
 )
-
 
 from welcome import (
     welcome_new_member,
@@ -43,76 +36,40 @@ from welcome import (
     intro
 )
 
+from rules import rules
 
-from rules import (
-    rules
+from admin import (
+    register_admin_commands
 )
-
-
-from activities import (
-    activities,
-    help_command
-)
-
-
-from birthdays import (
-    set_birthday
-)
-
 
 from raffle import (
     start_raffle,
     enter_raffle,
     raffle_status,
-    draw_raffle,
-    cancel_raffle
+    draw_raffle
 )
-
-
-from admin import (
-    admin_commands
-)
-
 
 from trivia import (
     trivia,
     trivia_answer
 )
 
-
 from truth_dare import (
     truth,
     dare
 )
 
-
 from birthday_scheduler import (
-    birthday_check
+    start_birthday_scheduler
 )
-
 
 from activity_scheduler import (
-    activity_check
+    start_activity_scheduler
 )
-
 
 from pin_cleanup import (
     pin_cleanup_task
 )
-
-
-
-# ==========================================================
-# SETTINGS
-# ==========================================================
-
-STARTUP_CHAT_ID = int(
-    os.environ.get(
-        "STARTUP_CHAT_ID",
-        "0"
-    )
-)
-
 
 
 # ==========================================================
@@ -120,16 +77,11 @@ STARTUP_CHAT_ID = int(
 # ==========================================================
 
 logging.basicConfig(
-
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-
     level=logging.INFO
-
 )
 
-
 logger = logging.getLogger(__name__)
-
 
 
 # ==========================================================
@@ -137,7 +89,6 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 app = Flask(__name__)
-
 
 
 @app.route("/")
@@ -150,23 +101,16 @@ def home():
 def run_flask():
 
     port = int(
-
         os.environ.get(
             "PORT",
             10000
         )
-
     )
-
 
     app.run(
-
         host="0.0.0.0",
-
         port=port
-
     )
-
 
 
 # ==========================================================
@@ -179,94 +123,70 @@ async def error_handler(
 ):
 
     logger.error(
-
-        "Bot error",
-
+        "Bot Error",
         exc_info=context.error
-
     )
 
 
-
 # ==========================================================
-# STARTUP TASKS
+# STARTUP
 # ==========================================================
 
 async def startup(
     application: Application
 ):
 
+    # Clear stale Telegram polling sessions
+
+    try:
+
+        await application.bot.get_updates(
+            offset=-1,
+            timeout=1
+        )
+
+    except Exception:
+
+        pass
+
+
 
     await application.bot.delete_webhook(
-
         drop_pending_updates=True
-
     )
 
 
-    print(
+    logger.info(
         "🔥 Melanated AZ Bot is running"
     )
 
 
+    # Start background tasks
 
-    if STARTUP_CHAT_ID:
-
-
-        asyncio.create_task(
-
-            birthday_check(
-
-                application,
-
-                STARTUP_CHAT_ID
-
-            )
-
+    asyncio.create_task(
+        pin_cleanup_task(
+            application
         )
-
-
-        asyncio.create_task(
-
-            activity_check(
-
-                application,
-
-                STARTUP_CHAT_ID
-
-            )
-
-        )
-
-
-        asyncio.create_task(
-
-            pin_cleanup_task(
-
-                application
-
-            )
-
-        )
+    )
 
 
 
 # ==========================================================
-# ACTIVITY TRACKER
+# TRACK MEMBER ACTIVITY
 # ==========================================================
 
-async def track_activity(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE
+async def activity_tracker(
+    update,
+    context
 ):
 
+    if update.effective_user and update.effective_chat:
 
-    if update.effective_user:
-
-        update_activity(
-
-            update.effective_user.id
-
+        update_member(
+            update.effective_user.id,
+            update.effective_chat.id,
+            update.effective_user.username,
+            update.effective_user.first_name
         )
 
 
@@ -281,284 +201,174 @@ def main():
     initialize_database()
 
 
-
     flask_thread = threading.Thread(
-
         target=run_flask,
-
         daemon=True
-
     )
-
 
     flask_thread.start()
 
 
 
     application = (
-
         Application.builder()
-
         .token(BOT_TOKEN)
-
         .post_init(startup)
-
         .build()
-
     )
 
 
-
-    # ======================================================
-    # MEMBER SYSTEM
-    # ======================================================
-
+    # --------------------------
+    # Member Activity
+    # --------------------------
 
     application.add_handler(
-
         MessageHandler(
+            filters.ALL,
+            activity_tracker
+        ),
+        group=-1
+    )
 
+
+    # --------------------------
+    # Welcome
+    # --------------------------
+
+    application.add_handler(
+        MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
-
             welcome_new_member
-
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
-
             "intro",
-
             intro
-
         )
-
     )
 
 
-
-    # ======================================================
-    # COMMANDS
-    # ======================================================
-
-
     application.add_handler(
-
         CommandHandler(
             "rules",
             rules
         )
-
     )
 
 
-    application.add_handler(
+    # --------------------------
+    # Profile Check
+    # --------------------------
 
-        CommandHandler(
-            "help",
-            help_command
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            profile_check
         )
-
     )
 
 
-    application.add_handler(
+    # --------------------------
+    # Admin
+    # --------------------------
 
-        CommandHandler(
-            "activities",
-            activities
-        )
-
+    register_admin_commands(
+        application
     )
 
 
-    application.add_handler(
-
-        CommandHandler(
-            "setbirthday",
-            set_birthday
-        )
-
-    )
-
-
-
-    # ======================================================
-    # RAFFLES
-    # ======================================================
-
+    # --------------------------
+    # Raffle
+    # --------------------------
 
     application.add_handler(
-
-        CommandHandler(
-            "raffle",
-            raffle_status
-        )
-
-    )
-
-
-    application.add_handler(
-
-        CommandHandler(
-            "enter",
-            enter_raffle
-        )
-
-    )
-
-
-    application.add_handler(
-
         CommandHandler(
             "startraffle",
             start_raffle
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
-            "drawraffle",
+            "enter",
+            enter_raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "raffle",
+            raffle_status
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "draw",
             draw_raffle
         )
-
     )
 
 
-    application.add_handler(
-
-        CommandHandler(
-            "cancelraffle",
-            cancel_raffle
-        )
-
-    )
-
-
-
-    # ======================================================
-    # GAMES
-    # ======================================================
-
+    # --------------------------
+    # Trivia
+    # --------------------------
 
     application.add_handler(
-
         CommandHandler(
             "trivia",
             trivia
         )
-
     )
 
 
     application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            trivia_answer
+        )
+    )
 
+
+    # --------------------------
+    # Truth / Dare
+    # --------------------------
+
+    application.add_handler(
         CommandHandler(
             "truth",
             truth
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "dare",
             dare
         )
-
     )
-
-
-
-    # ======================================================
-    # TEXT HANDLERS
-    # ORDER MATTERS
-    # ======================================================
-
-
-    application.add_handler(
-
-        MessageHandler(
-
-            filters.TEXT & ~filters.COMMAND,
-
-            trivia_answer
-
-        )
-
-    )
-
-
-    application.add_handler(
-
-        MessageHandler(
-
-            filters.TEXT & ~filters.COMMAND,
-
-            track_activity
-
-        )
-
-    )
-
-
-    application.add_handler(
-
-        MessageHandler(
-
-            filters.TEXT & ~filters.COMMAND,
-
-            profile_check
-
-        )
-
-    )
-
-
-
-    # ======================================================
-    # ADMIN
-    # ======================================================
-
-
-    application.add_handler(
-
-        CommandHandler(
-            "admin",
-            admin_commands
-        )
-
-    )
-
 
 
     application.add_error_handler(
-
         error_handler
-
     )
 
 
-
     application.run_polling(
-
         drop_pending_updates=True
-
     )
 
 
 
 # ==========================================================
-# START
+# RUN
 # ==========================================================
 
 if __name__ == "__main__":
