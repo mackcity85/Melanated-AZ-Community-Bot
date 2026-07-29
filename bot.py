@@ -58,8 +58,14 @@ from rules import rules
 
 from raffle import (
     start_raffle,
+    enter_raffle,
+    raffle_status,
+    raffle_entries,
     draw_raffle,
-    cancel_raffle
+    reroll_raffle,
+    cancel_raffle,
+    bonus_entry,
+    remove_raffle_entry
 )
 
 from trivia import trivia
