@@ -22,6 +22,7 @@ from telegram.ext import (
 )
 
 
+
 # ==========================================================
 # ENV
 # ==========================================================
@@ -44,6 +45,7 @@ if not TOKEN:
     raise ValueError(
         "BOT_TOKEN missing"
     )
+
 
 
 # ==========================================================
@@ -93,7 +95,8 @@ from trivia import trivia
 
 from truth_dare import (
     truth,
-    dare
+    dare,
+    truthdare_control
 )
 
 
@@ -166,13 +169,11 @@ async def startup_message(application):
                 ),
 
                 text=
-
                 "🟢 Melanated AZ Bot is online\n\n"
                 "🛡 Media Protection Active\n"
                 "🎂 Birthday System Active\n"
                 "🔥 Truth or Dare Active\n"
-                "🎟️ Raffle System Active\n"
-                "💳 Payment Verification Active"
+                "🎟️ Raffle System Active"
 
             )
 
@@ -192,6 +193,7 @@ async def startup_message(application):
 # ==========================================================
 
 def main():
+
 
     Thread(
 
@@ -224,7 +226,7 @@ def main():
 
 
     # ======================================================
-    # START RAFFLE AUTO DRAW
+    # START RAFFLE SCHEDULER
     # ======================================================
 
     start_raffle_scheduler(
@@ -234,7 +236,7 @@ def main():
 
 
     # ======================================================
-    # COMMAND HANDLERS
+    # COMMANDS
     # ======================================================
 
 
@@ -246,12 +248,14 @@ def main():
     )
 
 
+
     application.add_handler(
         CommandHandler(
             "birthday",
             birthday_command
         )
     )
+
 
 
     application.add_handler(
@@ -262,6 +266,7 @@ def main():
     )
 
 
+
     application.add_handler(
         CommandHandler(
             "rules",
@@ -270,12 +275,19 @@ def main():
     )
 
 
+
     application.add_handler(
         CommandHandler(
             "trivia",
             trivia
         )
     )
+
+
+
+    # --------------------------
+    # Truth / Dare
+    # --------------------------
 
 
     application.add_handler(
@@ -294,10 +306,18 @@ def main():
     )
 
 
+    application.add_handler(
+        CommandHandler(
+            "truthdare",
+            truthdare_control
+        )
+    )
 
-    # ======================================================
-    # RAFFLE COMMANDS
-    # ======================================================
+
+
+    # --------------------------
+    # Raffle
+    # --------------------------
 
 
     application.add_handler(
