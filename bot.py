@@ -1,14 +1,17 @@
 # ==========================================================
 # Melanated AZ Bot
+# bot.py
 # Main Launcher
 # ==========================================================
 
 import os
 import logging
+
 from threading import Thread
 
 from dotenv import load_dotenv
 from flask import Flask
+
 
 from telegram.ext import (
     Application,
@@ -19,23 +22,31 @@ from telegram.ext import (
 )
 
 
+
 # ==========================================================
 # ENV
 # ==========================================================
 
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN")
+
+TOKEN = os.getenv(
+    "BOT_TOKEN"
+)
+
 
 STARTUP_CHAT_ID = os.getenv(
     "STARTUP_CHAT_ID"
 )
 
 
+
 if not TOKEN:
+
     raise ValueError(
         "BOT_TOKEN missing"
     )
+
 
 
 # ==========================================================
@@ -48,13 +59,16 @@ from media import check_media
 
 from welcome import welcome
 
+
 from birthdays import (
     init_birthdays,
     birthday_command,
     birthday_check
 )
 
+
 from rules import rules
+
 
 from raffle import (
     start_raffle,
@@ -68,7 +82,9 @@ from raffle import (
     remove_raffle_entry
 )
 
+
 from trivia import trivia
+
 
 from truth_dare import (
     truth,
@@ -76,16 +92,24 @@ from truth_dare import (
 )
 
 
+
 # ==========================================================
 # LOGGING
 # ==========================================================
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+
+    format=
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+
     level=logging.INFO
+
 )
 
+
 logger = logging.getLogger(__name__)
+
+
 
 
 # ==========================================================
@@ -95,6 +119,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
+
 @app.route("/")
 def home():
 
@@ -102,17 +127,25 @@ def home():
 
 
 
+
 def run_web():
 
     app.run(
+
         host="0.0.0.0",
+
         port=int(
+
             os.getenv(
                 "PORT",
                 10000
             )
+
         )
+
     )
+
+
 
 
 # ==========================================================
@@ -121,24 +154,45 @@ def run_web():
 
 async def startup_message(application):
 
+
     if STARTUP_CHAT_ID:
+
 
         try:
 
+
             await application.bot.send_message(
-                chat_id=int(STARTUP_CHAT_ID),
+
+                chat_id=int(
+                    STARTUP_CHAT_ID
+                ),
+
                 text=
+
                 "🟢 Melanated AZ Bot is online\n\n"
+
                 "🛡 Media Protection Active\n"
+
                 "🎂 Birthday System Active\n"
-                "🔥 Truth or Dare Active"
+
+                "🔥 Truth or Dare Active\n"
+
+                "🎟️ Raffle System Active"
+
             )
+
 
         except Exception as e:
 
+
             logger.warning(
+
                 f"Startup message failed: {e}"
+
             )
+
+
+
 
 
 # ==========================================================
@@ -147,107 +201,223 @@ async def startup_message(application):
 
 def main():
 
+
+
     Thread(
+
         target=run_web,
+
         daemon=True
+
     ).start()
+
 
 
     init_birthdays()
 
 
+
     application = (
+
         Application
+
         .builder()
+
         .token(TOKEN)
+
         .post_init(startup_message)
+
         .build()
+
     )
 
 
-    # =========================
-    # COMMANDS
-    # =========================
 
+
+    # =========================
+    # ADMIN
+    # =========================
 
     application.add_handler(
+
         CommandHandler(
             "admin",
             admin_commands
         )
+
     )
 
 
+
+
+    # =========================
+    # BIRTHDAYS
+    # =========================
+
     application.add_handler(
+
         CommandHandler(
             "birthday",
             birthday_command
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "birthdaycheck",
             birthday_check
         )
+
     )
 
 
+
+
+    # =========================
+    # COMMUNITY
+    # =========================
+
     application.add_handler(
+
         CommandHandler(
             "rules",
             rules
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "trivia",
             trivia
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "truth",
             truth
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
             "dare",
             dare
         )
+
     )
 
 
+
+
+
+    # =========================
+    # RAFFLE SYSTEM
+    # =========================
+
     application.add_handler(
+
         CommandHandler(
             "startraffle",
             start_raffle
         )
+
     )
 
 
     application.add_handler(
+
+        CommandHandler(
+            "enter",
+            enter_raffle
+        )
+
+    )
+
+
+    application.add_handler(
+
+        CommandHandler(
+            "rafflestatus",
+            raffle_status
+        )
+
+    )
+
+
+    application.add_handler(
+
+        CommandHandler(
+            "entries",
+            raffle_entries
+        )
+
+    )
+
+
+    application.add_handler(
+
         CommandHandler(
             "drawraffle",
             draw_raffle
         )
+
     )
 
 
     application.add_handler(
+
+        CommandHandler(
+            "reroll",
+            reroll_raffle
+        )
+
+    )
+
+
+    application.add_handler(
+
         CommandHandler(
             "cancelraffle",
             cancel_raffle
         )
+
     )
+
+
+    application.add_handler(
+
+        CommandHandler(
+            "bonus",
+            bonus_entry
+        )
+
+    )
+
+
+    application.add_handler(
+
+        CommandHandler(
+            "removeentry",
+            remove_raffle_entry
+        )
+
+    )
+
+
+
 
 
     # =========================
@@ -256,12 +426,20 @@ def main():
     # =========================
 
     application.add_handler(
+
         MessageHandler(
+
             filters.PHOTO | filters.VIDEO,
+
             check_media
+
         ),
+
         group=0
+
     )
+
+
 
 
     # =========================
@@ -269,22 +447,37 @@ def main():
     # =========================
 
     application.add_handler(
+
         ChatMemberHandler(
+
             welcome,
+
             ChatMemberHandler.CHAT_MEMBER
+
         )
+
     )
+
+
 
 
     print(
+
         "🟢 Melanated AZ Bot Started"
+
     )
+
 
 
     application.run_polling(
+
         allowed_updates=None,
+
         drop_pending_updates=True
+
     )
+
+
 
 
 
