@@ -18,9 +18,13 @@ from config import DB_NAME
 
 def get_db():
 
-    return sqlite3.connect(
+    conn = sqlite3.connect(
         DB_NAME
     )
+
+    conn.row_factory = sqlite3.Row
+
+    return conn
 
 
 
@@ -55,6 +59,26 @@ def initialize_database():
 
 
     # --------------------------
+    # Raffles
+    # --------------------------
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS raffles
+    (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        prize TEXT NOT NULL,
+        active INTEGER DEFAULT 1,
+        created_by INTEGER,
+        winner_id INTEGER,
+        winner_name TEXT,
+        created_at TEXT,
+        completed_at TEXT
+    )
+    """)
+
+
+
+    # --------------------------
     # Raffle Entries
     # --------------------------
 
@@ -62,10 +86,21 @@ def initialize_database():
     CREATE TABLE IF NOT EXISTS raffle_entries
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        raffle_id INTEGER,
+
         user_id INTEGER,
+
         username TEXT,
-        raffle TEXT,
-        entered_date TEXT
+
+        display_name TEXT,
+
+        entries INTEGER DEFAULT 1,
+
+        created_at TEXT,
+
+        UNIQUE(raffle_id,user_id)
+
     )
     """)
 
@@ -86,7 +121,9 @@ def initialize_database():
     """)
 
 
+
     conn.commit()
+
     conn.close()
 
 
@@ -193,9 +230,7 @@ def update_activity(
 # GET ACTIVE MEMBERS
 # ==========================================================
 
-def get_active_members(
-    days=30
-):
+def get_active_members(days=30):
 
     cutoff = (
         datetime.now()
@@ -232,64 +267,7 @@ def get_active_members(
 
     return [
 
-        {
-            "user_id": row[0],
-            "first_name": row[1]
-        }
-
-        for row in rows
-
-    ]
-
-
-
-# ==========================================================
-# GET INACTIVE MEMBERS
-# ==========================================================
-
-def get_inactive_members(
-    days=30
-):
-
-    cutoff = (
-        datetime.now()
-        -
-        timedelta(days=days)
-    ).isoformat()
-
-
-    conn = get_db()
-
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-
-    SELECT user_id,
-           first_name
-
-    FROM members
-
-    WHERE last_active < ?
-
-    """,
-
-    (
-        cutoff,
-    ))
-
-
-    rows = cursor.fetchall()
-
-    conn.close()
-
-
-    return [
-
-        {
-            "user_id": row[0],
-            "first_name": row[1]
-        }
+        dict(row)
 
         for row in rows
 
@@ -367,16 +345,12 @@ def get_todays_birthdays():
 
     rows = cursor.fetchall()
 
-
     conn.close()
 
 
     return [
 
-        {
-            "first_name": row[0],
-            "birthday": row[1]
-        }
+        dict(row)
 
         for row in rows
 
@@ -385,13 +359,12 @@ def get_todays_birthdays():
 
 
 # ==========================================================
-# ADD RAFFLE ENTRY
+# RAFFLE FUNCTIONS
 # ==========================================================
 
-def add_raffle_entry(
-    user_id,
-    username,
-    raffle
+def create_raffle(
+    prize,
+    admin_id
 ):
 
     conn = get_db()
@@ -401,22 +374,21 @@ def add_raffle_entry(
 
     cursor.execute("""
 
-    INSERT INTO raffle_entries
+    INSERT INTO raffles
+
     (
-        user_id,
-        username,
-        raffle,
-        entered_date
+        prize,
+        created_by,
+        created_at
     )
 
-    VALUES (?,?,?,?)
+    VALUES (?,?,?)
 
     """,
 
     (
-        user_id,
-        username,
-        raffle,
+        prize,
+        admin_id,
         datetime.now().isoformat()
     ))
 
@@ -424,3 +396,88 @@ def add_raffle_entry(
     conn.commit()
 
     conn.close()
+
+
+
+def get_active_raffle():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+
+    SELECT *
+
+    FROM raffles
+
+    WHERE active=1
+
+    LIMIT 1
+
+    """)
+
+
+    raffle = cursor.fetchone()
+
+    conn.close()
+
+
+    return dict(raffle) if raffle else None
+
+
+
+def add_raffle_entry(
+    raffle_id,
+    user_id,
+    username,
+    display_name
+):
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    try:
+
+        cursor.execute("""
+
+        INSERT INTO raffle_entries
+
+        (
+            raffle_id,
+            user_id,
+            username,
+            display_name,
+            created_at
+        )
+
+        VALUES (?,?,?,?,?)
+
+        """,
+
+        (
+            raffle_id,
+            user_id,
+            username,
+            display_name,
+            datetime.now().isoformat()
+        ))
+
+
+        conn.commit()
+
+        result = True
+
+
+    except sqlite3.IntegrityError:
+
+        result = False
+
+
+    conn.close()
+
+
+    return result
