@@ -1,7 +1,6 @@
 # ==========================================================
 # Melanated AZ Bot
 # config.py
-# Configuration Settings
 # ==========================================================
 
 import os
@@ -19,7 +18,7 @@ DB_NAME = os.getenv(
 
 
 # ==========================================================
-# ADMINS
+# BOT ADMINS
 # ==========================================================
 
 ADMIN_IDS = [
@@ -31,26 +30,22 @@ ADMIN_IDS = [
 
 
 # ==========================================================
-# RAFFLE PAYMENT INFORMATION
-# CHANGE THESE VALUES
+# RAFFLE PAYMENT SETTINGS
 # ==========================================================
 
 CASHAPP_TAG = os.getenv(
-
     "CASHAPP_TAG",
-
     "$YourCashApp"
-
 )
 
 
 ZELLE_INFO = os.getenv(
-
     "ZELLE_INFO",
-
     "your@email.com"
-
 )
+
+
+DEFAULT_RAFFLE_ENTRY = "$5"
 
 
 
@@ -58,10 +53,4 @@ ZELLE_INFO = os.getenv(
 # RAFFLE SETTINGS
 # ==========================================================
 
-RAFFLE_ENTRY_COST = os.getenv(
-
-    "RAFFLE_ENTRY_COST",
-
-    "$5"
-
-)
+RAFFLE_DURATION_HOURS = 24
