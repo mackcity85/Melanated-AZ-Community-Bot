@@ -86,17 +86,29 @@ from truth_dare import (
 from raffle import (
 
     start_raffle,
+
     enter_raffle,
+
     paid_entry,
+
     raffle_status,
+
     raffle_entries,
+
     pending_entries,
+
     approve_raffle_entry,
+
     deny_raffle_entry,
+
     draw_raffle,
+
     reroll_raffle,
+
     cancel_raffle,
+
     bonus_entry,
+
     remove_raffle_entry
 
 )
@@ -130,9 +142,8 @@ logger = logging.getLogger(__name__)
 
 
 
-
 # ==========================================================
-# FLASK KEEP ALIVE
+# FLASK
 # ==========================================================
 
 app = Flask(__name__)
@@ -169,20 +180,35 @@ def run_web():
 async def startup(application):
 
 
-    # Start raffle scheduler AFTER event loop exists
+    # Scheduler starts AFTER loop exists
 
-    from raffle_scheduler import start_raffle_scheduler
+    try:
+
+        from raffle_scheduler import start_raffle_scheduler
+
+        await start_raffle_scheduler(
+            application
+        )
 
 
-    await start_raffle_scheduler(
-        application
-    )
+        logger.info(
+            "Raffle scheduler started"
+        )
+
+
+    except Exception as e:
+
+        logger.warning(
+            f"Raffle scheduler disabled: {e}"
+        )
 
 
 
     if STARTUP_CHAT_ID:
 
+
         try:
+
 
             await application.bot.send_message(
 
@@ -196,13 +222,14 @@ async def startup(application):
 🛡 Media Protection Active
 🎂 Birthday System Active
 🔥 Truth or Dare Active
-🎟 Raffle System Active
+🎟 Paid Raffle System Active
 """
 
             )
 
 
         except Exception as e:
+
 
             logger.warning(
                 f"Startup message failed: {e}"
@@ -215,7 +242,6 @@ async def startup(application):
 # ==========================================================
 
 def main():
-
 
 
     Thread(
@@ -268,7 +294,7 @@ def main():
 
 
     # ======================================================
-    # BIRTHDAY
+    # BIRTHDAYS
     # ======================================================
 
     application.add_handler(
@@ -341,109 +367,49 @@ def main():
     # RAFFLE
     # ======================================================
 
+    commands = [
 
-    application.add_handler(
-        CommandHandler(
-            "startraffle",
-            start_raffle
+        ("startraffle", start_raffle),
+
+        ("enter", enter_raffle),
+
+        ("paid", paid_entry),
+
+        ("rafflestatus", raffle_status),
+
+        ("raffleentries", raffle_entries),
+
+        ("pendingraffles", pending_entries),
+
+        ("approveentry", approve_raffle_entry),
+
+        ("denyentry", deny_raffle_entry),
+
+        ("drawraffle", draw_raffle),
+
+        ("rerollraffle", reroll_raffle),
+
+        ("cancelraffle", cancel_raffle),
+
+        ("bonusentry", bonus_entry),
+
+        ("removeentry", remove_raffle_entry)
+
+    ]
+
+
+
+    for command, function in commands:
+
+
+        application.add_handler(
+
+            CommandHandler(
+                command,
+                function
+            )
+
         )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "enter",
-            enter_raffle
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "paid",
-            paid_entry
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "rafflestatus",
-            raffle_status
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "raffleentries",
-            raffle_entries
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "pendingraffles",
-            pending_entries
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "approveentry",
-            approve_raffle_entry
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "denyentry",
-            deny_raffle_entry
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "drawraffle",
-            draw_raffle
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "rerollraffle",
-            reroll_raffle
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "cancelraffle",
-            cancel_raffle
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "bonusentry",
-            bonus_entry
-        )
-    )
-
-
-    application.add_handler(
-        CommandHandler(
-            "removeentry",
-            remove_raffle_entry
-        )
-    )
 
 
 
@@ -496,7 +462,6 @@ def main():
         drop_pending_updates=True
 
     )
-
 
 
 
