@@ -1,7 +1,7 @@
 # ==========================================================
 # Melanated AZ Bot
 # raffle.py
-# Automatic Raffle System
+# Payment Verified Raffle System
 # ==========================================================
 
 import random
@@ -13,11 +13,21 @@ from telegram.ext import ContextTypes
 
 from admin import is_admin
 
+from config import (
+    CASHAPP_TAG,
+    ZELLE_INFO,
+    DEFAULT_RAFFLE_ENTRY
+)
+
+
 from raffle_database import (
     init_raffle_db,
     create_raffle,
     get_active_raffle,
-    add_entry,
+    add_pending_entry,
+    get_pending_entries,
+    approve_entry,
+    deny_entry,
     get_entries,
     save_winner,
     cancel_raffle as db_cancel_raffle
@@ -25,7 +35,7 @@ from raffle_database import (
 
 
 
-# Initialize raffle tables
+# Create tables
 
 init_raffle_db()
 
@@ -33,7 +43,11 @@ init_raffle_db()
 
 # ==========================================================
 # START RAFFLE
+#
 # /startraffle Prize Hours
+#
+# Example:
+# /startraffle $50 Gift Card 24
 # ==========================================================
 
 async def start_raffle(
@@ -56,9 +70,9 @@ async def start_raffle(
         await update.message.reply_text(
 
             "Usage:\n"
-            "/startraffle Prize Name Hours\n\n"
+            "/startraffle Prize Hours\n\n"
             "Example:\n"
-            "/startraffle $25 Amazon Gift Card 24"
+            "/startraffle $50 Gift Card 24"
 
         )
 
@@ -88,14 +102,20 @@ async def start_raffle(
 
 
     end_time = (
+
         datetime.now()
+
         +
-        timedelta(hours=hours)
+
+        timedelta(
+            hours=hours
+        )
+
     ).isoformat()
 
 
 
-    raffle_id = create_raffle(
+    create_raffle(
 
         prize,
 
@@ -117,14 +137,26 @@ f"""
 🏆 Prize:
 {prize}
 
-⏰ Duration:
-{hours} hours
+💵 Entry:
+{DEFAULT_RAFFLE_ENTRY}
 
-To enter:
+Payment Options:
 
+💚 Cash App:
+{CASHAPP_TAG}
+
+💙 Zelle:
+{ZELLE_INFO}
+
+
+After payment:
+
+Use:
 /enter
 
-Good luck everyone! 🍀
+An admin will verify your entry.
+
+Good luck! 🍀
 """
 
     )
@@ -159,7 +191,7 @@ async def enter_raffle(
 
 
 
-    success = add_entry(
+    add_pending_entry(
 
         raffle["id"],
 
@@ -173,21 +205,18 @@ async def enter_raffle(
 
 
 
-    if not success:
-
-        await update.message.reply_text(
-
-            "✅ You are already entered."
-
-        )
-
-        return
-
-
-
     await update.message.reply_text(
 
-        f"🎟️ {user.first_name}, you are entered!"
+f"""
+💳 Payment Verification Submitted
+
+User:
+{user.first_name}
+
+Your entry is waiting for admin approval.
+
+Thank you! 🎟️
+"""
 
     )
 
@@ -196,7 +225,7 @@ async def enter_raffle(
 
 
 # ==========================================================
-# STATUS
+# SHOW RAFFLE STATUS
 # ==========================================================
 
 async def raffle_status(
@@ -231,15 +260,11 @@ f"""
 🏆 Prize:
 {raffle["prize"]}
 
-👥 Entries:
+✅ Approved Entries:
 {len(entries)}
 
 ⏰ Ends:
 {raffle["end_time"]}
-
-Use:
-
-/enter
 """
 
     )
@@ -249,7 +274,148 @@ Use:
 
 
 # ==========================================================
-# SHOW ENTRIES
+# ADMIN VIEW PENDING
+# ==========================================================
+
+async def pending_entries(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not await is_admin(update, context):
+
+        return
+
+
+
+    pending = get_pending_entries()
+
+
+
+    if not pending:
+
+        await update.message.reply_text(
+            "No pending entries."
+        )
+
+        return
+
+
+
+    text = "💳 PENDING PAYMENTS\n\n"
+
+
+    for item in pending:
+
+        text += (
+
+            f"ID: {item['id']}\n"
+
+            f"Name: {item['display_name']}\n"
+
+            f"User ID: {item['user_id']}\n\n"
+
+        )
+
+
+    await update.message.reply_text(
+        text
+    )
+
+
+
+
+
+# ==========================================================
+# APPROVE PAYMENT
+#
+# /approveentry ID
+# ==========================================================
+
+async def approve_raffle_entry(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not await is_admin(update, context):
+
+        return
+
+
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage: /approveentry ID"
+        )
+
+        return
+
+
+
+    result = approve_entry(
+        int(context.args[0])
+    )
+
+
+    if result:
+
+        await update.message.reply_text(
+            "✅ Entry approved."
+        )
+
+    else:
+
+        await update.message.reply_text(
+            "❌ Entry not found."
+        )
+
+
+
+
+
+# ==========================================================
+# DENY PAYMENT
+#
+# /denyentry ID
+# ==========================================================
+
+async def deny_raffle_entry(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not await is_admin(update, context):
+
+        return
+
+
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage: /denyentry ID"
+        )
+
+        return
+
+
+
+    deny_entry(
+        int(context.args[0])
+    )
+
+
+    await update.message.reply_text(
+        "🛑 Entry denied."
+    )
+
+
+
+
+
+# ==========================================================
+# SHOW APPROVED ENTRIES
 # ==========================================================
 
 async def raffle_entries(
@@ -258,10 +424,6 @@ async def raffle_entries(
 ):
 
     if not await is_admin(update, context):
-
-        await update.message.reply_text(
-            "❌ Admins only."
-        )
 
         return
 
@@ -272,10 +434,6 @@ async def raffle_entries(
 
     if not raffle:
 
-        await update.message.reply_text(
-            "❌ No active raffle."
-        )
-
         return
 
 
@@ -285,17 +443,15 @@ async def raffle_entries(
     )
 
 
-    text = "🎟️ ENTRIES\n\n"
+    text = "🎟️ APPROVED ENTRIES\n\n"
 
 
-    for number, entry in enumerate(
-        entries,
-        start=1
-    ):
+    for entry in entries:
 
         text += (
-            f"{number}. "
+
             f"{entry['display_name']}\n"
+
         )
 
 
@@ -318,31 +474,9 @@ async def draw_raffle(
 
     if not await is_admin(update, context):
 
-        await update.message.reply_text(
-            "❌ Admins only."
-        )
-
         return
 
 
-
-    await pick_winner(
-        update,
-        context
-    )
-
-
-
-
-
-# ==========================================================
-# WINNER PICKER
-# ==========================================================
-
-async def pick_winner(
-    update,
-    context
-):
 
     raffle = get_active_raffle()
 
@@ -361,7 +495,7 @@ async def pick_winner(
     if not entries:
 
         await update.message.reply_text(
-            "❌ No entries."
+            "❌ No approved entries."
         )
 
         return
@@ -433,16 +567,6 @@ async def cancel_raffle(
     context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not await is_admin(update, context):
-
-        await update.message.reply_text(
-            "❌ Admins only."
-        )
-
-        return
-
-
-
     raffle = get_active_raffle()
 
 
@@ -454,9 +578,7 @@ async def cancel_raffle(
 
 
     await update.message.reply_text(
-
         "🛑 Raffle cancelled."
-
     )
 
 
@@ -464,35 +586,25 @@ async def cancel_raffle(
 
 
 # ==========================================================
-# BONUS ENTRY
+# PLACEHOLDER COMMANDS
 # ==========================================================
 
 async def bonus_entry(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    update,
+    context
 ):
 
     await update.message.reply_text(
-
-        "🎟️ Bonus entries coming soon."
-
+        "🎟 Bonus entries disabled."
     )
 
 
 
-
-
-# ==========================================================
-# REMOVE ENTRY
-# ==========================================================
-
 async def remove_raffle_entry(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    update,
+    context
 ):
 
     await update.message.reply_text(
-
-        "🎟️ Remove entry feature coming soon."
-
+        "🎟 Remove entry disabled."
     )
