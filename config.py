@@ -1,10 +1,10 @@
 # ==========================================================
 # Melanated AZ Bot
 # config.py
+# Configuration Settings
 # ==========================================================
 
 import os
-
 
 
 # ==========================================================
@@ -19,8 +19,7 @@ DB_NAME = os.getenv(
 
 
 # ==========================================================
-# ADMIN USERS
-# Add Telegram User IDs here
+# ADMINS
 # ==========================================================
 
 ADMIN_IDS = [
@@ -32,19 +31,25 @@ ADMIN_IDS = [
 
 
 # ==========================================================
-# RAFFLE PAYMENT INFO
-# CHANGE THESE
+# RAFFLE PAYMENT INFORMATION
+# CHANGE THESE VALUES
 # ==========================================================
 
 CASHAPP_TAG = os.getenv(
+
     "CASHAPP_TAG",
+
     "$YourCashApp"
+
 )
 
 
 ZELLE_INFO = os.getenv(
+
     "ZELLE_INFO",
+
     "your@email.com"
+
 )
 
 
@@ -53,7 +58,10 @@ ZELLE_INFO = os.getenv(
 # RAFFLE SETTINGS
 # ==========================================================
 
-DEFAULT_RAFFLE_ENTRY = os.getenv(
-    "RAFFLE_ENTRY",
+RAFFLE_ENTRY_COST = os.getenv(
+
+    "RAFFLE_ENTRY_COST",
+
     "$5"
+
 )
