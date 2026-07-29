@@ -19,7 +19,10 @@ from telegram.ext import (
 )
 
 
-from config import BOT_TOKEN, STARTUP_CHAT_ID
+from config import (
+    BOT_TOKEN,
+    STARTUP_CHAT_ID
+)
 
 
 
@@ -60,27 +63,16 @@ from truth_dare import (
 from raffle import (
 
     start_raffle,
-
     paid_entry,
-
     raffle_status,
-
     raffle_entries,
-
     pending_entries,
-
     approve_raffle_entry,
-
     deny_raffle_entry,
-
     draw_raffle,
-
     reroll_raffle,
-
     cancel_raffle,
-
     bonus_entry,
-
     remove_raffle_entry
 
 )
@@ -121,11 +113,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
-
 @app.route("/")
 def home():
 
-    return "Melanated AZ Bot Running"
+    return "🔥 Melanated AZ Bot Running"
 
 
 
@@ -142,14 +133,13 @@ def run_web():
 
 
 # ==========================================================
-# STARTUP
+# STARTUP MESSAGE
 # ==========================================================
 
 async def startup(application):
 
-
     logger.info(
-        "Bot startup complete"
+        "🔥 Melanated AZ Bot Online"
     )
 
 
@@ -159,25 +149,26 @@ async def startup(application):
 
             await application.bot.send_message(
 
-                chat_id=int(
-                    STARTUP_CHAT_ID
-                ),
+                chat_id=int(STARTUP_CHAT_ID),
 
                 text="""
 🟢 Melanated AZ Bot Online
 
-🛡 Media Protection Active
-🎂 Birthday System Active
-🔥 Truth & Dare Active
-🎟 Raffle System Active
+🛡 Media Protection: ACTIVE
+🎂 Birthday System: ACTIVE
+🔥 Truth & Dare: ACTIVE
+🎟 Raffle System: ACTIVE
+
+Bot is ready!
 """
 
             )
 
+
         except Exception as e:
 
-            logger.warning(
-                e
+            logger.error(
+                f"Startup message failed: {e}"
             )
 
 
@@ -213,13 +204,9 @@ def main():
 
         .builder()
 
-        .token(
-            BOT_TOKEN
-        )
+        .token(BOT_TOKEN)
 
-        .post_init(
-            startup
-        )
+        .post_init(startup)
 
         .build()
 
@@ -232,12 +219,10 @@ def main():
     # ======================================================
 
     application.add_handler(
-
         CommandHandler(
             "admin",
             admin_commands
         )
-
     )
 
 
@@ -247,22 +232,18 @@ def main():
     # ======================================================
 
     application.add_handler(
-
         CommandHandler(
             "birthday",
             birthday_command
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "birthdaycheck",
             birthday_check
         )
-
     )
 
 
@@ -272,50 +253,41 @@ def main():
     # ======================================================
 
     application.add_handler(
-
         CommandHandler(
             "rules",
             rules
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "trivia",
             trivia
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "truth",
             truth
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "dare",
             dare
         )
-
     )
 
 
 
     # ======================================================
-    # RAFFLES
+    # RAFFLE COMMANDS
     # ======================================================
-
 
     application.add_handler(
         CommandHandler(
