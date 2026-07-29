@@ -54,9 +54,12 @@ if not TOKEN:
 
 from admin import admin_commands
 
+
 from media import check_media
 
+
 from welcome import welcome
+
 
 
 from birthdays import (
@@ -66,23 +69,41 @@ from birthdays import (
 )
 
 
+
 from rules import rules
 
 
+
 from raffle import (
+
     start_raffle,
+
     enter_raffle,
+
+    paid_entry,
+
     raffle_status,
+
     raffle_entries,
-    draw_raffle,
-    reroll_raffle,
-    cancel_raffle,
-    bonus_entry,
-    remove_raffle_entry,
+
     pending_entries,
+
     approve_raffle_entry,
-    deny_raffle_entry
+
+    deny_raffle_entry,
+
+    draw_raffle,
+
+    reroll_raffle,
+
+    cancel_raffle,
+
+    bonus_entry,
+
+    remove_raffle_entry
+
 )
+
 
 
 from raffle_scheduler import (
@@ -90,13 +111,19 @@ from raffle_scheduler import (
 )
 
 
+
 from trivia import trivia
 
 
+
 from truth_dare import (
+
     truth,
+
     dare,
+
     truthdare_control
+
 )
 
 
@@ -116,6 +143,7 @@ logging.basicConfig(
 
 
 logger = logging.getLogger(__name__)
+
 
 
 
@@ -152,6 +180,7 @@ def run_web():
 
 
 
+
 # ==========================================================
 # STARTUP MESSAGE
 # ==========================================================
@@ -169,11 +198,13 @@ async def startup_message(application):
                 ),
 
                 text=
+
                 "🟢 Melanated AZ Bot is online\n\n"
                 "🛡 Media Protection Active\n"
                 "🎂 Birthday System Active\n"
                 "🔥 Truth or Dare Active\n"
-                "🎟️ Raffle System Active"
+                "🎟️ Raffle System Active\n"
+                "💳 Payment Verification Active"
 
             )
 
@@ -185,6 +216,7 @@ async def startup_message(application):
                 f"Startup message failed: {e}"
 
             )
+
 
 
 
@@ -226,7 +258,7 @@ def main():
 
 
     # ======================================================
-    # START RAFFLE SCHEDULER
+    # RAFFLE SCHEDULER
     # ======================================================
 
     start_raffle_scheduler(
@@ -236,7 +268,7 @@ def main():
 
 
     # ======================================================
-    # COMMANDS
+    # COMMAND HANDLERS
     # ======================================================
 
 
@@ -255,7 +287,6 @@ def main():
             birthday_command
         )
     )
-
 
 
     application.add_handler(
@@ -332,6 +363,14 @@ def main():
         CommandHandler(
             "enter",
             enter_raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "paid",
+            paid_entry
         )
     )
 
@@ -471,9 +510,6 @@ def main():
 
 
 
-# ==========================================================
-# START
-# ==========================================================
 
 if __name__ == "__main__":
 
