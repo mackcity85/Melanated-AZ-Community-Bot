@@ -40,7 +40,6 @@ STARTUP_CHAT_ID = os.getenv(
 )
 
 
-
 if not TOKEN:
 
     raise ValueError(
@@ -124,7 +123,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
-
 @app.route("/")
 def home():
 
@@ -140,12 +138,10 @@ def run_web():
         host="0.0.0.0",
 
         port=int(
-
             os.getenv(
                 "PORT",
                 10000
             )
-
         )
 
     )
@@ -159,12 +155,9 @@ def run_web():
 
 async def startup_message(application):
 
-
     if STARTUP_CHAT_ID:
 
-
         try:
-
 
             await application.bot.send_message(
 
@@ -175,15 +168,10 @@ async def startup_message(application):
                 text=
 
                 "🟢 Melanated AZ Bot is online\n\n"
-
                 "🛡 Media Protection Active\n"
-
                 "🎂 Birthday System Active\n"
-
                 "🔥 Truth or Dare Active\n"
-
                 "🎟️ Raffle System Active\n"
-
                 "⏰ Auto Draw Active"
 
             )
@@ -191,13 +179,9 @@ async def startup_message(application):
 
         except Exception as e:
 
-
             logger.warning(
-
                 f"Startup message failed: {e}"
-
             )
-
 
 
 
@@ -207,8 +191,6 @@ async def startup_message(application):
 # ==========================================================
 
 def main():
-
-
 
     Thread(
 
@@ -239,8 +221,9 @@ def main():
     )
 
 
+
     # =========================
-    # START SCHEDULERS
+    # START RAFFLE SCHEDULER
     # =========================
 
     start_raffle_scheduler(
@@ -249,190 +232,148 @@ def main():
 
 
 
+    # =========================
+    # COMMANDS
+    # =========================
 
-    # =========================
-    # ADMIN
-    # =========================
 
     application.add_handler(
-
         CommandHandler(
             "admin",
             admin_commands
         )
-
     )
 
 
 
-
-    # =========================
-    # BIRTHDAYS
-    # =========================
-
     application.add_handler(
-
         CommandHandler(
             "birthday",
             birthday_command
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "birthdaycheck",
             birthday_check
         )
-
     )
 
 
 
-
-    # =========================
-    # COMMUNITY
-    # =========================
-
     application.add_handler(
-
         CommandHandler(
             "rules",
             rules
         )
-
     )
 
 
-    application.add_handler(
 
+    application.add_handler(
         CommandHandler(
             "trivia",
             trivia
         )
-
     )
 
 
-    application.add_handler(
 
+    application.add_handler(
         CommandHandler(
             "truth",
             truth
         )
-
     )
 
 
-    application.add_handler(
 
+    application.add_handler(
         CommandHandler(
             "dare",
             dare
         )
-
     )
 
 
 
-
-
     # =========================
-    # RAFFLE
+    # RAFFLE COMMANDS
     # =========================
+
 
     application.add_handler(
-
         CommandHandler(
             "startraffle",
             start_raffle
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "enter",
             enter_raffle
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "rafflestatus",
             raffle_status
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "entries",
             raffle_entries
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "drawraffle",
             draw_raffle
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "reroll",
             reroll_raffle
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "cancelraffle",
             cancel_raffle
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "bonus",
             bonus_entry
         )
-
     )
 
 
     application.add_handler(
-
         CommandHandler(
             "removeentry",
             remove_raffle_entry
         )
-
     )
-
-
 
 
 
@@ -456,7 +397,6 @@ def main():
 
 
 
-
     # =========================
     # WELCOME
     # =========================
@@ -475,11 +415,8 @@ def main():
 
 
 
-
     print(
-
         "🟢 Melanated AZ Bot Started"
-
     )
 
 
