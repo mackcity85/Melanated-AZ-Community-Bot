@@ -4,14 +4,11 @@
 # Main Launcher
 # ==========================================================
 
-import os
 import logging
 
 from threading import Thread
 
-from dotenv import load_dotenv
 from flask import Flask
-
 
 from telegram.ext import (
     Application,
@@ -22,29 +19,7 @@ from telegram.ext import (
 )
 
 
-
-# ==========================================================
-# ENV
-# ==========================================================
-
-load_dotenv()
-
-
-TOKEN = os.getenv(
-    "BOT_TOKEN"
-)
-
-
-STARTUP_CHAT_ID = os.getenv(
-    "STARTUP_CHAT_ID"
-)
-
-
-if not TOKEN:
-
-    raise ValueError(
-        "BOT_TOKEN missing"
-    )
+from config import BOT_TOKEN, STARTUP_CHAT_ID
 
 
 
@@ -68,7 +43,6 @@ from birthdays import (
 
 from rules import rules
 
-
 from trivia import trivia
 
 
@@ -86,8 +60,6 @@ from truth_dare import (
 from raffle import (
 
     start_raffle,
-
-    enter_raffle,
 
     paid_entry,
 
@@ -143,10 +115,11 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# FLASK
+# FLASK KEEP ALIVE
 # ==========================================================
 
 app = Flask(__name__)
+
 
 
 @app.route("/")
@@ -162,12 +135,7 @@ def run_web():
 
         host="0.0.0.0",
 
-        port=int(
-            os.getenv(
-                "PORT",
-                10000
-            )
-        )
+        port=10000
 
     )
 
@@ -180,35 +148,14 @@ def run_web():
 async def startup(application):
 
 
-    # Scheduler starts AFTER loop exists
-
-    try:
-
-        from raffle_scheduler import start_raffle_scheduler
-
-        await start_raffle_scheduler(
-            application
-        )
-
-
-        logger.info(
-            "Raffle scheduler started"
-        )
-
-
-    except Exception as e:
-
-        logger.warning(
-            f"Raffle scheduler disabled: {e}"
-        )
-
+    logger.info(
+        "Bot startup complete"
+    )
 
 
     if STARTUP_CHAT_ID:
 
-
         try:
-
 
             await application.bot.send_message(
 
@@ -221,18 +168,16 @@ async def startup(application):
 
 🛡 Media Protection Active
 🎂 Birthday System Active
-🔥 Truth or Dare Active
-🎟 Paid Raffle System Active
+🔥 Truth & Dare Active
+🎟 Raffle System Active
 """
 
             )
 
-
         except Exception as e:
 
-
             logger.warning(
-                f"Startup message failed: {e}"
+                e
             )
 
 
@@ -268,9 +213,13 @@ def main():
 
         .builder()
 
-        .token(TOKEN)
+        .token(
+            BOT_TOKEN
+        )
 
-        .post_init(startup)
+        .post_init(
+            startup
+        )
 
         .build()
 
@@ -364,52 +313,104 @@ def main():
 
 
     # ======================================================
-    # RAFFLE
+    # RAFFLES
     # ======================================================
 
-    commands = [
 
-        ("startraffle", start_raffle),
-
-        ("enter", enter_raffle),
-
-        ("paid", paid_entry),
-
-        ("rafflestatus", raffle_status),
-
-        ("raffleentries", raffle_entries),
-
-        ("pendingraffles", pending_entries),
-
-        ("approveentry", approve_raffle_entry),
-
-        ("denyentry", deny_raffle_entry),
-
-        ("drawraffle", draw_raffle),
-
-        ("rerollraffle", reroll_raffle),
-
-        ("cancelraffle", cancel_raffle),
-
-        ("bonusentry", bonus_entry),
-
-        ("removeentry", remove_raffle_entry)
-
-    ]
-
-
-
-    for command, function in commands:
-
-
-        application.add_handler(
-
-            CommandHandler(
-                command,
-                function
-            )
-
+    application.add_handler(
+        CommandHandler(
+            "startraffle",
+            start_raffle
         )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "paid",
+            paid_entry
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "rafflestatus",
+            raffle_status
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "raffleentries",
+            raffle_entries
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "pendingraffles",
+            pending_entries
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "approveentry",
+            approve_raffle_entry
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "denyentry",
+            deny_raffle_entry
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "drawraffle",
+            draw_raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "rerollraffle",
+            reroll_raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "cancelraffle",
+            cancel_raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "bonusentry",
+            bonus_entry
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "removeentry",
+            remove_raffle_entry
+        )
+    )
 
 
 
@@ -450,18 +451,17 @@ def main():
 
 
     print(
-        "🟢 Melanated AZ Bot Started"
+        "🔥 Melanated AZ Bot Started"
     )
 
 
 
     application.run_polling(
 
-        allowed_updates=None,
-
         drop_pending_updates=True
 
     )
+
 
 
 
