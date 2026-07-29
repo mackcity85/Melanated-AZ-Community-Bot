@@ -1,19 +1,16 @@
 # ==========================================================
 # Melanated AZ Bot
 # config.py
-# Main Configuration
 # ==========================================================
 
 import os
-
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-
 # ==========================================================
-# BOT SETTINGS
+# BOT
 # ==========================================================
 
 BOT_TOKEN = os.getenv(
@@ -39,17 +36,19 @@ DB_NAME = os.getenv(
 
 
 # ==========================================================
-# ADMIN SETTINGS
+# ADMIN
 # ==========================================================
 
 ADMIN_IDS = [
 
-    int(admin)
+    int(x)
 
-    for admin in os.getenv(
+    for x in os.getenv(
         "ADMIN_IDS",
-        "5879167814"
+        ""
     ).split(",")
+
+    if x.strip().isdigit()
 
 ]
 
@@ -59,53 +58,34 @@ ADMIN_IDS = [
 # RAFFLE SETTINGS
 # ==========================================================
 
-RAFFLE_ENTRY_COST = os.getenv(
-    "RAFFLE_ENTRY_COST",
-    "$5"
+RAFFLE_ENTRY_COST = float(
+    os.getenv(
+        "RAFFLE_ENTRY_COST",
+        "5"
+    )
 )
 
 
 DEFAULT_RAFFLE_ENTRY = RAFFLE_ENTRY_COST
 
 
-RAFFLE_DURATION_HOURS = int(
-    os.getenv(
-        "RAFFLE_DURATION_HOURS",
-        "24"
-    )
-)
 
-
-
-# ==========================================================
-# PAYMENT SETTINGS
-# ==========================================================
-
+# Payment accounts
 CASHAPP_TAG = os.getenv(
     "CASHAPP_TAG",
-    "$YourCashApp"
+    "$MelanatedAZ"
 )
 
 
-ZELLE_INFO = os.getenv(
-    "ZELLE_INFO",
-    "Your Zelle Information"
+ZELLE_EMAIL = os.getenv(
+    "ZELLE_EMAIL",
+    "change-me@example.com"
 )
 
 
 
 # ==========================================================
-# TRUTH / DARE
+# TRUTH OR DARE
 # ==========================================================
 
 TRUTH_DARE_ENABLED = True
-
-
-
-# ==========================================================
-# COMMUNITY SETTINGS
-# ==========================================================
-
-GROUP_NAME = (
-    "Melanated AZ"
-)
