@@ -1,7 +1,6 @@
 # ==========================================================
 # Melanated AZ Bot
 # raffle_database.py
-# Persistent Raffle Database
 # ==========================================================
 
 import sqlite3
@@ -12,25 +11,15 @@ from config import DB_NAME
 
 
 
-# ==========================================================
-# DATABASE CONNECTION
-# ==========================================================
-
 def get_connection():
 
-    conn = sqlite3.connect(
-        DB_NAME
-    )
+    conn = sqlite3.connect(DB_NAME)
 
     conn.row_factory = sqlite3.Row
 
     return conn
 
 
-
-# ==========================================================
-# INITIALIZE RAFFLE TABLES
-# ==========================================================
 
 def init_raffle_db():
 
@@ -43,21 +32,15 @@ def init_raffle_db():
     CREATE TABLE IF NOT EXISTS raffles
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-        prize TEXT NOT NULL,
-
-        active INTEGER DEFAULT 1,
-
+        prize TEXT,
+        chat_id INTEGER,
         created_by INTEGER,
-
+        end_time TEXT,
+        active INTEGER DEFAULT 1,
         winner_id INTEGER,
-
         winner_name TEXT,
-
         created_at TEXT,
-
         completed_at TEXT
-
     )
     """)
 
@@ -67,21 +50,14 @@ def init_raffle_db():
     CREATE TABLE IF NOT EXISTS raffle_entries
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         raffle_id INTEGER,
-
         user_id INTEGER,
-
         username TEXT,
-
         display_name TEXT,
-
         entries INTEGER DEFAULT 1,
-
         created_at TEXT,
 
         UNIQUE(raffle_id,user_id)
-
     )
     """)
 
@@ -92,13 +68,11 @@ def init_raffle_db():
 
 
 
-# ==========================================================
-# CREATE RAFFLE
-# ==========================================================
-
 def create_raffle(
     prize,
-    admin_id
+    chat_id,
+    admin_id,
+    end_time
 ):
 
     conn = get_connection()
@@ -107,26 +81,27 @@ def create_raffle(
 
 
     cursor.execute("""
-
     INSERT INTO raffles
-
     (
         prize,
-        active,
+        chat_id,
         created_by,
+        end_time,
         created_at
     )
 
-    VALUES (?,?,?,?)
-
+    VALUES (?,?,?,?,?)
     """,
-
     (
         prize,
-        1,
+        chat_id,
         admin_id,
+        end_time,
         datetime.now().isoformat()
     ))
+
+
+    raffle_id = cursor.lastrowid
 
 
     conn.commit()
@@ -134,10 +109,9 @@ def create_raffle(
     conn.close()
 
 
+    return raffle_id
 
-# ==========================================================
-# GET ACTIVE RAFFLE
-# ==========================================================
+
 
 def get_active_raffle():
 
@@ -147,36 +121,21 @@ def get_active_raffle():
 
 
     cursor.execute("""
-
     SELECT *
-
     FROM raffles
-
     WHERE active=1
-
     LIMIT 1
-
     """)
 
 
-    raffle = cursor.fetchone()
-
+    row = cursor.fetchone()
 
     conn.close()
 
 
-    if raffle:
-
-        return dict(raffle)
+    return dict(row) if row else None
 
 
-    return None
-
-
-
-# ==========================================================
-# ADD ENTRY
-# ==========================================================
 
 def add_entry(
     raffle_id,
@@ -193,31 +152,24 @@ def add_entry(
     try:
 
         cursor.execute("""
-
         INSERT INTO raffle_entries
-
         (
             raffle_id,
             user_id,
             username,
             display_name,
-            entries,
             created_at
         )
 
-        VALUES (?,?,?,?,?,?)
-
+        VALUES (?,?,?,?,?)
         """,
-
         (
             raffle_id,
             user_id,
             username,
             display_name,
-            1,
             datetime.now().isoformat()
         ))
-
 
         conn.commit()
 
@@ -229,17 +181,12 @@ def add_entry(
         result = False
 
 
-
     conn.close()
 
 
     return result
 
 
-
-# ==========================================================
-# GET ENTRIES
-# ==========================================================
 
 def get_entries(
     raffle_id
@@ -251,15 +198,10 @@ def get_entries(
 
 
     cursor.execute("""
-
     SELECT *
-
     FROM raffle_entries
-
     WHERE raffle_id=?
-
     """,
-
     (
         raffle_id,
     ))
@@ -267,116 +209,45 @@ def get_entries(
 
     rows = cursor.fetchall()
 
+    conn.close()
+
+
+    return [
+        dict(row)
+        for row in rows
+    ]
+
+
+
+def get_expired_raffles():
+
+    conn = get_connection()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute("""
+    SELECT *
+    FROM raffles
+    WHERE active=1
+    AND end_time <= ?
+    """,
+    (
+        datetime.now().isoformat(),
+    ))
+
+
+    rows = cursor.fetchall()
 
     conn.close()
 
 
     return [
-
         dict(row)
-
         for row in rows
-
     ]
 
 
-
-# ==========================================================
-# COUNT ENTRIES
-# ==========================================================
-
-def count_entries(
-    raffle_id
-):
-
-    entries = get_entries(
-        raffle_id
-    )
-
-
-    total = 0
-
-
-    for entry in entries:
-
-        total += entry["entries"]
-
-
-    return total
-
-
-
-# ==========================================================
-# ADD BONUS ENTRIES
-# ==========================================================
-
-def add_bonus(
-    user_id,
-    amount
-):
-
-    conn = get_connection()
-
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-
-    UPDATE raffle_entries
-
-    SET entries = entries + ?
-
-    WHERE user_id=?
-
-    """,
-
-    (
-        amount,
-        user_id
-    ))
-
-
-    conn.commit()
-
-    conn.close()
-
-
-
-# ==========================================================
-# REMOVE ENTRY
-# ==========================================================
-
-def remove_entry(
-    user_id
-):
-
-    conn = get_connection()
-
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-
-    DELETE FROM raffle_entries
-
-    WHERE user_id=?
-
-    """,
-
-    (
-        user_id,
-    ))
-
-
-    conn.commit()
-
-    conn.close()
-
-
-
-# ==========================================================
-# SAVE WINNER
-# ==========================================================
 
 def save_winner(
     raffle_id,
@@ -390,23 +261,15 @@ def save_winner(
 
 
     cursor.execute("""
-
     UPDATE raffles
 
-    SET
-
-    winner_id=?,
-
-    winner_name=?,
-
-    active=0,
-
-    completed_at=?
+    SET active=0,
+        winner_id=?,
+        winner_name=?,
+        completed_at=?
 
     WHERE id=?
-
     """,
-
     (
         user_id,
         name,
@@ -421,10 +284,6 @@ def save_winner(
 
 
 
-# ==========================================================
-# CANCEL RAFFLE
-# ==========================================================
-
 def cancel_raffle(
     raffle_id
 ):
@@ -435,15 +294,10 @@ def cancel_raffle(
 
 
     cursor.execute("""
-
     UPDATE raffles
-
     SET active=0
-
     WHERE id=?
-
     """,
-
     (
         raffle_id,
     ))
