@@ -1,7 +1,7 @@
 # ==========================================================
 # Melanated AZ Bot
 # raffle_database.py
-# Raffle Database Manager
+# Paid Raffle Database
 # ==========================================================
 
 import sqlite3
@@ -13,7 +13,7 @@ from config import DB_NAME
 
 
 # ==========================================================
-# CONNECTION
+# DATABASE CONNECTION
 # ==========================================================
 
 def get_db():
@@ -35,30 +35,18 @@ def initialize_raffle_database():
     cursor = conn.cursor()
 
 
-    # --------------------------
-    # Raffles
-    # --------------------------
-
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS raffles
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-        prize TEXT,
-
+        prize TEXT NOT NULL,
         description TEXT,
-
         active INTEGER DEFAULT 1,
-
         created TEXT
     )
     """)
 
 
-
-    # --------------------------
-    # Entries
-    # --------------------------
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS raffle_entries
@@ -148,9 +136,10 @@ def get_active_raffle():
     cursor.execute(
         """
         SELECT
-            id,
-            prize,
-            description
+
+        id,
+        prize,
+        description
 
         FROM raffles
 
@@ -233,10 +222,10 @@ def get_pending_entries():
         """
         SELECT
 
-            id,
-            username,
-            payment_method,
-            created
+        id,
+        username,
+        payment_method,
+        created
 
         FROM raffle_entries
 
@@ -247,18 +236,18 @@ def get_pending_entries():
     )
 
 
-    rows = cursor.fetchall()
+    results = cursor.fetchall()
 
 
     conn.close()
 
 
-    return rows
+    return results
 
 
 
 # ==========================================================
-# APPROVE ENTRY
+# APPROVE PAYMENT
 # ==========================================================
 
 def approve_entry(
@@ -283,7 +272,7 @@ def approve_entry(
         WHERE id=?
         """,
         (
-            entry_id,
+            entry_id
         )
     )
 
@@ -295,7 +284,7 @@ def approve_entry(
 
 
 # ==========================================================
-# DENY ENTRY
+# DENY PAYMENT
 # ==========================================================
 
 def deny_entry(
@@ -318,7 +307,7 @@ def deny_entry(
         WHERE id=?
         """,
         (
-            entry_id,
+            entry_id
         )
     )
 
@@ -357,18 +346,18 @@ def get_approved_entries(
         AND approved=1
         """,
         (
-            raffle_id,
+            raffle_id
         )
     )
 
 
-    rows = cursor.fetchall()
+    results = cursor.fetchall()
 
 
     conn.close()
 
 
-    return rows
+    return results
 
 
 
@@ -392,7 +381,7 @@ def remove_entry(
         WHERE id=?
         """,
         (
-            entry_id,
+            entry_id
         )
     )
 
@@ -425,7 +414,7 @@ def close_raffle(
         WHERE id=?
         """,
         (
-            raffle_id,
+            raffle_id
         )
     )
 
@@ -433,3 +422,38 @@ def close_raffle(
     conn.commit()
 
     conn.close()
+
+
+
+# ==========================================================
+# EXPIRED RAFFLES
+# ==========================================================
+
+def get_expired_raffles():
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        """
+        SELECT
+
+        id,
+        prize
+
+        FROM raffles
+
+        WHERE active=1
+        """
+    )
+
+
+    results = cursor.fetchall()
+
+
+    conn.close()
+
+
+    return results
