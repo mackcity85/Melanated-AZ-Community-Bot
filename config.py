@@ -1,6 +1,7 @@
 # ==========================================================
 # Melanated AZ Bot
 # config.py
+# Configuration Settings
 # ==========================================================
 
 import os
@@ -45,7 +46,19 @@ ZELLE_INFO = os.getenv(
 )
 
 
-DEFAULT_RAFFLE_ENTRY = "$5"
+
+# ==========================================================
+# RAFFLE ENTRY COST
+# ==========================================================
+
+RAFFLE_ENTRY_COST = os.getenv(
+    "RAFFLE_ENTRY_COST",
+    "$5"
+)
+
+
+# Backwards compatibility
+DEFAULT_RAFFLE_ENTRY = RAFFLE_ENTRY_COST
 
 
 
@@ -53,4 +66,27 @@ DEFAULT_RAFFLE_ENTRY = "$5"
 # RAFFLE SETTINGS
 # ==========================================================
 
-RAFFLE_DURATION_HOURS = 24
+RAFFLE_DURATION_HOURS = int(
+    os.getenv(
+        "RAFFLE_DURATION_HOURS",
+        "24"
+    )
+)
+
+
+
+# ==========================================================
+# BOT SETTINGS
+# ==========================================================
+
+BOT_NAME = "Melanated AZ Bot"
+
+
+
+# ==========================================================
+# STARTUP CHAT
+# ==========================================================
+
+STARTUP_CHAT_ID = os.getenv(
+    "STARTUP_CHAT_ID"
+)
