@@ -22,7 +22,6 @@ from telegram.ext import (
 )
 
 
-
 # ==========================================================
 # ENV
 # ==========================================================
@@ -45,7 +44,6 @@ if not TOKEN:
     raise ValueError(
         "BOT_TOKEN missing"
     )
-
 
 
 # ==========================================================
@@ -78,7 +76,10 @@ from raffle import (
     reroll_raffle,
     cancel_raffle,
     bonus_entry,
-    remove_raffle_entry
+    remove_raffle_entry,
+    pending_entries,
+    approve_raffle_entry,
+    deny_raffle_entry
 )
 
 
@@ -115,7 +116,6 @@ logger = logging.getLogger(__name__)
 
 
 
-
 # ==========================================================
 # KEEP ALIVE
 # ==========================================================
@@ -130,7 +130,6 @@ def home():
 
 
 
-
 def run_web():
 
     app.run(
@@ -138,14 +137,15 @@ def run_web():
         host="0.0.0.0",
 
         port=int(
+
             os.getenv(
                 "PORT",
                 10000
             )
+
         )
 
     )
-
 
 
 
@@ -172,7 +172,7 @@ async def startup_message(application):
                 "🎂 Birthday System Active\n"
                 "🔥 Truth or Dare Active\n"
                 "🎟️ Raffle System Active\n"
-                "⏰ Auto Draw Active"
+                "💳 Payment Verification Active"
 
             )
 
@@ -180,9 +180,10 @@ async def startup_message(application):
         except Exception as e:
 
             logger.warning(
-                f"Startup message failed: {e}"
-            )
 
+                f"Startup message failed: {e}"
+
+            )
 
 
 
@@ -222,9 +223,9 @@ def main():
 
 
 
-    # =========================
-    # START RAFFLE SCHEDULER
-    # =========================
+    # ======================================================
+    # START RAFFLE AUTO DRAW
+    # ======================================================
 
     start_raffle_scheduler(
         application
@@ -232,9 +233,9 @@ def main():
 
 
 
-    # =========================
-    # COMMANDS
-    # =========================
+    # ======================================================
+    # COMMAND HANDLERS
+    # ======================================================
 
 
     application.add_handler(
@@ -243,7 +244,6 @@ def main():
             admin_commands
         )
     )
-
 
 
     application.add_handler(
@@ -262,14 +262,12 @@ def main():
     )
 
 
-
     application.add_handler(
         CommandHandler(
             "rules",
             rules
         )
     )
-
 
 
     application.add_handler(
@@ -280,14 +278,12 @@ def main():
     )
 
 
-
     application.add_handler(
         CommandHandler(
             "truth",
             truth
         )
     )
-
 
 
     application.add_handler(
@@ -299,9 +295,9 @@ def main():
 
 
 
-    # =========================
+    # ======================================================
     # RAFFLE COMMANDS
-    # =========================
+    # ======================================================
 
 
     application.add_handler(
@@ -332,6 +328,30 @@ def main():
         CommandHandler(
             "entries",
             raffle_entries
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "pendingentries",
+            pending_entries
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "approveentry",
+            approve_raffle_entry
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "denyentry",
+            deny_raffle_entry
         )
     )
 
@@ -377,9 +397,9 @@ def main():
 
 
 
-    # =========================
+    # ======================================================
     # MEDIA PROTECTION
-    # =========================
+    # ======================================================
 
     application.add_handler(
 
@@ -397,9 +417,9 @@ def main():
 
 
 
-    # =========================
+    # ======================================================
     # WELCOME
-    # =========================
+    # ======================================================
 
     application.add_handler(
 
@@ -431,7 +451,9 @@ def main():
 
 
 
-
+# ==========================================================
+# START
+# ==========================================================
 
 if __name__ == "__main__":
 
