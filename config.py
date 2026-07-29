@@ -3,24 +3,13 @@
 # config.py
 # ==========================================================
 
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-
 # ==========================================================
 # BOT
 # ==========================================================
 
-BOT_TOKEN = os.getenv(
-    "BOT_TOKEN"
-)
+BOT_TOKEN = "PUT_YOUR_TOKEN_HERE"
 
-
-STARTUP_CHAT_ID = os.getenv(
-    "STARTUP_CHAT_ID"
-)
+STARTUP_CHAT_ID = None
 
 
 
@@ -28,59 +17,37 @@ STARTUP_CHAT_ID = os.getenv(
 # DATABASE
 # ==========================================================
 
-DB_NAME = os.getenv(
-    "DB_NAME",
-    "melanated_az.db"
-)
+DB_NAME = "melanated_az.db"
 
 
 
 # ==========================================================
-# ADMIN
+# ADMINS
 # ==========================================================
 
 ADMIN_IDS = [
-
-    int(x)
-
-    for x in os.getenv(
-        "ADMIN_IDS",
-        ""
-    ).split(",")
-
-    if x.strip().isdigit()
-
+    5879167814
 ]
 
 
 
 # ==========================================================
-# RAFFLE SETTINGS
+# RAFFLE
 # ==========================================================
 
-RAFFLE_ENTRY_COST = float(
-    os.getenv(
-        "RAFFLE_ENTRY_COST",
-        "5"
-    )
-)
+RAFFLE_ENTRY_COST = 5.00
 
-
-DEFAULT_RAFFLE_ENTRY = RAFFLE_ENTRY_COST
+DEFAULT_RAFFLE_ENTRY = 5.00
 
 
 
-# Payment accounts
-CASHAPP_TAG = os.getenv(
-    "CASHAPP_TAG",
-    "$MelanatedAZ"
-)
+# ==========================================================
+# PAYMENTS
+# ==========================================================
 
+CASHAPP_TAG = "$MelanatedAZ"
 
-ZELLE_EMAIL = os.getenv(
-    "ZELLE_EMAIL",
-    "change-me@example.com"
-)
+ZELLE_EMAIL = "your-zelle@email.com"
 
 
 
@@ -89,3 +56,11 @@ ZELLE_EMAIL = os.getenv(
 # ==========================================================
 
 TRUTH_DARE_ENABLED = True
+
+TRUTH_DARE_LEVEL = "adult"
+
+
+
+print(
+    f"Loaded Admin IDs: {ADMIN_IDS}"
+)
