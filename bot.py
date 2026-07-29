@@ -63,16 +63,29 @@ from truth_dare import (
 from raffle import (
 
     start_raffle,
+
+    enter_raffle,
+
     paid_entry,
+
     raffle_status,
+
     raffle_entries,
+
     pending_entries,
+
     approve_raffle_entry,
+
     deny_raffle_entry,
+
     draw_raffle,
+
     reroll_raffle,
+
     cancel_raffle,
+
     bonus_entry,
+
     remove_raffle_entry
 
 )
@@ -113,6 +126,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
+
 @app.route("/")
 def home():
 
@@ -133,7 +147,7 @@ def run_web():
 
 
 # ==========================================================
-# STARTUP MESSAGE
+# STARTUP
 # ==========================================================
 
 async def startup(application):
@@ -163,7 +177,6 @@ Bot is ready!
 """
 
             )
-
 
         except Exception as e:
 
@@ -286,13 +299,21 @@ def main():
 
 
     # ======================================================
-    # RAFFLE COMMANDS
+    # RAFFLE
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "startraffle",
             start_raffle
+        )
+    )
+
+
+    application.add_handler(
+        CommandHandler(
+            "enter",
+            enter_raffle
         )
     )
 
@@ -433,7 +454,6 @@ def main():
         drop_pending_updates=True
 
     )
-
 
 
 
