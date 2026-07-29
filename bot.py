@@ -83,6 +83,11 @@ from raffle import (
 )
 
 
+from raffle_scheduler import (
+    start_raffle_scheduler
+)
+
+
 from trivia import trivia
 
 
@@ -177,7 +182,9 @@ async def startup_message(application):
 
                 "🔥 Truth or Dare Active\n"
 
-                "🎟️ Raffle System Active"
+                "🎟️ Raffle System Active\n"
+
+                "⏰ Auto Draw Active"
 
             )
 
@@ -229,6 +236,15 @@ def main():
 
         .build()
 
+    )
+
+
+    # =========================
+    # START SCHEDULERS
+    # =========================
+
+    start_raffle_scheduler(
+        application
     )
 
 
@@ -324,7 +340,7 @@ def main():
 
 
     # =========================
-    # RAFFLE SYSTEM
+    # RAFFLE
     # =========================
 
     application.add_handler(
@@ -422,7 +438,6 @@ def main():
 
     # =========================
     # MEDIA PROTECTION
-    # PHOTOS + VIDEOS ONLY
     # =========================
 
     application.add_handler(
