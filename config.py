@@ -1,10 +1,30 @@
 # ==========================================================
 # Melanated AZ Bot
 # config.py
-# Configuration Settings
+# Main Configuration
 # ==========================================================
 
 import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+
+# ==========================================================
+# BOT SETTINGS
+# ==========================================================
+
+BOT_TOKEN = os.getenv(
+    "BOT_TOKEN"
+)
+
+
+STARTUP_CHAT_ID = os.getenv(
+    "STARTUP_CHAT_ID"
+)
+
 
 
 # ==========================================================
@@ -19,36 +39,24 @@ DB_NAME = os.getenv(
 
 
 # ==========================================================
-# BOT ADMINS
+# ADMIN SETTINGS
 # ==========================================================
 
 ADMIN_IDS = [
 
-    5879167814
+    int(admin)
+
+    for admin in os.getenv(
+        "ADMIN_IDS",
+        "5879167814"
+    ).split(",")
 
 ]
 
 
 
 # ==========================================================
-# RAFFLE PAYMENT SETTINGS
-# ==========================================================
-
-CASHAPP_TAG = os.getenv(
-    "CASHAPP_TAG",
-    "$YourCashApp"
-)
-
-
-ZELLE_INFO = os.getenv(
-    "ZELLE_INFO",
-    "your@email.com"
-)
-
-
-
-# ==========================================================
-# RAFFLE ENTRY COST
+# RAFFLE SETTINGS
 # ==========================================================
 
 RAFFLE_ENTRY_COST = os.getenv(
@@ -57,14 +65,8 @@ RAFFLE_ENTRY_COST = os.getenv(
 )
 
 
-# Backwards compatibility
 DEFAULT_RAFFLE_ENTRY = RAFFLE_ENTRY_COST
 
-
-
-# ==========================================================
-# RAFFLE SETTINGS
-# ==========================================================
 
 RAFFLE_DURATION_HOURS = int(
     os.getenv(
@@ -76,17 +78,34 @@ RAFFLE_DURATION_HOURS = int(
 
 
 # ==========================================================
-# BOT SETTINGS
+# PAYMENT SETTINGS
 # ==========================================================
 
-BOT_NAME = "Melanated AZ Bot"
+CASHAPP_TAG = os.getenv(
+    "CASHAPP_TAG",
+    "$YourCashApp"
+)
+
+
+ZELLE_INFO = os.getenv(
+    "ZELLE_INFO",
+    "Your Zelle Information"
+)
 
 
 
 # ==========================================================
-# STARTUP CHAT
+# TRUTH / DARE
 # ==========================================================
 
-STARTUP_CHAT_ID = os.getenv(
-    "STARTUP_CHAT_ID"
+TRUTH_DARE_ENABLED = True
+
+
+
+# ==========================================================
+# COMMUNITY SETTINGS
+# ==========================================================
+
+GROUP_NAME = (
+    "Melanated AZ"
 )
