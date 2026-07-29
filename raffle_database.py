@@ -1,6 +1,7 @@
 # ==========================================================
 # Melanated AZ Bot
 # raffle_database.py
+# Raffle Database Manager
 # ==========================================================
 
 from datetime import datetime
@@ -10,7 +11,7 @@ from database import get_db
 
 
 # ==========================================================
-# INIT TABLES
+# INITIALIZE RAFFLE DATABASE
 # ==========================================================
 
 def initialize_raffle_database():
@@ -20,18 +21,27 @@ def initialize_raffle_database():
     cursor = conn.cursor()
 
 
+    # --------------------------
+    # Active Raffles
+    # --------------------------
+
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS raffles
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        prize TEXT,
+        prize TEXT NOT NULL,
+        chat_id INTEGER,
         active INTEGER DEFAULT 1,
-        created TEXT,
+        created_date TEXT,
         end_time TEXT
     )
     """)
 
 
+
+    # --------------------------
+    # Raffle Entries
+    # --------------------------
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS raffle_entries
@@ -43,19 +53,6 @@ def initialize_raffle_database():
         payment_method TEXT,
         approved INTEGER DEFAULT 0,
         entered_date TEXT
-    )
-    """)
-
-
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS raffle_winners
-    (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        raffle_id INTEGER,
-        user_id INTEGER,
-        username TEXT,
-        won_date TEXT
     )
     """)
 
@@ -73,7 +70,8 @@ def initialize_raffle_database():
 
 def create_raffle(
     prize,
-    end_time
+    end_time,
+    chat_id=None
 ):
 
     conn = get_db()
@@ -85,18 +83,21 @@ def create_raffle(
     INSERT INTO raffles
     (
         prize,
-        created,
+        chat_id,
+        created_date,
         end_time
     )
 
-    VALUES (?,?,?)
+    VALUES (?,?,?,?)
     """,
 
     (
         prize,
+        chat_id,
         datetime.now().isoformat(),
         end_time
     ))
+
 
 
     raffle_id = cursor.lastrowid
@@ -112,7 +113,7 @@ def create_raffle(
 
 
 # ==========================================================
-# ACTIVE RAFFLE
+# GET ACTIVE RAFFLE
 # ==========================================================
 
 def get_active_raffle():
@@ -125,7 +126,8 @@ def get_active_raffle():
     cursor.execute("""
     SELECT
         id,
-        prize
+        prize,
+        chat_id
 
     FROM raffles
 
@@ -155,7 +157,7 @@ def add_payment_entry(
     raffle_id,
     user_id,
     username,
-    method
+    payment_method
 ):
 
     conn = get_db()
@@ -180,9 +182,10 @@ def add_payment_entry(
         raffle_id,
         user_id,
         username,
-        method,
+        payment_method,
         datetime.now().isoformat()
     ))
+
 
 
     conn.commit()
@@ -192,7 +195,7 @@ def add_payment_entry(
 
 
 # ==========================================================
-# PENDING ENTRIES
+# GET PENDING PAYMENTS
 # ==========================================================
 
 def get_pending_entries():
@@ -214,18 +217,19 @@ def get_pending_entries():
     """)
 
 
-    rows = cursor.fetchall()
+
+    results = cursor.fetchall()
 
 
     conn.close()
 
 
-    return rows
+    return results
 
 
 
 # ==========================================================
-# APPROVE ENTRY
+# APPROVE PAYMENT
 # ==========================================================
 
 def approve_entry(
@@ -248,6 +252,7 @@ def approve_entry(
     (
         entry_id,
     ))
+
 
 
     conn.commit()
@@ -285,18 +290,19 @@ def get_entries(
     ))
 
 
-    rows = cursor.fetchall()
+
+    results = cursor.fetchall()
 
 
     conn.close()
 
 
-    return rows
+    return results
 
 
 
 # ==========================================================
-# EXPIRED RAFFLES
+# GET EXPIRED RAFFLES
 # ==========================================================
 
 def get_expired_raffles():
@@ -309,13 +315,13 @@ def get_expired_raffles():
     cursor.execute("""
     SELECT
         id,
-        prize
+        prize,
+        chat_id
 
     FROM raffles
 
     WHERE active=1
     AND end_time <= ?
-
     """,
 
     (
@@ -323,13 +329,14 @@ def get_expired_raffles():
     ))
 
 
-    rows = cursor.fetchall()
+
+    results = cursor.fetchall()
 
 
     conn.close()
 
 
-    return rows
+    return results
 
 
 
@@ -357,6 +364,7 @@ def close_raffle(
     (
         raffle_id,
     ))
+
 
 
     conn.commit()
