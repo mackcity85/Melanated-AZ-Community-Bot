@@ -18,13 +18,9 @@ from config import DB_NAME
 
 def get_db():
 
-    conn = sqlite3.connect(
+    return sqlite3.connect(
         DB_NAME
     )
-
-    conn.row_factory = sqlite3.Row
-
-    return conn
 
 
 
@@ -37,6 +33,7 @@ def initialize_database():
     conn = get_db()
 
     cursor = conn.cursor()
+
 
 
     # --------------------------
@@ -59,26 +56,6 @@ def initialize_database():
 
 
     # --------------------------
-    # Raffles
-    # --------------------------
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS raffles
-    (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        prize TEXT NOT NULL,
-        active INTEGER DEFAULT 1,
-        created_by INTEGER,
-        winner_id INTEGER,
-        winner_name TEXT,
-        created_at TEXT,
-        completed_at TEXT
-    )
-    """)
-
-
-
-    # --------------------------
     # Raffle Entries
     # --------------------------
 
@@ -86,21 +63,10 @@ def initialize_database():
     CREATE TABLE IF NOT EXISTS raffle_entries
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-        raffle_id INTEGER,
-
         user_id INTEGER,
-
         username TEXT,
-
-        display_name TEXT,
-
-        entries INTEGER DEFAULT 1,
-
-        created_at TEXT,
-
-        UNIQUE(raffle_id,user_id)
-
+        raffle TEXT,
+        entered_date TEXT
     )
     """)
 
@@ -122,9 +88,41 @@ def initialize_database():
 
 
 
+    # --------------------------
+    # Truth Dare Settings
+    # --------------------------
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS truth_dare_settings
+    (
+        id INTEGER PRIMARY KEY,
+        enabled INTEGER DEFAULT 1
+    )
+    """)
+
+
+
+    cursor.execute("""
+    INSERT OR IGNORE INTO truth_dare_settings
+    (
+        id,
+        enabled
+    )
+
+    VALUES
+    (
+        1,
+        1
+    )
+    """)
+
+
+
     conn.commit()
 
     conn.close()
+
+
 
 
 
@@ -145,6 +143,7 @@ def update_member(
 
 
     now = datetime.now().isoformat()
+
 
 
     cursor.execute("""
@@ -185,9 +184,12 @@ def update_member(
     ))
 
 
+
     conn.commit()
 
     conn.close()
+
+
 
 
 
@@ -202,6 +204,7 @@ def update_activity(
     conn = get_db()
 
     cursor = conn.cursor()
+
 
 
     cursor.execute("""
@@ -220,9 +223,12 @@ def update_activity(
     ))
 
 
+
     conn.commit()
 
     conn.close()
+
+
 
 
 
@@ -230,18 +236,27 @@ def update_activity(
 # GET ACTIVE MEMBERS
 # ==========================================================
 
-def get_active_members(days=30):
+def get_active_members(
+    days=30
+):
 
     cutoff = (
+
         datetime.now()
+
         -
-        timedelta(days=days)
+        timedelta(
+            days=days
+        )
+
     ).isoformat()
+
 
 
     conn = get_db()
 
     cursor = conn.cursor()
+
 
 
     cursor.execute("""
@@ -260,18 +275,90 @@ def get_active_members(days=30):
     ))
 
 
+
     rows = cursor.fetchall()
 
     conn.close()
 
 
+
     return [
 
-        dict(row)
+        {
+            "user_id": row[0],
+            "first_name": row[1]
+        }
 
         for row in rows
 
     ]
+
+
+
+
+
+# ==========================================================
+# GET INACTIVE MEMBERS
+# ==========================================================
+
+def get_inactive_members(
+    days=30
+):
+
+    cutoff = (
+
+        datetime.now()
+
+        -
+        timedelta(
+            days=days
+        )
+
+    ).isoformat()
+
+
+
+    conn = get_db()
+
+    cursor = conn.cursor()
+
+
+
+    cursor.execute("""
+
+    SELECT user_id,
+           first_name
+
+    FROM members
+
+    WHERE last_active < ?
+
+    """,
+
+    (
+        cutoff,
+    ))
+
+
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+
+
+    return [
+
+        {
+            "user_id": row[0],
+            "first_name": row[1]
+        }
+
+        for row in rows
+
+    ]
+
+
 
 
 
@@ -287,6 +374,7 @@ def save_birthday(
     conn = get_db()
 
     cursor = conn.cursor()
+
 
 
     cursor.execute("""
@@ -305,9 +393,12 @@ def save_birthday(
     ))
 
 
+
     conn.commit()
 
     conn.close()
+
+
 
 
 
@@ -322,9 +413,11 @@ def get_todays_birthdays():
     )
 
 
+
     conn = get_db()
 
     cursor = conn.cursor()
+
 
 
     cursor.execute("""
@@ -343,14 +436,20 @@ def get_todays_birthdays():
     ))
 
 
+
     rows = cursor.fetchall()
+
 
     conn.close()
 
 
+
     return [
 
-        dict(row)
+        {
+            "first_name": row[0],
+            "birthday": row[1]
+        }
 
         for row in rows
 
@@ -358,13 +457,16 @@ def get_todays_birthdays():
 
 
 
+
+
 # ==========================================================
-# RAFFLE FUNCTIONS
+# ADD RAFFLE ENTRY
 # ==========================================================
 
-def create_raffle(
-    prize,
-    admin_id
+def add_raffle_entry(
+    user_id,
+    username,
+    raffle
 ):
 
     conn = get_db()
@@ -372,112 +474,30 @@ def create_raffle(
     cursor = conn.cursor()
 
 
+
     cursor.execute("""
 
-    INSERT INTO raffles
-
+    INSERT INTO raffle_entries
     (
-        prize,
-        created_by,
-        created_at
+        user_id,
+        username,
+        raffle,
+        entered_date
     )
 
-    VALUES (?,?,?)
+    VALUES (?,?,?,?)
 
     """,
 
     (
-        prize,
-        admin_id,
+        user_id,
+        username,
+        raffle,
         datetime.now().isoformat()
     ))
+
 
 
     conn.commit()
 
     conn.close()
-
-
-
-def get_active_raffle():
-
-    conn = get_db()
-
-    cursor = conn.cursor()
-
-
-    cursor.execute("""
-
-    SELECT *
-
-    FROM raffles
-
-    WHERE active=1
-
-    LIMIT 1
-
-    """)
-
-
-    raffle = cursor.fetchone()
-
-    conn.close()
-
-
-    return dict(raffle) if raffle else None
-
-
-
-def add_raffle_entry(
-    raffle_id,
-    user_id,
-    username,
-    display_name
-):
-
-    conn = get_db()
-
-    cursor = conn.cursor()
-
-
-    try:
-
-        cursor.execute("""
-
-        INSERT INTO raffle_entries
-
-        (
-            raffle_id,
-            user_id,
-            username,
-            display_name,
-            created_at
-        )
-
-        VALUES (?,?,?,?,?)
-
-        """,
-
-        (
-            raffle_id,
-            user_id,
-            username,
-            display_name,
-            datetime.now().isoformat()
-        ))
-
-
-        conn.commit()
-
-        result = True
-
-
-    except sqlite3.IntegrityError:
-
-        result = False
-
-
-    conn.close()
-
-
-    return result
