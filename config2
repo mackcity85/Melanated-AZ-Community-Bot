@@ -7,7 +7,7 @@
 # BOT
 # ==========================================================
 
-BOT_TOKEN = "PASTE_YOUR_NEW_BOT_TOKEN_HERE"
+BOT_TOKEN = "8810138488:AAEZCOy88hyDNKtvZKsgX6ryDvOS6W6pajA"
 
 STARTUP_CHAT_ID = -1002697105809
 
