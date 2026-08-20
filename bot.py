@@ -85,17 +85,12 @@ from raffle import (
 
     bonus_entry,
 
-    remove_raffle_entry
+    remove_raffle_entry,
 
-)
+    payment_button,
 
+    admin_payment_button
 
-# ==========================================================
-# RAFFLE BUTTONS
-# ==========================================================
-
-from raffle_buttons import (
-    raffle_button_handler
 )
 
 
@@ -114,7 +109,12 @@ from raffle_database import initialize_raffle_database
 
 logging.basicConfig(
 
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=(
+        "%(asctime)s - "
+        "%(name)s - "
+        "%(levelname)s - "
+        "%(message)s"
+    ),
 
     level=logging.INFO
 
@@ -176,10 +176,8 @@ async def startup(application):
 🎂 Birthday System: ACTIVE
 🔥 Truth & Dare: ACTIVE
 🎟 Raffle System: ACTIVE
-
-💳 Cash App Payments: ACTIVE
-💳 Zelle Payments: ACTIVE
-🔔 Raffle Approval Notifications: ACTIVE
+💳 Raffle Payments: ACTIVE
+🔔 Payment Approval Alerts: ACTIVE
 
 Bot is ready!
 """
@@ -199,9 +197,9 @@ Bot is ready!
 
 def main():
 
-    # ------------------------------------------------------
-    # Start Flask
-    # ------------------------------------------------------
+    # ======================================================
+    # START FLASK
+    # ======================================================
 
     Thread(
 
@@ -212,9 +210,9 @@ def main():
     ).start()
 
 
-    # ------------------------------------------------------
-    # Initialize databases
-    # ------------------------------------------------------
+    # ======================================================
+    # DATABASES
+    # ======================================================
 
     initialize_database()
 
@@ -223,9 +221,9 @@ def main():
     init_birthdays()
 
 
-    # ------------------------------------------------------
-    # Build Telegram application
-    # ------------------------------------------------------
+    # ======================================================
+    # CREATE APPLICATION
+    # ======================================================
 
     application = (
 
@@ -249,11 +247,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "admin",
-
             admin_commands
-
         )
 
     )
@@ -266,11 +261,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "birthday",
-
             birthday_command
-
         )
 
     )
@@ -279,11 +271,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "birthdaycheck",
-
             birthday_check
-
         )
 
     )
@@ -296,11 +285,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "rules",
-
             rules
-
         )
 
     )
@@ -309,11 +295,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "trivia",
-
             trivia
-
         )
 
     )
@@ -322,11 +305,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "truth",
-
             truth
-
         )
 
     )
@@ -335,11 +315,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "dare",
-
             dare
-
         )
 
     )
@@ -352,11 +329,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "startraffle",
-
             start_raffle
-
         )
 
     )
@@ -365,11 +339,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "enter",
-
             enter_raffle
-
         )
 
     )
@@ -378,11 +349,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "paid",
-
             paid_entry
-
         )
 
     )
@@ -391,11 +359,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "rafflestatus",
-
             raffle_status
-
         )
 
     )
@@ -404,11 +369,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "raffleentries",
-
             raffle_entries
-
         )
 
     )
@@ -417,11 +379,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "pendingraffles",
-
             pending_entries
-
         )
 
     )
@@ -430,11 +389,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "approveentry",
-
             approve_raffle_entry
-
         )
 
     )
@@ -443,11 +399,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "denyentry",
-
             deny_raffle_entry
-
         )
 
     )
@@ -456,11 +409,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "drawraffle",
-
             draw_raffle
-
         )
 
     )
@@ -469,11 +419,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "rerollraffle",
-
             reroll_raffle
-
         )
 
     )
@@ -482,11 +429,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "cancelraffle",
-
             cancel_raffle
-
         )
 
     )
@@ -495,11 +439,8 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "bonusentry",
-
             bonus_entry
-
         )
 
     )
@@ -508,27 +449,47 @@ def main():
     application.add_handler(
 
         CommandHandler(
-
             "removeentry",
-
             remove_raffle_entry
-
         )
 
     )
 
 
     # ======================================================
-    # RAFFLE INLINE BUTTONS
+    # RAFFLE BUTTONS
     # ======================================================
 
+    # Member payment buttons:
+    #
+    # raffle_zelle
+    # raffle_paid
+    #
     application.add_handler(
 
         CallbackQueryHandler(
 
-            raffle_button_handler,
+            payment_button,
 
-            pattern=r"^(raffle_|approve:|deny:)"
+            pattern=r"^raffle_(zelle|paid)$"
+
+        )
+
+    )
+
+
+    # Admin approval buttons:
+    #
+    # approve_ENTRYID
+    # deny_ENTRYID
+    #
+    application.add_handler(
+
+        CallbackQueryHandler(
+
+            admin_payment_button,
+
+            pattern=r"^(approve|deny)_\d+$"
 
         )
 
