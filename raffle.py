@@ -27,13 +27,13 @@ from raffle_database import (
     create_raffle,
     get_active_raffle,
     add_raffle_entry,
+    get_entry,
     get_pending_entries,
     approve_entry,
     deny_entry,
     get_approved_entries,
     remove_entry,
-    close_raffle,
-    get_entry
+    close_raffle
 )
 
 
@@ -47,7 +47,7 @@ def is_admin(user_id):
 
 
 # ==========================================================
-# PAYMENT KEYBOARD
+# PAYMENT BUTTONS
 # ==========================================================
 
 def payment_keyboard():
@@ -116,20 +116,15 @@ async def start_raffle(
     )
 
 
-    chat_id = update.effective_chat.id
-
-
     raffle_id = create_raffle(
-        prize,
-        "",
-        chat_id
+        prize
     )
 
 
     await update.message.reply_text(
 
-f"""
-🎟️ NEW RAFFLE STARTED
+        f"""
+🎟 NEW RAFFLE STARTED
 
 🏆 Prize:
 {prize}
@@ -137,7 +132,12 @@ f"""
 💰 Entry:
 ${RAFFLE_ENTRY_COST:.2f}
 
-👇 Tap below to enter.
+🎟 Raffle ID:
+{raffle_id}
+
+Members can use:
+
+/enter
 """,
 
         reply_markup=payment_keyboard()
@@ -168,8 +168,8 @@ async def enter_raffle(
 
     await update.message.reply_text(
 
-f"""
-🎟️ RAFFLE ENTRY
+        f"""
+🎟 RAFFLE ENTRY
 
 🏆 Prize:
 {raffle[1]}
@@ -177,13 +177,17 @@ f"""
 💰 Entry Cost:
 ${RAFFLE_ENTRY_COST:.2f}
 
-Choose a payment method below.
+Choose your payment method below.
 
-After you send your payment, tap:
+💵 Cash App:
+{CASHAPP_TAG}
+
+💳 Zelle:
+{ZELLE_PHONE}
+
+After completing your payment, press:
 
 ✅ I've Paid
-
-Your entry will be sent to the admin for approval.
 """,
 
         reply_markup=payment_keyboard()
@@ -192,226 +196,24 @@ Your entry will be sent to the admin for approval.
 
 
 # ==========================================================
-# PAID COMMAND
+# PAYMENT BUTTON
 # ==========================================================
 
-async def paid_entry(
-    update,
-    context
-):
-
-    try:
-
-        raffle = get_active_raffle()
-
-
-        if not raffle:
-
-            await update.message.reply_text(
-                "❌ No active raffle."
-            )
-
-            return
-
-
-        if not context.args:
-
-            await update.message.reply_text(
-
-"""
-Choose your payment method:
-
-/paid cashapp
-
-or
-
-/paid zelle
-"""
-            )
-
-            return
-
-
-        method = context.args[0].lower()
-
-
-        if method not in (
-            "cashapp",
-            "zelle"
-        ):
-
-            await update.message.reply_text(
-                "❌ Payment method must be Cash App or Zelle."
-            )
-
-            return
-
-
-        user = update.effective_user
-
-
-        username = (
-            f"@{user.username}"
-            if user.username
-            else user.first_name
-        )
-
-
-        display_name = user.full_name
-
-
-        entry_id = add_raffle_entry(
-
-            raffle[0],
-
-            user.id,
-
-            username,
-
-            display_name,
-
-            method
-
-        )
-
-
-        if entry_id is None:
-
-            await update.message.reply_text(
-"""
-⚠️ You already have an entry pending
-or approved for this raffle.
-
-Please wait for admin approval.
-"""
-            )
-
-            return
-
-
-        await update.message.reply_text(
-
-f"""
-✅ PAYMENT SUBMITTED
-
-👤 Name:
-{display_name}
-
-💳 Method:
-{method.upper()}
-
-💰 Amount:
-${RAFFLE_ENTRY_COST:.2f}
-
-🎟️ Entry ID:
-#{entry_id}
-
-⏳ Status:
-Waiting for admin approval.
-
-You will be notified once your payment has been approved.
-"""
-        )
-
-
-        # --------------------------------------------------
-        # Notify Admins
-        # --------------------------------------------------
-
-        admin_message = f"""
-🔔 NEW RAFFLE PAYMENT
-
-🎟️ Raffle:
-{raffle[1]}
-
-🆔 Entry ID:
-#{entry_id}
-
-👤 Name:
-{display_name}
-
-📱 Username:
-{username}
-
-💳 Payment:
-{method.upper()}
-
-💰 Amount:
-${RAFFLE_ENTRY_COST:.2f}
-
-⏳ Status:
-PENDING APPROVAL
-"""
-
-
-        keyboard = InlineKeyboardMarkup([
-
-            [
-
-                InlineKeyboardButton(
-                    "✅ APPROVE",
-                    callback_data=f"approve:{entry_id}"
-                ),
-
-                InlineKeyboardButton(
-                    "❌ DENY",
-                    callback_data=f"deny:{entry_id}"
-                )
-
-            ]
-
-        ])
-
-
-        for admin_id in ADMIN_IDS:
-
-            try:
-
-                await context.bot.send_message(
-
-                    chat_id=admin_id,
-
-                    text=admin_message,
-
-                    reply_markup=keyboard
-
-                )
-
-            except Exception as e:
-
-                print(
-                    f"Could not notify admin {admin_id}: {e}"
-                )
-
-
-    except Exception as e:
-
-        traceback.print_exc()
-
-
-        await update.message.reply_text(
-            f"❌ Error processing entry:\n{e}"
-        )
-
-
-# ==========================================================
-# ZELLE INFORMATION
-# ==========================================================
-
-async def zelle_info(
+async def payment_button(
     update,
     context
 ):
 
     query = update.callback_query
 
-
     await query.answer()
 
 
-    await query.message.reply_text(
+    if query.data == "raffle_zelle":
 
-f"""
+        await query.message.reply_text(
+
+            f"""
 💳 ZELLE PAYMENT
 
 Send:
@@ -422,14 +224,443 @@ To Zelle:
 
 📱 {ZELLE_PHONE}
 
-After sending the payment, tap:
-
-/paid zelle
-
-or use the payment buttons again and select:
+After sending the payment, return here and press:
 
 ✅ I've Paid
+""",
+
+            reply_markup=InlineKeyboardMarkup(
+
+                [
+                    [
+                        InlineKeyboardButton(
+                            "✅ I've Paid",
+                            callback_data="raffle_paid"
+                        )
+                    ]
+                ]
+
+            )
+
+        )
+
+        return
+
+
+    if query.data == "raffle_paid":
+
+        await create_paid_entry(
+            query,
+            context
+        )
+
+
+# ==========================================================
+# CREATE PAID ENTRY
+# ==========================================================
+
+async def create_paid_entry(
+    query,
+    context
+):
+
+    raffle = get_active_raffle()
+
+
+    if not raffle:
+
+        await query.message.reply_text(
+            "❌ There is no active raffle."
+        )
+
+        return
+
+
+    user = query.from_user
+
+
+    username = (
+        f"@{user.username}"
+        if user.username
+        else user.first_name
+    )
+
+
+    display_name = user.full_name
+
+
+    # ======================================================
+    # DEFAULT PAYMENT METHOD
+    # ======================================================
+    #
+    # We don't actually receive payment confirmation from
+    # Cash App or Zelle. The user is submitting an entry
+    # for your manual approval.
+    #
+    # ======================================================
+
+    payment_method = "PAYMENT SUBMITTED"
+
+
+    entry_id = add_raffle_entry(
+
+        raffle[0],
+
+        user.id,
+
+        username,
+
+        display_name,
+
+        payment_method
+
+    )
+
+
+    # ======================================================
+    # DUPLICATE ENTRY
+    # ======================================================
+
+    if entry_id is None:
+
+        await query.message.reply_text(
+
+            """
+⚠️ ENTRY ALREADY SUBMITTED
+
+You already have a pending or approved entry for this raffle.
+
+Please wait for admin approval.
+""",
+
+        )
+
+        return
+
+
+    # ======================================================
+    # MEMBER CONFIRMATION
+    # ======================================================
+
+    await query.message.reply_text(
+
+        f"""
+✅ PAYMENT SUBMITTED
+
+🎟 Entry ID:
+#{entry_id}
+
+🏆 Prize:
+{raffle[1]}
+
+👤 Name:
+{display_name}
+
+💰 Amount:
+${RAFFLE_ENTRY_COST:.2f}
+
+⏳ Status:
+PENDING ADMIN APPROVAL
+
+You'll receive another message once your entry has been reviewed.
+
+🔥 Good luck!
 """
+    )
+
+
+    # ======================================================
+    # ADMIN NOTIFICATION
+    # ======================================================
+
+    admin_keyboard = InlineKeyboardMarkup(
+
+        [
+
+            [
+
+                InlineKeyboardButton(
+                    "✅ APPROVE",
+                    callback_data=f"approve_{entry_id}"
+                ),
+
+                InlineKeyboardButton(
+                    "❌ DENY",
+                    callback_data=f"deny_{entry_id}"
+                )
+
+            ]
+
+        ]
+
+    )
+
+
+    admin_message = f"""
+🎟 NEW RAFFLE PAYMENT
+
+⚠️ ACTION REQUIRED
+
+🏆 Prize:
+{raffle[1]}
+
+🎟 Entry:
+#{entry_id}
+
+👤 Name:
+{display_name}
+
+🔹 Username:
+{username}
+
+🆔 User ID:
+{user.id}
+
+💰 Amount:
+${RAFFLE_ENTRY_COST:.2f}
+
+💳 Payment:
+{payment_method}
+
+⏳ Status:
+PENDING
+"""
+
+
+    for admin_id in ADMIN_IDS:
+
+        try:
+
+            await context.bot.send_message(
+
+                chat_id=admin_id,
+
+                text=admin_message,
+
+                reply_markup=admin_keyboard
+
+            )
+
+        except Exception as e:
+
+            print(
+                f"Could not notify admin {admin_id}: {e}"
+            )
+
+
+# ==========================================================
+# ADMIN PAYMENT BUTTON
+# ==========================================================
+
+async def admin_payment_button(
+    update,
+    context
+):
+
+    query = update.callback_query
+
+    await query.answer()
+
+
+    if not is_admin(
+        query.from_user.id
+    ):
+
+        await query.answer(
+            "❌ Admin only.",
+            show_alert=True
+        )
+
+        return
+
+
+    data = query.data
+
+
+    if data.startswith("approve_"):
+
+        entry_id = int(
+            data.split("_")[1]
+        )
+
+
+        entry = get_entry(
+            entry_id
+        )
+
+
+        if not entry:
+
+            await query.message.edit_text(
+                "❌ Entry no longer exists."
+            )
+
+            return
+
+
+        success = approve_entry(
+            entry_id,
+            query.from_user.id
+        )
+
+
+        if not success:
+
+            await query.message.edit_text(
+                "⚠️ This entry has already been processed."
+            )
+
+            return
+
+
+        # ==================================================
+        # ADMIN MESSAGE
+        # ==================================================
+
+        await query.message.edit_text(
+
+            f"""
+✅ RAFFLE PAYMENT APPROVED
+
+🎟 Entry:
+#{entry_id}
+
+👤 {entry['display_name']}
+
+💰 ${RAFFLE_ENTRY_COST:.2f}
+
+Status: PAID
+"""
+        )
+
+
+        # ==================================================
+        # MEMBER NOTIFICATION
+        # ==================================================
+
+        try:
+
+            await context.bot.send_message(
+
+                chat_id=entry["user_id"],
+
+                text=f"""
+🎉 YOUR RAFFLE ENTRY IS APPROVED!
+
+🏆 Prize:
+{get_active_raffle()[1]}
+
+🎟 Entry:
+#{entry_id}
+
+💰 Payment:
+${RAFFLE_ENTRY_COST:.2f}
+
+✅ Status:
+APPROVED
+
+Good luck! 🔥
+"""
+            )
+
+        except Exception as e:
+
+            print(
+                f"Could not notify member: {e}"
+            )
+
+
+        return
+
+
+    if data.startswith("deny_"):
+
+        entry_id = int(
+            data.split("_")[1]
+        )
+
+
+        entry = get_entry(
+            entry_id
+        )
+
+
+        if not entry:
+
+            await query.message.edit_text(
+                "❌ Entry no longer exists."
+            )
+
+            return
+
+
+        success = deny_entry(
+            entry_id,
+            query.from_user.id
+        )
+
+
+        if not success:
+
+            await query.message.edit_text(
+                "⚠️ This entry has already been processed."
+            )
+
+            return
+
+
+        await query.message.edit_text(
+
+            f"""
+❌ RAFFLE PAYMENT DENIED
+
+🎟 Entry:
+#{entry_id}
+
+👤 {entry['display_name']}
+
+Status: DENIED
+"""
+        )
+
+
+        try:
+
+            await context.bot.send_message(
+
+                chat_id=entry["user_id"],
+
+                text=f"""
+❌ RAFFLE ENTRY NOT APPROVED
+
+🎟 Entry:
+#{entry_id}
+
+Your payment could not be approved at this time.
+
+Please contact an administrator if you believe this was an error.
+"""
+            )
+
+        except Exception as e:
+
+            print(
+                f"Could not notify member: {e}"
+            )
+
+
+# ==========================================================
+# LEGACY /PAID COMMAND
+# ==========================================================
+
+async def paid_entry(
+    update,
+    context
+):
+
+    await enter_raffle(
+        update,
+        context
     )
 
 
@@ -470,36 +701,22 @@ async def pending_entries(
 
     for entry in entries:
 
-        entry_id = entry["id"]
-
-        name = (
-            entry["display_name"]
-            or entry["username"]
-            or "Unknown"
-        )
-
-        method = (
-            entry["payment_method"]
-            or "Unknown"
-        )
-
-
         msg += (
 
-            f"🆔 Entry: #{entry_id}\n"
+            f"🎟 ID: {entry[0]}\n"
 
-            f"👤 User: {name}\n"
+            f"👤 User: {entry[1]}\n"
 
-            f"💳 Method: {method.upper()}\n"
+            f"💳 Method: {entry[2]}\n"
 
-            f"💰 Status: {entry['payment_status']}\n\n"
+            f"🕐 {entry[3]}\n\n"
 
         )
 
 
     msg += (
-        "Use the approval buttons in the "
-        "admin notification."
+        "Use the approval buttons from the "
+        "payment notification."
     )
 
 
@@ -509,7 +726,7 @@ async def pending_entries(
 
 
 # ==========================================================
-# APPROVE
+# APPROVE COMMAND
 # ==========================================================
 
 async def approve_raffle_entry(
@@ -527,7 +744,7 @@ async def approve_raffle_entry(
     if not context.args:
 
         await update.message.reply_text(
-            "Use:\n/approveentry ID"
+            "Use /approveentry ID"
         )
 
         return
@@ -542,7 +759,7 @@ async def approve_raffle_entry(
     except ValueError:
 
         await update.message.reply_text(
-            "❌ Invalid entry ID."
+            "❌ Entry ID must be a number."
         )
 
         return
@@ -563,78 +780,27 @@ async def approve_raffle_entry(
 
 
     success = approve_entry(
-
         entry_id,
-
         update.effective_user.id
-
     )
 
 
     if not success:
 
         await update.message.reply_text(
-            "⚠️ Entry was already processed."
+            "⚠️ Entry has already been processed."
         )
 
         return
 
 
     await update.message.reply_text(
-
-f"""
-✅ ENTRY APPROVED
-
-🎟️ Entry:
-#{entry_id}
-
-👤 User:
-{entry['display_name'] or entry['username']}
-
-💳 Payment:
-{entry['payment_method'].upper()}
-"""
+        f"✅ Entry #{entry_id} approved."
     )
 
 
-    # ------------------------------------------------------
-    # Notify Member
-    # ------------------------------------------------------
-
-    try:
-
-        await context.bot.send_message(
-
-            chat_id=entry["user_id"],
-
-            text=f"""
-🎉 YOUR RAFFLE ENTRY IS APPROVED!
-
-🏆 Raffle:
-{get_active_raffle()[1]}
-
-🎟️ Entry:
-#{entry_id}
-
-💳 Payment:
-{entry['payment_method'].upper()}
-
-✅ You are officially entered!
-
-Good luck! 🔥👑
-"""
-
-        )
-
-    except Exception as e:
-
-        print(
-            f"Could not notify member: {e}"
-        )
-
-
 # ==========================================================
-# DENY
+# DENY COMMAND
 # ==========================================================
 
 async def deny_raffle_entry(
@@ -652,7 +818,7 @@ async def deny_raffle_entry(
     if not context.args:
 
         await update.message.reply_text(
-            "Use:\n/denyentry ID"
+            "Use /denyentry ID"
         )
 
         return
@@ -667,7 +833,7 @@ async def deny_raffle_entry(
     except ValueError:
 
         await update.message.reply_text(
-            "❌ Invalid entry ID."
+            "❌ Entry ID must be a number."
         )
 
         return
@@ -688,60 +854,23 @@ async def deny_raffle_entry(
 
 
     success = deny_entry(
-
         entry_id,
-
         update.effective_user.id
-
     )
 
 
     if not success:
 
         await update.message.reply_text(
-            "⚠️ Entry was already processed."
+            "⚠️ Entry has already been processed."
         )
 
         return
 
 
     await update.message.reply_text(
-
-f"""
-❌ ENTRY DENIED
-
-🎟️ Entry:
-#{entry_id}
-
-👤 User:
-{entry['display_name'] or entry['username']}
-"""
+        f"❌ Entry #{entry_id} denied."
     )
-
-
-    # ------------------------------------------------------
-    # Notify Member
-    # ------------------------------------------------------
-
-    try:
-
-        await context.bot.send_message(
-
-            chat_id=entry["user_id"],
-
-            text="""
-❌ YOUR RAFFLE PAYMENT WAS NOT APPROVED.
-
-Please contact an administrator if you believe this was an error.
-"""
-
-        )
-
-    except Exception as e:
-
-        print(
-            f"Could not notify member: {e}"
-        )
 
 
 # ==========================================================
@@ -772,8 +901,8 @@ async def raffle_status(
 
     await update.message.reply_text(
 
-f"""
-🎟️ ACTIVE RAFFLE
+        f"""
+🎟 ACTIVE RAFFLE
 
 🏆 Prize:
 {raffle[1]}
@@ -781,10 +910,8 @@ f"""
 💰 Entry:
 ${RAFFLE_ENTRY_COST:.2f}
 
-🎫 Approved Entries:
+👥 Approved Entries:
 {len(entries)}
-
-🔥 Good luck!
 """
     )
 
@@ -831,24 +958,14 @@ async def raffle_entries(
         return
 
 
-    msg = "🎟️ APPROVED ENTRIES\n\n"
+    msg = "🎟 APPROVED ENTRIES\n\n"
 
 
     for entry in entries:
 
-        name = (
-            entry["display_name"]
-            or entry["username"]
-            or "Unknown"
-        )
-
-
         msg += (
-
-            f"🎫 #{entry['entry_number']} — "
-
-            f"{name}\n"
-
+            f"#{entry[0]} - "
+            f"{entry[1]}\n"
         )
 
 
@@ -909,62 +1026,23 @@ async def draw_raffle(
     )
 
 
-    winner_name = (
-        winner["display_name"]
-        or winner["username"]
-        or "Unknown"
-    )
-
-
     await update.message.reply_text(
 
-f"""
+        f"""
 🎉🎉 RAFFLE WINNER 🎉🎉
 
 🏆 Prize:
 {raffle[1]}
 
 👑 Winner:
-{winner_name}
+{winner[1]}
 
-🎟️ Entry:
-#{winner['entry_number']}
+🎟 Entry:
+#{winner[0]}
 
 Congratulations! 🔥
 """
     )
-
-
-    # ------------------------------------------------------
-    # Notify Winner
-    # ------------------------------------------------------
-
-    try:
-
-        await context.bot.send_message(
-
-            chat_id=winner["user_id"],
-
-            text=f"""
-🎉 CONGRATULATIONS!
-
-YOU WON THE MELANATED AZ RAFFLE! 👑🔥
-
-🏆 Prize:
-{raffle[1]}
-
-🎟️ Winning Entry:
-#{winner['entry_number']}
-
-Congratulations! 🎊
-"""
-        )
-
-    except Exception as e:
-
-        print(
-            f"Could not notify winner: {e}"
-        )
 
 
 # ==========================================================
@@ -975,13 +1053,6 @@ async def reroll_raffle(
     update,
     context
 ):
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        return
-
 
     await draw_raffle(
         update,
@@ -1060,7 +1131,7 @@ async def remove_raffle_entry(
     if not context.args:
 
         await update.message.reply_text(
-            "Use:\n/removeentry ID"
+            "Use /removeentry ID"
         )
 
         return
@@ -1075,7 +1146,7 @@ async def remove_raffle_entry(
     except ValueError:
 
         await update.message.reply_text(
-            "❌ Invalid entry ID."
+            "❌ Entry ID must be a number."
         )
 
         return
