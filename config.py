@@ -1,85 +1,69 @@
-# ==========================================================
-# Melanated AZ Bot
-# config.py
-# ==========================================================
-
 import os
 
 
-# ==========================================================
-# BOT
-# ==========================================================
+def required_env(name):
+    value = os.getenv(name)
 
-BOT_TOKEN = os.environ["BOT_TOKEN"]
+    if not value or not value.strip():
+        raise RuntimeError(
+            f"Missing required environment variable: {name}"
+        )
 
-STARTUP_CHAT_ID = int(
-    os.getenv(
-        "STARTUP_CHAT_ID",
-        "-1002697105809"
-    )
-)
+    return value.strip()
 
 
 # ==========================================================
-# DATABASE
+# TELEGRAM
 # ==========================================================
 
-DB_NAME = os.getenv(
-    "DB_NAME",
-    "melanated_az.db"
-)
+BOT_TOKEN = required_env("BOT_TOKEN")
 
 
 # ==========================================================
-# ADMINS
+# ADMIN IDS
+# Render example:
+# ADMIN_IDS=5879167814
+# Multiple:
+# ADMIN_IDS=5879167814,123456789
 # ==========================================================
 
 ADMIN_IDS = [
-    5879167814
+    int(x.strip())
+    for x in required_env("ADMIN_IDS").split(",")
+    if x.strip()
 ]
 
 
 # ==========================================================
-# PAYMENTS
+# PAYMENT INFORMATION
 # ==========================================================
 
-# Cash App
-CASHAPP_TAG = "$MelanatedAZ"
+CASHAPP_TAG = os.getenv(
+    "CASHAPP_TAG",
+    ""
+).strip()
 
-CASHAPP_URL = (
-    "https://cash.app/$MelanatedAZ"
-)
+CASHAPP_URL = os.getenv(
+    "CASHAPP_URL",
+    ""
+).strip()
 
-
-# Zelle
-ZELLE_PHONE = "619-328-8725"
-
-
-# ==========================================================
-# TRUTH OR DARE
-# ==========================================================
-
-TRUTH_DARE_ENABLED = True
-
-TRUTH_DARE_LEVEL = "adult"
+ZELLE_PHONE = os.getenv(
+    "ZELLE_PHONE",
+    ""
+).strip()
 
 
-# ==========================================================
-# STARTUP LOGGING
-# ==========================================================
-
-print(
-    "🤖 BOT_TOKEN: Loaded"
-)
-
-print(
-    f"Loaded Admin IDs: {ADMIN_IDS}"
-)
+print(f"Loaded Admin IDs: {ADMIN_IDS}")
 
 print(
     "💳 Cash App: Loaded"
+    if CASHAPP_TAG
+    else "💳 Cash App: Not configured"
 )
 
 print(
     "💳 Zelle: Loaded"
+    if ZELLE_PHONE
+    else "💳 Zelle: Not configured"
 )
