@@ -3,20 +3,34 @@
 # config.py
 # ==========================================================
 
+import os
+
+
 # ==========================================================
 # BOT
 # ==========================================================
 
-BOT_TOKEN = "8810138488:AAEZCOy88hyDNKtvZKsgX6ryDvOS6W6pajA"
+BOT_TOKEN = os.getenv(
+    "BOT_TOKEN",
+    "8810138488:AAEZCOy88hyDNKtvZKsgX6ryDvOS6W6pajA"
+)
 
-STARTUP_CHAT_ID = -1002697105809
+STARTUP_CHAT_ID = int(
+    os.getenv(
+        "STARTUP_CHAT_ID",
+        "-1002697105809"
+    )
+)
 
 
 # ==========================================================
 # DATABASE
 # ==========================================================
 
-DB_NAME = "melanated_az.db"
+DB_NAME = os.getenv(
+    "DB_NAME",
+    "melanated_az.db"
+)
 
 
 # ==========================================================
@@ -24,7 +38,9 @@ DB_NAME = "melanated_az.db"
 # ==========================================================
 
 ADMIN_IDS = [
+
     5879167814
+
 ]
 
 
@@ -41,10 +57,15 @@ DEFAULT_RAFFLE_ENTRY = 5.00
 # PAYMENTS
 # ==========================================================
 
+# Cash App
 CASHAPP_TAG = "$MelanatedAZ"
 
-CASHAPP_URL = "https://cash.app/$MelanatedAZ"
+CASHAPP_URL = (
+    "https://cash.app/$MelanatedAZ"
+)
 
+
+# Zelle
 ZELLE_PHONE = "619-328-8725"
 
 
@@ -63,4 +84,12 @@ TRUTH_DARE_LEVEL = "adult"
 
 print(
     f"Loaded Admin IDs: {ADMIN_IDS}"
+)
+
+print(
+    "💳 Cash App: Loaded"
+)
+
+print(
+    "💳 Zelle: Loaded"
 )
