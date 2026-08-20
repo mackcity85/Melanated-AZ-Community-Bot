@@ -38,9 +38,7 @@ DB_NAME = os.getenv(
 # ==========================================================
 
 ADMIN_IDS = [
-
     5879167814
-
 ]
 
 
@@ -67,6 +65,9 @@ CASHAPP_URL = (
 
 # Zelle
 ZELLE_PHONE = "619-328-8725"
+
+# Kept for compatibility with raffle.py
+ZELLE_EMAIL = ZELLE_PHONE
 
 
 # ==========================================================
