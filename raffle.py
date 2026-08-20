@@ -2,14 +2,31 @@
 # Melanated AZ Bot
 # raffle.py
 # Paid Raffle System
+#
+# Raffle price is controlled ONLY by the environment variable:
+# RAFFLE_ENTRY_COST
+#
+# Example Render environment variable:
+# RAFFLE_ENTRY_COST=5
 # ==========================================================
 
 import os
 import random
+import traceback
 
 from telegram import (
+    Update,
     InlineKeyboardButton,
-    InlineKeyboardMarkup,
+    InlineKeyboardMarkup
+)
+
+from telegram.ext import ContextTypes
+
+from config import (
+    ADMIN_IDS,
+    CASHAPP_TAG,
+    CASHAPP_URL,
+    ZELLE_PHONE
 )
 
 from raffle_database import (
@@ -22,65 +39,71 @@ from raffle_database import (
     deny_entry,
     get_approved_entries,
     remove_entry,
-    close_raffle,
-)
-
-from config import (
-    ADMIN_IDS,
-    CASHAPP_TAG,
-    CASHAPP_URL,
-    ZELLE_PHONE,
+    close_raffle
 )
 
 
 # ==========================================================
-# RAFFLE ENTRY PRICE
+# RAFFLE ENTRY COST
 # ==========================================================
 #
-# PRICE IS CONTROLLED ONLY BY RENDER ENVIRONMENT VARIABLE:
+# DO NOT PUT THE PRICE IN config.py
+#
+# Render:
 #
 # RAFFLE_ENTRY_COST=5
 #
-# These also work:
+# or:
 #
-# RAFFLE_ENTRY_COST=5.00
-# RAFFLE_ENTRY_COST=$5
-# RAFFLE_ENTRY_COST=$5.00
+# RAFFLE_ENTRY_COST=10
+#
+# or:
+#
+# RAFFLE_ENTRY_COST=25.50
 #
 # ==========================================================
 
-_raw_raffle_cost = os.getenv(
-    "RAFFLE_ENTRY_COST",
-    ""
-).strip()
+def get_raffle_entry_cost():
+
+    value = os.getenv("RAFFLE_ENTRY_COST", "").strip()
+
+    if not value:
+
+        raise RuntimeError(
+            "RAFFLE_ENTRY_COST environment variable is not set."
+        )
+
+    # Allow values such as:
+    # 5
+    # 5.00
+    # $5
+    # $5.00
+
+    value = value.replace("$", "").replace(",", "").strip()
+
+    try:
+
+        cost = float(value)
+
+    except ValueError:
+
+        raise RuntimeError(
+            "RAFFLE_ENTRY_COST must be a valid number. "
+            "Example: 5 or 5.00"
+        )
+
+    if cost <= 0:
+
+        raise RuntimeError(
+            "RAFFLE_ENTRY_COST must be greater than 0."
+        )
+
+    return cost
 
 
-if not _raw_raffle_cost:
+def raffle_price():
 
-    raise RuntimeError(
-        "RAFFLE_ENTRY_COST environment variable is not set."
-    )
-
-
-try:
-
-    RAFFLE_ENTRY_COST = float(
-        _raw_raffle_cost.replace("$", "").replace(",", "").strip()
-    )
-
-except ValueError:
-
-    raise RuntimeError(
-        "RAFFLE_ENTRY_COST must be a valid number. "
-        "Examples: 5, 5.00, $5, or $5.00"
-    )
-
-
-if RAFFLE_ENTRY_COST <= 0:
-
-    raise RuntimeError(
-        "RAFFLE_ENTRY_COST must be greater than 0."
-    )
+    return f"${get_raffle_entry_cost():.2f}"
 
 
 # ==========================================================
@@ -131,13 +154,11 @@ def payment_keyboard():
 # ==========================================================
 
 async def start_raffle(
-    update,
-    context
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         await update.message.reply_text(
             "❌ Admin only."
@@ -146,38 +167,42 @@ async def start_raffle(
         return
 
 
-    if not context.args:
+    # Make sure price exists before starting raffle.
+
+    try:
+
+        cost = get_raffle_entry_cost()
+
+    except RuntimeError as e:
 
         await update.message.reply_text(
-            "Usage:\n/startraffle Prize Name"
+            f"❌ Raffle configuration error:\n\n{e}"
         )
 
         return
 
 
-    # ======================================================
-    # ONLY ONE ACTIVE RAFFLE
-    # ======================================================
+    # Only ONE active raffle at a time.
 
-    existing_raffle = get_active_raffle()
+    active = get_active_raffle()
 
-    if existing_raffle:
+    if active:
 
         await update.message.reply_text(
 
             f"""
-⚠️ AN ACTIVE RAFFLE ALREADY EXISTS
+⚠️ THERE IS ALREADY AN ACTIVE RAFFLE
 
 🏆 Prize:
-{existing_raffle[1]}
-
-🎟 Raffle ID:
-{existing_raffle[0]}
+{active[1]}
 
 💰 Entry:
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
-Please finish or cancel the current raffle before starting another.
+🎟 Raffle ID:
+{active[0]}
+
+Close the current raffle before starting another one.
 """
 
         )
@@ -185,14 +210,29 @@ Please finish or cancel the current raffle before starting another.
         return
 
 
-    prize = " ".join(
-        context.args
-    )
+    if not context.args:
+
+        await update.message.reply_text(
+
+            """
+Usage:
+
+/startraffle Prize Name
+
+Example:
+
+/startraffle $100 Cash Prize
+"""
+
+        )
+
+        return
 
 
-    raffle_id = create_raffle(
-        prize
-    )
+    prize = " ".join(context.args)
+
+
+    raffle_id = create_raffle(prize)
 
 
     await update.message.reply_text(
@@ -204,7 +244,7 @@ Please finish or cancel the current raffle before starting another.
 {prize}
 
 💰 Entry:
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
 🎟 Raffle ID:
 {raffle_id}
@@ -224,8 +264,8 @@ Members can use:
 # ==========================================================
 
 async def enter_raffle(
-    update,
-    context
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
     raffle = get_active_raffle()
@@ -240,6 +280,9 @@ async def enter_raffle(
         return
 
 
+    cost = get_raffle_entry_cost()
+
+
     await update.message.reply_text(
 
         f"""
@@ -249,7 +292,7 @@ async def enter_raffle(
 {raffle[1]}
 
 💰 Entry Cost:
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
 Choose your payment method below.
 
@@ -274,8 +317,8 @@ After completing your payment, press:
 # ==========================================================
 
 async def payment_button(
-    update,
-    context
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
     query = update.callback_query
@@ -285,6 +328,9 @@ async def payment_button(
 
     if query.data == "raffle_zelle":
 
+        cost = get_raffle_entry_cost()
+
+
         await query.message.reply_text(
 
             f"""
@@ -292,7 +338,7 @@ async def payment_button(
 
 Send:
 
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
 To Zelle:
 
@@ -306,16 +352,12 @@ After sending the payment, return here and press:
             reply_markup=InlineKeyboardMarkup(
 
                 [
-
                     [
-
                         InlineKeyboardButton(
                             "✅ I've Paid",
                             callback_data="raffle_paid"
                         )
-
                     ]
-
                 ]
 
             )
@@ -352,6 +394,9 @@ async def create_paid_entry(
         )
 
         return
+
+
+    cost = get_raffle_entry_cost()
 
 
     user = query.from_user
@@ -400,7 +445,8 @@ async def create_paid_entry(
             """
 ⚠️ ENTRY ALREADY SUBMITTED
 
-You already have a pending or approved entry for this raffle.
+You already have a pending or approved entry
+for this raffle.
 
 Please wait for admin approval.
 """
@@ -429,12 +475,13 @@ Please wait for admin approval.
 {display_name}
 
 💰 Amount:
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
 ⏳ Status:
 PENDING ADMIN APPROVAL
 
-You'll receive another message once your entry has been reviewed.
+You'll receive another message once your entry
+has been reviewed.
 
 🔥 Good luck!
 """
@@ -443,7 +490,7 @@ You'll receive another message once your entry has been reviewed.
 
 
     # ======================================================
-    # ADMIN BUTTONS
+    # ADMIN NOTIFICATION
     # ======================================================
 
     admin_keyboard = InlineKeyboardMarkup(
@@ -469,10 +516,6 @@ You'll receive another message once your entry has been reviewed.
     )
 
 
-    # ======================================================
-    # ADMIN NOTIFICATION
-    # ======================================================
-
     admin_message = f"""
 🎟 NEW RAFFLE PAYMENT
 
@@ -494,7 +537,7 @@ You'll receive another message once your entry has been reviewed.
 {user.id}
 
 💰 Amount:
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
 💳 Payment:
 {payment_method}
@@ -530,8 +573,8 @@ PENDING
 # ==========================================================
 
 async def admin_payment_button(
-    update,
-    context
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
     query = update.callback_query
@@ -539,9 +582,7 @@ async def admin_payment_button(
     await query.answer()
 
 
-    if not is_admin(
-        query.from_user.id
-    ):
+    if not is_admin(query.from_user.id):
 
         await query.answer(
             "❌ Admin only.",
@@ -565,9 +606,7 @@ async def admin_payment_button(
         )
 
 
-        entry = get_entry(
-            entry_id
-        )
+        entry = get_entry(entry_id)
 
 
         if not entry:
@@ -580,11 +619,8 @@ async def admin_payment_button(
 
 
         success = approve_entry(
-
             entry_id,
-
             query.from_user.id
-
         )
 
 
@@ -597,6 +633,9 @@ async def admin_payment_button(
             return
 
 
+        cost = get_raffle_entry_cost()
+
+
         await query.message.edit_text(
 
             f"""
@@ -607,7 +646,7 @@ async def admin_payment_button(
 
 👤 {entry['display_name']}
 
-💰 ${RAFFLE_ENTRY_COST:.2f}
+💰 ${cost:.2f}
 
 Status:
 PAID
@@ -615,6 +654,8 @@ PAID
 
         )
 
+
+        # Notify member
 
         try:
 
@@ -641,7 +682,7 @@ PAID
 #{entry_id}
 
 💰 Payment:
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
 ✅ Status:
 APPROVED
@@ -672,9 +713,7 @@ Good luck! 🔥
         )
 
 
-        entry = get_entry(
-            entry_id
-        )
+        entry = get_entry(entry_id)
 
 
         if not entry:
@@ -687,11 +726,8 @@ Good luck! 🔥
 
 
         success = deny_entry(
-
             entry_id,
-
             query.from_user.id
-
         )
 
 
@@ -735,7 +771,8 @@ DENIED
 
 Your payment could not be approved at this time.
 
-Please contact an administrator if you believe this was an error.
+Please contact an administrator if you believe
+this was an error.
 """
 
             )
@@ -771,9 +808,7 @@ async def pending_entries(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         await update.message.reply_text(
             "❌ Admin only."
@@ -802,11 +837,8 @@ async def pending_entries(
         msg += (
 
             f"🎟 ID: {entry[0]}\n"
-
             f"👤 User: {entry[1]}\n"
-
             f"💳 Method: {entry[2]}\n"
-
             f"🕐 {entry[3]}\n\n"
 
         )
@@ -818,9 +850,7 @@ async def pending_entries(
     )
 
 
-    await update.message.reply_text(
-        msg
-    )
+    await update.message.reply_text(msg)
 
 
 # ==========================================================
@@ -832,9 +862,7 @@ async def approve_raffle_entry(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         return
 
@@ -850,9 +878,7 @@ async def approve_raffle_entry(
 
     try:
 
-        entry_id = int(
-            context.args[0]
-        )
+        entry_id = int(context.args[0])
 
     except ValueError:
 
@@ -863,9 +889,7 @@ async def approve_raffle_entry(
         return
 
 
-    entry = get_entry(
-        entry_id
-    )
+    entry = get_entry(entry_id)
 
 
     if not entry:
@@ -878,11 +902,8 @@ async def approve_raffle_entry(
 
 
     success = approve_entry(
-
         entry_id,
-
         update.effective_user.id
-
     )
 
 
@@ -909,9 +930,7 @@ async def deny_raffle_entry(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         return
 
@@ -927,9 +946,7 @@ async def deny_raffle_entry(
 
     try:
 
-        entry_id = int(
-            context.args[0]
-        )
+        entry_id = int(context.args[0])
 
     except ValueError:
 
@@ -940,9 +957,7 @@ async def deny_raffle_entry(
         return
 
 
-    entry = get_entry(
-        entry_id
-    )
+    entry = get_entry(entry_id)
 
 
     if not entry:
@@ -955,11 +970,8 @@ async def deny_raffle_entry(
 
 
     success = deny_entry(
-
         entry_id,
-
         update.effective_user.id
-
     )
 
 
@@ -998,6 +1010,9 @@ async def raffle_status(
         return
 
 
+    cost = get_raffle_entry_cost()
+
+
     entries = get_approved_entries(
         raffle[0]
     )
@@ -1012,7 +1027,7 @@ async def raffle_status(
 {raffle[1]}
 
 💰 Entry:
-${RAFFLE_ENTRY_COST:.2f}
+${cost:.2f}
 
 👥 Approved Entries:
 {len(entries)}
@@ -1030,9 +1045,7 @@ async def raffle_entries(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         return
 
@@ -1074,9 +1087,7 @@ async def raffle_entries(
         )
 
 
-    await update.message.reply_text(
-        msg
-    )
+    await update.message.reply_text(msg)
 
 
 # ==========================================================
@@ -1088,9 +1099,7 @@ async def draw_raffle(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         return
 
@@ -1121,9 +1130,7 @@ async def draw_raffle(
         return
 
 
-    winner = random.choice(
-        entries
-    )
+    winner = random.choice(entries)
 
 
     close_raffle(
@@ -1160,6 +1167,15 @@ async def reroll_raffle(
     context
 ):
 
+    if not is_admin(update.effective_user.id):
+
+        return
+
+
+    # This uses the currently active raffle.
+    # If the raffle has already been closed, a reroll
+    # cannot be performed with this database structure.
+
     await draw_raffle(
         update,
         context
@@ -1175,9 +1191,7 @@ async def cancel_raffle(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         return
 
@@ -1206,9 +1220,7 @@ async def bonus_entry(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         return
 
@@ -1227,9 +1239,7 @@ async def remove_raffle_entry(
     context
 ):
 
-    if not is_admin(
-        update.effective_user.id
-    ):
+    if not is_admin(update.effective_user.id):
 
         return
 
@@ -1245,9 +1255,7 @@ async def remove_raffle_entry(
 
     try:
 
-        entry_id = int(
-            context.args[0]
-        )
+        entry_id = int(context.args[0])
 
     except ValueError:
 
@@ -1258,9 +1266,7 @@ async def remove_raffle_entry(
         return
 
 
-    success = remove_entry(
-        entry_id
-    )
+    success = remove_entry(entry_id)
 
 
     if success:
