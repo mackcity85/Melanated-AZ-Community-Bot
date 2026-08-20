@@ -1,131 +1,71 @@
 # ==========================================================
 # Melanated AZ Bot
 # bot.py
-# Main Launcher
 # ==========================================================
 
+import os
 import logging
-
-from threading import Thread
+import threading
 
 from flask import Flask
 
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
-    MessageHandler,
-    ChatMemberHandler,
     CallbackQueryHandler,
-    filters
+    MessageHandler,
+    ContextTypes,
+    filters,
 )
 
+# ==========================================================
+# CONFIG
+# ==========================================================
 
 from config import (
     BOT_TOKEN,
-    STARTUP_CHAT_ID
+    ADMIN_IDS,
+    CASHAPP_TAG,
+    CASHAPP_URL,
+    ZELLE_PHONE,
 )
-
-
-# ==========================================================
-# IMPORTS
-# ==========================================================
-
-from admin import admin_commands
-
-from media import check_media
-
-from welcome import welcome
-
-
-from birthdays import (
-    init_birthdays,
-    birthday_command,
-    birthday_check
-)
-
-
-from rules import rules
-
-from trivia import trivia
-
-
-from truth_dare import (
-    truth,
-    dare
-)
-
 
 # ==========================================================
 # RAFFLE
 # ==========================================================
 
 from raffle import (
-
     start_raffle,
-
     enter_raffle,
-
     paid_entry,
-
-    raffle_status,
-
-    raffle_entries,
-
-    pending_entries,
-
-    approve_raffle_entry,
-
-    deny_raffle_entry,
-
-    draw_raffle,
-
-    reroll_raffle,
-
-    cancel_raffle,
-
-    bonus_entry,
-
-    remove_raffle_entry,
-
     payment_button,
-
-    admin_payment_button
-
+    admin_payment_button,
+    pending_entries,
+    approve_raffle_entry,
+    deny_raffle_entry,
+    raffle_status,
+    raffle_entries,
+    draw_raffle,
+    reroll_raffle,
+    cancel_raffle,
+    bonus_entry,
+    remove_raffle_entry,
 )
-
-
-# ==========================================================
-# DATABASE
-# ==========================================================
-
-from database import initialize_database
-
-from raffle_database import initialize_raffle_database
-
 
 # ==========================================================
 # LOGGING
 # ==========================================================
 
 logging.basicConfig(
-
-    format=(
-        "%(asctime)s - "
-        "%(name)s - "
-        "%(levelname)s - "
-        "%(message)s"
-    ),
-
-    level=logging.INFO
-
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
 )
-
 
 logger = logging.getLogger(__name__)
 
-
 # ==========================================================
-# FLASK KEEP ALIVE
+# FLASK
 # ==========================================================
 
 app = Flask(__name__)
@@ -133,62 +73,37 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+    return "🔥 Melanated AZ Bot Online", 200
 
-    return "🔥 Melanated AZ Bot Running"
+
+@app.route("/health")
+def health():
+    return "OK", 200
 
 
-def run_web():
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
 
     app.run(
-
         host="0.0.0.0",
-
-        port=10000
-
+        port=port,
+        debug=False,
+        use_reloader=False,
     )
 
 
 # ==========================================================
-# STARTUP
+# ERROR HANDLER
 # ==========================================================
 
-async def startup(application):
-
-    logger.info(
-        "🔥 Melanated AZ Bot Online"
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    logger.error(
+        "Exception while processing update:",
+        exc_info=context.error,
     )
-
-
-    if STARTUP_CHAT_ID:
-
-        try:
-
-            await application.bot.send_message(
-
-                chat_id=int(
-                    STARTUP_CHAT_ID
-                ),
-
-                text="""
-🟢 Melanated AZ Bot Online
-
-🛡 Media Protection: ACTIVE
-🎂 Birthday System: ACTIVE
-🔥 Truth & Dare: ACTIVE
-🎟 Raffle System: ACTIVE
-💳 Raffle Payments: ACTIVE
-🔔 Payment Approval Alerts: ACTIVE
-
-Bot is ready!
-"""
-
-            )
-
-        except Exception as e:
-
-            logger.error(
-                f"Startup message failed: {e}"
-            )
 
 
 # ==========================================================
@@ -197,359 +112,176 @@ Bot is ready!
 
 def main():
 
-    # ======================================================
-    # START FLASK
-    # ======================================================
+    if not BOT_TOKEN:
+        raise RuntimeError(
+            "BOT_TOKEN environment variable is missing."
+        )
 
-    Thread(
+    logger.info("🔥 Melanated AZ Bot Started")
 
-        target=run_web,
-
-        daemon=True
-
-    ).start()
-
-
-    # ======================================================
-    # DATABASES
-    # ======================================================
-
-    initialize_database()
-
-    initialize_raffle_database()
-
-    init_birthdays()
-
-
-    # ======================================================
+    # ------------------------------------------------------
     # CREATE APPLICATION
-    # ======================================================
+    # ------------------------------------------------------
 
     application = (
-
-        Application
-
-        .builder()
-
+        Application.builder()
         .token(BOT_TOKEN)
-
-        .post_init(startup)
-
         .build()
-
     )
-
-
-    # ======================================================
-    # ADMIN
-    # ======================================================
-
-    application.add_handler(
-
-        CommandHandler(
-            "admin",
-            admin_commands
-        )
-
-    )
-
-
-    # ======================================================
-    # BIRTHDAYS
-    # ======================================================
-
-    application.add_handler(
-
-        CommandHandler(
-            "birthday",
-            birthday_command
-        )
-
-    )
-
-
-    application.add_handler(
-
-        CommandHandler(
-            "birthdaycheck",
-            birthday_check
-        )
-
-    )
-
-
-    # ======================================================
-    # COMMUNITY
-    # ======================================================
-
-    application.add_handler(
-
-        CommandHandler(
-            "rules",
-            rules
-        )
-
-    )
-
-
-    application.add_handler(
-
-        CommandHandler(
-            "trivia",
-            trivia
-        )
-
-    )
-
-
-    application.add_handler(
-
-        CommandHandler(
-            "truth",
-            truth
-        )
-
-    )
-
-
-    application.add_handler(
-
-        CommandHandler(
-            "dare",
-            dare
-        )
-
-    )
-
 
     # ======================================================
     # RAFFLE COMMANDS
     # ======================================================
 
     application.add_handler(
-
         CommandHandler(
             "startraffle",
-            start_raffle
+            start_raffle,
         )
-
     )
 
-
     application.add_handler(
-
         CommandHandler(
             "enter",
-            enter_raffle
+            enter_raffle,
         )
-
     )
 
-
     application.add_handler(
-
         CommandHandler(
             "paid",
-            paid_entry
+            paid_entry,
         )
-
     )
 
-
     application.add_handler(
-
         CommandHandler(
-            "rafflestatus",
-            raffle_status
+            "pending",
+            pending_entries,
         )
-
     )
 
-
     application.add_handler(
-
-        CommandHandler(
-            "raffleentries",
-            raffle_entries
-        )
-
-    )
-
-
-    application.add_handler(
-
-        CommandHandler(
-            "pendingraffles",
-            pending_entries
-        )
-
-    )
-
-
-    application.add_handler(
-
         CommandHandler(
             "approveentry",
-            approve_raffle_entry
+            approve_raffle_entry,
         )
-
     )
 
-
     application.add_handler(
-
         CommandHandler(
             "denyentry",
-            deny_raffle_entry
+            deny_raffle_entry,
         )
-
     )
 
-
     application.add_handler(
-
         CommandHandler(
-            "drawraffle",
-            draw_raffle
+            "rafflestatus",
+            raffle_status,
         )
-
     )
 
-
     application.add_handler(
-
         CommandHandler(
-            "rerollraffle",
-            reroll_raffle
+            "raffleentries",
+            raffle_entries,
         )
-
     )
 
+    application.add_handler(
+        CommandHandler(
+            "draw",
+            draw_raffle,
+        )
+    )
 
     application.add_handler(
+        CommandHandler(
+            "reroll",
+            reroll_raffle,
+        )
+    )
 
+    application.add_handler(
         CommandHandler(
             "cancelraffle",
-            cancel_raffle
+            cancel_raffle,
         )
-
     )
 
-
     application.add_handler(
-
         CommandHandler(
             "bonusentry",
-            bonus_entry
+            bonus_entry,
         )
-
     )
-
 
     application.add_handler(
-
         CommandHandler(
             "removeentry",
-            remove_raffle_entry
+            remove_raffle_entry,
         )
-
     )
-
 
     # ======================================================
     # RAFFLE BUTTONS
     # ======================================================
 
-    # Member payment buttons:
-    #
-    # raffle_zelle
-    # raffle_paid
-    #
     application.add_handler(
-
         CallbackQueryHandler(
-
             payment_button,
-
-            pattern=r"^raffle_(zelle|paid)$"
-
+            pattern=r"^raffle_(zelle|paid)$",
         )
-
     )
 
-
-    # Admin approval buttons:
-    #
-    # approve_ENTRYID
-    # deny_ENTRYID
-    #
     application.add_handler(
-
         CallbackQueryHandler(
-
             admin_payment_button,
-
-            pattern=r"^(approve|deny)_\d+$"
-
+            pattern=r"^(approve|deny)_\d+$",
         )
-
     )
 
-
     # ======================================================
-    # MEDIA
+    # ERROR HANDLER
     # ======================================================
 
-    application.add_handler(
-
-        MessageHandler(
-
-            filters.PHOTO | filters.VIDEO,
-
-            check_media
-
-        )
-
+    application.add_error_handler(
+        error_handler
     )
 
-
     # ======================================================
-    # WELCOME
+    # START FLASK
     # ======================================================
 
-    application.add_handler(
-
-        ChatMemberHandler(
-
-            welcome,
-
-            ChatMemberHandler.CHAT_MEMBER
-
-        )
-
+    flask_thread = threading.Thread(
+        target=run_flask,
+        daemon=True,
     )
 
+    flask_thread.start()
+
+    logger.info("🌐 Flask health server started")
 
     # ======================================================
-    # START
+    # START TELEGRAM POLLING
     # ======================================================
-
-    print(
-        "🔥 Melanated AZ Bot Started"
-    )
-
+    #
+    # IMPORTANT:
+    # This is the ONLY place run_polling()
+    # is called.
+    #
+    # ======================================================
 
     application.run_polling(
-
-        drop_pending_updates=True
-
+        drop_pending_updates=True,
+        allowed_updates=Update.ALL_TYPES,
     )
 
 
 # ==========================================================
-# ENTRY POINT
+# START PROGRAM
 # ==========================================================
 
 if __name__ == "__main__":
-
     main()
