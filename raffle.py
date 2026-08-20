@@ -1,9 +1,7 @@
 # raffle.py
 # Melanated AZ Bot - Raffle System
-# Compatible with the existing bot.py imports
 
 import os
-import re
 import random
 import sqlite3
 import logging
@@ -20,17 +18,14 @@ logger = logging.getLogger(__name__)
 
 DATABASE_FILE = os.getenv("RAFFLE_DB", "raffle.db")
 
-# Accept:
-#   5
-#   5.00
-#   $5
-#   $5.00
-# from Render environment variables.
 _raw_cost = os.getenv("RAFFLE_ENTRY_COST", "5")
 
 try:
     RAFFLE_ENTRY_COST = float(
-        str(_raw_cost).replace("$", "").replace(",", "").strip()
+        str(_raw_cost)
+        .replace("$", "")
+        .replace(",", "")
+        .strip()
     )
 except (ValueError, TypeError):
     RAFFLE_ENTRY_COST = 5.00
@@ -38,9 +33,13 @@ except (ValueError, TypeError):
 if RAFFLE_ENTRY_COST <= 0:
     RAFFLE_ENTRY_COST = 5.00
 
+CASHAPP = os.getenv(
+    "CASHAPP",
+    os.getenv("CASH_APP", "")
+)
 
-CASHAPP = os.getenv("CASHAPP", os.getenv("CASH_APP", ""))
 ZELLE = os.getenv("ZELLE", "")
+
 
 # ============================================================
 # DATABASE
@@ -53,6 +52,7 @@ def get_connection():
 
 
 def init_database():
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -83,7 +83,8 @@ def init_database():
             payment_reference TEXT,
             paid INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
-            FOREIGN KEY (raffle_id) REFERENCES raffles(id)
+            FOREIGN KEY (raffle_id)
+                REFERENCES raffles(id)
         )
     """)
 
@@ -107,6 +108,7 @@ def money(value):
 
 
 def get_active_raffle():
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -119,22 +121,19 @@ def get_active_raffle():
     """)
 
     row = cur.fetchone()
+
     conn.close()
 
     return row
 
 
 def get_raffle(raffle_id=None):
-    """
-    Return a raffle by ID.
-
-    If raffle_id is omitted, return the current active raffle.
-    """
 
     conn = get_connection()
     cur = conn.cursor()
 
     if raffle_id is None:
+
         cur.execute("""
             SELECT *
             FROM raffles
@@ -142,7 +141,9 @@ def get_raffle(raffle_id=None):
             ORDER BY id DESC
             LIMIT 1
         """)
+
     else:
+
         cur.execute("""
             SELECT *
             FROM raffles
@@ -151,12 +152,14 @@ def get_raffle(raffle_id=None):
         """, (raffle_id,))
 
     row = cur.fetchone()
+
     conn.close()
 
     return row
 
 
 def get_entry_count(raffle_id):
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -168,12 +171,14 @@ def get_entry_count(raffle_id):
     """, (raffle_id,))
 
     count = cur.fetchone()[0]
+
     conn.close()
 
     return count
 
 
 def user_has_entry(raffle_id, user_id):
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -186,34 +191,20 @@ def user_has_entry(raffle_id, user_id):
     """, (raffle_id, user_id))
 
     row = cur.fetchone()
+
     conn.close()
 
     return row is not None
 
 
 # ============================================================
-# ADMIN - START RAFFLE
+# START RAFFLE
 # ============================================================
 
 async def start_raffle(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    """
-    Start a raffle.
-
-    Supported command format:
-
-    /raffle Prize Name
-
-    Optional:
-
-    /raffle Prize Name | Description
-
-    Example:
-
-    /raffle $100 Cash Prize | One winner
-    """
 
     if not update.effective_user:
         return
@@ -221,26 +212,36 @@ async def start_raffle(
     args = context.args or []
 
     if not args:
+
         await update.effective_message.reply_text(
             "❌ Please provide a raffle title.\n\n"
             "Example:\n"
             "/raffle $100 Cash Prize"
         )
+
         return
 
     title_text = " ".join(args).strip()
 
     if "|" in title_text:
-        title, description = title_text.split("|", 1)
+
+        title, description = title_text.split(
+            "|",
+            1
+        )
+
         title = title.strip()
         description = description.strip()
+
     else:
+
         title = title_text
         description = ""
 
-    # End any existing raffle.
     conn = get_connection()
     cur = conn.cursor()
+
+    # Close previous raffle.
 
     cur.execute("""
         UPDATE raffles
@@ -273,24 +274,28 @@ async def start_raffle(
     conn.close()
 
     keyboard = InlineKeyboardMarkup([
+
         [
             InlineKeyboardButton(
                 "🎟 Enter Raffle",
                 callback_data=f"raffle_enter:{raffle_id}"
             )
         ],
+
         [
             InlineKeyboardButton(
                 "💳 Payment Info",
                 callback_data=f"raffle_payment:{raffle_id}"
             )
         ],
+
         [
             InlineKeyboardButton(
                 "📊 Raffle Status",
                 callback_data=f"raffle_status:{raffle_id}"
             )
         ]
+
     ])
 
     message = (
@@ -302,8 +307,7 @@ async def start_raffle(
         message += f"📝 {description}\n"
 
     message += (
-        f"\n🎟 Entry: <b>{money(RAFFLE_ENTRY_COST)}</b>\n"
-        "\n"
+        f"\n🎟 Entry: <b>{money(RAFFLE_ENTRY_COST)}</b>\n\n"
         "Click <b>Enter Raffle</b> to participate."
     )
 
@@ -315,54 +319,13 @@ async def start_raffle(
 
 
 # ============================================================
-# PAYMENT BUTTON
+# ENTER RAFFLE
 # ============================================================
 
-def payment_button(raffle_id=None):
-    """
-    Return payment keyboard.
-
-    Kept as a normal function so bot.py can import it.
-    """
-
-    suffix = str(raffle_id) if raffle_id else "0"
-
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                "💵 Cash App",
-                callback_data=f"raffle_cashapp:{suffix}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "💳 Zelle",
-                callback_data=f"raffle_zelle:{suffix}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "⬅️ Back",
-                callback_data=f"raffle_back:{suffix}"
-            )
-        ]
-    ])
-
-
-# ============================================================
-# PAID ENTRY
-# ============================================================
-
-async def paid_entry(
+async def enter_raffle(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    """
-    Process a paid raffle entry.
-
-    This records the user's payment submission.
-    Admins can verify payment separately.
-    """
 
     query = update.callback_query
 
@@ -377,29 +340,48 @@ async def paid_entry(
     raffle = get_active_raffle()
 
     if not raffle:
-        message = "❌ There is no active raffle right now."
+
+        text = (
+            "❌ There is currently no active raffle."
+        )
 
         if query:
-            await query.edit_message_text(message)
+            await query.edit_message_text(text)
         else:
-            await update.effective_message.reply_text(message)
+            await update.effective_message.reply_text(text)
 
         return
 
     raffle_id = raffle["id"]
 
-    if user_has_entry(raffle_id, user.id):
-        message = (
-            "⚠️ You already have an entry for this raffle.\n\n"
-            f"🎟 Entry cost: {money(raffle['entry_cost'])}"
+    # Prevent duplicate entries.
+
+    if user_has_entry(
+        raffle_id,
+        user.id
+    ):
+
+        text = (
+            "⚠️ <b>You already entered this raffle.</b>\n\n"
+            f"🎁 {raffle['title']}\n"
+            f"🎟 Entry: {money(raffle['entry_cost'])}\n\n"
+            "Your payment must be verified by an admin."
         )
 
         if query:
-            await query.edit_message_text(message)
+            await query.edit_message_text(
+                text,
+                parse_mode="HTML"
+            )
         else:
-            await update.effective_message.reply_text(message)
+            await update.effective_message.reply_text(
+                text,
+                parse_mode="HTML"
+            )
 
         return
+
+    # Create pending entry.
 
     conn = get_connection()
     cur = conn.cursor()
@@ -415,40 +397,182 @@ async def paid_entry(
             paid,
             created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+        VALUES (?, ?, ?, ?, '', '', 0, ?)
     """, (
         raffle_id,
         user.id,
         user.username or "",
         user.first_name or "",
-        "",
-        "",
         now_iso()
     ))
 
     conn.commit()
     conn.close()
 
-    message = (
-        "🎟 <b>RAFFLE ENTRY STARTED</b>\n\n"
+    keyboard = InlineKeyboardMarkup([
+
+        [
+            InlineKeyboardButton(
+                "💵 Cash App",
+                callback_data=f"raffle_cashapp:{raffle_id}"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "💳 Zelle",
+                callback_data=f"raffle_zelle:{raffle_id}"
+            )
+        ]
+
+    ])
+
+    text = (
+        "🎟 <b>RAFFLE ENTRY</b>\n\n"
         f"🎁 {raffle['title']}\n"
-        f"💰 Entry: <b>{money(raffle['entry_cost'])}</b>\n\n"
-        "Choose a payment method below.\n"
-        "After sending payment, provide the payment reference "
-        "or transaction information to the raffle admin."
+        f"💰 Entry Cost: <b>{money(raffle['entry_cost'])}</b>\n\n"
+        "Choose your payment method below.\n\n"
+        "After payment, your entry will remain "
+        "<b>pending</b> until an admin verifies it."
     )
 
-    keyboard = payment_button(raffle_id)
-
     if query:
+
         await query.edit_message_text(
-            message,
+            text,
             parse_mode="HTML",
             reply_markup=keyboard
         )
+
     else:
+
         await update.effective_message.reply_text(
-            message,
+            text,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+
+
+# ============================================================
+# PAYMENT BUTTON
+# ============================================================
+
+def payment_button(raffle_id=None):
+
+    raffle_id = raffle_id or 0
+
+    return InlineKeyboardMarkup([
+
+        [
+            InlineKeyboardButton(
+                "💵 Cash App",
+                callback_data=f"raffle_cashapp:{raffle_id}"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "💳 Zelle",
+                callback_data=f"raffle_zelle:{raffle_id}"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "⬅️ Back",
+                callback_data=f"raffle_back:{raffle_id}"
+            )
+        ]
+
+    ])
+
+
+# ============================================================
+# PAID ENTRY
+# ============================================================
+
+async def paid_entry(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    query = update.callback_query
+
+    if query:
+        await query.answer()
+
+    user = update.effective_user
+
+    if not user:
+        return
+
+    raffle = get_active_raffle()
+
+    if not raffle:
+
+        text = "❌ There is no active raffle."
+
+        if query:
+            await query.edit_message_text(text)
+        else:
+            await update.effective_message.reply_text(text)
+
+        return
+
+    raffle_id = raffle["id"]
+
+    if not user_has_entry(
+        raffle_id,
+        user.id
+    ):
+
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO raffle_entries (
+                raffle_id,
+                user_id,
+                username,
+                first_name,
+                paid,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, 0, ?)
+        """, (
+            raffle_id,
+            user.id,
+            user.username or "",
+            user.first_name or "",
+            now_iso()
+        ))
+
+        conn.commit()
+        conn.close()
+
+    text = (
+        "💰 <b>PAYMENT REQUIRED</b>\n\n"
+        f"🎁 {raffle['title']}\n"
+        f"💵 Amount: <b>{money(raffle['entry_cost'])}</b>\n\n"
+        "Choose your payment method:"
+    )
+
+    keyboard = payment_button(
+        raffle_id
+    )
+
+    if query:
+
+        await query.edit_message_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+
+    else:
+
+        await update.effective_message.reply_text(
+            text,
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -463,6 +587,7 @@ async def show_payment(
     context: ContextTypes.DEFAULT_TYPE,
     method: str
 ):
+
     query = update.callback_query
 
     if query:
@@ -475,47 +600,61 @@ async def show_payment(
     if raffle:
         cost = raffle["entry_cost"]
 
-    if method.lower() == "cashapp":
+    method = method.lower()
+
+    if method == "cashapp":
+
         account = CASHAPP or "Not configured"
 
         text = (
-            "💵 <b>Cash App Payment</b>\n\n"
+            "💵 <b>CASH APP</b>\n\n"
             f"Amount: <b>{money(cost)}</b>\n"
             f"Cash App: <b>{account}</b>\n\n"
-            "After sending payment, save your transaction "
-            "information and send it to the raffle admin."
+            "Send the payment and keep your "
+            "transaction information."
         )
 
     else:
+
         account = ZELLE or "Not configured"
 
         text = (
-            "💳 <b>Zelle Payment</b>\n\n"
+            "💳 <b>ZELLE</b>\n\n"
             f"Amount: <b>{money(cost)}</b>\n"
             f"Zelle: <b>{account}</b>\n\n"
-            "After sending payment, save your transaction "
-            "information and send it to the raffle admin."
+            "Send the payment and keep your "
+            "transaction information."
         )
 
+    if raffle:
+
+        raffle_id = raffle["id"]
+
+    else:
+
+        raffle_id = 0
+
     keyboard = InlineKeyboardMarkup([
+
         [
             InlineKeyboardButton(
                 "⬅️ Back",
-                callback_data=(
-                    f"raffle_payment:"
-                    f"{raffle['id'] if raffle else 0}"
-                )
+                callback_data=f"raffle_payment:{raffle_id}"
             )
         ]
+
     ])
 
     if query:
+
         await query.edit_message_text(
             text,
             parse_mode="HTML",
             reply_markup=keyboard
         )
+
     else:
+
         await update.effective_message.reply_text(
             text,
             parse_mode="HTML",
@@ -524,13 +663,14 @@ async def show_payment(
 
 
 # ============================================================
-# STATUS
+# RAFFLE STATUS
 # ============================================================
 
 async def raffle_status(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+
     query = update.callback_query
 
     if query:
@@ -539,6 +679,7 @@ async def raffle_status(
     raffle = get_active_raffle()
 
     if not raffle:
+
         text = "❌ There is no active raffle."
 
         if query:
@@ -548,40 +689,45 @@ async def raffle_status(
 
         return
 
-    count = get_entry_count(raffle["id"])
+    count = get_entry_count(
+        raffle["id"]
+    )
 
     text = (
         "📊 <b>RAFFLE STATUS</b>\n\n"
         f"🎁 {raffle['title']}\n"
         f"🎟 Entry: {money(raffle['entry_cost'])}\n"
-        f"👥 Paid Entries: <b>{count}</b>\n"
+        f"👥 Verified Entries: <b>{count}</b>\n"
     )
 
-    if raffle["max_entries"]:
-        text += f"🔢 Maximum Entries: {raffle['max_entries']}\n"
-
     keyboard = InlineKeyboardMarkup([
+
         [
             InlineKeyboardButton(
                 "🎟 Enter",
                 callback_data=f"raffle_enter:{raffle['id']}"
             )
         ],
+
         [
             InlineKeyboardButton(
                 "💳 Payment",
                 callback_data=f"raffle_payment:{raffle['id']}"
             )
         ]
+
     ])
 
     if query:
+
         await query.edit_message_text(
             text,
             parse_mode="HTML",
             reply_markup=keyboard
         )
+
     else:
+
         await update.effective_message.reply_text(
             text,
             parse_mode="HTML",
@@ -597,17 +743,15 @@ async def draw_winner(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
-    user = update.effective_user
-
-    if not user:
-        return
 
     raffle = get_active_raffle()
 
     if not raffle:
+
         await update.effective_message.reply_text(
             "❌ No active raffle."
         )
+
         return
 
     conn = get_connection()
@@ -623,14 +767,22 @@ async def draw_winner(
     entries = cur.fetchall()
 
     if not entries:
+
         conn.close()
 
         await update.effective_message.reply_text(
             "❌ There are no verified paid entries."
         )
+
         return
 
     winner = random.choice(entries)
+
+    winner_name = (
+        winner["first_name"]
+        or winner["username"]
+        or str(winner["user_id"])
+    )
 
     cur.execute("""
         UPDATE raffles
@@ -641,17 +793,13 @@ async def draw_winner(
         WHERE id = ?
     """, (
         winner["user_id"],
-        winner["first_name"] or winner["username"],
+        winner_name,
         now_iso(),
         raffle["id"]
     ))
 
     conn.commit()
     conn.close()
-
-    winner_name = winner["first_name"] or winner["username"] or str(
-        winner["user_id"]
-    )
 
     await update.effective_message.reply_text(
         "🎉 <b>RAFFLE WINNER!</b>\n\n"
@@ -663,12 +811,13 @@ async def draw_winner(
 
 
 # ============================================================
-# EXPORTS / COMPATIBILITY
+# EXPORTS
 # ============================================================
 
 __all__ = [
     "RAFFLE_ENTRY_COST",
     "start_raffle",
+    "enter_raffle",
     "get_raffle",
     "paid_entry",
     "payment_button",
