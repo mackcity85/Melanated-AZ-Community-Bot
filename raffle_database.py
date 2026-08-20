@@ -17,9 +17,11 @@ from config import DB_NAME
 
 def get_db():
 
-    return sqlite3.connect(
-        DB_NAME
-    )
+    conn = sqlite3.connect(DB_NAME)
+
+    conn.row_factory = sqlite3.Row
+
+    return conn
 
 
 # ==========================================================
@@ -31,6 +33,11 @@ def initialize_raffle_database():
     conn = get_db()
 
     cursor = conn.cursor()
+
+
+    # ======================================================
+    # RAFFLES TABLE
+    # ======================================================
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS raffles
@@ -47,6 +54,10 @@ def initialize_raffle_database():
     )
     """)
 
+
+    # ======================================================
+    # RAFFLE ENTRIES TABLE
+    # ======================================================
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS raffle_entries
@@ -72,6 +83,98 @@ def initialize_raffle_database():
     """)
 
 
+    # ======================================================
+    # DATABASE MIGRATION
+    # ======================================================
+
+    cursor.execute(
+        "PRAGMA table_info(raffle_entries)"
+    )
+
+    columns = [
+
+        row["name"]
+
+        for row in cursor.fetchall()
+
+    ]
+
+
+    # ------------------------------------------------------
+    # Add display_name if missing
+    # ------------------------------------------------------
+
+    if "display_name" not in columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE raffle_entries
+
+            ADD COLUMN display_name TEXT
+            """
+        )
+
+
+    # ------------------------------------------------------
+    # Add payment_method if missing
+    # ------------------------------------------------------
+
+    if "payment_method" not in columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE raffle_entries
+
+            ADD COLUMN payment_method TEXT
+            """
+        )
+
+
+    # ------------------------------------------------------
+    # Add payment_status if missing
+    # ------------------------------------------------------
+
+    if "payment_status" not in columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE raffle_entries
+
+            ADD COLUMN payment_status TEXT
+            """
+        )
+
+
+    # ------------------------------------------------------
+    # Add approved if missing
+    # ------------------------------------------------------
+
+    if "approved" not in columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE raffle_entries
+
+            ADD COLUMN approved INTEGER DEFAULT 0
+            """
+        )
+
+
+    # ------------------------------------------------------
+    # Add created if missing
+    # ------------------------------------------------------
+
+    if "created" not in columns:
+
+        cursor.execute(
+            """
+            ALTER TABLE raffle_entries
+
+            ADD COLUMN created TEXT
+            """
+        )
+
+
     conn.commit()
 
     conn.close()
@@ -90,21 +193,24 @@ def create_raffle(
 
     cursor = conn.cursor()
 
+
     cursor.execute(
         """
         INSERT INTO raffles
         (
             prize,
             description,
+            active,
             created
         )
 
-        VALUES (?,?,?)
+        VALUES (?,?,?,?)
         """,
 
         (
             prize,
             description,
+            1,
             datetime.now().isoformat()
         )
     )
@@ -112,9 +218,11 @@ def create_raffle(
 
     raffle_id = cursor.lastrowid
 
+
     conn.commit()
 
     conn.close()
+
 
     return raffle_id
 
@@ -128,6 +236,7 @@ def get_active_raffle():
     conn = get_db()
 
     cursor = conn.cursor()
+
 
     cursor.execute(
         """
@@ -150,9 +259,20 @@ def get_active_raffle():
 
     result = cursor.fetchone()
 
+
     conn.close()
 
-    return result
+
+    if not result:
+
+        return None
+
+
+    return (
+        result["id"],
+        result["prize"],
+        result["description"]
+    )
 
 
 # ==========================================================
@@ -172,9 +292,9 @@ def add_raffle_entry(
     cursor = conn.cursor()
 
 
-    # ------------------------------------------------------
-    # Prevent duplicate pending/approved entries
-    # ------------------------------------------------------
+    # ======================================================
+    # CHECK FOR EXISTING ENTRY
+    # ======================================================
 
     cursor.execute(
         """
@@ -186,9 +306,10 @@ def add_raffle_entry(
 
         AND user_id=?
 
-        AND approved IN (0,1)
-
-        AND payment_status != 'DENIED'
+        AND payment_status IN (
+            'PENDING',
+            'PAID'
+        )
 
         LIMIT 1
         """,
@@ -210,9 +331,9 @@ def add_raffle_entry(
         return None
 
 
-    # ------------------------------------------------------
-    # Add entry
-    # ------------------------------------------------------
+    # ======================================================
+    # CREATE ENTRY
+    # ======================================================
 
     cursor.execute(
         """
@@ -265,8 +386,6 @@ def get_entry(
 
     conn = get_db()
 
-    conn.row_factory = sqlite3.Row
-
     cursor = conn.cursor()
 
 
@@ -312,7 +431,7 @@ def get_entry(
 
 
 # ==========================================================
-# PENDING PAYMENTS
+# PENDING ENTRIES
 # ==========================================================
 
 def get_pending_entries():
@@ -348,11 +467,17 @@ def get_pending_entries():
     conn.close()
 
 
-    return results
+    return [
+
+        tuple(row)
+
+        for row in results
+
+    ]
 
 
 # ==========================================================
-# APPROVE PAYMENT
+# APPROVE ENTRY
 # ==========================================================
 
 def approve_entry(
@@ -364,10 +489,6 @@ def approve_entry(
 
     cursor = conn.cursor()
 
-
-    # ------------------------------------------------------
-    # Only approve pending entries
-    # ------------------------------------------------------
 
     cursor.execute(
         """
@@ -404,7 +525,7 @@ def approve_entry(
 
 
 # ==========================================================
-# DENY PAYMENT
+# DENY ENTRY
 # ==========================================================
 
 def deny_entry(
@@ -495,11 +616,17 @@ def get_approved_entries(
     conn.close()
 
 
-    return results
+    return [
+
+        tuple(row)
+
+        for row in results
+
+    ]
 
 
 # ==========================================================
-# ALL APPROVED ENTRY USERS
+# GET ENTRIES
 # ==========================================================
 
 def get_entries(
@@ -582,7 +709,7 @@ def close_raffle(
 
 
 # ==========================================================
-# EXPIRED / ACTIVE RAFFLES
+# ACTIVE RAFFLES
 # ==========================================================
 
 def get_expired_raffles():
@@ -612,4 +739,10 @@ def get_expired_raffles():
     conn.close()
 
 
-    return results
+    return [
+
+        tuple(row)
+
+        for row in results
+
+    ]
