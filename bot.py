@@ -15,6 +15,7 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ChatMemberHandler,
+    CallbackQueryHandler,
     filters
 )
 
@@ -23,7 +24,6 @@ from config import (
     BOT_TOKEN,
     STARTUP_CHAT_ID
 )
-
 
 
 # ==========================================================
@@ -53,7 +53,6 @@ from truth_dare import (
     truth,
     dare
 )
-
 
 
 # ==========================================================
@@ -91,6 +90,14 @@ from raffle import (
 )
 
 
+# ==========================================================
+# RAFFLE BUTTONS
+# ==========================================================
+
+from raffle_buttons import (
+    raffle_button_handler
+)
+
 
 # ==========================================================
 # DATABASE
@@ -99,7 +106,6 @@ from raffle import (
 from database import initialize_database
 
 from raffle_database import initialize_raffle_database
-
 
 
 # ==========================================================
@@ -118,7 +124,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
 # ==========================================================
 # FLASK KEEP ALIVE
 # ==========================================================
@@ -126,12 +131,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
-
 @app.route("/")
 def home():
 
     return "🔥 Melanated AZ Bot Running"
-
 
 
 def run_web():
@@ -143,7 +146,6 @@ def run_web():
         port=10000
 
     )
-
 
 
 # ==========================================================
@@ -163,7 +165,9 @@ async def startup(application):
 
             await application.bot.send_message(
 
-                chat_id=int(STARTUP_CHAT_ID),
+                chat_id=int(
+                    STARTUP_CHAT_ID
+                ),
 
                 text="""
 🟢 Melanated AZ Bot Online
@@ -172,6 +176,10 @@ async def startup(application):
 🎂 Birthday System: ACTIVE
 🔥 Truth & Dare: ACTIVE
 🎟 Raffle System: ACTIVE
+
+💳 Cash App Payments: ACTIVE
+💳 Zelle Payments: ACTIVE
+🔔 Raffle Approval Notifications: ACTIVE
 
 Bot is ready!
 """
@@ -185,13 +193,15 @@ Bot is ready!
             )
 
 
-
 # ==========================================================
 # MAIN
 # ==========================================================
 
 def main():
 
+    # ------------------------------------------------------
+    # Start Flask
+    # ------------------------------------------------------
 
     Thread(
 
@@ -202,6 +212,9 @@ def main():
     ).start()
 
 
+    # ------------------------------------------------------
+    # Initialize databases
+    # ------------------------------------------------------
 
     initialize_database()
 
@@ -210,6 +223,9 @@ def main():
     init_birthdays()
 
 
+    # ------------------------------------------------------
+    # Build Telegram application
+    # ------------------------------------------------------
 
     application = (
 
@@ -226,18 +242,21 @@ def main():
     )
 
 
-
     # ======================================================
     # ADMIN
     # ======================================================
 
     application.add_handler(
-        CommandHandler(
-            "admin",
-            admin_commands
-        )
-    )
 
+        CommandHandler(
+
+            "admin",
+
+            admin_commands
+
+        )
+
+    )
 
 
     # ======================================================
@@ -245,20 +264,29 @@ def main():
     # ======================================================
 
     application.add_handler(
+
         CommandHandler(
+
             "birthday",
+
             birthday_command
+
         )
+
     )
 
 
     application.add_handler(
-        CommandHandler(
-            "birthdaycheck",
-            birthday_check
-        )
-    )
 
+        CommandHandler(
+
+            "birthdaycheck",
+
+            birthday_check
+
+        )
+
+    )
 
 
     # ======================================================
@@ -266,145 +294,245 @@ def main():
     # ======================================================
 
     application.add_handler(
+
         CommandHandler(
+
             "rules",
+
             rules
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "trivia",
+
             trivia
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "truth",
+
             truth
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "dare",
+
             dare
+
         )
+
     )
 
 
-
     # ======================================================
-    # RAFFLE
+    # RAFFLE COMMANDS
     # ======================================================
 
     application.add_handler(
+
         CommandHandler(
+
             "startraffle",
+
             start_raffle
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "enter",
+
             enter_raffle
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "paid",
+
             paid_entry
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "rafflestatus",
+
             raffle_status
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "raffleentries",
+
             raffle_entries
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "pendingraffles",
+
             pending_entries
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "approveentry",
+
             approve_raffle_entry
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "denyentry",
+
             deny_raffle_entry
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "drawraffle",
+
             draw_raffle
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "rerollraffle",
+
             reroll_raffle
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "cancelraffle",
+
             cancel_raffle
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "bonusentry",
+
             bonus_entry
+
         )
+
     )
 
 
     application.add_handler(
+
         CommandHandler(
+
             "removeentry",
+
             remove_raffle_entry
+
         )
+
     )
 
+
+    # ======================================================
+    # RAFFLE INLINE BUTTONS
+    # ======================================================
+
+    application.add_handler(
+
+        CallbackQueryHandler(
+
+            raffle_button_handler,
+
+            pattern=r"^(raffle_|approve:|deny:)"
+
+        )
+
+    )
 
 
     # ======================================================
@@ -424,7 +552,6 @@ def main():
     )
 
 
-
     # ======================================================
     # WELCOME
     # ======================================================
@@ -442,11 +569,13 @@ def main():
     )
 
 
+    # ======================================================
+    # START
+    # ======================================================
 
     print(
         "🔥 Melanated AZ Bot Started"
     )
-
 
 
     application.run_polling(
@@ -456,6 +585,9 @@ def main():
     )
 
 
+# ==========================================================
+# ENTRY POINT
+# ==========================================================
 
 if __name__ == "__main__":
 
