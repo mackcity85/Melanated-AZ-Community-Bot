@@ -18,30 +18,15 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# ==========================================================
-# CONFIG
-# ==========================================================
-
 from config import (
     BOT_TOKEN,
     ADMIN_IDS,
-    CASHAPP_TAG,
-    CASHAPP_URL,
-    ZELLE_PHONE,
 )
-
-# ==========================================================
-# ADMIN
-# ==========================================================
 
 from admin import (
     admin_menu,
     admin_button,
 )
-
-# ==========================================================
-# RAFFLE
-# ==========================================================
 
 from raffle import (
     start_raffle,
@@ -62,6 +47,7 @@ from raffle import (
     bonus_entry,
     remove_raffle_entry,
 )
+
 
 # ==========================================================
 # LOGGING
@@ -276,7 +262,7 @@ def main():
     )
 
     # ======================================================
-    # RAFFLE ENTER BUTTON
+    # ENTER RAFFLE BUTTON
     # ======================================================
 
     application.add_handler(
@@ -304,12 +290,12 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             raffle_approval_button,
-            pattern=r"^raffleapprove_\d+$|^raffaldeny_\d+$",
+            pattern=r"^(raffleapprove|raffaldeny)_\d+$",
         )
     )
 
     # ======================================================
-    # ENTRY APPROVAL BUTTONS
+    # PAYMENT APPROVAL BUTTONS
     # ======================================================
 
     application.add_handler(
