@@ -18,9 +18,16 @@ from telegram.ext import (
     ContextTypes,
 )
 
+# ==========================================================
+# CONFIG
+# ==========================================================
+
 from config import (
     BOT_TOKEN,
     ADMIN_IDS,
+    CASHAPP_TAG,
+    CASHAPP_URL,
+    ZELLE_PHONE,
 )
 
 # ==========================================================
@@ -41,9 +48,9 @@ from raffle import (
     enter_raffle,
     paid_entry,
     payment_button,
-    admin_payment_button,
-    admin_raffle_button,
     enter_button,
+    admin_payment_button,
+    raffle_approval_button,
     pending_entries,
     approve_raffle_entry,
     deny_raffle_entry,
@@ -61,11 +68,17 @@ from raffle import (
 # ==========================================================
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=(
+        "%(asctime)s - "
+        "%(name)s - "
+        "%(levelname)s - "
+        "%(message)s"
+    ),
     level=logging.INFO,
 )
 
 logger = logging.getLogger(__name__)
+
 
 # ==========================================================
 # FLASK
@@ -76,11 +89,13 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+
     return "🔥 Melanated AZ Bot Online", 200
 
 
 @app.route("/health")
 def health():
+
     return "OK", 200
 
 
@@ -123,6 +138,7 @@ async def error_handler(
 def main():
 
     if not BOT_TOKEN:
+
         raise RuntimeError(
             "BOT_TOKEN environment variable is missing."
         )
@@ -137,7 +153,7 @@ def main():
     )
 
     # ======================================================
-    # CREATE APPLICATION
+    # APPLICATION
     # ======================================================
 
     application = (
@@ -147,7 +163,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN MENU
+    # ADMIN
     # ======================================================
 
     application.add_handler(
@@ -157,10 +173,6 @@ def main():
         )
     )
 
-    # ======================================================
-    # ADMIN MENU BUTTONS
-    # ======================================================
-
     application.add_handler(
         CallbackQueryHandler(
             admin_button,
@@ -169,7 +181,7 @@ def main():
     )
 
     # ======================================================
-    # START RAFFLE
+    # RAFFLE COMMANDS
     # ======================================================
 
     application.add_handler(
@@ -178,10 +190,6 @@ def main():
             start_raffle,
         )
     )
-
-    # ======================================================
-    # ENTER RAFFLE
-    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -196,10 +204,6 @@ def main():
             paid_entry,
         )
     )
-
-    # ======================================================
-    # RAFFLE ADMIN COMMANDS
-    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -272,7 +276,7 @@ def main():
     )
 
     # ======================================================
-    # MEMBER ENTER BUTTON
+    # RAFFLE ENTER BUTTON
     # ======================================================
 
     application.add_handler(
@@ -299,8 +303,8 @@ def main():
 
     application.add_handler(
         CallbackQueryHandler(
-            admin_raffle_button,
-            pattern=r"^raffle(approve|cancel)_\d+$",
+            raffle_approval_button,
+            pattern=r"^raffleapprove_\d+$|^raffaldeny_\d+$",
         )
     )
 
@@ -324,7 +328,7 @@ def main():
     )
 
     # ======================================================
-    # START FLASK
+    # FLASK
     # ======================================================
 
     flask_thread = threading.Thread(
@@ -339,7 +343,7 @@ def main():
     )
 
     # ======================================================
-    # START TELEGRAM
+    # TELEGRAM
     # ======================================================
 
     application.run_polling(
@@ -349,8 +353,9 @@ def main():
 
 
 # ==========================================================
-# START PROGRAM
+# START
 # ==========================================================
 
 if __name__ == "__main__":
+
     main()
