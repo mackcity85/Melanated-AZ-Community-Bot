@@ -10,6 +10,7 @@ import threading
 from flask import Flask
 
 from telegram import Update
+
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -21,6 +22,7 @@ from telegram.ext import (
 
 from config import (
     BOT_TOKEN,
+    ADMIN_IDS,
 )
 
 from admin import (
@@ -30,13 +32,14 @@ from admin import (
 
 from raffle import (
     start_raffle,
-    enter_raffle,
-    paid_entry,
-    payment_button,
-    raffle_enter_button,
+    raffle_setup_message,
     raffle_approval_button,
+    raffle_enter_button,
+    payment_button,
     admin_payment_button,
     pending_entries,
+    enter_raffle,
+    paid_entry,
     raffle_status,
     raffle_entries,
     draw_raffle,
@@ -44,12 +47,21 @@ from raffle import (
     cancel_raffle,
     bonus_entry,
     remove_raffle_entry,
-    create_pending_raffle,
+    restore_active_raffle_job,
 )
 
 
+# ==========================================================
+# LOGGING
+# ==========================================================
+
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=(
+        "%(asctime)s - "
+        "%(name)s - "
+        "%(levelname)s - "
+        "%(message)s"
+    ),
     level=logging.INFO,
 )
 
@@ -80,7 +92,7 @@ def run_flask():
     port = int(
         os.environ.get(
             "PORT",
-            10000
+            "10000"
         )
     )
 
@@ -88,69 +100,7 @@ def run_flask():
         host="0.0.0.0",
         port=port,
         debug=False,
-        use_reloader=False,
-    )
-
-
-# ==========================================================
-# ADMIN RAFFLE INPUT
-# ==========================================================
-
-async def raffle_setup_message(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    if not update.effective_user:
-
-        return
-
-    if not context.user_data.get(
-        "awaiting_raffle_setup"
-    ):
-
-        return
-
-    from config import ADMIN_IDS
-
-    if update.effective_user.id not in ADMIN_IDS:
-
-        return
-
-    text = (
-        update.message.text
-        if update.message
-        else ""
-    ).strip()
-
-    if "|" not in text:
-
-        await update.message.reply_text(
-            "❌ Use this format:\n\n"
-            "Prize | Entry Price\n\n"
-            "Example:\n"
-            "$100 Cash Prize | $5"
-        )
-
-        return
-
-    prize, price = text.split(
-        "|",
-        1
-    )
-
-    prize = prize.strip()
-    price = price.strip()
-
-    context.user_data[
-        "awaiting_raffle_setup"
-    ] = False
-
-    await create_pending_raffle(
-        update,
-        context,
-        prize,
-        price,
+        use_reloader=False
     )
 
 
@@ -159,13 +109,13 @@ async def raffle_setup_message(
 # ==========================================================
 
 async def error_handler(
-    update,
-    context
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
     logger.error(
         "Exception while processing update:",
-        exc_info=context.error,
+        exc_info=context.error
     )
 
 
@@ -185,15 +135,20 @@ def main():
         "🔥 Melanated AZ Bot Started"
     )
 
+    logger.info(
+        "Loaded Admin IDs: %s",
+        ADMIN_IDS
+    )
+
     application = (
         Application.builder()
         .token(BOT_TOKEN)
         .build()
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # ADMIN
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -209,9 +164,9 @@ def main():
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # RAFFLE COMMANDS
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -290,9 +245,9 @@ def main():
         )
     )
 
-    # ------------------------------------------------------
-    # ADMIN RAFFLE APPROVAL
-    # ------------------------------------------------------
+    # ======================================================
+    # RAFFLE APPROVAL BUTTONS
+    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -301,9 +256,9 @@ def main():
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # MEMBER ENTER BUTTON
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -312,9 +267,9 @@ def main():
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # PAYMENT BUTTONS
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -323,9 +278,9 @@ def main():
         )
     )
 
-    # ------------------------------------------------------
-    # PAYMENT APPROVAL
-    # ------------------------------------------------------
+    # ======================================================
+    # PAYMENT APPROVAL BUTTONS
+    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -334,9 +289,9 @@ def main():
         )
     )
 
-    # ------------------------------------------------------
-    # ADMIN RAFFLE SETUP MESSAGE
-    # ------------------------------------------------------
+    # ======================================================
+    # ADMIN RAFFLE SETUP TEXT
+    # ======================================================
 
     application.add_handler(
         MessageHandler(
@@ -346,17 +301,17 @@ def main():
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # ERROR HANDLER
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_error_handler(
         error_handler
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # FLASK
-    # ------------------------------------------------------
+    # ======================================================
 
     flask_thread = threading.Thread(
         target=run_flask,
@@ -369,15 +324,19 @@ def main():
         "🌐 Flask health server started"
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # TELEGRAM
-    # ------------------------------------------------------
+    # ======================================================
 
     application.run_polling(
         drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
+        allowed_updates=Update.ALL_TYPES
     )
 
+
+# ==========================================================
+# START
+# ==========================================================
 
 if __name__ == "__main__":
 
