@@ -1,69 +1,76 @@
+# ==========================================================
+# Melanated AZ Bot
+# config.py
+# ==========================================================
+
 import os
-
-
-def required_env(name):
-    value = os.getenv(name)
-
-    if not value or not value.strip():
-        raise RuntimeError(
-            f"Missing required environment variable: {name}"
-        )
-
-    return value.strip()
 
 
 # ==========================================================
 # TELEGRAM
 # ==========================================================
 
-BOT_TOKEN = required_env("BOT_TOKEN")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
 
 # ==========================================================
-# ADMIN IDS
-# Render example:
-# ADMIN_IDS=5879167814
-# Multiple:
-# ADMIN_IDS=5879167814,123456789
+# ADMINS
 # ==========================================================
 
 ADMIN_IDS = [
     int(x.strip())
-    for x in required_env("ADMIN_IDS").split(",")
+    for x in os.environ.get("ADMIN_IDS", "").split(",")
     if x.strip()
 ]
 
 
 # ==========================================================
-# PAYMENT INFORMATION
+# RAFFLE GROUP
 # ==========================================================
 
-CASHAPP_TAG = os.getenv(
+RAFFLE_CHAT_ID = int(
+    os.environ.get("RAFFLE_CHAT_ID", "0")
+)
+
+
+# ==========================================================
+# PAYMENT
+# ==========================================================
+
+CASHAPP_TAG = os.environ.get(
     "CASHAPP_TAG",
     ""
-).strip()
+)
 
-CASHAPP_URL = os.getenv(
+CASHAPP_URL = os.environ.get(
     "CASHAPP_URL",
     ""
-).strip()
+)
 
-ZELLE_PHONE = os.getenv(
+ZELLE_PHONE = os.environ.get(
     "ZELLE_PHONE",
     ""
-).strip()
+)
 
 
-print(f"Loaded Admin IDs: {ADMIN_IDS}")
+# ==========================================================
+# STARTUP LOGGING
+# ==========================================================
 
 print(
-    "💳 Cash App: Loaded"
-    if CASHAPP_TAG
-    else "💳 Cash App: Not configured"
+    f"Loaded Admin IDs: {ADMIN_IDS}"
 )
 
 print(
-    "💳 Zelle: Loaded"
-    if ZELLE_PHONE
-    else "💳 Zelle: Not configured"
+    f"Raffle Chat ID: {RAFFLE_CHAT_ID}"
+)
+
+print(
+    "💳 Cash App: "
+    + ("Loaded" if CASHAPP_TAG else "Not configured")
+)
+
+print(
+    "💳 Zelle: "
+    + ("Loaded" if ZELLE_PHONE else "Not configured")
 )
