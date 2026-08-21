@@ -3,14 +3,13 @@
 # bot.py
 # ==========================================================
 
-import os
 import logging
 import threading
+import os
 
 from flask import Flask
 
 from telegram import Update
-
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -23,6 +22,7 @@ from telegram.ext import (
 from config import (
     BOT_TOKEN,
     ADMIN_IDS,
+    RAFFLE_CHAT_ID,
 )
 
 from admin import (
@@ -32,22 +32,21 @@ from admin import (
 
 from raffle import (
     start_raffle,
-    raffle_setup_message,
+    handle_raffle_setup,
     raffle_approval_button,
     raffle_enter_button,
     payment_button,
     admin_payment_button,
-    pending_entries,
     enter_raffle,
     paid_entry,
+    pending_entries,
     raffle_status,
     raffle_entries,
+    cancel_raffle,
     draw_raffle,
     reroll_raffle,
-    cancel_raffle,
     bonus_entry,
     remove_raffle_entry,
-    restore_active_raffle_job,
 )
 
 
@@ -56,12 +55,7 @@ from raffle import (
 # ==========================================================
 
 logging.basicConfig(
-    format=(
-        "%(asctime)s - "
-        "%(name)s - "
-        "%(levelname)s - "
-        "%(message)s"
-    ),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
@@ -69,22 +63,16 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# FLASK
+# FLASK HEALTH SERVER
 # ==========================================================
 
 app = Flask(__name__)
 
 
 @app.route("/")
-def home():
-
-    return "🔥 Melanated AZ Bot Online", 200
-
-
-@app.route("/health")
 def health():
 
-    return "OK", 200
+    return "Melanated AZ Bot is running", 200
 
 
 def run_flask():
@@ -92,7 +80,7 @@ def run_flask():
     port = int(
         os.environ.get(
             "PORT",
-            "10000"
+            10000
         )
     )
 
@@ -100,8 +88,36 @@ def run_flask():
         host="0.0.0.0",
         port=port,
         debug=False,
-        use_reloader=False
+        use_reloader=False,
     )
+
+
+# ==========================================================
+# TEXT MESSAGE HANDLER
+# ==========================================================
+
+async def text_message_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    # ------------------------------------------------------
+    # FIRST: CHECK RAFFLE SETUP
+    # ------------------------------------------------------
+
+    handled = await handle_raffle_setup(
+        update,
+        context,
+    )
+
+    if handled:
+        return
+
+    # ------------------------------------------------------
+    # NOTHING ELSE TO DO
+    # ------------------------------------------------------
+
+    return
 
 
 # ==========================================================
@@ -110,12 +126,12 @@ def run_flask():
 
 async def error_handler(
     update: object,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    logger.error(
+    logger.exception(
         "Exception while processing update:",
-        exc_info=context.error
+        exc_info=context.error,
     )
 
 
@@ -124,12 +140,6 @@ async def error_handler(
 # ==========================================================
 
 def main():
-
-    if not BOT_TOKEN:
-
-        raise RuntimeError(
-            "BOT_TOKEN environment variable is missing."
-        )
 
     logger.info(
         "🔥 Melanated AZ Bot Started"
@@ -140,6 +150,38 @@ def main():
         ADMIN_IDS
     )
 
+    logger.info(
+        "Raffle Chat ID: %s",
+        RAFFLE_CHAT_ID
+    )
+
+    logger.info(
+        "Cash App: Loaded"
+    )
+
+    logger.info(
+        "Zelle: Loaded"
+    )
+
+    # ------------------------------------------------------
+    # FLASK
+    # ------------------------------------------------------
+
+    flask_thread = threading.Thread(
+        target=run_flask,
+        daemon=True,
+    )
+
+    flask_thread.start()
+
+    logger.info(
+        "🌐 Flask health server started"
+    )
+
+    # ------------------------------------------------------
+    # TELEGRAM APPLICATION
+    # ------------------------------------------------------
+
     application = (
         Application.builder()
         .token(BOT_TOKEN)
@@ -147,7 +189,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN
+    # ADMIN COMMANDS
     # ======================================================
 
     application.add_handler(
@@ -158,17 +200,6 @@ def main():
     )
 
     application.add_handler(
-        CallbackQueryHandler(
-            admin_button,
-            pattern=r"^admin_"
-        )
-    )
-
-    # ======================================================
-    # RAFFLE COMMANDS
-    # ======================================================
-
-    application.add_handler(
         CommandHandler(
             "startraffle",
             start_raffle
@@ -177,15 +208,22 @@ def main():
 
     application.add_handler(
         CommandHandler(
-            "enter",
+            "raffle",
             enter_raffle
         )
     )
 
     application.add_handler(
         CommandHandler(
-            "paid",
-            paid_entry
+            "status",
+            raffle_status
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "entries",
+            raffle_entries
         )
     )
 
@@ -198,15 +236,8 @@ def main():
 
     application.add_handler(
         CommandHandler(
-            "rafflestatus",
-            raffle_status
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "raffleentries",
-            raffle_entries
+            "cancelraffle",
+            cancel_raffle
         )
     )
 
@@ -226,13 +257,6 @@ def main():
 
     application.add_handler(
         CommandHandler(
-            "cancelraffle",
-            cancel_raffle
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
             "bonusentry",
             bonus_entry
         )
@@ -245,6 +269,24 @@ def main():
         )
     )
 
+    application.add_handler(
+        CommandHandler(
+            "paid",
+            paid_entry
+        )
+    )
+
+    # ======================================================
+    # ADMIN PANEL BUTTONS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            admin_button,
+            pattern=r"^admin_"
+        )
+    )
+
     # ======================================================
     # RAFFLE APPROVAL BUTTONS
     # ======================================================
@@ -252,7 +294,25 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             raffle_approval_button,
-            pattern=r"^raffle(approve|cancel)_\d+$"
+            pattern=r"^raffleapprove_\d+$"
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            raffle_approval_button,
+            pattern=r"^rafflecancel_\d+$"
+        )
+    )
+
+    # ======================================================
+    # ADMIN PAYMENT BUTTONS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            admin_payment_button,
+            pattern=r"^(approve|deny)_\d+$"
         )
     )
 
@@ -268,7 +328,7 @@ def main():
     )
 
     # ======================================================
-    # PAYMENT BUTTONS
+    # CASH APP / ZELLE
     # ======================================================
 
     application.add_handler(
@@ -279,25 +339,20 @@ def main():
     )
 
     # ======================================================
-    # PAYMENT APPROVAL BUTTONS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            admin_payment_button,
-            pattern=r"^(approve|deny)_\d+$"
-        )
-    )
-
-    # ======================================================
-    # ADMIN RAFFLE SETUP TEXT
+    # RAFFLE SETUP TEXT
+    #
+    # IMPORTANT:
+    # This must be registered so that:
+    #
+    # $100 Cash Prize | $5
+    #
+    # gets sent to handle_raffle_setup()
     # ======================================================
 
     application.add_handler(
         MessageHandler(
-            filters.TEXT
-            & ~filters.COMMAND,
-            raffle_setup_message
+            filters.TEXT & ~filters.COMMAND,
+            text_message_handler,
         )
     )
 
@@ -310,27 +365,16 @@ def main():
     )
 
     # ======================================================
-    # FLASK
+    # START POLLING
     # ======================================================
-
-    flask_thread = threading.Thread(
-        target=run_flask,
-        daemon=True
-    )
-
-    flask_thread.start()
 
     logger.info(
-        "🌐 Flask health server started"
+        "Starting Telegram polling..."
     )
 
-    # ======================================================
-    # TELEGRAM
-    # ======================================================
-
     application.run_polling(
-        drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES
+        drop_pending_updates=False,
+        allowed_updates=Update.ALL_TYPES,
     )
 
 
@@ -339,5 +383,4 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
-
     main()
