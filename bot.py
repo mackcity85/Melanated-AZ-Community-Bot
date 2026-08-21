@@ -31,11 +31,9 @@ from admin import (
 from raffle import (
     start_raffle,
     enter_raffle,
-    raffle_enter_button,
-    paid_entry,
     payment_button,
     admin_payment_button,
-    approve_raffle_button,
+    approve_and_post_raffle,
     pending_entries,
     approve_raffle_entry,
     deny_raffle_entry,
@@ -46,11 +44,20 @@ from raffle import (
     cancel_raffle,
     bonus_entry,
     remove_raffle_entry,
-    check_raffle_expiration,
 )
 
+
+# ==========================================================
+# LOGGING
+# ==========================================================
+
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=(
+        "%(asctime)s - "
+        "%(name)s - "
+        "%(levelname)s - "
+        "%(message)s"
+    ),
     level=logging.INFO,
 )
 
@@ -66,11 +73,13 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+
     return "🔥 Melanated AZ Bot Online", 200
 
 
 @app.route("/health")
 def health():
+
     return "OK", 200
 
 
@@ -87,19 +96,22 @@ def run_flask():
         host="0.0.0.0",
         port=port,
         debug=False,
-        use_reloader=False
+        use_reloader=False,
     )
 
 
 # ==========================================================
-# ERROR
+# ERROR HANDLER
 # ==========================================================
 
-async def error_handler(update, context):
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE,
+):
 
     logger.error(
         "Exception while processing update:",
-        exc_info=context.error
+        exc_info=context.error,
     )
 
 
@@ -121,8 +133,12 @@ def main():
 
     logger.info(
         "Loaded Admin IDs: %s",
-        ADMIN_IDS
+        ADMIN_IDS,
     )
+
+    # ======================================================
+    # APPLICATION
+    # ======================================================
 
     application = (
         Application.builder()
@@ -163,13 +179,6 @@ def main():
         CommandHandler(
             "enter",
             enter_raffle
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "paid",
-            paid_entry
         )
     )
 
@@ -244,29 +253,29 @@ def main():
     )
 
     # ======================================================
-    # MEMBER RAFFLE BUTTON
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            raffle_enter_button,
-            pattern=r"^raffle_enter$"
-        )
-    )
-
-    # ======================================================
-    # PAYMENT BUTTONS
+    # MEMBER RAFFLE BUTTONS
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(zelle|paid)$"
+            pattern=r"^raffle_(enter|cashapp|zelle)$"
         )
     )
 
     # ======================================================
-    # ENTRY APPROVAL BUTTONS
+    # RAFFLE APPROVAL
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            approve_and_post_raffle,
+            pattern=r"^raffleapprove_\d+$"
+        )
+    )
+
+    # ======================================================
+    # ADMIN PAYMENT APPROVAL
     # ======================================================
 
     application.add_handler(
@@ -274,27 +283,6 @@ def main():
             admin_payment_button,
             pattern=r"^(approve|deny)_\d+$"
         )
-    )
-
-    # ======================================================
-    # RAFFLE APPROVAL BUTTON
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            approve_raffle_button,
-            pattern=r"^raffleapprove_\d+$"
-        )
-    )
-
-    # ======================================================
-    # RAFFLE EXPIRATION CHECK
-    # ======================================================
-
-    application.job_queue.run_repeating(
-        check_raffle_expiration,
-        interval=60,
-        first=10
     )
 
     # ======================================================
@@ -326,7 +314,7 @@ def main():
 
     application.run_polling(
         drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES
+        allowed_updates=Update.ALL_TYPES,
     )
 
 
@@ -335,4 +323,5 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
+
     main()
