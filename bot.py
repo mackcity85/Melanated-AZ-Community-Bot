@@ -45,9 +45,11 @@ from admin import (
 from raffle import (
     start_raffle,
     enter_raffle,
+    raffle_enter_button,
     paid_entry,
     payment_button,
     admin_payment_button,
+    raffle_approval_button,
     pending_entries,
     approve_raffle_entry,
     deny_raffle_entry,
@@ -80,11 +82,13 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+
     return "🔥 Melanated AZ Bot Online", 200
 
 
 @app.route("/health")
 def health():
+
     return "OK", 200
 
 
@@ -127,6 +131,7 @@ async def error_handler(
 def main():
 
     if not BOT_TOKEN:
+
         raise RuntimeError(
             "BOT_TOKEN environment variable is missing."
         )
@@ -268,18 +273,40 @@ def main():
     )
 
     # ======================================================
+    # RAFFLE APPROVAL BUTTONS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            raffle_approval_button,
+            pattern=r"^raffle(approve|reject|reject)_\d+$|^raffalreject_\d+$",
+        )
+    )
+
+    # ======================================================
+    # RAFFLE ENTER BUTTON
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            raffle_enter_button,
+            pattern=r"^raffle_enter$",
+        )
+    )
+
+    # ======================================================
     # RAFFLE PAYMENT BUTTONS
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(zelle|paid)$",
+            pattern=r"^raffle_(cashapp|zelle)$",
         )
     )
 
     # ======================================================
-    # RAFFLE ADMIN APPROVAL BUTTONS
+    # RAFFLE ENTRY APPROVAL BUTTONS
     # ======================================================
 
     application.add_handler(
