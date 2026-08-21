@@ -5,7 +5,7 @@
 
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from telegram import (
     InlineKeyboardButton,
@@ -19,6 +19,7 @@ from config import (
     CASHAPP_TAG,
     CASHAPP_URL,
     ZELLE_PHONE,
+    RAFFLE_CHAT_ID,
 )
 
 from raffle_database import (
@@ -27,8 +28,8 @@ from raffle_database import (
     get_active_raffle,
     get_pending_raffle,
     approve_raffle,
-    cancel_pending_raffle,
-    set_message_id,
+    set_posted_message,
+    close_raffle,
     add_raffle_entry,
     get_entry,
     get_pending_entries,
@@ -36,66 +37,30 @@ from raffle_database import (
     deny_entry,
     get_approved_entries,
     remove_entry,
-    close_raffle,
 )
 
-import os
 
 logger = logging.getLogger(__name__)
 
-RAFFLE_CHAT_ID = os.getenv("RAFFLE_CHAT_ID")
 
+# ==========================================================
+# HELPERS
+# ==========================================================
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 
 def admin_only(update):
-    return (
-        update.effective_user
-        and is_admin(update.effective_user.id)
+
+    user = update.effective_user
+
+    return bool(
+        user and is_admin(user.id)
     )
 
 
-def admin_approval_keyboard(raffle_id):
-
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                "✅ APPROVE RAFFLE",
-                callback_data=f"raffleapprove_{raffle_id}"
-            ),
-            InlineKeyboardButton(
-                "❌ CANCEL",
-                callback_data=f"rafflecancel_{raffle_id}"
-            ),
-        ]
-    ])
-
-
-def raffle_keyboard():
-
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                "🎟️ ENTER RAFFLE",
-                callback_data="raffle_enter"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "💵 CASH APP",
-                callback_data="raffle_paid"
-            ),
-            InlineKeyboardButton(
-                "💳 ZELLE",
-                callback_data="raffle_zelle"
-            )
-        ]
-    ])
-
-
-def get_display_name(user):
+def name_of(user):
 
     if user.full_name:
         return user.full_name
@@ -108,110 +73,233 @@ def get_display_name(user):
 
 def format_price(price):
 
-    if float(price).is_integer():
-        return f"${int(price)}"
+    return f"${price:,.2f}"
 
-    return f"${price:.2f}"
+
+def time_remaining(expires_at):
+
+    try:
+
+        expires = datetime.fromisoformat(
+            expires_at
+        )
+
+        remaining = expires - datetime.utcnow()
+
+        seconds = max(
+            0,
+            int(remaining.total_seconds())
+        )
+
+        days = seconds // 86400
+        hours = (seconds % 86400) // 3600
+        minutes = (seconds % 3600) // 60
+
+        return (
+            f"{days}d {hours}h {minutes}m"
+        )
+
+    except Exception:
+
+        return "7 days"
+
+
+# ==========================================================
+# GROUP RAFFLE KEYBOARD
+# ==========================================================
+
+def group_raffle_keyboard():
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎟️ Enter Raffle",
+                    callback_data="raffle_enter",
+                )
+            ]
+        ]
+    )
+
+
+# ==========================================================
+# PAYMENT KEYBOARD
+# ==========================================================
+
+def payment_keyboard():
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "💵 Cash App",
+                    callback_data="raffle_cashapp",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💳 Zelle",
+                    callback_data="raffle_zelle",
+                )
+            ],
+        ]
+    )
+
+
+# ==========================================================
+# ADMIN RAFFLE APPROVAL
+# ==========================================================
+
+def raffle_approval_keyboard(
+    raffle_id
+):
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "✅ Approve & Post",
+                    callback_data=f"raffleapprove_{raffle_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "❌ Cancel",
+                    callback_data=f"rafflecancel_{raffle_id}",
+                )
+            ],
+        ]
+    )
+
+
+# ==========================================================
+# PAYMENT APPROVAL
+# ==========================================================
+
+def payment_approval_keyboard(
+    entry_id
+):
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "✅ Approve",
+                    callback_data=f"approve_{entry_id}",
+                ),
+                InlineKeyboardButton(
+                    "❌ Deny",
+                    callback_data=f"deny_{entry_id}",
+                ),
+            ]
+        ]
+    )
 
 
 # ==========================================================
 # START RAFFLE
+#
+# /startraffle $100 Cash Prize | 10
 # ==========================================================
 
 async def start_raffle(
-    update,
-    context
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
 ):
 
     if not admin_only(update):
+
         await update.message.reply_text(
             "❌ Admins only."
         )
         return
 
-    if not context.args or len(context.args) < 2:
+    if not context.args:
 
         await update.message.reply_text(
             "Usage:\n\n"
-            "/startraffle PRICE PRIZE\n\n"
+            "/startraffle Prize | Entry Price\n\n"
             "Example:\n"
-            "/startraffle 10 $100 Cash Prize"
+            "/startraffle $100 Cash Prize | 10"
         )
         return
 
+    existing = (
+        get_active_raffle()
+        or get_pending_raffle()
+    )
+
+    if existing:
+
+        await update.message.reply_text(
+            "⚠️ There is already a raffle "
+            "waiting for approval or currently active."
+        )
+        return
+
+    raw = " ".join(
+        context.args
+    )
+
+    if "|" not in raw:
+
+        await update.message.reply_text(
+            "❌ Please include the entry price.\n\n"
+            "Example:\n"
+            "/startraffle $100 Cash Prize | 10"
+        )
+        return
+
+    prize, price_text = raw.split(
+        "|",
+        1
+    )
+
+    prize = prize.strip()
+
     try:
-        price = float(context.args[0].replace("$", ""))
+
+        entry_price = float(
+            price_text.strip()
+            .replace("$", "")
+        )
+
     except ValueError:
 
         await update.message.reply_text(
-            "❌ The first value must be the entry price.\n\n"
+            "❌ Entry price must be a number.\n\n"
             "Example:\n"
-            "/startraffle 10 $100 Cash Prize"
+            "/startraffle $100 Cash Prize | 10"
         )
         return
 
-    prize = " ".join(context.args[1:])
+    if entry_price <= 0:
 
-    if price <= 0:
         await update.message.reply_text(
             "❌ Entry price must be greater than $0."
         )
         return
 
-    if get_active_raffle():
-        await update.message.reply_text(
-            "⚠️ There is already an active raffle."
-        )
-        return
-
-    if get_pending_raffle():
-        await update.message.reply_text(
-            "⚠️ There is already a raffle waiting for admin approval."
-        )
-        return
-
     raffle_id = create_raffle(
         prize,
-        price
+        entry_price
     )
-
-    text = (
-        "🎟️ **RAFFLE APPROVAL REQUIRED**\n\n"
-        "🖤 **Melanated AZ Friends Raffle**\n\n"
-        f"🎁 **Prize:** {prize}\n"
-        f"💵 **Entry:** {format_price(price)}\n"
-        f"🆔 **Raffle #:** {raffle_id}\n\n"
-        "This is a private raffle for the Melanated AZ group.\n\n"
-        "Approve this raffle to post it in the group."
-    )
-
-    for admin_id in ADMIN_IDS:
-
-        try:
-
-            await context.bot.send_message(
-                chat_id=admin_id,
-                text=text,
-                reply_markup=admin_approval_keyboard(raffle_id),
-                parse_mode="Markdown"
-            )
-
-        except Exception:
-            logger.exception(
-                "Unable to notify admin %s",
-                admin_id
-            )
 
     await update.message.reply_text(
-        f"✅ Raffle #{raffle_id} created.\n\n"
-        f"🎁 Prize: {prize}\n"
-        f"💵 Entry: {format_price(price)}\n\n"
-        "⏳ Waiting for admin approval before posting."
+        "🎟️ **RAFFLE CREATED**\n\n"
+        f"🎁 Prize: **{prize}**\n"
+        f"💵 Entry Price: **{format_price(entry_price)}**\n"
+        f"🆔 Raffle #: **{raffle_id}**\n\n"
+        "The raffle is waiting for admin approval.",
+        reply_markup=raffle_approval_keyboard(
+            raffle_id
+        ),
+        parse_mode="Markdown",
     )
 
 
 # ==========================================================
-# APPROVE RAFFLE
+# APPROVE + POST RAFFLE
 # ==========================================================
 
 async def approve_raffle_button(
@@ -221,10 +309,11 @@ async def approve_raffle_button(
 
     query = update.callback_query
 
-    if not query:
-        return
+    await query.answer()
 
-    if not is_admin(query.from_user.id):
+    if not is_admin(
+        query.from_user.id
+    ):
 
         await query.answer(
             "Not authorized.",
@@ -232,16 +321,22 @@ async def approve_raffle_button(
         )
         return
 
-    await query.answer()
-
     try:
+
         raffle_id = int(
-            query.data.split("_", 1)[1]
+            query.data.split("_")[1]
         )
-    except ValueError:
+
+    except Exception:
+
+        await query.message.reply_text(
+            "❌ Invalid raffle."
+        )
         return
 
-    raffle = get_raffle(raffle_id)
+    raffle = get_raffle(
+        raffle_id
+    )
 
     if not raffle:
 
@@ -250,40 +345,46 @@ async def approve_raffle_button(
         )
         return
 
-    expires_at = (
-        datetime.utcnow()
-        + timedelta(days=7)
-    ).isoformat()
-
-    if not approve_raffle(
-        raffle_id,
-        expires_at
-    ):
+    if raffle["status"] != "pending":
 
         await query.message.reply_text(
-            "⚠️ Raffle could not be approved."
+            "⚠️ This raffle has already been processed."
         )
         return
 
-    if not RAFFLE_CHAT_ID:
+    if RAFFLE_CHAT_ID == 0:
 
         await query.message.reply_text(
-            "⚠️ Raffle approved, but RAFFLE_CHAT_ID "
-            "is not configured in Render."
+            "❌ RAFFLE_CHAT_ID is not configured."
         )
         return
 
-    raffle = get_raffle(raffle_id)
+    success = approve_raffle(
+        raffle_id
+    )
+
+    if not success:
+
+        await query.message.reply_text(
+            "❌ Raffle could not be approved."
+        )
+        return
+
+    raffle = get_raffle(
+        raffle_id
+    )
 
     text = (
         "🎟️ **MELANATED AZ FRIENDS RAFFLE** 🎟️\n\n"
         f"🎁 **Prize:** {raffle['prize']}\n"
-        f"💵 **Entry Price:** {format_price(raffle['price'])}\n\n"
-        "🔒 **Private raffle for Melanated AZ friends.**\n\n"
-        "⏳ **Raffle closes in 7 days.**\n\n"
-        "Tap **ENTER RAFFLE** below to participate.\n\n"
-        "Payment must be completed and approved by an admin "
-        "before your entry becomes active."
+        f"💵 **Entry:** {format_price(raffle['entry_price'])}\n\n"
+        "🔐 Private raffle for Melanated AZ friends.\n\n"
+        f"⏳ **Time Remaining:** "
+        f"{time_remaining(raffle['expires_at'])}\n\n"
+        "Tap the button below to enter.\n"
+        "Payment is required and all entries "
+        "must be approved by an admin.\n\n"
+        "🍀 Good luck!"
     )
 
     try:
@@ -291,75 +392,29 @@ async def approve_raffle_button(
         message = await context.bot.send_message(
             chat_id=RAFFLE_CHAT_ID,
             text=text,
-            reply_markup=raffle_keyboard(),
-            parse_mode="Markdown"
+            reply_markup=group_raffle_keyboard(),
+            parse_mode="Markdown",
         )
 
-        set_message_id(
+        set_posted_message(
             raffle_id,
             message.message_id
         )
 
         await query.message.reply_text(
-            f"✅ Raffle #{raffle_id} approved and posted "
+            "✅ Raffle approved and posted "
             "to the Melanated AZ group."
         )
 
     except Exception:
 
         logger.exception(
-            "Unable to post raffle to group."
+            "Unable to post raffle."
         )
 
         await query.message.reply_text(
-            "❌ Raffle was approved, but I could not post "
-            "it to the raffle group.\n\n"
-            "Check RAFFLE_CHAT_ID and make sure the bot "
-            "is in the group."
-        )
-
-
-# ==========================================================
-# CANCEL RAFFLE APPROVAL
-# ==========================================================
-
-async def cancel_raffle_button(
-    update,
-    context
-):
-
-    query = update.callback_query
-
-    if not query:
-        return
-
-    if not is_admin(query.from_user.id):
-
-        await query.answer(
-            "Not authorized.",
-            show_alert=True
-        )
-        return
-
-    await query.answer()
-
-    try:
-        raffle_id = int(
-            query.data.split("_", 1)[1]
-        )
-    except ValueError:
-        return
-
-    if cancel_pending_raffle(raffle_id):
-
-        await query.message.reply_text(
-            f"❌ Raffle #{raffle_id} cancelled."
-        )
-
-    else:
-
-        await query.message.reply_text(
-            "⚠️ Raffle could not be cancelled."
+            "⚠️ Raffle was approved, but I could "
+            "not post it to the raffle group."
         )
 
 
@@ -374,9 +429,6 @@ async def enter_button(
 
     query = update.callback_query
 
-    if not query:
-        return
-
     await query.answer()
 
     raffle = get_active_raffle()
@@ -390,22 +442,11 @@ async def enter_button(
 
     await query.message.reply_text(
         "🎟️ **ENTER MELANATED AZ FRIENDS RAFFLE**\n\n"
-        f"🎁 Prize: {raffle['prize']}\n"
-        f"💵 Entry Price: {format_price(raffle['price'])}\n\n"
-        "Choose how you would like to pay:",
-        reply_markup=InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    "💵 Cash App",
-                    callback_data="raffle_paid"
-                ),
-                InlineKeyboardButton(
-                    "💳 Zelle",
-                    callback_data="raffle_zelle"
-                )
-            ]
-        ]),
-        parse_mode="Markdown"
+        f"🎁 Prize: **{raffle['prize']}**\n"
+        f"💵 Entry: **{format_price(raffle['entry_price'])}**\n\n"
+        "Choose your payment method:",
+        reply_markup=payment_keyboard(),
+        parse_mode="Markdown",
     )
 
 
@@ -420,9 +461,6 @@ async def payment_button(
 
     query = update.callback_query
 
-    if not query:
-        return
-
     await query.answer()
 
     raffle = get_active_raffle()
@@ -430,7 +468,7 @@ async def payment_button(
     if not raffle:
 
         await query.message.reply_text(
-            "❌ There is no active raffle."
+            "❌ This raffle is no longer active."
         )
         return
 
@@ -446,46 +484,49 @@ async def payment_button(
         raffle["id"],
         user.id,
         user.username,
-        get_display_name(user),
+        name_of(user),
         payment_method
     )
 
     if entry_id is None:
 
         await query.message.reply_text(
-            "⚠️ You already have a pending or approved "
-            "entry for this raffle."
+            "⚠️ You already have a pending "
+            "or approved entry."
         )
         return
 
     if payment_method == "Cash App":
 
         payment = (
-            "💵 **Cash App**\n"
-            f"Send **{format_price(raffle['price'])}** to "
-            f"`{CASHAPP_TAG}`"
+            "💵 **Cash App**\n\n"
+            f"Send **{format_price(raffle['entry_price'])}** "
+            f"to `{CASHAPP_TAG}`"
         )
 
         if CASHAPP_URL:
-            payment += f"\n\n🔗 {CASHAPP_URL}"
+
+            payment += (
+                f"\n\n🔗 {CASHAPP_URL}"
+            )
 
     else:
 
         payment = (
-            "💳 **Zelle**\n"
-            f"Send **{format_price(raffle['price'])}** to "
-            f"`{ZELLE_PHONE}`"
+            "💳 **Zelle**\n\n"
+            f"Send **{format_price(raffle['entry_price'])}** "
+            f"to `{ZELLE_PHONE}`"
         )
 
     await query.message.reply_text(
         "🎟️ **ENTRY CREATED**\n\n"
         f"🎁 Prize: {raffle['prize']}\n"
-        f"💵 Entry Price: {format_price(raffle['price'])}\n"
+        f"💵 Entry: {format_price(raffle['entry_price'])}\n"
         f"🆔 Entry #: {entry_id}\n\n"
         f"{payment}\n\n"
-        "After payment is sent, an admin will verify it.\n\n"
-        "⚠️ Your entry is NOT active until approved.",
-        parse_mode="Markdown"
+        "After payment, an admin will verify it.\n\n"
+        "⚠️ Your entry is not active until approved.",
+        parse_mode="Markdown",
     )
 
     for admin_id in ADMIN_IDS:
@@ -497,35 +538,27 @@ async def payment_button(
                 text=(
                     "💰 **PENDING RAFFLE PAYMENT**\n\n"
                     f"🎁 Prize: {raffle['prize']}\n"
-                    f"💵 Amount: {format_price(raffle['price'])}\n"
+                    f"💵 Amount: {format_price(raffle['entry_price'])}\n"
                     f"🆔 Entry #: {entry_id}\n"
-                    f"👤 {get_display_name(user)}\n"
-                    f"💳 Payment: {payment_method}\n\n"
-                    "Verify payment before approving."
+                    f"👤 Name: {name_of(user)}\n"
+                    f"🆔 User ID: `{user.id}`\n"
+                    f"💳 Payment: {payment_method}"
                 ),
-                reply_markup=InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton(
-                            "✅ Approve",
-                            callback_data=f"approve_{entry_id}"
-                        ),
-                        InlineKeyboardButton(
-                            "❌ Deny",
-                            callback_data=f"deny_{entry_id}"
-                        )
-                    ]
-                ]),
-                parse_mode="Markdown"
+                reply_markup=payment_approval_keyboard(
+                    entry_id
+                ),
+                parse_mode="Markdown",
             )
 
         except Exception:
+
             logger.exception(
                 "Unable to notify admin."
             )
 
 
 # ==========================================================
-# ADMIN ENTRY APPROVAL
+# ADMIN PAYMENT APPROVAL
 # ==========================================================
 
 async def admin_payment_button(
@@ -535,10 +568,11 @@ async def admin_payment_button(
 
     query = update.callback_query
 
-    if not query:
-        return
+    await query.answer()
 
-    if not is_admin(query.from_user.id):
+    if not is_admin(
+        query.from_user.id
+    ):
 
         await query.answer(
             "Not authorized.",
@@ -546,12 +580,16 @@ async def admin_payment_button(
         )
         return
 
-    await query.answer()
+    action, value = query.data.split(
+        "_",
+        1
+    )
 
-    action, entry_text = query.data.split("_", 1)
-    entry_id = int(entry_text)
+    entry_id = int(value)
 
-    entry = get_entry(entry_id)
+    entry = get_entry(
+        entry_id
+    )
 
     if not entry:
 
@@ -583,15 +621,16 @@ async def admin_payment_button(
                     chat_id=entry["user_id"],
                     text=(
                         "🎉 **RAFFLE ENTRY APPROVED!**\n\n"
-                        f"🎁 Prize: {raffle['prize']}\n"
-                        f"💵 Entry: {format_price(raffle['price'])}\n"
-                        f"🆔 Entry #: {entry_id}\n\n"
+                        f"🎁 Prize: **{raffle['prize']}**\n"
+                        f"💵 Entry: **{format_price(raffle['entry_price'])}**\n"
+                        f"🆔 Entry #: **{entry_id}**\n\n"
                         "Good luck! 🍀"
                     ),
-                    parse_mode="Markdown"
+                    parse_mode="Markdown",
                 )
 
             except Exception:
+
                 logger.exception(
                     "Unable to notify participant."
                 )
@@ -609,72 +648,76 @@ async def admin_payment_button(
             query.from_user.id
         )
 
-        await query.message.reply_text(
-            f"❌ Entry #{entry_id} denied."
-            if success
-            else "⚠️ Entry was already processed."
+        if success:
+
+            await query.message.reply_text(
+                f"❌ Entry #{entry_id} denied."
+            )
+
+            try:
+
+                await context.bot.send_message(
+                    chat_id=entry["user_id"],
+                    text=(
+                        "❌ Your raffle payment "
+                        "was not approved.\n\n"
+                        f"Entry #: {entry_id}\n"
+                        "Please contact an admin."
+                    )
+                )
+
+            except Exception:
+
+                logger.exception(
+                    "Unable to notify participant."
+                )
+
+
+# ==========================================================
+# ADMIN PENDING RAFFLE
+# ==========================================================
+
+async def pending_raffle(
+    update,
+    context
+):
+
+    if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
         )
+        return
 
-
-# ==========================================================
-# COMMANDS
-# ==========================================================
-
-async def enter_raffle(update, context):
-
-    raffle = get_active_raffle()
+    raffle = get_pending_raffle()
 
     if not raffle:
 
         await update.message.reply_text(
-            "❌ There is no active raffle."
+            "✅ No raffle waiting for approval."
         )
         return
 
     await update.message.reply_text(
-        "🎟️ **ENTER RAFFLE**",
-        reply_markup=raffle_keyboard(),
-        parse_mode="Markdown"
+        "🎟️ **RAFFLE WAITING FOR APPROVAL**\n\n"
+        f"🎁 Prize: **{raffle['prize']}**\n"
+        f"💵 Entry: **{format_price(raffle['entry_price'])}**\n"
+        f"🆔 Raffle #: **{raffle['id']}**",
+        reply_markup=raffle_approval_keyboard(
+            raffle["id"]
+        ),
+        parse_mode="Markdown",
     )
 
 
-async def pending_entries(update, context):
+# ==========================================================
+# STATUS
+# ==========================================================
 
-    if not admin_only(update):
-        return
-
-    entries = get_pending_entries()
-
-    if not entries:
-
-        await update.message.reply_text(
-            "✅ No pending payments."
-        )
-        return
-
-    for entry in entries:
-
-        await update.message.reply_text(
-            f"💰 **Pending Entry #{entry['id']}**\n\n"
-            f"👤 {entry['display_name']}\n"
-            f"💳 {entry['payment_method']}",
-            reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton(
-                        "✅ Approve",
-                        callback_data=f"approve_{entry['id']}"
-                    ),
-                    InlineKeyboardButton(
-                        "❌ Deny",
-                        callback_data=f"deny_{entry['id']}"
-                    )
-                ]
-            ]),
-            parse_mode="Markdown"
-        )
-
-
-async def raffle_status(update, context):
+async def raffle_status(
+    update,
+    context
+):
 
     raffle = get_active_raffle()
 
@@ -693,21 +736,34 @@ async def raffle_status(update, context):
         "🎟️ **RAFFLE STATUS**\n\n"
         f"🆔 Raffle #: {raffle['id']}\n"
         f"🎁 Prize: {raffle['prize']}\n"
-        f"💵 Entry: {format_price(raffle['price'])}\n"
+        f"💵 Entry: {format_price(raffle['entry_price'])}\n"
         f"👥 Approved Entries: {len(entries)}\n"
-        f"⏳ Expires: {raffle['expires_at']}",
-        parse_mode="Markdown"
+        f"⏳ Time Remaining: "
+        f"{time_remaining(raffle['expires_at'])}",
+        parse_mode="Markdown",
     )
 
 
-async def raffle_entries(update, context):
+# ==========================================================
+# ENTRIES
+# ==========================================================
+
+async def raffle_entries(
+    update,
+    context
+):
 
     if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
         return
 
     raffle = get_active_raffle()
 
     if not raffle:
+
         await update.message.reply_text(
             "❌ No active raffle."
         )
@@ -725,25 +781,79 @@ async def raffle_entries(update, context):
         return
 
     lines = [
-        "🎟️ **APPROVED ENTRIES**",
+        "🎟️ APPROVED ENTRIES",
         ""
     ]
 
     for entry in entries:
 
+        name = (
+            entry["display_name"]
+            or entry["username"]
+            or str(entry["user_id"])
+        )
+
         lines.append(
-            f"#{entry['id']} — {entry['display_name']}"
+            f"#{entry['id']} — {name}"
         )
 
     await update.message.reply_text(
-        "\n".join(lines),
-        parse_mode="Markdown"
+        "\n".join(lines)
     )
 
 
-async def draw_raffle(update, context):
+# ==========================================================
+# PENDING PAYMENTS
+# ==========================================================
+
+async def pending_entries(
+    update,
+    context
+):
 
     if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+        return
+
+    entries = get_pending_entries()
+
+    if not entries:
+
+        await update.message.reply_text(
+            "✅ No pending payments."
+        )
+        return
+
+    for entry in entries:
+
+        await update.message.reply_text(
+            "💰 PENDING PAYMENT\n\n"
+            f"Entry #: {entry['id']}\n"
+            f"User: {entry['display_name']}\n"
+            f"Payment: {entry['payment_method']}",
+            reply_markup=payment_approval_keyboard(
+                entry["id"]
+            )
+        )
+
+
+# ==========================================================
+# DRAW
+# ==========================================================
+
+async def draw_raffle(
+    update,
+    context
+):
+
+    if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
         return
 
     raffle = get_active_raffle()
@@ -752,6 +862,21 @@ async def draw_raffle(update, context):
 
         await update.message.reply_text(
             "❌ No active raffle."
+        )
+        return
+
+    if (
+        raffle["expires_at"]
+        and datetime.utcnow()
+        < datetime.fromisoformat(
+            raffle["expires_at"]
+        )
+    ):
+
+        await update.message.reply_text(
+            "⏳ The raffle has not expired yet.\n\n"
+            f"Time remaining: "
+            f"{time_remaining(raffle['expires_at'])}"
         )
         return
 
@@ -762,37 +887,59 @@ async def draw_raffle(update, context):
     if not entries:
 
         await update.message.reply_text(
-            "❌ No approved entries."
+            "❌ No approved paid entries."
         )
         return
 
-    winner = random.choice(entries)
+    winner = random.choice(
+        entries
+    )
 
     close_raffle(
         raffle["id"]
     )
 
+    name = (
+        winner["display_name"]
+        or winner["username"]
+        or str(winner["user_id"])
+    )
+
     await update.message.reply_text(
-        "🎉 **RAFFLE WINNER!** 🎉\n\n"
-        f"🎁 Prize: **{raffle['prize']}**\n"
-        f"🏆 Winner: **{winner['display_name']}**\n"
-        f"🆔 Entry #: {winner['id']}\n\n"
+        "🎉🎉 **RAFFLE WINNER!** 🎉🎉\n\n"
+        f"🎁 Prize: **{raffle['prize']}**\n\n"
+        f"🏆 Winner: **{name}**\n"
+        f"🆔 Entry #: **{winner['id']}**\n\n"
         "Congratulations! 🍀",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
 
 
-async def cancel_raffle(update, context):
+# ==========================================================
+# CANCEL
+# ==========================================================
+
+async def cancel_raffle(
+    update,
+    context
+):
 
     if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
         return
 
-    raffle = get_active_raffle()
+    raffle = (
+        get_active_raffle()
+        or get_pending_raffle()
+    )
 
     if not raffle:
 
         await update.message.reply_text(
-            "❌ No active raffle."
+            "❌ No raffle to cancel."
         )
         return
 
@@ -805,151 +952,144 @@ async def cancel_raffle(update, context):
     )
 
 
-async def bonus_entry(update, context):
+# ==========================================================
+# APPROVE ENTRY COMMAND
+# ==========================================================
 
-    if admin_only(update):
-
-        await update.message.reply_text(
-            "ℹ️ Bonus entries are not enabled."
-        )
-
-
-async def remove_raffle_entry(update, context):
+async def approve_raffle_entry(
+    update,
+    context
+):
 
     if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
         return
 
     if not context.args:
+
+        await update.message.reply_text(
+            "Usage: /approveentry ENTRY_ID"
+        )
+        return
+
+    try:
+
+        entry_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid entry ID."
+        )
+        return
+
+    success = approve_entry(
+        entry_id,
+        update.effective_user.id
+    )
+
+    await update.message.reply_text(
+        "✅ Entry approved."
+        if success
+        else "❌ Entry could not be approved."
+    )
+
+
+# ==========================================================
+# DENY ENTRY COMMAND
+# ==========================================================
+
+async def deny_raffle_entry(
+    update,
+    context
+):
+
+    if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+        return
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage: /denyentry ENTRY_ID"
+        )
+        return
+
+    try:
+
+        entry_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid entry ID."
+        )
+        return
+
+    success = deny_entry(
+        entry_id,
+        update.effective_user.id
+    )
+
+    await update.message.reply_text(
+        "❌ Entry denied."
+        if success
+        else "❌ Entry could not be denied."
+    )
+
+
+# ==========================================================
+# REMOVE
+# ==========================================================
+
+async def remove_raffle_entry(
+    update,
+    context
+):
+
+    if not admin_only(update):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+        return
+
+    if not context.args:
+
         await update.message.reply_text(
             "Usage: /removeentry ENTRY_ID"
         )
         return
 
     try:
-        entry_id = int(context.args[0])
+
+        entry_id = int(
+            context.args[0]
+        )
+
     except ValueError:
+
         await update.message.reply_text(
-            "❌ Entry ID must be a number."
+            "❌ Invalid entry ID."
         )
         return
 
-    if remove_entry(entry_id):
-
-        await update.message.reply_text(
-            f"🗑️ Entry #{entry_id} removed."
-        )
-
-    else:
-
-        await update.message.reply_text(
-            "❌ Entry not found."
-        )
-
-
-async def approve_raffle_entry(update, context):
-
-    if not admin_only(update):
-        return
-
-    if not context.args:
-        await update.message.reply_text(
-            "Usage: /approveentry ENTRY_ID"
-        )
-        return
-
-    entry_id = int(context.args[0])
-
-    if approve_entry(
-        entry_id,
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            f"✅ Entry #{entry_id} approved."
-        )
-
-    else:
-
-        await update.message.reply_text(
-            "❌ Entry could not be approved."
-        )
-
-
-async def deny_raffle_entry(update, context):
-
-    if not admin_only(update):
-        return
-
-    if not context.args:
-        await update.message.reply_text(
-            "Usage: /denyentry ENTRY_ID"
-        )
-        return
-
-    entry_id = int(context.args[0])
-
-    if deny_entry(
-        entry_id,
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            f"❌ Entry #{entry_id} denied."
-        )
-
-    else:
-
-        await update.message.reply_text(
-            "❌ Entry could not be denied."
-        )
-
-
-async def reroll_raffle(update, context):
-
-    if admin_only(update):
-
-        await update.message.reply_text(
-            "⚠️ Reroll is available after a completed raffle."
-        )
-
-
-# ==========================================================
-# EXPIRATION JOB
-# ==========================================================
-
-async def raffle_expiration_job(context):
-
-    raffle = get_active_raffle()
-
-    if not raffle or not raffle["expires_at"]:
-        return
-
-    expires = datetime.fromisoformat(
-        raffle["expires_at"]
+    success = remove_entry(
+        entry_id
     )
 
-    if datetime.utcnow() >= expires:
-
-        close_raffle(
-            raffle["id"]
-        )
-
-        if RAFFLE_CHAT_ID:
-
-            try:
-
-                await context.bot.send_message(
-                    chat_id=RAFFLE_CHAT_ID,
-                    text=(
-                        "⏰ **RAFFLE CLOSED**\n\n"
-                        f"🎁 Prize: {raffle['prize']}\n\n"
-                        "The 7-day entry period has ended.\n"
-                        "An admin can now draw the winner."
-                    ),
-                    parse_mode="Markdown"
-                )
-
-            except Exception:
-                logger.exception(
-                    "Unable to announce raffle expiration."
-                )
+    await update.message.reply_text(
+        "🗑️ Entry removed."
+        if success
+        else "❌ Entry not found."
+    )
