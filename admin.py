@@ -1,28 +1,18 @@
 # ==========================================================
 # Melanated AZ Bot
 # admin.py
+#
+# Admin menu and raffle controls
 # ==========================================================
-
-import logging
 
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Update,
 )
-
 from telegram.ext import ContextTypes
 
 from config import ADMIN_IDS
-
-from raffle_database import (
-    get_active_raffle,
-    get_pending_raffle,
-    get_pending_entries,
-)
-
-
-logger = logging.getLogger(__name__)
 
 
 # ==========================================================
@@ -30,56 +20,7 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 def is_admin(user_id: int) -> bool:
-
     return user_id in ADMIN_IDS
-
-
-# ==========================================================
-# ADMIN MENU KEYBOARD
-# ==========================================================
-
-def admin_keyboard():
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🎟️ Start Raffle",
-                    callback_data="admin_startraffle",
-                ),
-                InlineKeyboardButton(
-                    "📋 Raffle Status",
-                    callback_data="admin_rafflestatus",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "💰 Pending Payments",
-                    callback_data="admin_pending",
-                ),
-                InlineKeyboardButton(
-                    "👥 Entries",
-                    callback_data="admin_entries",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🎲 Draw Winner",
-                    callback_data="admin_draw",
-                ),
-                InlineKeyboardButton(
-                    "🛑 Cancel Raffle",
-                    callback_data="admin_cancel",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔄 Refresh",
-                    callback_data="admin_refresh",
-                ),
-            ],
-        ]
-    )
 
 
 # ==========================================================
@@ -91,73 +32,60 @@ async def admin_menu(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    user = update.effective_user
+    if not update.effective_user:
+        return
 
-    if not user or not is_admin(user.id):
+    if not is_admin(update.effective_user.id):
 
-        if update.message:
-
-            await update.message.reply_text(
-                "❌ Admins only."
-            )
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
 
         return
 
-    active = get_active_raffle()
-    pending = get_pending_raffle()
-    pending_entries = get_pending_entries()
-
-    # ------------------------------------------------------
-    # Determine raffle status
-    # ------------------------------------------------------
-
-    if active:
-
-        raffle_status = (
-            "🟢 **ACTIVE RAFFLE**\n\n"
-            f"🎁 Prize: {active['prize']}\n"
-            f"💵 Entry: {active['entry_price']}\n"
-            f"🆔 Raffle #: {active['id']}"
-        )
-
-    elif pending:
-
-        raffle_status = (
-            "🟡 **RAFFLE AWAITING APPROVAL**\n\n"
-            f"🎁 Prize: {pending['prize']}\n"
-            f"💵 Entry: {pending['entry_price']}\n"
-            f"🆔 Raffle #: {pending['id']}\n\n"
-            "Check your admin messages to approve or cancel it."
-        )
-
-    else:
-
-        raffle_status = (
-            "⚪ **NO ACTIVE RAFFLE**\n\n"
-            "Use Start Raffle to create one."
-        )
-
-    # ------------------------------------------------------
-    # Menu
-    # ------------------------------------------------------
-
-    text = (
-        "👑 **MELANATED AZ ADMIN PANEL**\n\n"
-        f"{raffle_status}\n\n"
-        f"💰 Pending Payments: {len(pending_entries)}"
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎟️ Raffle",
+                    callback_data="admin_raffle",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💰 Pending Entries",
+                    callback_data="admin_pending",
+                ),
+                InlineKeyboardButton(
+                    "📊 Raffle Status",
+                    callback_data="admin_status",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "👥 Approved Entries",
+                    callback_data="admin_entries",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "❌ Cancel Raffle",
+                    callback_data="admin_cancel",
+                ),
+            ],
+        ]
     )
 
-    if update.message:
-
-        await update.message.reply_text(
-            text,
-            reply_markup=admin_keyboard(),
-            parse_mode="Markdown",
-        )
+    await update.message.reply_text(
+        "👑 **MELANATED AZ ADMIN PANEL**\n\n"
+        "Select an option below:",
+        reply_markup=keyboard,
+        parse_mode="Markdown",
+    )
 
 
 # ==========================================================
-# ADMIN BUTTON HANDLER
+# ADMIN BUTTONS
 # ==========================================================
 
 async def admin_button(
@@ -170,9 +98,9 @@ async def admin_button(
     if not query:
         return
 
-    user = query.from_user
+    await query.answer()
 
-    if not user or not is_admin(user.id):
+    if not is_admin(query.from_user.id):
 
         await query.answer(
             "Not authorized.",
@@ -181,215 +109,176 @@ async def admin_button(
 
         return
 
-    await query.answer()
-
     data = query.data
 
-    # ======================================================
+    # ------------------------------------------------------
+    # RAFFLE MENU
+    # ------------------------------------------------------
+
+    if data == "admin_raffle":
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎟️ Start Raffle",
+                        callback_data="admin_start_raffle",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "💰 Pending Entries",
+                        callback_data="admin_pending",
+                    ),
+                    InlineKeyboardButton(
+                        "📊 Status",
+                        callback_data="admin_status",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        "👥 Entries",
+                        callback_data="admin_entries",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🔙 Back",
+                        callback_data="admin_back",
+                    )
+                ],
+            ]
+        )
+
+        await query.edit_message_text(
+            "🎟️ **RAFFLE ADMIN**\n\n"
+            "Raffles are private and require admin approval "
+            "before they are posted.\n\n"
+            "Each approved raffle automatically runs for "
+            "**7 days**.",
+            reply_markup=keyboard,
+            parse_mode="Markdown",
+        )
+
+        return
+
+    # ------------------------------------------------------
     # START RAFFLE
-    # ======================================================
+    # ------------------------------------------------------
 
-    if data == "admin_startraffle":
+    if data == "admin_start_raffle":
 
-        await query.message.reply_text(
-            "🎟️ **START A NEW RAFFLE**\n\n"
-            "Use the following command:\n\n"
+        await query.edit_message_text(
+            "🎟️ **START A RAFFLE**\n\n"
+            "Use the command:\n\n"
             "`/startraffle PRIZE | ENTRY PRICE`\n\n"
             "Example:\n"
             "`/startraffle $100 Cash Prize | $10 Entry`\n\n"
-            "The raffle will be sent to the admins "
-            "for approval before it is posted.",
+            "An admin must approve the raffle before it "
+            "is posted.\n\n"
+            "⏳ The 7-day countdown starts when approved.",
             parse_mode="Markdown",
         )
 
         return
 
-    # ======================================================
-    # STATUS
-    # ======================================================
-
-    if data == "admin_rafflestatus":
-
-        active = get_active_raffle()
-        pending = get_pending_raffle()
-
-        if active:
-
-            await query.message.reply_text(
-                "🟢 **ACTIVE RAFFLE**\n\n"
-                f"🎁 Prize: {active['prize']}\n"
-                f"💵 Entry: {active['entry_price']}\n"
-                f"🆔 Raffle #: {active['id']}\n"
-                f"📌 Status: {active['status']}",
-                parse_mode="Markdown",
-            )
-
-        elif pending:
-
-            await query.message.reply_text(
-                "🟡 **RAFFLE AWAITING APPROVAL**\n\n"
-                f"🎁 Prize: {pending['prize']}\n"
-                f"💵 Entry: {pending['entry_price']}\n"
-                f"🆔 Raffle #: {pending['id']}\n\n"
-                "Use the approval buttons sent to the admins.",
-                parse_mode="Markdown",
-            )
-
-        else:
-
-            await query.message.reply_text(
-                "⚪ There is no active raffle."
-            )
-
-        return
-
-    # ======================================================
-    # PENDING PAYMENTS
-    # ======================================================
+    # ------------------------------------------------------
+    # PENDING ENTRIES
+    # ------------------------------------------------------
 
     if data == "admin_pending":
 
-        entries = get_pending_entries()
-
-        if not entries:
-
-            await query.message.reply_text(
-                "✅ There are no pending raffle payments."
-            )
-
-            return
+        from raffle import pending_entries
 
         await query.message.reply_text(
-            f"💰 **PENDING PAYMENTS**\n\n"
-            f"There are **{len(entries)}** pending entries.\n\n"
-            "Use `/pending` to view each payment "
-            "and approve or deny it.",
-            parse_mode="Markdown",
+            "💰 Checking pending raffle entries..."
+        )
+
+        await pending_entries(
+            update,
+            context,
         )
 
         return
 
-    # ======================================================
-    # ENTRIES
-    # ======================================================
+    # ------------------------------------------------------
+    # STATUS
+    # ------------------------------------------------------
+
+    if data == "admin_status":
+
+        from raffle import raffle_status
+
+        await query.message.reply_text(
+            "📊 Checking raffle status..."
+        )
+
+        await raffle_status(
+            update,
+            context,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # APPROVED ENTRIES
+    # ------------------------------------------------------
 
     if data == "admin_entries":
 
-        active = get_active_raffle()
-
-        if not active:
-
-            await query.message.reply_text(
-                "❌ There is no active raffle."
-            )
-
-            return
+        from raffle import raffle_entries
 
         await query.message.reply_text(
-            "👥 **RAFFLE ENTRIES**\n\n"
-            "Use `/raffleentries` to view all approved entries.",
-            parse_mode="Markdown",
+            "👥 Loading approved entries..."
+        )
+
+        await raffle_entries(
+            update,
+            context,
         )
 
         return
 
-    # ======================================================
-    # DRAW
-    # ======================================================
-
-    if data == "admin_draw":
-
-        active = get_active_raffle()
-
-        if not active:
-
-            await query.message.reply_text(
-                "❌ There is no active raffle to draw."
-            )
-
-            return
-
-        await query.message.reply_text(
-            "🎲 **DRAW WINNER**\n\n"
-            f"🎁 Prize: {active['prize']}\n"
-            f"💵 Entry: {active['entry_price']}\n\n"
-            "When you're ready, use:\n"
-            "`/draw`",
-            parse_mode="Markdown",
-        )
-
-        return
-
-    # ======================================================
+    # ------------------------------------------------------
     # CANCEL
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "admin_cancel":
 
-        active = get_active_raffle()
-        pending = get_pending_raffle()
-
-        raffle = active or pending
-
-        if not raffle:
-
-            await query.message.reply_text(
-                "❌ There is no active or pending raffle."
-            )
-
-            return
+        from raffle import cancel_raffle
 
         await query.message.reply_text(
-            "🛑 **CANCEL RAFFLE**\n\n"
-            f"🎁 Prize: {raffle['prize']}\n"
-            f"💵 Entry: {raffle['entry_price']}\n"
-            f"🆔 Raffle #: {raffle['id']}\n\n"
-            "Use:\n"
-            "`/cancelraffle`",
-            parse_mode="Markdown",
+            "🛑 Cancelling raffle..."
+        )
+
+        await cancel_raffle(
+            update,
+            context,
         )
 
         return
 
-    # ======================================================
-    # REFRESH
-    # ======================================================
+    # ------------------------------------------------------
+    # BACK
+    # ------------------------------------------------------
 
-    if data == "admin_refresh":
+    if data == "admin_back":
 
-        active = get_active_raffle()
-        pending = get_pending_raffle()
-        entries = get_pending_entries()
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎟️ Raffle",
+                        callback_data="admin_raffle",
+                    )
+                ],
+            ]
+        )
 
-        if active:
-
-            status = (
-                "🟢 **ACTIVE RAFFLE**\n\n"
-                f"🎁 Prize: {active['prize']}\n"
-                f"💵 Entry: {active['entry_price']}\n"
-                f"🆔 Raffle #: {active['id']}"
-            )
-
-        elif pending:
-
-            status = (
-                "🟡 **AWAITING APPROVAL**\n\n"
-                f"🎁 Prize: {pending['prize']}\n"
-                f"💵 Entry: {pending['entry_price']}\n"
-                f"🆔 Raffle #: {pending['id']}"
-            )
-
-        else:
-
-            status = (
-                "⚪ **NO ACTIVE RAFFLE**"
-            )
-
-        await query.message.reply_text(
+        await query.edit_message_text(
             "👑 **MELANATED AZ ADMIN PANEL**\n\n"
-            f"{status}\n\n"
-            f"💰 Pending Payments: {len(entries)}",
-            reply_markup=admin_keyboard(),
+            "Select an option below:",
+            reply_markup=keyboard,
             parse_mode="Markdown",
         )
 
