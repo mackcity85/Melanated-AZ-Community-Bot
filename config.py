@@ -6,16 +6,8 @@
 import os
 
 
-# ==========================================================
-# TELEGRAM
-# ==========================================================
-
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
-
-# ==========================================================
-# ADMINS
-# ==========================================================
 
 ADMIN_IDS = [
     int(x.strip())
@@ -24,19 +16,13 @@ ADMIN_IDS = [
 ]
 
 
-# ==========================================================
-# RAFFLE GROUP
-# ==========================================================
-
+# Telegram group where approved raffles are posted
 RAFFLE_CHAT_ID = int(
     os.environ.get("RAFFLE_CHAT_ID", "0")
 )
 
 
-# ==========================================================
-# PAYMENT
-# ==========================================================
-
+# Payment settings
 CASHAPP_TAG = os.environ.get(
     "CASHAPP_TAG",
     ""
@@ -53,23 +39,12 @@ ZELLE_PHONE = os.environ.get(
 )
 
 
-# ==========================================================
-# STARTUP LOGGING
-# ==========================================================
-
-print(
-    f"Loaded Admin IDs: {ADMIN_IDS}"
-)
-
-print(
-    f"Raffle Chat ID: {RAFFLE_CHAT_ID}"
-)
-
+print(f"Loaded Admin IDs: {ADMIN_IDS}")
+print(f"Raffle Chat ID: {RAFFLE_CHAT_ID}")
 print(
     "💳 Cash App: "
     + ("Loaded" if CASHAPP_TAG else "Not configured")
 )
-
 print(
     "💳 Zelle: "
     + ("Loaded" if ZELLE_PHONE else "Not configured")
