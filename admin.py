@@ -22,6 +22,8 @@ from raffle_database import (
 
 from raffle import (
     start_raffle,
+    cancel_raffle,
+    draw_raffle,
 )
 
 
@@ -35,44 +37,12 @@ def is_admin(user_id):
 
 
 # ==========================================================
-# ADMIN MENU
-# ==========================================================
-
-async def admin_menu(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    if not update.effective_user:
-
-        return
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            "❌ Admins only."
-        )
-
-        return
-
-    await show_admin_panel(
-        update,
-        context
-    )
-
-
-# ==========================================================
 # ADMIN PANEL
 # ==========================================================
 
-async def show_admin_panel(
-    update,
-    context
-):
+def admin_keyboard():
 
-    keyboard = InlineKeyboardMarkup(
+    return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
@@ -115,14 +85,54 @@ async def show_admin_panel(
                     "🔄 Refresh",
                     callback_data="admin_refresh"
                 )
-            ],
+            ]
         ]
     )
+
+
+# ==========================================================
+# /ADMIN
+# ==========================================================
+
+async def admin_menu(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not update.effective_user:
+        return
+
+    if not is_admin(
+        update.effective_user.id
+    ):
+
+        await update.message.reply_text(
+            "❌ Admins only."
+        )
+
+        return
+
+    await show_admin_panel(
+        update,
+        context
+    )
+
+
+# ==========================================================
+# SHOW PANEL
+# ==========================================================
+
+async def show_admin_panel(
+    update,
+    context
+):
 
     text = (
         "👑 **MELANATED AZ ADMIN PANEL**\n\n"
         "Choose an option below."
     )
+
+    keyboard = admin_keyboard()
 
     if update.callback_query:
 
@@ -147,13 +157,12 @@ async def show_admin_panel(
 
 async def admin_button(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
     query = update.callback_query
 
     if not query:
-
         return
 
     if not is_admin(
@@ -172,14 +181,22 @@ async def admin_button(
     action = query.data
 
     # ------------------------------------------------------
-    # START RAFFLE
+    # START
     # ------------------------------------------------------
 
     if action == "admin_start_raffle":
 
-        await start_raffle(
-            update,
-            context
+        context.user_data[
+            "awaiting_raffle_setup"
+        ] = True
+
+        await query.message.reply_text(
+            "🎟️ **START A NEW RAFFLE**\n\n"
+            "Send:\n\n"
+            "`Prize | Entry Price`\n\n"
+            "Example:\n"
+            "`$100 Cash Prize | $5`",
+            parse_mode="Markdown"
         )
 
         return
@@ -198,7 +215,8 @@ async def admin_button(
         if not raffle:
 
             await query.edit_message_text(
-                "❌ No active or pending raffle."
+                "❌ No active or pending raffle.",
+                reply_markup=admin_keyboard()
             )
 
             return
@@ -214,7 +232,8 @@ async def admin_button(
             f"💵 Entry Price: **{raffle['price']}**\n"
             f"📌 Status: **{raffle['status']}**\n"
             f"👥 Approved Entries: **{len(entries)}**",
-            parse_mode="Markdown",
+            reply_markup=admin_keyboard(),
+            parse_mode="Markdown"
         )
 
         return
@@ -230,7 +249,8 @@ async def admin_button(
         if not raffle:
 
             await query.edit_message_text(
-                "❌ No active raffle."
+                "❌ No active raffle.",
+                reply_markup=admin_keyboard()
             )
 
             return
@@ -242,7 +262,8 @@ async def admin_button(
         if not entries:
 
             await query.edit_message_text(
-                "🎟️ No approved entries yet."
+                "🎟️ No approved entries yet.",
+                reply_markup=admin_keyboard()
             )
 
             return
@@ -259,15 +280,19 @@ async def admin_button(
                 f"{entry['display_name']}"
             )
 
+        lines.append("")
+        lines.append("Use 🔄 Refresh to return to the panel.")
+
         await query.edit_message_text(
             "\n".join(lines),
-            parse_mode="Markdown",
+            reply_markup=admin_keyboard(),
+            parse_mode="Markdown"
         )
 
         return
 
     # ------------------------------------------------------
-    # PENDING PAYMENTS
+    # PENDING
     # ------------------------------------------------------
 
     if action == "admin_pending":
@@ -277,7 +302,8 @@ async def admin_button(
         if not entries:
 
             await query.edit_message_text(
-                "✅ No pending payments."
+                "✅ No pending payments.",
+                reply_markup=admin_keyboard()
             )
 
             return
@@ -295,9 +321,15 @@ async def admin_button(
                 f"{entry['payment_method']}"
             )
 
+        lines.append("")
+        lines.append(
+            "Use /pending for approval buttons."
+        )
+
         await query.edit_message_text(
             "\n".join(lines),
-            parse_mode="Markdown",
+            reply_markup=admin_keyboard(),
+            parse_mode="Markdown"
         )
 
         return
@@ -313,7 +345,8 @@ async def admin_button(
         if not raffle:
 
             await query.edit_message_text(
-                "❌ No active raffle."
+                "❌ No active raffle.",
+                reply_markup=admin_keyboard()
             )
 
             return
@@ -325,7 +358,8 @@ async def admin_button(
         if not entries:
 
             await query.edit_message_text(
-                "No approved entries yet."
+                "✅ No approved entries yet.",
+                reply_markup=admin_keyboard()
             )
 
             return
@@ -344,7 +378,8 @@ async def admin_button(
 
         await query.edit_message_text(
             "\n".join(lines),
-            parse_mode="Markdown",
+            reply_markup=admin_keyboard(),
+            parse_mode="Markdown"
         )
 
         return
@@ -355,10 +390,14 @@ async def admin_button(
 
     if action == "admin_cancel":
 
-        from raffle import cancel_raffle
+        await cancel_raffle(
+            update,
+            context
+        )
 
-        await query.edit_message_text(
-            "Use /cancelraffle to cancel the active raffle."
+        await show_admin_panel(
+            update,
+            context
         )
 
         return
@@ -369,10 +408,14 @@ async def admin_button(
 
     if action == "admin_draw":
 
-        from raffle import draw_raffle
+        await draw_raffle(
+            update,
+            context
+        )
 
-        await query.edit_message_text(
-            "Use /draw to select the winner."
+        await show_admin_panel(
+            update,
+            context
         )
 
         return
