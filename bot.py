@@ -10,6 +10,7 @@ import threading
 from flask import Flask
 
 from telegram import Update
+
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -17,30 +18,15 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# ==========================================================
-# CONFIG
-# ==========================================================
-
 from config import (
     BOT_TOKEN,
     ADMIN_IDS,
-    CASHAPP_TAG,
-    CASHAPP_URL,
-    ZELLE_PHONE,
 )
-
-# ==========================================================
-# ADMIN
-# ==========================================================
 
 from admin import (
     admin_menu,
     admin_button,
 )
-
-# ==========================================================
-# RAFFLE
-# ==========================================================
 
 from raffle import (
     start_raffle,
@@ -48,8 +34,8 @@ from raffle import (
     raffle_enter_button,
     paid_entry,
     payment_button,
-    admin_payment_button,
     raffle_approval_button,
+    admin_payment_button,
     pending_entries,
     approve_raffle_entry,
     deny_raffle_entry,
@@ -62,6 +48,7 @@ from raffle import (
     remove_raffle_entry,
 )
 
+
 # ==========================================================
 # LOGGING
 # ==========================================================
@@ -72,6 +59,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
 
 # ==========================================================
 # FLASK
@@ -146,7 +134,7 @@ def main():
     )
 
     # ======================================================
-    # CREATE APPLICATION
+    # APPLICATION
     # ======================================================
 
     application = (
@@ -273,17 +261,6 @@ def main():
     )
 
     # ======================================================
-    # RAFFLE APPROVAL BUTTONS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            raffle_approval_button,
-            pattern=r"^raffle(approve|reject|reject)_\d+$|^raffalreject_\d+$",
-        )
-    )
-
-    # ======================================================
     # RAFFLE ENTER BUTTON
     # ======================================================
 
@@ -301,7 +278,18 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(cashapp|zelle)$",
+            pattern=r"^raffle_(zelle|paid)$",
+        )
+    )
+
+    # ======================================================
+    # RAFFLE APPROVAL BUTTONS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            raffle_approval_button,
+            pattern=r"^raffle(approve|cancel)_\d+$",
         )
     )
 
@@ -354,4 +342,5 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
+
     main()
