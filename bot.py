@@ -23,19 +23,27 @@ from config import (
     ADMIN_IDS,
 )
 
+# ==========================================================
+# ADMIN
+# ==========================================================
+
 from admin import (
     admin_menu,
     admin_button,
 )
 
+# ==========================================================
+# RAFFLE
+# ==========================================================
+
 from raffle import (
     start_raffle,
     enter_raffle,
-    raffle_enter_button,
     paid_entry,
     payment_button,
-    raffle_approval_button,
     admin_payment_button,
+    admin_raffle_button,
+    enter_button,
     pending_entries,
     approve_raffle_entry,
     deny_raffle_entry,
@@ -48,7 +56,6 @@ from raffle import (
     remove_raffle_entry,
 )
 
-
 # ==========================================================
 # LOGGING
 # ==========================================================
@@ -60,7 +67,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
 # ==========================================================
 # FLASK
 # ==========================================================
@@ -70,13 +76,11 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-
     return "🔥 Melanated AZ Bot Online", 200
 
 
 @app.route("/health")
 def health():
-
     return "OK", 200
 
 
@@ -119,7 +123,6 @@ async def error_handler(
 def main():
 
     if not BOT_TOKEN:
-
         raise RuntimeError(
             "BOT_TOKEN environment variable is missing."
         )
@@ -134,7 +137,7 @@ def main():
     )
 
     # ======================================================
-    # APPLICATION
+    # CREATE APPLICATION
     # ======================================================
 
     application = (
@@ -144,7 +147,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN COMMAND
+    # ADMIN MENU
     # ======================================================
 
     application.add_handler(
@@ -155,7 +158,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN BUTTONS
+    # ADMIN MENU BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -166,7 +169,7 @@ def main():
     )
 
     # ======================================================
-    # RAFFLE COMMANDS
+    # START RAFFLE
     # ======================================================
 
     application.add_handler(
@@ -175,6 +178,10 @@ def main():
             start_raffle,
         )
     )
+
+    # ======================================================
+    # ENTER RAFFLE
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -189,6 +196,10 @@ def main():
             paid_entry,
         )
     )
+
+    # ======================================================
+    # RAFFLE ADMIN COMMANDS
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -261,18 +272,18 @@ def main():
     )
 
     # ======================================================
-    # RAFFLE ENTER BUTTON
+    # MEMBER ENTER BUTTON
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
-            raffle_enter_button,
+            enter_button,
             pattern=r"^raffle_enter$",
         )
     )
 
     # ======================================================
-    # RAFFLE PAYMENT BUTTONS
+    # PAYMENT BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -288,13 +299,13 @@ def main():
 
     application.add_handler(
         CallbackQueryHandler(
-            raffle_approval_button,
+            admin_raffle_button,
             pattern=r"^raffle(approve|cancel)_\d+$",
         )
     )
 
     # ======================================================
-    # RAFFLE ENTRY APPROVAL BUTTONS
+    # ENTRY APPROVAL BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -342,5 +353,4 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
-
     main()
