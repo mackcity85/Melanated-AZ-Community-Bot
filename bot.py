@@ -31,11 +31,11 @@ from admin import (
 from raffle import (
     start_raffle,
     enter_raffle,
+    raffle_enter_button,
     paid_entry,
     payment_button,
-    enter_button,
     admin_payment_button,
-    raffle_approval_button,
+    approve_raffle_button,
     pending_entries,
     approve_raffle_entry,
     deny_raffle_entry,
@@ -46,20 +46,11 @@ from raffle import (
     cancel_raffle,
     bonus_entry,
     remove_raffle_entry,
+    check_raffle_expiration,
 )
 
-
-# ==========================================================
-# LOGGING
-# ==========================================================
-
 logging.basicConfig(
-    format=(
-        "%(asctime)s - "
-        "%(name)s - "
-        "%(levelname)s - "
-        "%(message)s"
-    ),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
@@ -75,13 +66,11 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-
     return "🔥 Melanated AZ Bot Online", 200
 
 
 @app.route("/health")
 def health():
-
     return "OK", 200
 
 
@@ -90,7 +79,7 @@ def run_flask():
     port = int(
         os.environ.get(
             "PORT",
-            10000,
+            10000
         )
     )
 
@@ -98,22 +87,19 @@ def run_flask():
         host="0.0.0.0",
         port=port,
         debug=False,
-        use_reloader=False,
+        use_reloader=False
     )
 
 
 # ==========================================================
-# ERROR HANDLER
+# ERROR
 # ==========================================================
 
-async def error_handler(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def error_handler(update, context):
 
     logger.error(
         "Exception while processing update:",
-        exc_info=context.error,
+        exc_info=context.error
     )
 
 
@@ -135,12 +121,8 @@ def main():
 
     logger.info(
         "Loaded Admin IDs: %s",
-        ADMIN_IDS,
+        ADMIN_IDS
     )
-
-    # ======================================================
-    # APPLICATION
-    # ======================================================
 
     application = (
         Application.builder()
@@ -155,14 +137,14 @@ def main():
     application.add_handler(
         CommandHandler(
             "admin",
-            admin_menu,
+            admin_menu
         )
     )
 
     application.add_handler(
         CallbackQueryHandler(
             admin_button,
-            pattern=r"^admin_",
+            pattern=r"^admin_"
         )
     )
 
@@ -173,102 +155,102 @@ def main():
     application.add_handler(
         CommandHandler(
             "startraffle",
-            start_raffle,
+            start_raffle
         )
     )
 
     application.add_handler(
         CommandHandler(
             "enter",
-            enter_raffle,
+            enter_raffle
         )
     )
 
     application.add_handler(
         CommandHandler(
             "paid",
-            paid_entry,
+            paid_entry
         )
     )
 
     application.add_handler(
         CommandHandler(
             "pending",
-            pending_entries,
+            pending_entries
         )
     )
 
     application.add_handler(
         CommandHandler(
             "approveentry",
-            approve_raffle_entry,
+            approve_raffle_entry
         )
     )
 
     application.add_handler(
         CommandHandler(
             "denyentry",
-            deny_raffle_entry,
+            deny_raffle_entry
         )
     )
 
     application.add_handler(
         CommandHandler(
             "rafflestatus",
-            raffle_status,
+            raffle_status
         )
     )
 
     application.add_handler(
         CommandHandler(
             "raffleentries",
-            raffle_entries,
+            raffle_entries
         )
     )
 
     application.add_handler(
         CommandHandler(
             "draw",
-            draw_raffle,
+            draw_raffle
         )
     )
 
     application.add_handler(
         CommandHandler(
             "reroll",
-            reroll_raffle,
+            reroll_raffle
         )
     )
 
     application.add_handler(
         CommandHandler(
             "cancelraffle",
-            cancel_raffle,
+            cancel_raffle
         )
     )
 
     application.add_handler(
         CommandHandler(
             "bonusentry",
-            bonus_entry,
+            bonus_entry
         )
     )
 
     application.add_handler(
         CommandHandler(
             "removeentry",
-            remove_raffle_entry,
+            remove_raffle_entry
         )
     )
 
     # ======================================================
-    # ENTER RAFFLE BUTTON
+    # MEMBER RAFFLE BUTTON
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
-            enter_button,
-            pattern=r"^raffle_enter$",
+            raffle_enter_button,
+            pattern=r"^raffle_enter$"
         )
     )
 
@@ -279,30 +261,40 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(zelle|paid)$",
+            pattern=r"^raffle_(zelle|paid)$"
         )
     )
 
     # ======================================================
-    # RAFFLE APPROVAL BUTTONS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            raffle_approval_button,
-            pattern=r"^(raffleapprove|raffaldeny)_\d+$",
-        )
-    )
-
-    # ======================================================
-    # PAYMENT APPROVAL BUTTONS
+    # ENTRY APPROVAL BUTTONS
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             admin_payment_button,
-            pattern=r"^(approve|deny)_\d+$",
+            pattern=r"^(approve|deny)_\d+$"
         )
+    )
+
+    # ======================================================
+    # RAFFLE APPROVAL BUTTON
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            approve_raffle_button,
+            pattern=r"^raffleapprove_\d+$"
+        )
+    )
+
+    # ======================================================
+    # RAFFLE EXPIRATION CHECK
+    # ======================================================
+
+    application.job_queue.run_repeating(
+        check_raffle_expiration,
+        interval=60,
+        first=10
     )
 
     # ======================================================
@@ -319,7 +311,7 @@ def main():
 
     flask_thread = threading.Thread(
         target=run_flask,
-        daemon=True,
+        daemon=True
     )
 
     flask_thread.start()
@@ -334,7 +326,7 @@ def main():
 
     application.run_polling(
         drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
+        allowed_updates=Update.ALL_TYPES
     )
 
 
@@ -343,5 +335,4 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
-
     main()
