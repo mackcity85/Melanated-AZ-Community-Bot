@@ -2,20 +2,14 @@
 # Melanated AZ Bot
 # raffle_database.py
 #
-# Self-contained raffle database
+# Raffle database
 # ==========================================================
 
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 
-
-# ==========================================================
-# DATABASE
-# ==========================================================
 
 DB_NAME = "raffle.db"
-
-RAFFLE_DURATION_DAYS = 7
 
 
 # ==========================================================
@@ -26,7 +20,7 @@ def get_connection():
 
     connection = sqlite3.connect(
         DB_NAME,
-        check_same_thread=False
+        check_same_thread=False,
     )
 
     connection.row_factory = sqlite3.Row
@@ -35,18 +29,17 @@ def get_connection():
 
 
 # ==========================================================
-# DATABASE INITIALIZATION
+# INITIALIZE DATABASE
 # ==========================================================
 
 def initialize_database():
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
-    # ======================================================
+    # ------------------------------------------------------
     # RAFFLES
-    # ======================================================
+    # ------------------------------------------------------
 
     cursor.execute(
         """
@@ -60,25 +53,27 @@ def initialize_database():
 
             status TEXT NOT NULL DEFAULT 'pending',
 
-            chat_id INTEGER,
-
-            posted_message_id INTEGER,
-
             created_at TEXT NOT NULL,
 
             approved_at TEXT,
 
             expires_at TEXT,
 
-            closed_at TEXT
+            closed_at TEXT,
+
+            chat_id INTEGER,
+
+            message_id INTEGER,
+
+            approved_by INTEGER
 
         )
         """
     )
 
-    # ======================================================
-    # MIGRATE OLD DATABASE
-    # ======================================================
+    # ------------------------------------------------------
+    # ADD COLUMNS TO OLD DATABASES
+    # ------------------------------------------------------
 
     cursor.execute(
         "PRAGMA table_info(raffles)"
@@ -90,7 +85,6 @@ def initialize_database():
     }
 
     if "entry_price" not in columns:
-
         cursor.execute(
             """
             ALTER TABLE raffles
@@ -98,26 +92,7 @@ def initialize_database():
             """
         )
 
-    if "chat_id" not in columns:
-
-        cursor.execute(
-            """
-            ALTER TABLE raffles
-            ADD COLUMN chat_id INTEGER
-            """
-        )
-
-    if "posted_message_id" not in columns:
-
-        cursor.execute(
-            """
-            ALTER TABLE raffles
-            ADD COLUMN posted_message_id INTEGER
-            """
-        )
-
     if "approved_at" not in columns:
-
         cursor.execute(
             """
             ALTER TABLE raffles
@@ -126,7 +101,6 @@ def initialize_database():
         )
 
     if "expires_at" not in columns:
-
         cursor.execute(
             """
             ALTER TABLE raffles
@@ -134,9 +108,33 @@ def initialize_database():
             """
         )
 
-    # ======================================================
-    # RAFFLE ENTRIES
-    # ======================================================
+    if "chat_id" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE raffles
+            ADD COLUMN chat_id INTEGER
+            """
+        )
+
+    if "message_id" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE raffles
+            ADD COLUMN message_id INTEGER
+            """
+        )
+
+    if "approved_by" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE raffles
+            ADD COLUMN approved_by INTEGER
+            """
+        )
+
+    # ------------------------------------------------------
+    # ENTRIES
+    # ------------------------------------------------------
 
     cursor.execute(
         """
@@ -170,7 +168,6 @@ def initialize_database():
     )
 
     connection.commit()
-
     connection.close()
 
 
@@ -184,11 +181,10 @@ initialize_database()
 def create_raffle(
     prize,
     entry_price,
-    chat_id
+    chat_id=None,
 ):
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     now = datetime.utcnow().isoformat()
@@ -200,8 +196,8 @@ def create_raffle(
             prize,
             entry_price,
             status,
-            chat_id,
-            created_at
+            created_at,
+            chat_id
         )
 
         VALUES
@@ -216,63 +212,17 @@ def create_raffle(
         (
             prize,
             entry_price,
+            now,
             chat_id,
-            now
-        )
+        ),
     )
 
     raffle_id = cursor.lastrowid
 
     connection.commit()
-
     connection.close()
 
     return raffle_id
-
-
-# ==========================================================
-# GET RAFFLE
-# ==========================================================
-
-def get_raffle(raffle_id):
-
-    connection = get_connection()
-
-    cursor = connection.cursor()
-
-    cursor.execute(
-        """
-        SELECT
-            id,
-            prize,
-            entry_price,
-            status,
-            chat_id,
-            posted_message_id,
-            created_at,
-            approved_at,
-            expires_at,
-            closed_at
-
-        FROM raffles
-
-        WHERE id = ?
-
-        LIMIT 1
-        """,
-        (
-            raffle_id,
-        )
-    )
-
-    raffle = cursor.fetchone()
-
-    connection.close()
-
-    if not raffle:
-        return None
-
-    return dict(raffle)
 
 
 # ==========================================================
@@ -282,54 +232,11 @@ def get_raffle(raffle_id):
 def get_active_raffle():
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
-    now = datetime.utcnow().isoformat()
-
-    # ------------------------------------------------------
-    # Automatically expire raffles
-    # ------------------------------------------------------
-
     cursor.execute(
         """
-        UPDATE raffles
-
-        SET
-            status = 'expired',
-            closed_at = ?
-
-        WHERE status = 'active'
-
-        AND expires_at IS NOT NULL
-
-        AND expires_at <= ?
-        """,
-        (
-            now,
-            now
-        )
-    )
-
-    connection.commit()
-
-    # ------------------------------------------------------
-    # Get active raffle
-    # ------------------------------------------------------
-
-    cursor.execute(
-        """
-        SELECT
-            id,
-            prize,
-            entry_price,
-            status,
-            chat_id,
-            posted_message_id,
-            created_at,
-            approved_at,
-            expires_at,
-            closed_at
+        SELECT *
 
         FROM raffles
 
@@ -345,10 +252,7 @@ def get_active_raffle():
 
     connection.close()
 
-    if not raffle:
-        return None
-
-    return dict(raffle)
+    return raffle
 
 
 # ==========================================================
@@ -358,22 +262,11 @@ def get_active_raffle():
 def get_pending_raffle():
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute(
         """
-        SELECT
-            id,
-            prize,
-            entry_price,
-            status,
-            chat_id,
-            posted_message_id,
-            created_at,
-            approved_at,
-            expires_at,
-            closed_at
+        SELECT *
 
         FROM raffles
 
@@ -389,126 +282,23 @@ def get_pending_raffle():
 
     connection.close()
 
-    if not raffle:
-        return None
-
-    return dict(raffle)
+    return raffle
 
 
 # ==========================================================
-# APPROVE RAFFLE
-#
-# Starts the 7-day countdown.
+# GET RAFFLE
 # ==========================================================
 
-def approve_raffle(
+def get_raffle(
     raffle_id,
-    admin_id
 ):
 
     connection = get_connection()
-
-    cursor = connection.cursor()
-
-    now = datetime.utcnow()
-
-    expires = (
-        now +
-        timedelta(days=RAFFLE_DURATION_DAYS)
-    )
-
-    cursor.execute(
-        """
-        UPDATE raffles
-
-        SET
-            status = 'active',
-            approved_at = ?,
-            expires_at = ?
-
-        WHERE id = ?
-
-        AND status = 'pending'
-        """,
-        (
-            now.isoformat(),
-            expires.isoformat(),
-            raffle_id
-        )
-    )
-
-    changed = cursor.rowcount
-
-    connection.commit()
-
-    connection.close()
-
-    return changed == 1
-
-
-# ==========================================================
-# SET POSTED MESSAGE
-# ==========================================================
-
-def set_raffle_posted_message(
-    raffle_id,
-    message_id
-):
-
-    connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute(
         """
-        UPDATE raffles
-
-        SET
-            posted_message_id = ?
-
-        WHERE id = ?
-        """,
-        (
-            message_id,
-            raffle_id
-        )
-    )
-
-    changed = cursor.rowcount
-
-    connection.commit()
-
-    connection.close()
-
-    return changed == 1
-
-
-# ==========================================================
-# ADD RAFFLE ENTRY
-# ==========================================================
-
-def add_raffle_entry(
-    raffle_id,
-    user_id,
-    username,
-    display_name,
-    payment_method
-):
-
-    connection = get_connection()
-
-    cursor = connection.cursor()
-
-    # ------------------------------------------------------
-    # Verify raffle is active
-    # ------------------------------------------------------
-
-    cursor.execute(
-        """
-        SELECT
-            id,
-            status,
-            expires_at
+        SELECT *
 
         FROM raffles
 
@@ -518,61 +308,196 @@ def add_raffle_entry(
         """,
         (
             raffle_id,
-        )
+        ),
     )
 
     raffle = cursor.fetchone()
 
-    if not raffle:
+    connection.close()
 
-        connection.close()
+    return raffle
 
-        return None
 
-    # ------------------------------------------------------
-    # Check expiration
-    # ------------------------------------------------------
+# ==========================================================
+# APPROVE RAFFLE
+# ==========================================================
 
-    if raffle["status"] != "active":
+def approve_raffle(
+    raffle_id,
+    admin_id,
+    chat_id,
+    message_id,
+    expires_at,
+):
 
-        connection.close()
+    connection = get_connection()
+    cursor = connection.cursor()
 
-        return None
+    now = datetime.utcnow().isoformat()
 
-    if raffle["expires_at"]:
+    cursor.execute(
+        """
+        UPDATE raffles
 
-        expiration = datetime.fromisoformat(
-            raffle["expires_at"]
-        )
+        SET
+            status = 'active',
+            approved_at = ?,
+            expires_at = ?,
+            chat_id = ?,
+            message_id = ?,
+            approved_by = ?
 
-        if datetime.utcnow() >= expiration:
+        WHERE id = ?
 
-            cursor.execute(
-                """
-                UPDATE raffles
+        AND status = 'pending'
+        """,
+        (
+            now,
+            expires_at,
+            chat_id,
+            message_id,
+            admin_id,
+            raffle_id,
+        ),
+    )
 
-                SET
-                    status = 'expired',
-                    closed_at = ?
+    changed = cursor.rowcount
 
-                WHERE id = ?
+    connection.commit()
+    connection.close()
 
-                AND status = 'active'
-                """,
-                (
-                    datetime.utcnow().isoformat(),
-                    raffle_id
-                )
-            )
+    return changed == 1
 
-            connection.commit()
-            connection.close()
 
-            return None
+# ==========================================================
+# CLOSE RAFFLE
+# ==========================================================
 
-    # ------------------------------------------------------
-    # Prevent duplicate entries
-    # ------------------------------------------------------
+def close_raffle(
+    raffle_id,
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute(
+        """
+        UPDATE raffles
+
+        SET
+            status = 'closed',
+            closed_at = ?
+
+        WHERE id = ?
+
+        AND status = 'active'
+        """,
+        (
+            now,
+            raffle_id,
+        ),
+    )
+
+    changed = cursor.rowcount
+
+    connection.commit()
+    connection.close()
+
+    return changed == 1
+
+
+# ==========================================================
+# DENY / CANCEL PENDING RAFFLE
+# ==========================================================
+
+def deny_raffle(
+    raffle_id,
+    admin_id,
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute(
+        """
+        UPDATE raffles
+
+        SET
+            status = 'denied',
+            closed_at = ?,
+            approved_by = ?
+
+        WHERE id = ?
+
+        AND status = 'pending'
+        """,
+        (
+            now,
+            admin_id,
+            raffle_id,
+        ),
+    )
+
+    changed = cursor.rowcount
+
+    connection.commit()
+    connection.close()
+
+    return changed == 1
+
+
+# ==========================================================
+# SAVE RAFFLE MESSAGE
+# ==========================================================
+
+def save_raffle_message(
+    raffle_id,
+    chat_id,
+    message_id,
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE raffles
+
+        SET
+            chat_id = ?,
+            message_id = ?
+
+        WHERE id = ?
+        """,
+        (
+            chat_id,
+            message_id,
+            raffle_id,
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+
+# ==========================================================
+# ADD ENTRY
+# ==========================================================
+
+def add_raffle_entry(
+    raffle_id,
+    user_id,
+    username,
+    display_name,
+    payment_method,
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
 
     cursor.execute(
         """
@@ -594,8 +519,8 @@ def add_raffle_entry(
         """,
         (
             raffle_id,
-            user_id
-        )
+            user_id,
+        ),
     )
 
     existing = cursor.fetchone()
@@ -603,12 +528,7 @@ def add_raffle_entry(
     if existing:
 
         connection.close()
-
         return None
-
-    # ------------------------------------------------------
-    # Create entry
-    # ------------------------------------------------------
 
     now = datetime.utcnow().isoformat()
 
@@ -642,14 +562,13 @@ def add_raffle_entry(
             username,
             display_name,
             payment_method,
-            now
-        )
+            now,
+        ),
     )
 
     entry_id = cursor.lastrowid
 
     connection.commit()
-
     connection.close()
 
     return entry_id
@@ -659,25 +578,16 @@ def add_raffle_entry(
 # GET ENTRY
 # ==========================================================
 
-def get_entry(entry_id):
+def get_entry(
+    entry_id,
+):
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute(
         """
-        SELECT
-            id,
-            raffle_id,
-            user_id,
-            username,
-            display_name,
-            payment_method,
-            status,
-            approved_by,
-            created_at,
-            approved_at
+        SELECT *
 
         FROM raffle_entries
 
@@ -687,7 +597,7 @@ def get_entry(entry_id):
         """,
         (
             entry_id,
-        )
+        ),
     )
 
     entry = cursor.fetchone()
@@ -701,31 +611,29 @@ def get_entry(entry_id):
 
 
 # ==========================================================
-# GET PENDING ENTRIES
+# PENDING ENTRIES
 # ==========================================================
 
 def get_pending_entries():
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute(
         """
         SELECT
-            id,
-            raffle_id,
-            user_id,
-            username,
-            display_name,
-            payment_method,
-            created_at
+            raffle_entries.*,
+            raffles.prize,
+            raffles.entry_price
 
         FROM raffle_entries
 
-        WHERE status = 'pending'
+        JOIN raffles
+        ON raffles.id = raffle_entries.raffle_id
 
-        ORDER BY id ASC
+        WHERE raffle_entries.status = 'pending'
+
+        ORDER BY raffle_entries.id ASC
         """
     )
 
@@ -742,11 +650,10 @@ def get_pending_entries():
 
 def approve_entry(
     entry_id,
-    admin_id
+    admin_id,
 ):
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     now = datetime.utcnow().isoformat()
@@ -767,14 +674,13 @@ def approve_entry(
         (
             admin_id,
             now,
-            entry_id
-        )
+            entry_id,
+        ),
     )
 
     changed = cursor.rowcount
 
     connection.commit()
-
     connection.close()
 
     return changed == 1
@@ -786,11 +692,10 @@ def approve_entry(
 
 def deny_entry(
     entry_id,
-    admin_id
+    admin_id,
 ):
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute(
@@ -807,40 +712,32 @@ def deny_entry(
         """,
         (
             admin_id,
-            entry_id
-        )
+            entry_id,
+        ),
     )
 
     changed = cursor.rowcount
 
     connection.commit()
-
     connection.close()
 
     return changed == 1
 
 
 # ==========================================================
-# GET APPROVED ENTRIES
+# APPROVED ENTRIES
 # ==========================================================
 
 def get_approved_entries(
-    raffle_id
+    raffle_id,
 ):
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute(
         """
-        SELECT
-            id,
-            display_name,
-            user_id,
-            username,
-            payment_method,
-            created_at
+        SELECT *
 
         FROM raffle_entries
 
@@ -852,7 +749,7 @@ def get_approved_entries(
         """,
         (
             raffle_id,
-        )
+        ),
     )
 
     entries = cursor.fetchall()
@@ -867,11 +764,10 @@ def get_approved_entries(
 # ==========================================================
 
 def remove_entry(
-    entry_id
+    entry_id,
 ):
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute(
@@ -882,58 +778,12 @@ def remove_entry(
         """,
         (
             entry_id,
-        )
+        ),
     )
 
     changed = cursor.rowcount
 
     connection.commit()
-
-    connection.close()
-
-    return changed == 1
-
-
-# ==========================================================
-# CLOSE RAFFLE
-# ==========================================================
-
-def close_raffle(
-    raffle_id
-):
-
-    connection = get_connection()
-
-    cursor = connection.cursor()
-
-    now = datetime.utcnow().isoformat()
-
-    cursor.execute(
-        """
-        UPDATE raffles
-
-        SET
-            status = 'closed',
-            closed_at = ?
-
-        WHERE id = ?
-
-        AND status IN
-        (
-            'active',
-            'pending'
-        )
-        """,
-        (
-            now,
-            raffle_id
-        )
-    )
-
-    changed = cursor.rowcount
-
-    connection.commit()
-
     connection.close()
 
     return changed == 1
