@@ -17,25 +17,53 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 # ADMINS
 # ==========================================================
 
-ADMIN_IDS = [
-    int(x.strip())
-    for x in os.environ.get("ADMIN_IDS", "").split(",")
-    if x.strip()
-]
+ADMIN_IDS = []
+
+_admin_ids = os.environ.get("ADMIN_IDS", "").strip()
+
+if _admin_ids:
+    try:
+        ADMIN_IDS = [
+            int(x.strip())
+            for x in _admin_ids.split(",")
+            if x.strip()
+        ]
+    except ValueError:
+        ADMIN_IDS = []
 
 
 # ==========================================================
 # RAFFLE GROUP
 # ==========================================================
 
-RAFFLE_CHAT_ID = os.environ.get(
+RAFFLE_CHAT_ID = None
+
+_raffle_chat_id = os.environ.get(
     "RAFFLE_CHAT_ID",
     ""
 ).strip()
 
+if _raffle_chat_id:
+    try:
+        RAFFLE_CHAT_ID = int(_raffle_chat_id)
+    except ValueError:
+        RAFFLE_CHAT_ID = None
+
 
 # ==========================================================
-# PAYMENT
+# RAFFLE DURATION
+# ==========================================================
+
+RAFFLE_DURATION_DAYS = int(
+    os.environ.get(
+        "RAFFLE_DURATION_DAYS",
+        "7"
+    )
+)
+
+
+# ==========================================================
+# PAYMENTS
 # ==========================================================
 
 CASHAPP_TAG = os.environ.get(
@@ -55,23 +83,7 @@ ZELLE_PHONE = os.environ.get(
 
 
 # ==========================================================
-# RAFFLE SETTINGS
-# ==========================================================
-
-# Raffle duration in days.
-# This is NOT the entry price.
-# The entry price is set when the raffle is created.
-
-RAFFLE_DURATION_DAYS = int(
-    os.environ.get(
-        "RAFFLE_DURATION_DAYS",
-        "7"
-    )
-)
-
-
-# ==========================================================
-# STARTUP LOGGING
+# LOGGING
 # ==========================================================
 
 print(
@@ -83,11 +95,13 @@ print(
 )
 
 print(
-    "Cash App:",
-    "Loaded" if CASHAPP_TAG else "NOT SET"
+    "Cash App: Loaded"
+    if CASHAPP_TAG
+    else "Cash App: NOT configured"
 )
 
 print(
-    "Zelle:",
-    "Loaded" if ZELLE_PHONE else "NOT SET"
+    "Zelle: Loaded"
+    if ZELLE_PHONE
+    else "Zelle: NOT configured"
 )
