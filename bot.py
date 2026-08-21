@@ -33,17 +33,15 @@ from raffle import (
     enter_raffle,
     payment_button,
     admin_payment_button,
-    approve_and_post_raffle,
+    admin_raffle_button,
     pending_entries,
-    approve_raffle_entry,
-    deny_raffle_entry,
     raffle_status,
     raffle_entries,
     draw_raffle,
-    reroll_raffle,
     cancel_raffle,
     bonus_entry,
     remove_raffle_entry,
+    refresh_raffle,
 )
 
 
@@ -52,12 +50,7 @@ from raffle import (
 # ==========================================================
 
 logging.basicConfig(
-    format=(
-        "%(asctime)s - "
-        "%(name)s - "
-        "%(levelname)s - "
-        "%(message)s"
-    ),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
@@ -105,13 +98,13 @@ def run_flask():
 # ==========================================================
 
 async def error_handler(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context
 ):
 
     logger.error(
         "Exception while processing update:",
-        exc_info=context.error,
+        exc_info=context.error
     )
 
 
@@ -133,12 +126,8 @@ def main():
 
     logger.info(
         "Loaded Admin IDs: %s",
-        ADMIN_IDS,
+        ADMIN_IDS
     )
-
-    # ======================================================
-    # APPLICATION
-    # ======================================================
 
     application = (
         Application.builder()
@@ -191,20 +180,6 @@ def main():
 
     application.add_handler(
         CommandHandler(
-            "approveentry",
-            approve_raffle_entry
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "denyentry",
-            deny_raffle_entry
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
             "rafflestatus",
             raffle_status
         )
@@ -221,13 +196,6 @@ def main():
         CommandHandler(
             "draw",
             draw_raffle
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "reroll",
-            reroll_raffle
         )
     )
 
@@ -252,36 +220,54 @@ def main():
         )
     )
 
+    application.add_handler(
+        CommandHandler(
+            "refreshraffle",
+            refresh_raffle
+        )
+    )
+
     # ======================================================
-    # MEMBER RAFFLE BUTTONS
+    # ENTER RAFFLE BUTTON
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            raffle_enter_button_wrapper,
+            pattern=r"^raffle_enter$"
+        )
+    )
+
+    # ======================================================
+    # PAYMENT BUTTONS
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(enter|cashapp|zelle)$"
+            pattern=r"^raffle_(cashapp|zelle)$"
         )
     )
 
     # ======================================================
-    # RAFFLE APPROVAL
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            approve_and_post_raffle,
-            pattern=r"^raffleapprove_\d+$"
-        )
-    )
-
-    # ======================================================
-    # ADMIN PAYMENT APPROVAL
+    # ENTRY APPROVAL BUTTONS
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             admin_payment_button,
             pattern=r"^(approve|deny)_\d+$"
+        )
+    )
+
+    # ======================================================
+    # RAFFLE APPROVAL / CANCEL BUTTONS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            admin_raffle_button,
+            pattern=r"^(approve_raffle|cancel_raffle)_\d+$"
         )
     )
 
@@ -314,7 +300,24 @@ def main():
 
     application.run_polling(
         drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
+        allowed_updates=Update.ALL_TYPES
+    )
+
+
+# ==========================================================
+# BUTTON WRAPPER
+# ==========================================================
+
+async def raffle_enter_button_wrapper(
+    update,
+    context
+):
+
+    from raffle import enter_button
+
+    await enter_button(
+        update,
+        context
     )
 
 
