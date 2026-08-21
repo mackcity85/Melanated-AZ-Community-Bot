@@ -10,7 +10,6 @@ import threading
 from flask import Flask
 
 from telegram import Update
-
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -18,10 +17,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from config import (
-    BOT_TOKEN,
-    ADMIN_IDS,
-)
+from config import BOT_TOKEN, ADMIN_IDS
 
 from admin import (
     admin_menu,
@@ -33,21 +29,21 @@ from raffle import (
     enter_raffle,
     payment_button,
     admin_payment_button,
-    admin_raffle_button,
     pending_entries,
+    approve_raffle_entry,
+    deny_raffle_entry,
     raffle_status,
     raffle_entries,
     draw_raffle,
+    reroll_raffle,
     cancel_raffle,
     bonus_entry,
     remove_raffle_entry,
-    refresh_raffle,
+    approve_raffle_button,
+    cancel_raffle_button,
+    enter_button,
+    raffle_expiration_job,
 )
-
-
-# ==========================================================
-# LOGGING
-# ==========================================================
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -56,23 +52,16 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-# ==========================================================
-# FLASK
-# ==========================================================
-
 app = Flask(__name__)
 
 
 @app.route("/")
 def home():
-
     return "🔥 Melanated AZ Bot Online", 200
 
 
 @app.route("/health")
 def health():
-
     return "OK", 200
 
 
@@ -93,10 +82,6 @@ def run_flask():
     )
 
 
-# ==========================================================
-# ERROR HANDLER
-# ==========================================================
-
 async def error_handler(
     update,
     context
@@ -104,18 +89,13 @@ async def error_handler(
 
     logger.error(
         "Exception while processing update:",
-        exc_info=context.error
+        exc_info=context.error,
     )
 
-
-# ==========================================================
-# MAIN
-# ==========================================================
 
 def main():
 
     if not BOT_TOKEN:
-
         raise RuntimeError(
             "BOT_TOKEN environment variable is missing."
         )
@@ -180,6 +160,20 @@ def main():
 
     application.add_handler(
         CommandHandler(
+            "approveentry",
+            approve_raffle_entry
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "denyentry",
+            deny_raffle_entry
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
             "rafflestatus",
             raffle_status
         )
@@ -196,6 +190,13 @@ def main():
         CommandHandler(
             "draw",
             draw_raffle
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "reroll",
+            reroll_raffle
         )
     )
 
@@ -220,38 +221,37 @@ def main():
         )
     )
 
-    application.add_handler(
-        CommandHandler(
-            "refreshraffle",
-            refresh_raffle
-        )
-    )
-
     # ======================================================
-    # ENTER RAFFLE BUTTON
+    # RAFFLE BUTTONS
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
-            raffle_enter_button_wrapper,
+            approve_raffle_button,
+            pattern=r"^raffleapprove_\d+$"
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            cancel_raffle_button,
+            pattern=r"^rafflecancel_\d+$"
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            enter_button,
             pattern=r"^raffle_enter$"
         )
     )
 
-    # ======================================================
-    # PAYMENT BUTTONS
-    # ======================================================
-
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(cashapp|zelle)$"
+            pattern=r"^raffle_(paid|zelle)$"
         )
     )
-
-    # ======================================================
-    # ENTRY APPROVAL BUTTONS
-    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -261,18 +261,7 @@ def main():
     )
 
     # ======================================================
-    # RAFFLE APPROVAL / CANCEL BUTTONS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            admin_raffle_button,
-            pattern=r"^(approve_raffle|cancel_raffle)_\d+$"
-        )
-    )
-
-    # ======================================================
-    # ERROR HANDLER
+    # ERROR
     # ======================================================
 
     application.add_error_handler(
@@ -290,8 +279,14 @@ def main():
 
     flask_thread.start()
 
-    logger.info(
-        "🌐 Flask health server started"
+    # ======================================================
+    # RAFFLE EXPIRATION CHECK
+    # ======================================================
+
+    application.job_queue.run_repeating(
+        raffle_expiration_job,
+        interval=60,
+        first=10
     )
 
     # ======================================================
@@ -304,27 +299,5 @@ def main():
     )
 
 
-# ==========================================================
-# BUTTON WRAPPER
-# ==========================================================
-
-async def raffle_enter_button_wrapper(
-    update,
-    context
-):
-
-    from raffle import enter_button
-
-    await enter_button(
-        update,
-        context
-    )
-
-
-# ==========================================================
-# START
-# ==========================================================
-
 if __name__ == "__main__":
-
     main()
