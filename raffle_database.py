@@ -170,7 +170,6 @@ def initialize_database():
     connection.close()
 
 
-# Initialize database when module loads
 initialize_database()
 
 
@@ -265,7 +264,6 @@ def get_active_raffle():
         SELECT *
         FROM raffles
         WHERE status = 'active'
-        AND datetime(expires_at) > datetime('now')
         ORDER BY id DESC
         LIMIT 1
         """
@@ -742,66 +740,3 @@ def close_raffle(
     connection.close()
 
     return changed == 1
-
-
-# ==========================================================
-# DATABASE DIAGNOSTICS
-# ==========================================================
-
-def get_all_raffles():
-
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute(
-        """
-        SELECT
-            id,
-            prize,
-            price,
-            status,
-            created_at,
-            expires_at,
-            closed_at,
-            chat_id,
-            message_id
-        FROM raffles
-        ORDER BY id DESC
-        """
-    )
-
-    raffles = cursor.fetchall()
-
-    connection.close()
-
-    return raffles
-
-
-# ==========================================================
-# DATABASE INFO
-# ==========================================================
-
-def get_database_info():
-
-    connection = get_connection()
-    cursor = connection.cursor()
-
-    cursor.execute(
-        "SELECT COUNT(*) AS count FROM raffles"
-    )
-
-    raffle_count = cursor.fetchone()["count"]
-
-    cursor.execute(
-        "SELECT COUNT(*) AS count FROM raffle_entries"
-    )
-
-    entry_count = cursor.fetchone()["count"]
-
-    connection.close()
-
-    return {
-        "database": DB_NAME,
-        "raffles": raffle_count,
-        "entries": entry_count,
-    }
