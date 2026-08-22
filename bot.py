@@ -93,6 +93,127 @@ def run_flask():
 
 
 # ==========================================================
+# MEDIA SPOILER MODERATION
+#
+# RULES:
+#
+# GIFs / Animations:
+#   ALWAYS ALLOWED
+#
+# Photos:
+#   SPOILER = ALLOWED
+#   NO SPOILER = DELETE
+#
+# Videos:
+#   SPOILER = ALLOWED
+#   NO SPOILER = DELETE
+# ==========================================================
+
+async def media_spoiler_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    message = update.effective_message
+
+    if not message:
+        return
+
+    # ------------------------------------------------------
+    # GIF / ANIMATION
+    #
+    # GIFs are always allowed.
+    # ------------------------------------------------------
+
+    if message.animation:
+
+        logger.info(
+            "GIF/animation allowed from %s",
+            message.from_user.id
+            if message.from_user
+            else "unknown",
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # PHOTO
+    #
+    # Only allow photos marked as SPOILER.
+    # ------------------------------------------------------
+
+    if message.photo:
+
+        if message.has_media_spoiler:
+
+            logger.info(
+                "Spoiler photo allowed from %s",
+                message.from_user.id
+                if message.from_user
+                else "unknown",
+            )
+
+            return
+
+        try:
+
+            await message.delete()
+
+            logger.info(
+                "Deleted non-spoiler photo from %s",
+                message.from_user.id
+                if message.from_user
+                else "unknown",
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to delete non-spoiler photo"
+            )
+
+        return
+
+    # ------------------------------------------------------
+    # VIDEO
+    #
+    # Only allow videos marked as SPOILER.
+    # ------------------------------------------------------
+
+    if message.video:
+
+        if message.has_media_spoiler:
+
+            logger.info(
+                "Spoiler video allowed from %s",
+                message.from_user.id
+                if message.from_user
+                else "unknown",
+            )
+
+            return
+
+        try:
+
+            await message.delete()
+
+            logger.info(
+                "Deleted non-spoiler video from %s",
+                message.from_user.id
+                if message.from_user
+                else "unknown",
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to delete non-spoiler video"
+            )
+
+        return
+
+
+# ==========================================================
 # TEXT MESSAGE HANDLER
 # ==========================================================
 
@@ -181,11 +302,7 @@ def main():
     # ======================================================
     # PRIVATE RAFFLE DEEP LINK
     #
-    # Handles:
     # /start raffle_123
-    #
-    # This is used when a member clicks ENTER RAFFLE
-    # but has never opened the bot privately.
     # ======================================================
 
     application.add_handler(
@@ -379,6 +496,23 @@ def main():
         CallbackQueryHandler(
             payment_button,
             pattern=r"^raffle_(cashapp|zelle)_\d+$",
+        )
+    )
+
+    # ======================================================
+    # MEDIA SPOILER MODERATION
+    #
+    # GIFS      = ALLOWED
+    # SPOILER   = ALLOWED
+    # NO SPOILER = DELETED
+    # ======================================================
+
+    application.add_handler(
+        MessageHandler(
+            filters.PHOTO
+            | filters.VIDEO
+            | filters.ANIMATION,
+            media_spoiler_handler,
         )
     )
 
