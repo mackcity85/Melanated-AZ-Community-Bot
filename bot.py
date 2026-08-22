@@ -80,7 +80,7 @@ def run_flask():
     port = int(
         os.environ.get(
             "PORT",
-            10000
+            10000,
         )
     )
 
@@ -108,8 +108,6 @@ async def text_message_handler(
 
     if handled:
         return
-
-    return
 
 
 # ==========================================================
@@ -139,12 +137,12 @@ def main():
 
     logger.info(
         "Loaded Admin IDs: %s",
-        ADMIN_IDS
+        ADMIN_IDS,
     )
 
     logger.info(
         "Raffle Chat ID: %s",
-        RAFFLE_CHAT_ID
+        RAFFLE_CHAT_ID,
     )
 
     logger.info(
@@ -181,13 +179,13 @@ def main():
     )
 
     # ======================================================
-    # ADMIN COMMANDS
+    # ADMIN
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "admin",
-            admin_menu
+            admin_menu,
         )
     )
 
@@ -198,21 +196,18 @@ def main():
     application.add_handler(
         CommandHandler(
             "startraffle",
-            start_raffle
+            start_raffle,
         )
     )
 
     # ======================================================
     # ENTER RAFFLE
-    #
-    # /raffle
-    # /enterraffle
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             ["raffle", "enterraffle"],
-            enter_raffle
+            enter_raffle,
         )
     )
 
@@ -223,65 +218,62 @@ def main():
     application.add_handler(
         CommandHandler(
             "paid",
-            paid_entry
+            paid_entry,
         )
     )
 
     # ======================================================
-    # RAFFLE STATUS
-    #
-    # /status
-    # /rafflestatus
+    # STATUS
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             ["status", "rafflestatus"],
-            raffle_status
+            raffle_status,
         )
     )
 
     # ======================================================
-    # APPROVED ENTRIES
+    # ENTRIES
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "entries",
-            raffle_entries
+            raffle_entries,
         )
     )
 
     # ======================================================
-    # PENDING PAYMENTS
+    # PENDING
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "pending",
-            pending_entries
+            pending_entries,
         )
     )
 
     # ======================================================
-    # CANCEL RAFFLE
+    # CANCEL
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "cancelraffle",
-            cancel_raffle
+            cancel_raffle,
         )
     )
 
     # ======================================================
-    # DRAW RAFFLE
+    # DRAW
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "draw",
-            draw_raffle
+            draw_raffle,
         )
     )
 
@@ -292,18 +284,18 @@ def main():
     application.add_handler(
         CommandHandler(
             "reroll",
-            reroll_raffle
+            reroll_raffle,
         )
     )
 
     # ======================================================
-    # BONUS ENTRY
+    # BONUS
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "bonusentry",
-            bonus_entry
+            bonus_entry,
         )
     )
 
@@ -314,69 +306,66 @@ def main():
     application.add_handler(
         CommandHandler(
             "removeentry",
-            remove_raffle_entry
+            remove_raffle_entry,
         )
     )
 
     # ======================================================
-    # ADMIN PANEL BUTTONS
+    # ADMIN PANEL
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             admin_button,
-            pattern=r"^admin_"
+            pattern=r"^admin_",
         )
     )
 
     # ======================================================
-    # RAFFLE APPROVAL BUTTONS
+    # RAFFLE APPROVAL / CANCELLATION
+    #
+    # Handles:
+    # raffleapprove_123
+    # rafflecancel_123
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             raffle_approval_button,
-            pattern=r"^raffleapprove_\d+$"
-        )
-    )
-
-    application.add_handler(
-        CallbackQueryHandler(
-            raffle_approval_button,
-            pattern=r"^rafflecancel_\d+$"
+            pattern=r"^raffle(?:approve|cancel)_\d+$",
         )
     )
 
     # ======================================================
-    # ADMIN PAYMENT BUTTONS
+    # ADMIN PAYMENT
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             admin_payment_button,
-            pattern=r"^(approve|deny)_\d+$"
+            pattern=r"^(approve|deny)_\d+$",
         )
     )
 
     # ======================================================
-    # MEMBER ENTER BUTTON
+    # MEMBER ENTER
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             raffle_enter_button,
-            pattern=r"^raffle_enter$"
+            pattern=r"^raffle_enter$",
         )
     )
 
     # ======================================================
-    # CASH APP / ZELLE
+    # PAYMENT
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(cashapp|zelle)$"
+            pattern=r"^raffle_(cashapp|zelle)$",
         )
     )
 
@@ -400,7 +389,7 @@ def main():
     )
 
     # ======================================================
-    # START POLLING
+    # POLLING
     # ======================================================
 
     logger.info(
