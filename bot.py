@@ -68,6 +68,7 @@ from raffle import (
     remove_raffle_entry,
 )
 
+
 # ==========================================================
 # LOGGING
 # ==========================================================
@@ -78,6 +79,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
 
 # ==========================================================
 # FLASK HEALTH SERVER
@@ -111,50 +113,75 @@ def run_flask():
 # ==========================================================
 # PENDING MEDIA
 #
-# Temporary in-memory storage for media that was deleted
-# because it did not have Telegram's Spoiler option enabled.
+# Temporarily stores non-spoiler media after deletion so
+# the member can have MelanatedAZ repost it with Spoiler.
 # ==========================================================
 
 pending_media = {}
 
 
 # ==========================================================
-# MEDIA WARNING
+# GROUP MEDIA WARNING
 #
-# SAME WORDING is used for the group and private message.
-#
-# GROUP:
-#   No button
-#   Deleted after 30 seconds
-#
-# PRIVATE:
-#   Has "MelanatedAZ Post It" button
-#   Remains in private chat
+# This message:
+#   - Appears in the group
+#   - Has NO button
+#   - Is deleted after 30 seconds
 # ==========================================================
 
-MEDIA_WARNING = """🚫 MelanatedAZ Media Reminder
+GROUP_MEDIA_WARNING = """👑 MelanatedAZ Bot — Media Reminder
+Chat: {chat_name}
 
-Your photo/video was removed because photos and videos must be posted using Telegram's Spoiler option.
+🚫 Your photo/video was removed because photos and videos must be posted using Telegram's Spoiler option.
 
 How to post it correctly:
 
-1️⃣ Select the photo or video you want to send.
+1️⃣ Select the photo or video.
 2️⃣ Tap the ⋮ / three dots menu before sending.
 3️⃣ Select Hide with Spoiler / Mark as Spoiler.
-4️⃣ Send the photo or video.
+4️⃣ Send it to the MelanatedAZ chat.
 
 🎞️ GIFs are allowed without a spoiler.
 
-If you don't want to do it manually, MelanatedAZ can repost your media for you with Spoiler enabled.
+📩 Check your private messages from the MelanatedAZ Bot. You will also have the option to let MelanatedAZ repost your media for you with Spoiler enabled.
 
 ⚠️ If MelanatedAZ reposts your media, you cannot delete the MelanatedAZ repost.
 
-Thank you for helping keep MelanatedAZ comfortable for everyone. 👑
+👑 Thank you for following the MelanatedAZ media rules.
 """
 
 
 # ==========================================================
-# PRIVATE BUTTON
+# PRIVATE MEDIA WARNING
+#
+# Same instructions as the group, but also includes the
+# private button allowing MelanatedAZ to repost the media.
+# ==========================================================
+
+PRIVATE_MEDIA_WARNING = """👑 Hi! I'm the MelanatedAZ Bot.
+Chat: {chat_name}
+
+🚫 Your photo/video was removed from {chat_name} because photos and videos must be posted using Telegram's Spoiler option.
+
+How to post it correctly:
+
+1️⃣ Select the photo or video.
+2️⃣ Tap the ⋮ / three dots menu before sending.
+3️⃣ Select Hide with Spoiler / Mark as Spoiler.
+4️⃣ Send it to the {chat_name} chat.
+
+🎞️ GIFs are allowed without a spoiler.
+
+If you don't want to do it manually, MelanatedAZ Bot can repost your media for you with Spoiler enabled.
+
+⚠️ If MelanatedAZ reposts your media, you cannot delete the MelanatedAZ repost.
+
+👑 Thank you for following the MelanatedAZ media rules.
+"""
+
+
+# ==========================================================
+# PRIVATE REPOST BUTTON
 # ==========================================================
 
 def spoiler_keyboard(token):
@@ -203,8 +230,7 @@ async def delete_group_warning(
         )
 
         logger.info(
-            "Deleted media warning message %s "
-            "from chat %s",
+            "Deleted media warning %s from chat %s",
             message_id,
             chat_id,
         )
@@ -212,16 +238,15 @@ async def delete_group_warning(
     except Exception:
 
         logger.exception(
-            "Unable to delete media warning message"
+            "Unable to delete group media warning"
         )
 
 
 # ==========================================================
 # SEND MEDIA WITH SPOILER
 #
-# IMPORTANT:
-# Reposts to the SAME GROUP where the original media
-# was posted.
+# Reposts to the SAME chat where the original media was
+# posted.
 # ==========================================================
 
 async def send_media_with_spoiler(
@@ -303,8 +328,6 @@ async def send_media_with_spoiler(
 
 # ==========================================================
 # MELANATEDAZ POST IT BUTTON
-#
-# ONLY THE ORIGINAL MEMBER CAN USE THIS BUTTON.
 # ==========================================================
 
 async def spoiler_repost_button(
@@ -341,7 +364,7 @@ async def spoiler_repost_button(
     )
 
     # ======================================================
-    # MEDIA NO LONGER AVAILABLE
+    # MEDIA EXPIRED
     # ======================================================
 
     if not media_info:
@@ -366,7 +389,7 @@ async def spoiler_repost_button(
         return
 
     # ======================================================
-    # VERIFY ORIGINAL USER
+    # VERIFY USER
     # ======================================================
 
     original_user_id = media_info.get(
@@ -383,7 +406,7 @@ async def spoiler_repost_button(
         return
 
     # ======================================================
-    # REPOST
+    # POST
     # ======================================================
 
     await query.answer(
@@ -397,18 +420,14 @@ async def spoiler_repost_button(
             media_info,
         )
 
-        # --------------------------------------------------
-        # REMOVE FROM TEMPORARY STORAGE
-        # --------------------------------------------------
-
         pending_media.pop(
             token,
             None,
         )
 
-        # --------------------------------------------------
-        # UPDATE PRIVATE MESSAGE
-        # --------------------------------------------------
+        # ==================================================
+        # PRIVATE CONFIRMATION
+        # ==================================================
 
         try:
 
@@ -426,8 +445,7 @@ async def spoiler_repost_button(
             pass
 
         logger.info(
-            "MelanatedAZ reposted %s with spoiler "
-            "for user %s",
+            "Reposted %s with spoiler for user %s",
             media_info.get("type"),
             user.id,
         )
@@ -472,7 +490,16 @@ async def handle_non_spoiler_media(
         return
 
     # ======================================================
-    # CREATE TOKEN
+    # CHAT NAME
+    # ======================================================
+
+    chat_name = (
+        message.chat.title
+        or "MelanatedAZ"
+    )
+
+    # ======================================================
+    # TOKEN
     # ======================================================
 
     token = uuid.uuid4().hex
@@ -489,10 +516,11 @@ async def handle_non_spoiler_media(
         "user_id": user.id,
         "username": user.username,
         "chat_id": message.chat_id,
+        "chat_name": chat_name,
     }
 
     # ======================================================
-    # DELETE ORIGINAL
+    # DELETE ORIGINAL MEDIA
     # ======================================================
 
     try:
@@ -500,9 +528,10 @@ async def handle_non_spoiler_media(
         await message.delete()
 
         logger.info(
-            "Deleted non-spoiler %s from user %s",
+            "Deleted non-spoiler %s from user %s in %s",
             media_type,
             user.id,
+            chat_name,
         )
 
     except Exception:
@@ -531,12 +560,14 @@ async def handle_non_spoiler_media(
 
         warning_message = await context.bot.send_message(
             chat_id=message.chat_id,
-            text=MEDIA_WARNING,
+            text=GROUP_MEDIA_WARNING.format(
+                chat_name=chat_name,
+            ),
         )
 
         logger.info(
-            "Sent media warning to group %s",
-            message.chat_id,
+            "Sent media warning to %s",
+            chat_name,
         )
 
     except Exception:
@@ -565,20 +596,22 @@ async def handle_non_spoiler_media(
         except Exception:
 
             logger.exception(
-                "Failed to schedule group warning deletion"
+                "Failed to schedule warning deletion"
             )
 
     # ======================================================
     # PRIVATE WARNING
     #
-    # BUTTON ONLY APPEARS HERE
+    # ONLY PRIVATE MESSAGE HAS BUTTON
     # ======================================================
 
     try:
 
         await context.bot.send_message(
             chat_id=user.id,
-            text=MEDIA_WARNING,
+            text=PRIVATE_MEDIA_WARNING.format(
+                chat_name=chat_name,
+            ),
             reply_markup=spoiler_keyboard(
                 token
             ),
@@ -592,9 +625,9 @@ async def handle_non_spoiler_media(
     except Exception as exc:
 
         logger.warning(
-            "Could not send private warning to user %s. "
-            "User may not have started the bot privately. "
-            "Error: %s",
+            "Could not send private media warning "
+            "to user %s. User may not have started "
+            "the bot privately. Error: %s",
             user.id,
             exc,
         )
@@ -650,7 +683,7 @@ async def media_spoiler_handler(
     if message.photo:
 
         # --------------------------------------------------
-        # SPOILER PHOTO
+        # SPOILER PHOTO = ALLOWED
         # --------------------------------------------------
 
         if message.has_media_spoiler:
@@ -686,7 +719,7 @@ async def media_spoiler_handler(
     if message.video:
 
         # --------------------------------------------------
-        # SPOILER VIDEO
+        # SPOILER VIDEO = ALLOWED
         # --------------------------------------------------
 
         if message.has_media_spoiler:
@@ -814,7 +847,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN COMMAND
+    # ADMIN
     # ======================================================
 
     application.add_handler(
@@ -1001,9 +1034,9 @@ def main():
     )
 
     # ======================================================
-    # MEDIA SPOILER REPOST BUTTON
+    # MEDIA REPOST BUTTON
     #
-    # ONLY APPEARS IN PRIVATE CHAT
+    # ONLY AVAILABLE IN PRIVATE CHAT
     # ======================================================
 
     application.add_handler(
