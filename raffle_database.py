@@ -8,6 +8,10 @@ import sqlite3
 from datetime import datetime
 
 
+# ==========================================================
+# CONFIG
+# ==========================================================
+
 DB_NAME = os.environ.get(
     "RAFFLE_DB_NAME",
     "raffle.db"
@@ -97,7 +101,7 @@ def initialize_database():
     )
 
     # ------------------------------------------------------
-    # Upgrade older raffle databases automatically
+    # Upgrade older raffle databases
     # ------------------------------------------------------
 
     cursor.execute(
@@ -128,10 +132,45 @@ def initialize_database():
                 """
             )
 
+    # ------------------------------------------------------
+    # Upgrade older raffle entry databases
+    # ------------------------------------------------------
+
+    cursor.execute(
+        "PRAGMA table_info(raffle_entries)"
+    )
+
+    entry_columns = {
+        row["name"]
+        for row in cursor.fetchall()
+    }
+
+    required_entry_columns = {
+        "username": "TEXT",
+        "display_name": "TEXT",
+        "payment_method": "TEXT",
+        "status": "TEXT NOT NULL DEFAULT 'pending'",
+        "approved_by": "INTEGER",
+        "created_at": "TEXT NOT NULL DEFAULT ''",
+        "approved_at": "TEXT",
+    }
+
+    for column, definition in required_entry_columns.items():
+
+        if column not in entry_columns:
+
+            cursor.execute(
+                f"""
+                ALTER TABLE raffle_entries
+                ADD COLUMN {column} {definition}
+                """
+            )
+
     connection.commit()
     connection.close()
 
 
+# Initialize database when module loads
 initialize_database()
 
 
@@ -226,6 +265,7 @@ def get_active_raffle():
         SELECT *
         FROM raffles
         WHERE status = 'active'
+        AND datetime(expires_at) > datetime('now')
         ORDER BY id DESC
         LIMIT 1
         """
@@ -702,3 +742,66 @@ def close_raffle(
     connection.close()
 
     return changed == 1
+
+
+# ==========================================================
+# DATABASE DIAGNOSTICS
+# ==========================================================
+
+def get_all_raffles():
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            prize,
+            price,
+            status,
+            created_at,
+            expires_at,
+            closed_at,
+            chat_id,
+            message_id
+        FROM raffles
+        ORDER BY id DESC
+        """
+    )
+
+    raffles = cursor.fetchall()
+
+    connection.close()
+
+    return raffles
+
+
+# ==========================================================
+# DATABASE INFO
+# ==========================================================
+
+def get_database_info():
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT COUNT(*) AS count FROM raffles"
+    )
+
+    raffle_count = cursor.fetchone()["count"]
+
+    cursor.execute(
+        "SELECT COUNT(*) AS count FROM raffle_entries"
+    )
+
+    entry_count = cursor.fetchone()["count"]
+
+    connection.close()
+
+    return {
+        "database": DB_NAME,
+        "raffles": raffle_count,
+        "entries": entry_count,
+    }
