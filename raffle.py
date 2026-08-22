@@ -49,7 +49,10 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 def is_admin(user_id):
-    return user_id in ADMIN_IDS
+    try:
+        return int(user_id) in [int(x) for x in ADMIN_IDS]
+    except Exception:
+        return False
 
 
 # ==========================================================
@@ -57,6 +60,7 @@ def is_admin(user_id):
 # ==========================================================
 
 def get_display_name(user):
+
     if user.full_name:
         return user.full_name
 
@@ -215,12 +219,6 @@ async def start_raffle(
 
         return
 
-    # ------------------------------------------------------
-    # COMMAND VERSION
-    #
-    # /startraffle $100 Cash Prize | $5
-    # ------------------------------------------------------
-
     if update.message and context.args:
 
         text = " ".join(context.args).strip()
@@ -247,10 +245,6 @@ async def start_raffle(
         )
 
         return
-
-    # ------------------------------------------------------
-    # ADMIN PANEL VERSION
-    # ------------------------------------------------------
 
     context.user_data["awaiting_raffle_setup"] = True
 
@@ -292,10 +286,6 @@ async def handle_raffle_setup(
     if not user or not message:
         return False
 
-    # ------------------------------------------------------
-    # ONLY ADMIN WHO STARTED SETUP
-    # ------------------------------------------------------
-
     if not is_admin(user.id):
         return False
 
@@ -305,10 +295,6 @@ async def handle_raffle_setup(
         return False
 
     text = message.text.strip()
-
-    # ------------------------------------------------------
-    # CANCEL SETUP
-    # ------------------------------------------------------
 
     if text.lower() in (
         "cancel",
@@ -326,10 +312,6 @@ async def handle_raffle_setup(
         )
 
         return True
-
-    # ------------------------------------------------------
-    # REQUIRE PIPE
-    # ------------------------------------------------------
 
     if "|" not in text:
 
@@ -360,18 +342,10 @@ async def handle_raffle_setup(
 
         return True
 
-    # ------------------------------------------------------
-    # CLEAR SETUP STATE
-    # ------------------------------------------------------
-
     context.user_data.pop(
         "awaiting_raffle_setup",
         None,
     )
-
-    # ------------------------------------------------------
-    # CREATE RAFFLE
-    # ------------------------------------------------------
 
     await create_pending_raffle(
         update,
@@ -444,8 +418,60 @@ async def create_pending_raffle(
         parse_mode="Markdown",
     )
 
+    # ======================================================
+    # APPROVAL MESSAGE
+    #
+    # Send it to the raffle chat first.
+    # This guarantees the admin button is available even
+    # when Telegram does not allow the bot to DM an admin.
+    # ======================================================
+
+    approval_text = (
+        "🚨 **RAFFLE APPROVAL REQUIRED** 🚨\n\n"
+        "A new raffle is waiting for approval.\n\n"
+        f"🎁 Prize: **{prize}**\n"
+        f"💵 Entry Price: **{price}**\n"
+        f"🆔 Raffle #: **{raffle_id}**\n\n"
+        "Approve it to automatically post "
+        "the raffle in the Melanated AZ group."
+    )
+
+    approval_markup = raffle_approval_keyboard(
+        raffle_id
+    )
+
+    approval_sent = False
+
     # ------------------------------------------------------
-    # NOTIFY ADMINS
+    # FIRST: SEND TO RAFFLE CHAT
+    # ------------------------------------------------------
+
+    if RAFFLE_CHAT_ID:
+
+        try:
+
+            await context.bot.send_message(
+                chat_id=RAFFLE_CHAT_ID,
+                text=approval_text,
+                reply_markup=approval_markup,
+                parse_mode="Markdown",
+            )
+
+            approval_sent = True
+
+            logger.info(
+                "Raffle approval message sent to raffle chat."
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Could not send raffle approval to RAFFLE_CHAT_ID=%s",
+                RAFFLE_CHAT_ID,
+            )
+
+    # ------------------------------------------------------
+    # ALSO TRY ADMIN DMS
     # ------------------------------------------------------
 
     for admin_id in ADMIN_IDS:
@@ -453,32 +479,41 @@ async def create_pending_raffle(
         try:
 
             await context.bot.send_message(
-                chat_id=admin_id,
-                text=(
-                    "🚨 **RAFFLE APPROVAL REQUIRED** 🚨\n\n"
-                    "A new raffle is waiting for approval.\n\n"
-                    f"🎁 Prize: **{prize}**\n"
-                    f"💵 Entry Price: **{price}**\n"
-                    f"🆔 Raffle #: **{raffle_id}**\n\n"
-                    "Approve it to automatically post "
-                    "the raffle in the Melanated AZ group."
-                ),
-                reply_markup=raffle_approval_keyboard(
-                    raffle_id
-                ),
+                chat_id=int(admin_id),
+                text=approval_text,
+                reply_markup=approval_markup,
                 parse_mode="Markdown",
+            )
+
+            approval_sent = True
+
+            logger.info(
+                "Raffle approval message sent to admin %s",
+                admin_id,
             )
 
         except Exception:
 
-            logger.exception(
-                "Could not notify admin %s",
+            logger.warning(
+                "Could not DM admin %s. "
+                "The raffle approval remains available "
+                "in the raffle chat.",
                 admin_id,
+                exc_info=True,
             )
+
+    if not approval_sent:
+
+        await message.reply_text(
+            "⚠️ The raffle was created, but I could not "
+            "send the approval controls.\n\n"
+            "Check RAFFLE_CHAT_ID and make sure the bot "
+            "can send messages there."
+        )
 
 
 # ==========================================================
-# RAFFLE APPROVAL
+# RAFFLE APPROVAL / CANCELLATION BUTTON
 # ==========================================================
 
 async def raffle_approval_button(
@@ -491,6 +526,12 @@ async def raffle_approval_button(
     if not query:
         return
 
+    logger.info(
+        "Raffle callback received: %s from user %s",
+        query.data,
+        query.from_user.id,
+    )
+
     if not is_admin(query.from_user.id):
 
         await query.answer(
@@ -500,7 +541,15 @@ async def raffle_approval_button(
 
         return
 
-    await query.answer()
+    try:
+
+        await query.answer()
+
+    except Exception:
+
+        logger.exception(
+            "Unable to answer raffle callback."
+        )
 
     try:
 
@@ -513,10 +562,18 @@ async def raffle_approval_button(
 
     except Exception:
 
-        await query.answer(
-            "Invalid raffle.",
-            show_alert=True,
+        logger.exception(
+            "Invalid raffle callback data: %s",
+            query.data,
         )
+
+        try:
+            await query.answer(
+                "Invalid raffle button.",
+                show_alert=True,
+            )
+        except Exception:
+            pass
 
         return
 
@@ -524,23 +581,45 @@ async def raffle_approval_button(
 
     if not raffle:
 
-        await query.answer(
-            "Raffle not found.",
-            show_alert=True,
-        )
+        try:
+            await query.answer(
+                "Raffle not found.",
+                show_alert=True,
+            )
+        except Exception:
+            pass
 
         return
 
-    # ------------------------------------------------------
-    # CANCEL
-    # ------------------------------------------------------
+    # ======================================================
+    # CANCEL PENDING RAFFLE
+    # ======================================================
 
     if action == "rafflecancel":
+
+        if raffle["status"] != "pending":
+
+            await query.message.reply_text(
+                f"⚠️ Raffle #{raffle_id} is already "
+                f"{raffle['status']}."
+            )
+
+            return
 
         if cancel_pending_raffle(raffle_id):
 
             await query.edit_message_text(
-                "❌ Raffle cancelled."
+                "❌ **RAFFLE CANCELLED**\n\n"
+                f"🆔 Raffle #: **{raffle_id}**\n"
+                f"🎁 Prize: **{raffle['prize']}**\n"
+                f"💵 Entry Price: **{raffle['price']}**",
+                parse_mode="Markdown",
+            )
+
+            logger.info(
+                "Raffle %s cancelled by admin %s",
+                raffle_id,
+                query.from_user.id,
             )
 
         else:
@@ -551,11 +630,21 @@ async def raffle_approval_button(
 
         return
 
-    # ------------------------------------------------------
+    # ======================================================
     # APPROVE
-    # ------------------------------------------------------
+    # ======================================================
 
     if action != "raffleapprove":
+
+        return
+
+    if raffle["status"] != "pending":
+
+        await query.message.reply_text(
+            f"⚠️ Raffle #{raffle_id} is already "
+            f"{raffle['status']}."
+        )
+
         return
 
     if not approve_raffle(raffle_id):
@@ -567,6 +656,14 @@ async def raffle_approval_button(
         return
 
     raffle = get_raffle(raffle_id)
+
+    if not raffle:
+
+        await query.message.reply_text(
+            "❌ Raffle disappeared from the database."
+        )
+
+        return
 
     if not RAFFLE_CHAT_ID:
 
@@ -599,6 +696,11 @@ async def raffle_approval_button(
             parse_mode="Markdown",
         )
 
+        logger.info(
+            "Raffle %s approved and posted.",
+            raffle_id,
+        )
+
         if context.job_queue:
 
             context.job_queue.run_repeating(
@@ -614,7 +716,8 @@ async def raffle_approval_button(
     except Exception:
 
         logger.exception(
-            "Failed to post raffle."
+            "Failed to post raffle %s.",
+            raffle_id,
         )
 
         await query.message.reply_text(
@@ -749,7 +852,6 @@ async def payment_button(
 
     if query.data == "raffle_zelle":
         payment_method = "Zelle"
-
     else:
         payment_method = "Cash App"
 
@@ -801,16 +903,12 @@ async def payment_button(
         parse_mode="Markdown",
     )
 
-    # ------------------------------------------------------
-    # NOTIFY ADMINS
-    # ------------------------------------------------------
-
     for admin_id in ADMIN_IDS:
 
         try:
 
             await context.bot.send_message(
-                chat_id=admin_id,
+                chat_id=int(admin_id),
                 text=(
                     "💰 **RAFFLE PAYMENT PENDING**\n\n"
                     f"🎁 Prize: **{raffle['prize']}**\n"
@@ -828,7 +926,8 @@ async def payment_button(
         except Exception:
 
             logger.exception(
-                "Unable to notify admin."
+                "Unable to notify admin %s.",
+                admin_id,
             )
 
 
@@ -867,6 +966,7 @@ async def admin_payment_button(
         entry_id = int(entry_text)
 
     except Exception:
+
         return
 
     entry = get_entry(entry_id)
@@ -1062,25 +1162,55 @@ async def raffle_entries(update, context):
     )
 
 
+# ==========================================================
+# CANCEL RAFFLE
+# ==========================================================
+
 async def cancel_raffle(update, context):
 
     if not is_admin(update.effective_user.id):
         return
 
+    # Check active first
     raffle = get_active_raffle()
 
-    if not raffle:
+    if raffle:
 
-        await update.message.reply_text(
-            "❌ No active raffle."
-        )
+        if close_raffle(raffle["id"]):
+
+            await update.message.reply_text(
+                f"🛑 Raffle #{raffle['id']} cancelled/closed."
+            )
+
+        else:
+
+            await update.message.reply_text(
+                "⚠️ Raffle could not be closed."
+            )
 
         return
 
-    close_raffle(raffle["id"])
+    # Check pending
+    raffle = get_pending_raffle()
+
+    if raffle:
+
+        if cancel_pending_raffle(raffle["id"]):
+
+            await update.message.reply_text(
+                f"🛑 Pending raffle #{raffle['id']} cancelled."
+            )
+
+        else:
+
+            await update.message.reply_text(
+                "⚠️ Pending raffle could not be cancelled."
+            )
+
+        return
 
     await update.message.reply_text(
-        f"🛑 Raffle #{raffle['id']} cancelled/closed."
+        "❌ No active or pending raffle."
     )
 
 
