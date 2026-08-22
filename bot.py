@@ -33,6 +33,7 @@ from admin import (
 from raffle import (
     start_raffle,
     handle_raffle_setup,
+    raffle_private_start,
     raffle_approval_button,
     raffle_enter_button,
     payment_button,
@@ -71,7 +72,6 @@ app = Flask(__name__)
 
 @app.route("/")
 def health():
-
     return "Melanated AZ Bot is running", 200
 
 
@@ -179,7 +179,24 @@ def main():
     )
 
     # ======================================================
-    # ADMIN
+    # PRIVATE RAFFLE DEEP LINK
+    #
+    # Handles:
+    # /start raffle_123
+    #
+    # This is used when a member clicks ENTER RAFFLE
+    # but has never opened the bot privately.
+    # ======================================================
+
+    application.add_handler(
+        CommandHandler(
+            "start",
+            raffle_private_start,
+        )
+    )
+
+    # ======================================================
+    # ADMIN COMMAND
     # ======================================================
 
     application.add_handler(
@@ -245,7 +262,7 @@ def main():
     )
 
     # ======================================================
-    # PENDING
+    # PENDING PAYMENTS
     # ======================================================
 
     application.add_handler(
@@ -256,7 +273,7 @@ def main():
     )
 
     # ======================================================
-    # CANCEL
+    # CANCEL RAFFLE
     # ======================================================
 
     application.add_handler(
@@ -289,7 +306,7 @@ def main():
     )
 
     # ======================================================
-    # BONUS
+    # BONUS ENTRY
     # ======================================================
 
     application.add_handler(
@@ -311,7 +328,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN PANEL
+    # ADMIN PANEL BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -323,10 +340,6 @@ def main():
 
     # ======================================================
     # RAFFLE APPROVAL / CANCELLATION
-    #
-    # Handles:
-    # raffleapprove_123
-    # rafflecancel_123
     # ======================================================
 
     application.add_handler(
@@ -337,7 +350,18 @@ def main():
     )
 
     # ======================================================
-    # ADMIN PAYMENT
+    # PRIVATE ENTER RAFFLE BUTTON
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            raffle_enter_button,
+            pattern=r"^raffle_enter_\d+$",
+        )
+    )
+
+    # ======================================================
+    # ADMIN PAYMENT BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -348,24 +372,13 @@ def main():
     )
 
     # ======================================================
-    # MEMBER ENTER
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            raffle_enter_button,
-            pattern=r"^raffle_enter$",
-        )
-    )
-
-    # ======================================================
-    # PAYMENT
+    # PAYMENT BUTTONS
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             payment_button,
-            pattern=r"^raffle_(cashapp|zelle)$",
+            pattern=r"^raffle_(cashapp|zelle)_\d+$",
         )
     )
 
@@ -389,7 +402,7 @@ def main():
     )
 
     # ======================================================
-    # POLLING
+    # START POLLING
     # ======================================================
 
     logger.info(
