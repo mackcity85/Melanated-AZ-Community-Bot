@@ -199,12 +199,20 @@ def main():
         )
     )
 
+    # ------------------------------------------------------
+    # START RAFFLE
+    # ------------------------------------------------------
+
     application.add_handler(
         CommandHandler(
             "startraffle",
             start_raffle
         )
     )
+
+    # ------------------------------------------------------
+    # ENTER RAFFLE
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -215,10 +223,30 @@ def main():
 
     application.add_handler(
         CommandHandler(
-            "status",
+            "paid",
+            paid_entry
+        )
+    )
+
+    # ------------------------------------------------------
+    # RAFFLE STATUS
+    #
+    # Supports BOTH:
+    #
+    # /status
+    # /rafflestatus
+    # ------------------------------------------------------
+
+    application.add_handler(
+        CommandHandler(
+            ["status", "rafflestatus"],
             raffle_status
         )
     )
+
+    # ------------------------------------------------------
+    # RAFFLE ENTRIES
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -227,12 +255,20 @@ def main():
         )
     )
 
+    # ------------------------------------------------------
+    # PENDING PAYMENTS
+    # ------------------------------------------------------
+
     application.add_handler(
         CommandHandler(
             "pending",
             pending_entries
         )
     )
+
+    # ------------------------------------------------------
+    # CANCEL RAFFLE
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -241,12 +277,20 @@ def main():
         )
     )
 
+    # ------------------------------------------------------
+    # DRAW RAFFLE
+    # ------------------------------------------------------
+
     application.add_handler(
         CommandHandler(
             "draw",
             draw_raffle
         )
     )
+
+    # ------------------------------------------------------
+    # REROLL
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -255,6 +299,10 @@ def main():
         )
     )
 
+    # ------------------------------------------------------
+    # BONUS ENTRY
+    # ------------------------------------------------------
+
     application.add_handler(
         CommandHandler(
             "bonusentry",
@@ -262,17 +310,14 @@ def main():
         )
     )
 
+    # ------------------------------------------------------
+    # REMOVE ENTRY
+    # ------------------------------------------------------
+
     application.add_handler(
         CommandHandler(
             "removeentry",
             remove_raffle_entry
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "paid",
-            paid_entry
         )
     )
 
@@ -341,12 +386,9 @@ def main():
     # ======================================================
     # RAFFLE SETUP TEXT
     #
-    # IMPORTANT:
-    # This must be registered so that:
+    # Example:
     #
     # $100 Cash Prize | $5
-    #
-    # gets sent to handle_raffle_setup()
     # ======================================================
 
     application.add_handler(
