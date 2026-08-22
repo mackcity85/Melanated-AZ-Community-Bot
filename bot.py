@@ -102,7 +102,7 @@ async def text_message_handler(
 ):
 
     # ------------------------------------------------------
-    # FIRST: CHECK RAFFLE SETUP
+    # CHECK RAFFLE SETUP
     # ------------------------------------------------------
 
     handled = await handle_raffle_setup(
@@ -112,10 +112,6 @@ async def text_message_handler(
 
     if handled:
         return
-
-    # ------------------------------------------------------
-    # NOTHING ELSE TO DO
-    # ------------------------------------------------------
 
     return
 
@@ -212,14 +208,23 @@ def main():
 
     # ------------------------------------------------------
     # ENTER RAFFLE
+    #
+    # Both commands work:
+    #
+    # /raffle
+    # /enterraffle
     # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
-            "raffle",
+            ["raffle", "enterraffle"],
             enter_raffle
         )
     )
+
+    # ------------------------------------------------------
+    # PAID ENTRY
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -231,7 +236,7 @@ def main():
     # ------------------------------------------------------
     # RAFFLE STATUS
     #
-    # Supports BOTH:
+    # Both commands work:
     #
     # /status
     # /rafflestatus
@@ -245,7 +250,7 @@ def main():
     )
 
     # ------------------------------------------------------
-    # RAFFLE ENTRIES
+    # APPROVED ENTRIES
     # ------------------------------------------------------
 
     application.add_handler(
@@ -351,7 +356,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN PAYMENT BUTTONS
+    # ADMIN PAYMENT APPROVAL BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -362,7 +367,7 @@ def main():
     )
 
     # ======================================================
-    # MEMBER ENTER BUTTON
+    # MEMBER ENTER RAFFLE BUTTON
     # ======================================================
 
     application.add_handler(
@@ -373,7 +378,7 @@ def main():
     )
 
     # ======================================================
-    # CASH APP / ZELLE
+    # CASH APP / ZELLE BUTTONS
     # ======================================================
 
     application.add_handler(
