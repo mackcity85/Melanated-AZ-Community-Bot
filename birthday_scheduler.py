@@ -21,22 +21,13 @@ logger = logging.getLogger(__name__)
 # BIRTHDAY MESSAGE
 # ==========================================================
 
-def birthday_message(
-    birthday,
-):
+def birthday_message(birthday):
 
     name = (
         birthday.get("display_name")
         or birthday.get("username")
         or "Melanated AZ member"
     )
-
-    if birthday.get("username"):
-        if (
-            not name.startswith("@")
-            and birthday["username"] != name
-        ):
-            pass
 
     return (
         "🎉🎂 **HAPPY BIRTHDAY!** 🎂🎉\n\n"
@@ -58,9 +49,7 @@ async def birthday_scheduler(
 
     today = datetime.now()
 
-    month_day = today.strftime(
-        "%m/%d"
-    )
+    month_day = today.strftime("%m/%d")
 
     logger.info(
         "Birthday scheduler checking %s",
@@ -86,25 +75,19 @@ async def birthday_scheduler(
         month_day,
     )
 
+    sent = 0
+
     for birthday in birthdays:
 
-        # --------------------------------------------------
-        # Prefer the original chat.
-        # --------------------------------------------------
-
-        chat_id = birthday.get(
-            "chat_id"
-        )
+        chat_id = birthday.get("chat_id")
 
         if not chat_id:
-
             chat_id = RAFFLE_CHAT_ID
 
         if not chat_id:
 
             logger.warning(
-                "No chat ID available for birthday "
-                "user %s",
+                "No chat ID available for birthday user %s",
                 birthday.get("user_id"),
             )
 
@@ -114,11 +97,11 @@ async def birthday_scheduler(
 
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=birthday_message(
-                    birthday
-                ),
+                text=birthday_message(birthday),
                 parse_mode="Markdown",
             )
+
+            sent += 1
 
             logger.info(
                 "Birthday message sent for user %s "
@@ -135,14 +118,18 @@ async def birthday_scheduler(
                 birthday.get("user_id"),
             )
 
+    logger.info(
+        "Birthday scheduler completed. "
+        "Sent %s message(s).",
+        sent,
+    )
+
 
 # ==========================================================
 # START BIRTHDAY SCHEDULER
 # ==========================================================
 
-def start_birthday_scheduler(
-    application,
-):
+def start_birthday_scheduler(application):
 
     if not application.job_queue:
 
@@ -152,10 +139,6 @@ def start_birthday_scheduler(
         )
 
         return
-
-    # ------------------------------------------------------
-    # Prevent duplicate scheduler jobs.
-    # ------------------------------------------------------
 
     existing_jobs = application.job_queue.jobs(
         name="melanated_birthday_scheduler"
@@ -168,13 +151,6 @@ def start_birthday_scheduler(
         )
 
         return
-
-    # ------------------------------------------------------
-    # Run every day at 9:00 AM.
-    #
-    # This is recreated when the bot starts.
-    # The birthdays themselves remain in SQLite.
-    # ------------------------------------------------------
 
     application.job_queue.run_daily(
         birthday_scheduler,
