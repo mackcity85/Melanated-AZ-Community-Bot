@@ -1,3 +1,4 @@
+```python
 # ==========================================================
 # Melanated AZ Bot
 # admin.py
@@ -31,7 +32,6 @@ from raffle_database import (
     remove_birthday_by_id,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -40,16 +40,12 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 def is_admin(user_id):
-
     try:
-
         return int(user_id) in [
             int(admin_id)
             for admin_id in ADMIN_IDS
         ]
-
     except (TypeError, ValueError):
-
         return False
 
 
@@ -99,9 +95,15 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
-                    "🎂 View Birthdays",
+                    "🎂 Add Birthday",
+                    callback_data="admin_birthday_add",
+                ),
+                InlineKeyboardButton(
+                    "📅 View Birthdays",
                     callback_data="admin_birthdays",
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     "🗑️ Remove Birthday",
                     callback_data="admin_birthday_remove",
@@ -125,12 +127,11 @@ def admin_menu_text():
 
     return (
         "👑 **Melanated AZ Admin Panel**\n\n"
-        "Welcome, Admin.\n\n"
-        "🎟️ **RAFFLES**\n"
-        "Start, monitor, review, and manage raffles.\n\n"
+        "Select an option below.\n\n"
+        "🎟️ **RAFFLE**\n"
+        "Start, review, monitor, and draw raffles.\n\n"
         "🎂 **BIRTHDAYS**\n"
-        "View and manage member birthdays.\n\n"
-        "Select an option below."
+        "Add, view, and remove member birthdays."
     )
 
 
@@ -148,7 +149,6 @@ async def admin_menu(
     if not user or not is_admin(user.id):
 
         if update.effective_message:
-
             await update.effective_message.reply_text(
                 "⛔ You are not authorized to use "
                 "the admin panel."
@@ -166,15 +166,12 @@ async def admin_menu(
             pass
 
         try:
-
             await query.edit_message_text(
                 text=admin_menu_text(),
                 reply_markup=admin_main_keyboard(),
                 parse_mode="Markdown",
             )
-
         except Exception:
-
             await query.message.reply_text(
                 text=admin_menu_text(),
                 reply_markup=admin_main_keyboard(),
@@ -191,7 +188,7 @@ async def admin_menu(
 
 
 # ==========================================================
-# RUN RAFFLE HANDLER
+# RAFFLE HANDLER WRAPPER
 # ==========================================================
 
 async def run_raffle_handler(
@@ -220,31 +217,25 @@ async def run_raffle_handler(
         if query:
 
             try:
-
                 await query.message.reply_text(
                     "⚠️ An error occurred while "
                     f"processing **{action_name}**.\n\n"
                     "Please try again.",
                     parse_mode="Markdown",
                 )
-
             except Exception:
                 pass
 
 
 # ==========================================================
-# START RAFFLE
+# RAFFLE ACTIONS
 # ==========================================================
 
-async def admin_start_raffle(
-    update,
-    context,
-):
+async def admin_start_raffle(update, context):
 
     query = update.callback_query
 
     if query:
-
         await query.answer(
             "Starting raffle setup..."
         )
@@ -257,14 +248,7 @@ async def admin_start_raffle(
     )
 
 
-# ==========================================================
-# RAFFLE STATUS
-# ==========================================================
-
-async def admin_status(
-    update,
-    context,
-):
+async def admin_status(update, context):
 
     query = update.callback_query
 
@@ -279,14 +263,7 @@ async def admin_status(
     )
 
 
-# ==========================================================
-# RAFFLE ENTRIES
-# ==========================================================
-
-async def admin_entries(
-    update,
-    context,
-):
+async def admin_entries(update, context):
 
     query = update.callback_query
 
@@ -301,14 +278,7 @@ async def admin_entries(
     )
 
 
-# ==========================================================
-# PENDING PAYMENTS
-# ==========================================================
-
-async def admin_pending(
-    update,
-    context,
-):
+async def admin_pending(update, context):
 
     query = update.callback_query
 
@@ -323,14 +293,7 @@ async def admin_pending(
     )
 
 
-# ==========================================================
-# COMPLETED PAYMENTS
-# ==========================================================
-
-async def admin_completed(
-    update,
-    context,
-):
+async def admin_completed(update, context):
 
     query = update.callback_query
 
@@ -345,14 +308,7 @@ async def admin_completed(
     )
 
 
-# ==========================================================
-# DRAW WINNER
-# ==========================================================
-
-async def admin_draw(
-    update,
-    context,
-):
+async def admin_draw(update, context):
 
     query = update.callback_query
 
@@ -368,7 +324,7 @@ async def admin_draw(
 
 
 # ==========================================================
-# CANCEL CONFIRMATION
+# CANCEL RAFFLE
 # ==========================================================
 
 def cancel_confirmation_keyboard():
@@ -383,7 +339,7 @@ def cancel_confirmation_keyboard():
             ],
             [
                 InlineKeyboardButton(
-                    "⬅️ NO — GO BACK",
+                    "⬅️ BACK",
                     callback_data="admin_back",
                 )
             ],
@@ -391,10 +347,7 @@ def cancel_confirmation_keyboard():
     )
 
 
-async def admin_cancel(
-    update,
-    context,
-):
+async def admin_cancel(update, context):
 
     query = update.callback_query
 
@@ -403,16 +356,13 @@ async def admin_cancel(
     await query.edit_message_text(
         "⚠️ **Cancel Active Raffle?**\n\n"
         "This will cancel the currently active raffle.\n\n"
-        "Are you sure you want to continue?",
+        "Are you sure?",
         reply_markup=cancel_confirmation_keyboard(),
         parse_mode="Markdown",
     )
 
 
-async def admin_confirm_cancel(
-    update,
-    context,
-):
+async def admin_confirm_cancel(update, context):
 
     query = update.callback_query
 
@@ -429,7 +379,115 @@ async def admin_confirm_cancel(
 
 
 # ==========================================================
-# BIRTHDAY LIST
+# ADD BIRTHDAY
+# ==========================================================
+
+async def admin_birthday_add(update, context):
+
+    query = update.callback_query
+
+    if query:
+        await query.answer()
+
+    context.user_data[
+        "awaiting_admin_birthday"
+    ] = True
+
+    await query.message.reply_text(
+        "🎂 **Add Member Birthday**\n\n"
+        "Send the member's Telegram User ID "
+        "followed by their birthday.\n\n"
+        "**Format:**\n"
+        "`USER_ID MM/DD`\n\n"
+        "**Example:**\n"
+        "`123456789 08/26`\n\n"
+        "The birthday will be saved for the "
+        "Melanated AZ chat.",
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# VIEW BIRTHDAYS
+# ==========================================================
+
+async def admin_birthdays(update, context):
+
+    query = update.callback_query
+
+    await query.answer()
+
+    birthdays = get_all_birthdays()
+
+    if not birthdays:
+
+        await query.edit_message_text(
+            "📅 **Saved Birthdays**\n\n"
+            "No birthdays are currently saved.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_back",
+                        )
+                    ]
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    lines = [
+        "📅 **Saved Birthdays**\n",
+        f"Total: **{len(birthdays)}**\n",
+    ]
+
+    for birthday in birthdays:
+
+        display_name = (
+            birthday.get("display_name")
+            or birthday.get("username")
+            or str(birthday.get("user_id"))
+        )
+
+        birthday_value = (
+            birthday.get("birthday")
+            or "Unknown"
+        )
+
+        lines.append(
+            f"🎂 {display_name} — "
+            f"**{birthday_value}**"
+        )
+
+    await query.edit_message_text(
+        text="\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🗑️ Remove Birthday",
+                        callback_data=(
+                            "admin_birthday_remove"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="admin_back",
+                    )
+                ],
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# REMOVE BIRTHDAY LIST
 # ==========================================================
 
 def birthday_list_keyboard():
@@ -445,9 +503,7 @@ def birthday_list_keyboard():
         display_name = (
             birthday.get("display_name")
             or birthday.get("username")
-            or str(
-                birthday.get("user_id")
-            )
+            or str(birthday.get("user_id"))
         )
 
         birthday_value = (
@@ -479,142 +535,7 @@ def birthday_list_keyboard():
     return InlineKeyboardMarkup(buttons)
 
 
-def birthday_list_text():
-
-    birthdays = get_all_birthdays()
-
-    if not birthdays:
-
-        return (
-            "🎂 **Birthday Management**\n\n"
-            "There are currently no birthdays "
-            "saved in the database."
-        )
-
-    lines = [
-        "🎂 **Birthday Management**\n",
-        f"Total birthdays: **{len(birthdays)}**\n",
-    ]
-
-    for birthday in birthdays:
-
-        display_name = (
-            birthday.get("display_name")
-            or birthday.get("username")
-            or str(
-                birthday.get("user_id")
-            )
-        )
-
-        birthday_value = (
-            birthday.get("birthday")
-            or "Unknown"
-        )
-
-        lines.append(
-            f"🎂 **{display_name}** — "
-            f"{birthday_value}"
-        )
-
-    return "\n".join(lines)
-
-
-# ==========================================================
-# VIEW BIRTHDAYS
-# ==========================================================
-
-async def admin_birthdays(
-    update,
-    context,
-):
-
-    query = update.callback_query
-
-    await query.answer()
-
-    birthdays = get_all_birthdays()
-
-    if not birthdays:
-
-        await query.edit_message_text(
-            text=(
-                "🎂 **Birthday Management**\n\n"
-                "No birthdays are currently saved.\n\n"
-                "Members can use `/birthday` "
-                "to save their birthday."
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "⬅️ Back",
-                            callback_data="admin_back",
-                        )
-                    ]
-                ]
-            ),
-            parse_mode="Markdown",
-        )
-
-        return
-
-    lines = [
-        "🎂 **Saved Member Birthdays**\n",
-        f"Total: **{len(birthdays)}**\n",
-    ]
-
-    for birthday in birthdays:
-
-        display_name = (
-            birthday.get("display_name")
-            or birthday.get("username")
-            or str(
-                birthday.get("user_id")
-            )
-        )
-
-        birthday_value = (
-            birthday.get("birthday")
-            or "Unknown"
-        )
-
-        lines.append(
-            f"🎂 {display_name} — "
-            f"**{birthday_value}**"
-        )
-
-    await query.edit_message_text(
-        text="\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🗑️ Manage / Remove",
-                        callback_data=(
-                            "admin_birthday_remove"
-                        ),
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "⬅️ Back",
-                        callback_data="admin_back",
-                    )
-                ],
-            ]
-        ),
-        parse_mode="Markdown",
-    )
-
-
-# ==========================================================
-# BIRTHDAY REMOVE LIST
-# ==========================================================
-
-async def admin_birthday_remove(
-    update,
-    context,
-):
+async def admin_birthday_remove(update, context):
 
     query = update.callback_query
 
@@ -644,7 +565,7 @@ async def admin_birthday_remove(
 
     await query.edit_message_text(
         "🗑️ **Remove Birthday**\n\n"
-        "Select the birthday you want to remove:",
+        "Select the birthday to remove:",
         reply_markup=birthday_list_keyboard(),
         parse_mode="Markdown",
     )
@@ -663,11 +584,7 @@ async def admin_remove_birthday(
     query = update.callback_query
 
     try:
-
-        birthday_id = int(
-            birthday_id
-        )
-
+        birthday_id = int(birthday_id)
     except (TypeError, ValueError):
 
         await query.answer(
@@ -704,10 +621,7 @@ async def admin_remove_birthday(
 # REFRESH
 # ==========================================================
 
-async def admin_refresh(
-    update,
-    context,
-):
+async def admin_refresh(update, context):
 
     query = update.callback_query
 
@@ -726,10 +640,7 @@ async def admin_refresh(
 # BACK
 # ==========================================================
 
-async def admin_back(
-    update,
-    context,
-):
+async def admin_back(update, context):
 
     query = update.callback_query
 
@@ -776,25 +687,15 @@ async def admin_button(
     )
 
     # ------------------------------------------------------
-    # MAIN
+    # NAVIGATION
     # ------------------------------------------------------
 
     if data == "admin_back":
-
-        await admin_back(
-            update,
-            context,
-        )
-
+        await admin_back(update, context)
         return
 
     if data == "admin_refresh":
-
-        await admin_refresh(
-            update,
-            context,
-        )
-
+        await admin_refresh(update, context)
         return
 
     # ------------------------------------------------------
@@ -802,102 +703,54 @@ async def admin_button(
     # ------------------------------------------------------
 
     if data == "admin_start_raffle":
-
-        await admin_start_raffle(
-            update,
-            context,
-        )
-
+        await admin_start_raffle(update, context)
         return
 
     if data == "admin_status":
-
-        await admin_status(
-            update,
-            context,
-        )
-
+        await admin_status(update, context)
         return
 
     if data == "admin_entries":
-
-        await admin_entries(
-            update,
-            context,
-        )
-
+        await admin_entries(update, context)
         return
 
     if data == "admin_pending":
-
-        await admin_pending(
-            update,
-            context,
-        )
-
+        await admin_pending(update, context)
         return
 
     if data == "admin_completed":
-
-        await admin_completed(
-            update,
-            context,
-        )
-
+        await admin_completed(update, context)
         return
 
     if data == "admin_draw":
-
-        await admin_draw(
-            update,
-            context,
-        )
-
+        await admin_draw(update, context)
         return
 
     if data == "admin_cancel":
-
-        await admin_cancel(
-            update,
-            context,
-        )
-
+        await admin_cancel(update, context)
         return
 
     if data == "admin_confirm_cancel":
-
-        await admin_confirm_cancel(
-            update,
-            context,
-        )
-
+        await admin_confirm_cancel(update, context)
         return
 
     # ------------------------------------------------------
     # BIRTHDAYS
     # ------------------------------------------------------
 
+    if data == "admin_birthday_add":
+        await admin_birthday_add(update, context)
+        return
+
     if data == "admin_birthdays":
-
-        await admin_birthdays(
-            update,
-            context,
-        )
-
+        await admin_birthdays(update, context)
         return
 
     if data == "admin_birthday_remove":
-
-        await admin_birthday_remove(
-            update,
-            context,
-        )
-
+        await admin_birthday_remove(update, context)
         return
 
-    if data.startswith(
-        "admin_bday_remove_"
-    ):
+    if data.startswith("admin_bday_remove_"):
 
         birthday_id = data[
             len("admin_bday_remove_"):
@@ -924,3 +777,4 @@ async def admin_button(
         "⚠️ This option is unavailable.",
         show_alert=True,
     )
+```
