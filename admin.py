@@ -3,28 +3,24 @@
 # admin.py
 # ==========================================================
 
+import logging
+
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Update,
 )
-
 from telegram.ext import ContextTypes
 
 from config import ADMIN_IDS
 
 from raffle_database import (
-    get_active_raffle,
-    get_pending_raffle,
-    get_pending_entries,
-    get_approved_entries,
+    get_all_birthdays,
+    get_birthdays_for_date,
+    remove_birthday_by_id,
 )
 
-from raffle import (
-    start_raffle,
-    cancel_raffle,
-    draw_raffle,
-)
+logger = logging.getLogger(__name__)
 
 
 # ==========================================================
@@ -32,98 +28,15 @@ from raffle import (
 # ==========================================================
 
 def is_admin(user_id):
-    return user_id in ADMIN_IDS
+
+    try:
+        return int(user_id) in [int(x) for x in ADMIN_IDS]
+    except Exception:
+        return False
 
 
 # ==========================================================
-# ADMIN PANEL KEYBOARD
-# ==========================================================
-
-def admin_keyboard():
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🎟️ Start Raffle",
-                    callback_data="admin_start_raffle",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "📊 Raffle Status",
-                    callback_data="admin_raffle_status",
-                ),
-                InlineKeyboardButton(
-                    "🎟️ Entries",
-                    callback_data="admin_entries",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "💰 Pending Payments",
-                    callback_data="admin_pending",
-                ),
-                InlineKeyboardButton(
-                    "✅ Approved Entries",
-                    callback_data="admin_approved",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🛑 Cancel Raffle",
-                    callback_data="admin_cancel",
-                ),
-                InlineKeyboardButton(
-                    "🏆 Draw Winner",
-                    callback_data="admin_draw",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔄 Refresh",
-                    callback_data="admin_refresh",
-                )
-            ],
-        ]
-    )
-
-
-# ==========================================================
-# SHOW ADMIN PANEL
-# ==========================================================
-
-async def show_admin_panel(
-    update,
-    context,
-):
-
-    keyboard = admin_keyboard()
-
-    text = (
-        "👑 **MELANATED AZ ADMIN PANEL**\n\n"
-        "Choose an option below."
-    )
-
-    if update.callback_query:
-
-        await update.callback_query.edit_message_text(
-            text=text,
-            reply_markup=keyboard,
-            parse_mode="Markdown",
-        )
-
-    elif update.message:
-
-        await update.message.reply_text(
-            text=text,
-            reply_markup=keyboard,
-            parse_mode="Markdown",
-        )
-
-
-# ==========================================================
-# /ADMIN
+# ADMIN MENU
 # ==========================================================
 
 async def admin_menu(
@@ -131,29 +44,60 @@ async def admin_menu(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    if not update.effective_user:
-        return
+    user = update.effective_user
 
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        if update.message:
-
-            await update.message.reply_text(
+    if not user or not is_admin(user.id):
+        if update.effective_message:
+            await update.effective_message.reply_text(
                 "❌ Admins only."
             )
-
         return
 
-    await show_admin_panel(
-        update,
-        context,
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎟️ Raffle Management",
+                    callback_data="admin_raffle",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🎂 Birthday Management",
+                    callback_data="admin_birthdays",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📅 Today's Birthdays",
+                    callback_data="admin_birthday_today",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📋 View All Birthdays",
+                    callback_data="admin_birthday_list",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔄 Run Birthday Check Now",
+                    callback_data="admin_birthday_check",
+                )
+            ],
+        ]
+    )
+
+    await update.effective_message.reply_text(
+        "👑 **MELANATED AZ ADMIN PANEL**\n\n"
+        "Select an option below.",
+        reply_markup=keyboard,
+        parse_mode="Markdown",
     )
 
 
 # ==========================================================
-# ADMIN BUTTON HANDLER
+# ADMIN BUTTON
 # ==========================================================
 
 async def admin_button(
@@ -166,346 +110,264 @@ async def admin_button(
     if not query:
         return
 
-    # ------------------------------------------------------
-    # ADMIN CHECK
-    # ------------------------------------------------------
-
-    if not is_admin(
-        query.from_user.id
-    ):
-
+    if not is_admin(query.from_user.id):
         await query.answer(
-            "❌ Admins only.",
+            "Not authorized.",
             show_alert=True,
         )
-
         return
 
     await query.answer()
 
-    action = query.data
+    data = query.data or ""
 
     # ======================================================
-    # START RAFFLE
+    # BACK
     # ======================================================
 
-    if action == "admin_start_raffle":
+    if data == "admin_back":
 
-        # Set setup mode.
-        context.user_data[
-            "awaiting_raffle_setup"
-        ] = True
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎟️ Raffle Management",
+                        callback_data="admin_raffle",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🎂 Birthday Management",
+                        callback_data="admin_birthdays",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "📅 Today's Birthdays",
+                        callback_data="admin_birthday_today",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "📋 View All Birthdays",
+                        callback_data="admin_birthday_list",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🔄 Run Birthday Check Now",
+                        callback_data="admin_birthday_check",
+                    )
+                ],
+            ]
+        )
 
         await query.edit_message_text(
-            "🎟️ **START A NEW RAFFLE**\n\n"
-            "Send the raffle information in this format:\n\n"
-            "`Prize | Entry Price`\n\n"
-            "Example:\n"
-            "`$100 Cash Prize | $5`\n\n"
-            "The raffle will be created as **pending** "
-            "and sent to the admins for approval.",
+            "👑 **MELANATED AZ ADMIN PANEL**\n\n"
+            "Select an option below.",
+            reply_markup=keyboard,
             parse_mode="Markdown",
         )
 
         return
 
     # ======================================================
-    # RAFFLE STATUS
+    # BIRTHDAY MENU
     # ======================================================
 
-    if action == "admin_raffle_status":
+    if data == "admin_birthdays":
 
-        raffle = (
-            get_active_raffle()
-            or get_pending_raffle()
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "📋 View All Birthdays",
+                        callback_data="admin_birthday_list",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "📅 Today's Birthdays",
+                        callback_data="admin_birthday_today",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🔄 Run Birthday Check Now",
+                        callback_data="admin_birthday_check",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="admin_back",
+                    )
+                ],
+            ]
         )
 
-        if not raffle:
+        await query.edit_message_text(
+            "🎂 **BIRTHDAY MANAGEMENT**\n\n"
+            "Birthday records are stored permanently "
+            "in the Melanated AZ SQLite database.\n\n"
+            "Choose an option:",
+            reply_markup=keyboard,
+            parse_mode="Markdown",
+        )
+
+        return
+
+    # ======================================================
+    # LIST BIRTHDAYS
+    # ======================================================
+
+    if data == "admin_birthday_list":
+
+        birthdays = get_all_birthdays()
+
+        if not birthdays:
+
+            text = (
+                "📋 **BIRTHDAY LIST**\n\n"
+                "No birthdays are currently saved."
+            )
+
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_birthdays",
+                        )
+                    ]
+                ]
+            )
 
             await query.edit_message_text(
-                "❌ No active or pending raffle.",
-                reply_markup=admin_keyboard(),
+                text,
+                reply_markup=keyboard,
+                parse_mode="Markdown",
             )
 
             return
 
-        entries = get_approved_entries(
-            raffle["id"]
+        lines = [
+            "📋 **SAVED BIRTHDAYS**",
+            "",
+        ]
+
+        for birthday in birthdays:
+
+            name = (
+                birthday.get("display_name")
+                or birthday.get("username")
+                or str(birthday.get("user_id"))
+            )
+
+            lines.append(
+                f"🎂 **{birthday['birthday']}** — "
+                f"{name}"
+            )
+
+            if birthday.get("chat_id"):
+                lines.append(
+                    f"   Chat ID: `{birthday['chat_id']}`"
+                )
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="admin_birthdays",
+                    )
+                ]
+            ]
         )
 
-        text = (
-            "📊 **RAFFLE STATUS**\n\n"
-            f"🆔 Raffle #: **{raffle['id']}**\n"
-            f"🎁 Prize: **{raffle['prize']}**\n"
-            f"💵 Entry Price: **{raffle['price']}**\n"
-            f"📌 Status: **{raffle['status']}**\n"
-            f"👥 Approved Entries: **{len(entries)}**"
+        await query.edit_message_text(
+            "\n".join(lines),
+            reply_markup=keyboard,
+            parse_mode="Markdown",
+        )
+
+        return
+
+    # ======================================================
+    # TODAY'S BIRTHDAYS
+    # ======================================================
+
+    if data == "admin_birthday_today":
+
+        from datetime import datetime
+
+        today = datetime.now().strftime("%m/%d")
+
+        birthdays = get_birthdays_for_date(today)
+
+        if not birthdays:
+
+            text = (
+                "📅 **TODAY'S BIRTHDAYS**\n\n"
+                f"Date: **{today}**\n\n"
+                "No birthdays today."
+            )
+
+        else:
+
+            lines = [
+                "📅 **TODAY'S BIRTHDAYS**",
+                f"Date: **{today}**",
+                "",
+            ]
+
+            for birthday in birthdays:
+
+                name = (
+                    birthday.get("display_name")
+                    or birthday.get("username")
+                    or str(birthday.get("user_id"))
+                )
+
+                lines.append(
+                    f"🎂 {name}"
+                )
+
+            text = "\n".join(lines)
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="admin_birthdays",
+                    )
+                ]
+            ]
         )
 
         await query.edit_message_text(
             text,
-            reply_markup=admin_keyboard(),
+            reply_markup=keyboard,
             parse_mode="Markdown",
         )
 
         return
 
     # ======================================================
-    # ENTRIES
+    # RUN BIRTHDAY CHECK
     # ======================================================
 
-    if action == "admin_entries":
+    if data == "admin_birthday_check":
 
-        raffle = get_active_raffle()
+        from birthday_scheduler import birthday_scheduler
 
-        if not raffle:
+        await birthday_scheduler(context)
 
-            await query.edit_message_text(
-                "❌ No active raffle.",
-                reply_markup=admin_keyboard(),
-            )
-
-            return
-
-        entries = get_approved_entries(
-            raffle["id"]
-        )
-
-        if not entries:
-
-            await query.edit_message_text(
-                "🎟️ No approved entries yet.",
-                reply_markup=admin_keyboard(),
-            )
-
-            return
-
-        lines = [
-            "🎟️ **APPROVED ENTRIES**",
-            "",
-        ]
-
-        for entry in entries:
-
-            lines.append(
-                f"#{entry['id']} — "
-                f"{entry['display_name']}"
-            )
-
-        await query.edit_message_text(
-            "\n".join(lines),
-            reply_markup=admin_keyboard(),
-            parse_mode="Markdown",
+        await query.message.reply_text(
+            "✅ Birthday check completed.\n\n"
+            "Any birthdays scheduled for today were "
+            "processed."
         )
 
         return
-
-    # ======================================================
-    # PENDING PAYMENTS
-    # ======================================================
-
-    if action == "admin_pending":
-
-        entries = get_pending_entries()
-
-        if not entries:
-
-            await query.edit_message_text(
-                "✅ No pending payments.",
-                reply_markup=admin_keyboard(),
-            )
-
-            return
-
-        lines = [
-            "💰 **PENDING PAYMENTS**",
-            "",
-        ]
-
-        for entry in entries:
-
-            lines.append(
-                f"#{entry['id']} — "
-                f"{entry['display_name']} — "
-                f"{entry['payment_method']}"
-            )
-
-        await query.edit_message_text(
-            "\n".join(lines),
-            reply_markup=admin_keyboard(),
-            parse_mode="Markdown",
-        )
-
-        return
-
-    # ======================================================
-    # APPROVED ENTRIES
-    # ======================================================
-
-    if action == "admin_approved":
-
-        raffle = get_active_raffle()
-
-        if not raffle:
-
-            await query.edit_message_text(
-                "❌ No active raffle.",
-                reply_markup=admin_keyboard(),
-            )
-
-            return
-
-        entries = get_approved_entries(
-            raffle["id"]
-        )
-
-        if not entries:
-
-            await query.edit_message_text(
-                "✅ No approved entries yet.",
-                reply_markup=admin_keyboard(),
-            )
-
-            return
-
-        lines = [
-            "✅ **APPROVED ENTRIES**",
-            "",
-        ]
-
-        for entry in entries:
-
-            lines.append(
-                f"#{entry['id']} — "
-                f"{entry['display_name']}"
-            )
-
-        await query.edit_message_text(
-            "\n".join(lines),
-            reply_markup=admin_keyboard(),
-            parse_mode="Markdown",
-        )
-
-        return
-
-    # ======================================================
-    # CANCEL RAFFLE
-    # ======================================================
-
-    if action == "admin_cancel":
-
-        raffle = get_active_raffle()
-
-        if not raffle:
-
-            pending = get_pending_raffle()
-
-            if pending:
-
-                await query.edit_message_text(
-                    f"⚠️ Raffle #{pending['id']} is pending approval.\n\n"
-                    "Use the approval message to cancel it.",
-                    reply_markup=admin_keyboard(),
-                )
-
-            else:
-
-                await query.edit_message_text(
-                    "❌ No active raffle.",
-                    reply_markup=admin_keyboard(),
-                )
-
-            return
-
-        # Close the active raffle directly.
-        from raffle_database import close_raffle
-
-        close_raffle(
-            raffle["id"]
-        )
-
-        await query.edit_message_text(
-            f"🛑 **RAFFLE #{raffle['id']} CLOSED**",
-            reply_markup=admin_keyboard(),
-            parse_mode="Markdown",
-        )
-
-        return
-
-    # ======================================================
-    # DRAW WINNER
-    # ======================================================
-
-    if action == "admin_draw":
-
-        raffle = get_active_raffle()
-
-        if not raffle:
-
-            await query.edit_message_text(
-                "❌ No active raffle.",
-                reply_markup=admin_keyboard(),
-            )
-
-            return
-
-        entries = get_approved_entries(
-            raffle["id"]
-        )
-
-        if not entries:
-
-            await query.edit_message_text(
-                "❌ No approved paid entries.",
-                reply_markup=admin_keyboard(),
-            )
-
-            return
-
-        import random
-
-        winner = random.choice(
-            entries
-        )
-
-        from raffle_database import close_raffle
-
-        close_raffle(
-            raffle["id"]
-        )
-
-        await query.edit_message_text(
-            "🎉 **RAFFLE WINNER!** 🎉\n\n"
-            f"🎁 Prize: **{raffle['prize']}**\n"
-            f"💵 Entry Price: **{raffle['price']}**\n"
-            f"🆔 Raffle #: **{raffle['id']}**\n\n"
-            f"🏆 Winner: **{winner['display_name']}**\n"
-            f"🎟️ Entry #: **{winner['id']}**\n\n"
-            "Congratulations! 🍀",
-            reply_markup=admin_keyboard(),
-            parse_mode="Markdown",
-        )
-
-        return
-
-    # ======================================================
-    # REFRESH
-    # ======================================================
-
-    if action == "admin_refresh":
-
-        await show_admin_panel(
-            update,
-            context,
-        )
-
-        return
-
-    # ======================================================
-    # UNKNOWN BUTTON
-    # ======================================================
-
-    await query.edit_message_text(
-        "❌ Unknown admin action.",
-        reply_markup=admin_keyboard(),
-    )
