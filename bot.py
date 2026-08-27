@@ -613,6 +613,10 @@ async def handle_non_spoiler_media(
 
     except Exception:
 
+        logger.exception(
+            "Could not determine bot username"
+        )
+
         pending_media.pop(
             token,
             None,
@@ -704,9 +708,9 @@ async def media_spoiler_handler(
     if message.animation:
         return
 
-    # ------------------------------------------------------
+    # ======================================================
     # PHOTO
-    # ------------------------------------------------------
+    # ======================================================
 
     if message.photo:
 
@@ -726,9 +730,9 @@ async def media_spoiler_handler(
 
         return
 
-    # ------------------------------------------------------
+    # ======================================================
     # VIDEO
-    # ------------------------------------------------------
+    # ======================================================
 
     if message.video:
 
@@ -756,9 +760,9 @@ async def text_message_handler(
     context,
 ):
 
-    # ------------------------------------------------------
-    # Birthday button input gets first priority.
-    # ------------------------------------------------------
+    # ======================================================
+    # BIRTHDAY INPUT ALWAYS GETS FIRST PRIORITY
+    # ======================================================
 
     birthday_handled = (
         await birthday_text_handler(
@@ -770,9 +774,9 @@ async def text_message_handler(
     if birthday_handled:
         return
 
-    # ------------------------------------------------------
-    # Existing raffle setup
-    # ------------------------------------------------------
+    # ======================================================
+    # RAFFLE SETUP
+    # ======================================================
 
     handled = await handle_raffle_setup(
         update,
@@ -855,13 +859,26 @@ def main():
     )
 
     # ======================================================
-    # ADMIN
+    # ADMIN COMMAND
     # ======================================================
 
     application.add_handler(
         CommandHandler(
             "admin",
             admin_menu,
+        )
+    )
+
+    # ======================================================
+    # ADMIN BUTTONS
+    #
+    # REGISTERED BEFORE OTHER CALLBACKS.
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            admin_button,
+            pattern=r"^admin_",
         )
     )
 
@@ -989,17 +1006,6 @@ def main():
     )
 
     # ======================================================
-    # ADMIN BUTTONS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            admin_button,
-            pattern=r"^admin_",
-        )
-    )
-
-    # ======================================================
     # RAFFLE APPROVAL
     # ======================================================
 
@@ -1011,7 +1017,7 @@ def main():
     )
 
     # ======================================================
-    # LEGACY RAFFLE ENTER
+    # RAFFLE ENTER
     # ======================================================
 
     application.add_handler(
