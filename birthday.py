@@ -1,6 +1,16 @@
 # ==========================================================
 # Melanated AZ Bot
 # birthday.py
+#
+# MEMBER SELF-ENTRY ONLY
+#
+# Members:
+#   /birthday
+#   -> Add / Update My Birthday
+#   -> Type MM/DD
+#
+# No username required.
+# No Telegram user ID required.
 # ==========================================================
 
 import logging
@@ -13,8 +23,6 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from config import ADMIN_IDS
-
 from raffle_database import (
     save_birthday,
     get_birthday,
@@ -25,22 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# ADMIN CHECK
-# ==========================================================
-
-def is_admin(user_id):
-
-    try:
-        return int(user_id) in [
-            int(admin_id)
-            for admin_id in ADMIN_IDS
-        ]
-    except (TypeError, ValueError):
-        return False
-
-
-# ==========================================================
-# MEMBER BIRTHDAY KEYBOARD
+# BIRTHDAY KEYBOARD
 # ==========================================================
 
 def birthday_keyboard():
@@ -49,7 +42,7 @@ def birthday_keyboard():
         [
             [
                 InlineKeyboardButton(
-                    "🎂 Enter / Update My Birthday",
+                    "🎂 Add / Update My Birthday",
                     callback_data="birthday_enter",
                 )
             ],
@@ -70,12 +63,41 @@ def birthday_keyboard():
 
 
 # ==========================================================
+# SIMPLE BACK BUTTON
+# ==========================================================
+
+def birthday_back_keyboard():
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "⬅️ Birthday Menu",
+                    callback_data="birthday_menu",
+                )
+            ]
+        ]
+    )
+
+
+# ==========================================================
 # VALIDATE BIRTHDAY
 # ==========================================================
 
 def validate_birthday(value):
 
+    if not value:
+        return None
+
     value = value.strip()
+
+    # Accept:
+    # 08/26
+    # 8/26
+    # 08-26
+    # 8-26
+
+    value = value.replace("-", "/")
 
     try:
 
@@ -84,125 +106,11 @@ def validate_birthday(value):
             "%m/%d",
         )
 
-        return parsed.strftime(
-            "%m/%d"
-        )
+        return parsed.strftime("%m/%d")
 
     except ValueError:
 
         return None
-
-
-# ==========================================================
-# SAVE ADMIN BIRTHDAY
-# ==========================================================
-
-async def save_admin_birthday(
-    update,
-    context,
-    value,
-):
-
-    message = update.effective_message
-    admin = update.effective_user
-
-    if not message or not admin:
-        return True
-
-    if not is_admin(admin.id):
-        return False
-
-    parts = value.strip().split()
-
-    if len(parts) != 2:
-
-        await message.reply_text(
-            "❌ Invalid format.\n\n"
-            "Use:\n"
-            "`USER_ID MM/DD`\n\n"
-            "Example:\n"
-            "`123456789 08/26`",
-            parse_mode="Markdown",
-        )
-
-        return True
-
-    user_id_text = parts[0]
-    birthday_value = parts[1]
-
-    try:
-
-        user_id = int(user_id_text)
-
-    except ValueError:
-
-        await message.reply_text(
-            "❌ Invalid Telegram User ID.\n\n"
-            "The first value must be a number.",
-        )
-
-        return True
-
-    birthday_value = validate_birthday(
-        birthday_value
-    )
-
-    if not birthday_value:
-
-        await message.reply_text(
-            "❌ Invalid birthday.\n\n"
-            "Use `MM/DD`.\n\n"
-            "Example:\n"
-            "`08/26`",
-            parse_mode="Markdown",
-        )
-
-        return True
-
-    try:
-
-        save_birthday(
-            user_id=user_id,
-            chat_id=message.chat_id,
-            birthday=birthday_value,
-            username=None,
-            display_name=f"User {user_id}",
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Admin failed to save birthday"
-        )
-
-        await message.reply_text(
-            "⚠️ Database error while saving "
-            "the birthday."
-        )
-
-        return True
-
-    context.user_data.pop(
-        "awaiting_admin_birthday",
-        None,
-    )
-
-    await message.reply_text(
-        "🎂 **Birthday Added**\n\n"
-        f"👤 User ID: `{user_id}`\n"
-        f"📅 Birthday: **{birthday_value}**\n\n"
-        "✅ The birthday has been saved.",
-        parse_mode="Markdown",
-    )
-
-    logger.info(
-        "Admin added birthday | admin=%s | user=%s | birthday=%s",
-        admin.id,
-        user_id,
-        birthday_value,
-    )
-
-    return True
 
 
 # ==========================================================
@@ -220,9 +128,15 @@ async def birthday(
     if not message or not user:
         return
 
+    # ------------------------------------------------------
+    # /birthday 08/26
+    # ------------------------------------------------------
+
     if context.args:
 
-        birthday_value = context.args[0].strip()
+        birthday_value = " ".join(
+            context.args
+        ).strip()
 
         await save_birthday_from_value(
             update,
@@ -232,27 +146,61 @@ async def birthday(
 
         return
 
-    existing = get_birthday(
-        user_id=user.id,
-        chat_id=message.chat_id,
+    # ------------------------------------------------------
+    # Cancel any previous birthday entry
+    # ------------------------------------------------------
+
+    context.user_data.pop(
+        "awaiting_birthday",
+        None,
     )
+
+    # ------------------------------------------------------
+    # Find this user's birthday automatically
+    # ------------------------------------------------------
+
+    try:
+
+        existing = get_birthday(
+            user_id=user.id,
+            chat_id=message.chat_id,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Error retrieving birthday for user %s",
+            user.id,
+        )
+
+        existing = None
+
+    # ------------------------------------------------------
+    # Existing birthday
+    # ------------------------------------------------------
 
     if existing:
 
         text = (
-            "🎂 **Your Melanated AZ Birthday**\n\n"
+            "🎂 **Your Melanated AZ Birthday** 🎂\n\n"
             f"📅 Current birthday: "
             f"**{existing['birthday']}**\n\n"
             "You can update or remove it below."
         )
+
+    # ------------------------------------------------------
+    # No birthday
+    # ------------------------------------------------------
 
     else:
 
         text = (
             "🎂 **MELANATED AZ BIRTHDAY** 🎂\n\n"
             "We love celebrating our members! 💜\n\n"
-            "Enter your birthday and Melanated AZ "
+            "Add your birthday and Melanated AZ "
             "will recognize your special day. 🎉\n\n"
+            "Your birthday is saved to the "
+            "Melanated AZ database.\n\n"
             "Choose an option below:"
         )
 
@@ -264,7 +212,7 @@ async def birthday(
 
 
 # ==========================================================
-# SAVE MEMBER BIRTHDAY
+# SAVE BIRTHDAY
 # ==========================================================
 
 async def save_birthday_from_value(
@@ -279,6 +227,10 @@ async def save_birthday_from_value(
     if not message or not user:
         return False
 
+    # ------------------------------------------------------
+    # Validate
+    # ------------------------------------------------------
+
     birthday_value = validate_birthday(
         birthday_value
     )
@@ -286,15 +238,24 @@ async def save_birthday_from_value(
     if not birthday_value:
 
         await message.reply_text(
-            "❌ **Invalid birthday.**\n\n"
-            "Please enter:\n\n"
+            "❌ **That doesn't look like a valid birthday.**\n\n"
+            "Please enter your birthday as:\n\n"
             "`MM/DD`\n\n"
             "Example:\n"
             "`08/26`",
             parse_mode="Markdown",
         )
 
+        # Keep waiting so the member can correct it.
+        context.user_data[
+            "awaiting_birthday"
+        ] = True
+
         return False
+
+    # ------------------------------------------------------
+    # SAVE USING AUTOMATIC TELEGRAM USER ID
+    # ------------------------------------------------------
 
     try:
 
@@ -316,7 +277,8 @@ async def save_birthday_from_value(
 
         await message.reply_text(
             "⚠️ I couldn't save your birthday "
-            "because of a database error."
+            "because of a database error.\n\n"
+            "Please try again.",
         )
 
         return False
@@ -324,22 +286,35 @@ async def save_birthday_from_value(
     if not saved:
 
         await message.reply_text(
-            "⚠️ Your birthday could not be saved."
+            "⚠️ Your birthday could not be saved.\n\n"
+            "Please try again.",
         )
 
         return False
+
+    # ------------------------------------------------------
+    # Clear waiting state
+    # ------------------------------------------------------
 
     context.user_data.pop(
         "awaiting_birthday",
         None,
     )
 
+    logger.info(
+        "🎂 Birthday saved | user=%s | chat=%s | birthday=%s",
+        user.id,
+        message.chat_id,
+        birthday_value,
+    )
+
     await message.reply_text(
         "🎂 **BIRTHDAY SAVED!** 🎂\n\n"
         f"📅 Your birthday: **{birthday_value}**\n\n"
-        "✅ Your birthday has been saved.\n\n"
-        "🎉 Melanated AZ will recognize your "
-        "birthday on your special day! 💜",
+        "✅ Your birthday has been saved "
+        "to the Melanated AZ database.\n\n"
+        "🎉 We'll recognize your special day! 💜",
+        reply_markup=birthday_keyboard(),
         parse_mode="Markdown",
     )
 
@@ -370,9 +345,72 @@ async def birthday_callback(
 
     await query.answer()
 
-    # ------------------------------------------------------
-    # ENTER
-    # ------------------------------------------------------
+    # ======================================================
+    # BIRTHDAY MENU
+    # ======================================================
+
+    if data == "birthday_menu":
+
+        context.user_data.pop(
+            "awaiting_birthday",
+            None,
+        )
+
+        try:
+
+            existing = get_birthday(
+                user_id=user.id,
+                chat_id=query.message.chat_id,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Error retrieving birthday for user %s",
+                user.id,
+            )
+
+            existing = None
+
+        if existing:
+
+            text = (
+                "🎂 **Your Melanated AZ Birthday** 🎂\n\n"
+                f"📅 Current birthday: "
+                f"**{existing['birthday']}**\n\n"
+                "Choose an option below:"
+            )
+
+        else:
+
+            text = (
+                "🎂 **MELANATED AZ BIRTHDAY** 🎂\n\n"
+                "Add your birthday so we can "
+                "celebrate with you! 🎉\n\n"
+                "Choose an option below:"
+            )
+
+        try:
+
+            await query.edit_message_text(
+                text,
+                reply_markup=birthday_keyboard(),
+                parse_mode="Markdown",
+            )
+
+        except Exception:
+
+            await query.message.reply_text(
+                text,
+                reply_markup=birthday_keyboard(),
+                parse_mode="Markdown",
+            )
+
+        return
+
+    # ======================================================
+    # ENTER / UPDATE
+    # ======================================================
 
     if data == "birthday_enter":
 
@@ -382,31 +420,50 @@ async def birthday_callback(
 
         await query.message.reply_text(
             "🎂 **Let's add your birthday!**\n\n"
-            "Send your birthday as:\n\n"
+            "Just send me your birthday as:\n\n"
             "`MM/DD`\n\n"
             "Example:\n"
-            "`08/26`",
+            "`08/26`\n\n"
+            "That's it — I already know who you are. 💜",
             parse_mode="Markdown",
         )
 
         return
 
-    # ------------------------------------------------------
+    # ======================================================
     # VIEW
-    # ------------------------------------------------------
+    # ======================================================
 
     if data == "birthday_view":
 
-        record = get_birthday(
-            user_id=user.id,
-            chat_id=query.message.chat_id,
-        )
+        try:
+
+            record = get_birthday(
+                user_id=user.id,
+                chat_id=query.message.chat_id,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Error retrieving birthday for user %s",
+                user.id,
+            )
+
+            await query.message.reply_text(
+                "⚠️ I couldn't retrieve your birthday "
+                "right now. Please try again.",
+            )
+
+            return
 
         if not record:
 
             await query.message.reply_text(
                 "🎂 **No Birthday Saved**\n\n"
-                "You don't have a birthday saved yet.",
+                "You don't have a birthday saved "
+                "for this chat yet.\n\n"
+                "Click below to add it.",
                 reply_markup=birthday_keyboard(),
                 parse_mode="Markdown",
             )
@@ -416,34 +473,53 @@ async def birthday_callback(
         await query.message.reply_text(
             "🎂 **Your Birthday**\n\n"
             f"📅 **{record['birthday']}**\n\n"
-            "✅ Your birthday is saved. 💜",
+            "✅ Your birthday is saved in the "
+            "Melanated AZ database. 💜",
             reply_markup=birthday_keyboard(),
             parse_mode="Markdown",
         )
 
         return
 
-    # ------------------------------------------------------
+    # ======================================================
     # REMOVE
-    # ------------------------------------------------------
+    # ======================================================
 
     if data == "birthday_remove":
-
-        removed = remove_birthday(
-            user_id=user.id,
-            chat_id=query.message.chat_id,
-        )
 
         context.user_data.pop(
             "awaiting_birthday",
             None,
         )
 
+        try:
+
+            removed = remove_birthday(
+                user_id=user.id,
+                chat_id=query.message.chat_id,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Error removing birthday for user %s",
+                user.id,
+            )
+
+            await query.message.reply_text(
+                "⚠️ I couldn't remove your birthday "
+                "right now. Please try again.",
+            )
+
+            return
+
         if removed:
 
             await query.message.reply_text(
                 "🗑️ **Birthday Removed**\n\n"
-                "Your birthday has been removed.",
+                "Your birthday has been removed "
+                "from the Melanated AZ database.",
+                reply_markup=birthday_keyboard(),
                 parse_mode="Markdown",
             )
 
@@ -451,7 +527,8 @@ async def birthday_callback(
 
             await query.message.reply_text(
                 "ℹ️ You don't currently have "
-                "a birthday saved."
+                "a birthday saved.",
+                reply_markup=birthday_keyboard(),
             )
 
         return
@@ -459,32 +536,15 @@ async def birthday_callback(
 
 # ==========================================================
 # TEXT INPUT
+#
+# This catches the birthday AFTER the member clicks
+# "Add / Update My Birthday".
 # ==========================================================
 
 async def birthday_text_handler(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
-    # ------------------------------------------------------
-    # ADMIN ADD BIRTHDAY
-    # ------------------------------------------------------
-
-    if context.user_data.get(
-        "awaiting_admin_birthday"
-    ):
-
-        return await save_admin_birthday(
-            update,
-            context,
-            update.effective_message.text
-            if update.effective_message
-            else "",
-        )
-
-    # ------------------------------------------------------
-    # MEMBER BIRTHDAY
-    # ------------------------------------------------------
 
     if not context.user_data.get(
         "awaiting_birthday"
@@ -495,6 +555,7 @@ async def birthday_text_handler(
     message = update.effective_message
 
     if not message or not message.text:
+
         return False
 
     birthday_value = message.text.strip()
@@ -523,16 +584,34 @@ async def my_birthday(
     if not message or not user:
         return
 
-    record = get_birthday(
-        user_id=user.id,
-        chat_id=message.chat_id,
-    )
+    try:
+
+        record = get_birthday(
+            user_id=user.id,
+            chat_id=message.chat_id,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Error retrieving birthday for user %s",
+            user.id,
+        )
+
+        await message.reply_text(
+            "⚠️ I couldn't retrieve your birthday "
+            "right now. Please try again.",
+        )
+
+        return
 
     if not record:
 
         await message.reply_text(
             "🎂 **No Birthday Saved**\n\n"
-            "Use `/birthday` to add your birthday.",
+            "You don't have a birthday saved "
+            "for this chat yet.\n\n"
+            "Click below to add it.",
             reply_markup=birthday_keyboard(),
             parse_mode="Markdown",
         )
@@ -542,7 +621,8 @@ async def my_birthday(
     await message.reply_text(
         "🎂 **Your Birthday**\n\n"
         f"📅 **{record['birthday']}**\n\n"
-        "✅ Your birthday is saved. 💜",
+        "✅ Your birthday is saved in the "
+        "Melanated AZ database. 💜",
         reply_markup=birthday_keyboard(),
         parse_mode="Markdown",
     )
@@ -563,10 +643,26 @@ async def remove_my_birthday(
     if not message or not user:
         return
 
-    removed = remove_birthday(
-        user_id=user.id,
-        chat_id=message.chat_id,
-    )
+    try:
+
+        removed = remove_birthday(
+            user_id=user.id,
+            chat_id=message.chat_id,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Error removing birthday for user %s",
+            user.id,
+        )
+
+        await message.reply_text(
+            "⚠️ I couldn't remove your birthday "
+            "right now. Please try again.",
+        )
+
+        return
 
     context.user_data.pop(
         "awaiting_birthday",
@@ -577,7 +673,9 @@ async def remove_my_birthday(
 
         await message.reply_text(
             "🗑️ **Birthday Removed**\n\n"
-            "Your birthday has been removed.",
+            "Your birthday has been removed "
+            "from the Melanated AZ database.",
+            reply_markup=birthday_keyboard(),
             parse_mode="Markdown",
         )
 
@@ -585,5 +683,6 @@ async def remove_my_birthday(
 
         await message.reply_text(
             "ℹ️ You don't currently have "
-            "a birthday saved."
+            "a birthday saved.",
+            reply_markup=birthday_keyboard(),
         )
