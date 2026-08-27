@@ -20,11 +20,9 @@
 # Raffle:
 #   - Existing raffle system preserved
 #
-# Database:
-#   - Persistent SQLite database
-#   - Database location is printed at startup
-#   - Database statistics are printed at startup
-#   - Existing data is NOT deleted
+# IMPORTANT:
+#   - Raffle functions are loaded defensively so a missing
+#     handle_raffle_setup function does not crash the bot.
 # ==========================================================
 
 import logging
@@ -60,25 +58,51 @@ from admin import (
     admin_button,
 )
 
-from raffle import (
-    start_raffle,
-    handle_raffle_setup,
-    raffle_private_start,
-    raffle_approval_button,
-    raffle_enter_button,
-    payment_button,
-    admin_payment_button,
-    enter_raffle,
-    paid_entry,
-    pending_entries,
-    raffle_status,
-    raffle_entries,
-    cancel_raffle,
-    draw_raffle,
-    reroll_raffle,
-    bonus_entry,
-    remove_raffle_entry,
+# ==========================================================
+# RAFFLE IMPORT
+#
+# Import the raffle module first.
+# This prevents the entire bot from crashing if one optional
+# function is missing from raffle.py.
+# ==========================================================
+
+import raffle
+
+
+start_raffle = raffle.start_raffle
+raffle_private_start = raffle.raffle_private_start
+raffle_approval_button = raffle.raffle_approval_button
+raffle_enter_button = raffle.raffle_enter_button
+payment_button = raffle.payment_button
+admin_payment_button = raffle.admin_payment_button
+enter_raffle = raffle.enter_raffle
+paid_entry = raffle.paid_entry
+pending_entries = raffle.pending_entries
+raffle_status = raffle.raffle_status
+raffle_entries = raffle.raffle_entries
+cancel_raffle = raffle.cancel_raffle
+draw_raffle = raffle.draw_raffle
+reroll_raffle = raffle.reroll_raffle
+bonus_entry = raffle.bonus_entry
+remove_raffle_entry = raffle.remove_raffle_entry
+
+# handle_raffle_setup may not exist in every version of raffle.py.
+handle_raffle_setup = getattr(
+    raffle,
+    "handle_raffle_setup",
+    None,
 )
+
+if handle_raffle_setup is None:
+    logging.warning(
+        "raffle.handle_raffle_setup is not available. "
+        "Raffle text setup handler will be disabled."
+    )
+
+
+# ==========================================================
+# BIRTHDAY
+# ==========================================================
 
 from birthday import (
     birthday,
@@ -91,20 +115,6 @@ from birthday import (
 from birthday_scheduler import (
     start_birthday_scheduler,
 )
-
-# ==========================================================
-# DATABASE
-# ==========================================================
-#
-# IMPORTANT:
-# Importing this module initializes the database tables
-# without deleting existing data.
-#
-# The diagnostics below tell us exactly which database file
-# the running Render instance is using.
-# ==========================================================
-
-import raffle_database
 
 
 # ==========================================================
@@ -123,113 +133,18 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# DATABASE DIAGNOSTICS
+# STARTUP INFORMATION
 # ==========================================================
 
-def log_database_information():
+logger.info(
+    "Loaded Admin IDs: %s",
+    ADMIN_IDS,
+)
 
-    print("")
-    print("==========================================================")
-    print("Melanated AZ Bot - DATABASE INFORMATION")
-    print("==========================================================")
-
-    try:
-
-        database_path = raffle_database.DB_NAME
-
-        print(
-            "Database path :",
-            database_path,
-        )
-
-        print(
-            "Absolute path :",
-            os.path.abspath(database_path),
-        )
-
-        exists = os.path.exists(
-            database_path
-        )
-
-        print(
-            "Database exists:",
-            exists,
-        )
-
-        if exists:
-
-            print(
-                "Database size :",
-                os.path.getsize(
-                    database_path
-                ),
-                "bytes",
-            )
-
-        print("")
-        print("Checking database tables...")
-
-        # Make absolutely sure required tables exist.
-        raffle_database.initialize_database()
-
-        stats = (
-            raffle_database.get_database_stats()
-        )
-
-        print("")
-        print("DATABASE CONTENTS")
-        print("-----------------")
-
-        print(
-            "Raffles       :",
-            stats.get(
-                "raffles",
-                0,
-            ),
-        )
-
-        print(
-            "Raffle Entries:",
-            stats.get(
-                "raffle_entries",
-                0,
-            ),
-        )
-
-        print(
-            "Birthdays     :",
-            stats.get(
-                "birthdays",
-                0,
-            ),
-        )
-
-        print("")
-        print("Database check completed successfully.")
-
-    except Exception as exc:
-
-        print("")
-        print(
-            "DATABASE ERROR:",
-            str(exc),
-        )
-
-        logger.exception(
-            "Database diagnostics failed"
-        )
-
-    print(
-        "=========================================================="
-    )
-    print("")
-
-
-# ==========================================================
-# RUN DATABASE DIAGNOSTICS
-# ==========================================================
-
-log_database_information()
+logger.info(
+    "Raffle Chat ID: %s",
+    RAFFLE_CHAT_ID,
+)
 
 
 # ==========================================================
@@ -241,7 +156,6 @@ app = Flask(__name__)
 
 @app.route("/")
 def health():
-
     return (
         "Melanated AZ Bot is running",
         200,
@@ -270,6 +184,10 @@ def run_flask():
 #
 # Media is temporarily stored here while the member decides
 # whether MelanatedAZ should repost it.
+#
+# NOTE:
+# This dictionary is memory-only.
+# A Render restart clears pending media.
 # ==========================================================
 
 pending_media = {}
@@ -338,7 +256,13 @@ OPTION 2 — LET MELANATEDAZ POST IT
 
 
 # ==========================================================
-# MEDIA DEEP LINK
+# MEDIA DEEP LINK BUTTON
+#
+# Opens:
+#
+# https://t.me/BOT_USERNAME?start=media_TOKEN
+#
+# The member does not have to enter a username or user ID.
 # ==========================================================
 
 def media_deep_link_keyboard(
@@ -367,9 +291,7 @@ def media_deep_link_keyboard(
 # PRIVATE REPOST BUTTON
 # ==========================================================
 
-def spoiler_keyboard(
-    token,
-):
+def spoiler_keyboard(token):
 
     return InlineKeyboardMarkup(
         [
@@ -387,6 +309,8 @@ def spoiler_keyboard(
 
 # ==========================================================
 # DELETE GROUP WARNING
+#
+# Runs 180 seconds after warning is created.
 # ==========================================================
 
 async def delete_group_warning(
@@ -408,10 +332,7 @@ async def delete_group_warning(
         "message_id"
     )
 
-    if (
-        chat_id is None
-        or message_id is None
-    ):
+    if chat_id is None or message_id is None:
         return
 
     try:
@@ -422,8 +343,8 @@ async def delete_group_warning(
         )
 
         logger.info(
-            "Deleted group media warning after "
-            "3 minutes | chat=%s | message=%s",
+            "Deleted group media warning after 3 minutes | "
+            "chat=%s | message=%s",
             chat_id,
             message_id,
         )
@@ -469,26 +390,23 @@ async def send_media_with_spoiler(
     )
 
     if not media_type:
-
         raise ValueError(
             "Missing media type"
         )
 
     if not file_id:
-
         raise ValueError(
             "Missing Telegram file ID"
         )
 
     if chat_id is None:
-
         raise ValueError(
             "Missing original chat ID"
         )
 
-    # ======================================================
+    # ------------------------------------------------------
     # PHOTO
-    # ======================================================
+    # ------------------------------------------------------
 
     if media_type == "photo":
 
@@ -502,9 +420,9 @@ async def send_media_with_spoiler(
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # VIDEO
-    # ======================================================
+    # ------------------------------------------------------
 
     if media_type == "video":
 
@@ -603,6 +521,10 @@ async def media_start(
             )
 
             return
+
+        # --------------------------------------------------
+        # REPOST OPTION
+        # --------------------------------------------------
 
         await message.reply_text(
             "👑 **MelanatedAZ Bot**\n\n"
@@ -722,6 +644,10 @@ async def spoiler_repost_button(
             media_info,
         )
 
+        # --------------------------------------------------
+        # REMOVE SAVED MEDIA AFTER SUCCESS
+        # --------------------------------------------------
+
         pending_media.pop(
             token,
             None,
@@ -772,12 +698,24 @@ async def handle_non_spoiler_media(
     if not message or not user:
         return
 
+    # ======================================================
+    # CHAT NAME
+    # ======================================================
+
     chat_name = (
         message.chat.title
         or "MelanatedAZ"
     )
 
+    # ======================================================
+    # UNIQUE TOKEN
+    # ======================================================
+
     token = uuid.uuid4().hex
+
+    # ======================================================
+    # SAVE MEDIA
+    # ======================================================
 
     pending_media[token] = {
         "type": media_type,
@@ -860,6 +798,10 @@ async def handle_non_spoiler_media(
 
         return
 
+    # ======================================================
+    # CREATE GROUP/PRIVATE BUTTON
+    # ======================================================
+
     media_button = (
         media_deep_link_keyboard(
             bot_username,
@@ -901,7 +843,7 @@ async def handle_non_spoiler_media(
         )
 
     # ======================================================
-    # DELETE GROUP WARNING AFTER 180 SECONDS
+    # DELETE WARNING AFTER 180 SECONDS
     # ======================================================
 
     if (
@@ -992,6 +934,7 @@ async def media_spoiler_handler(
 
     if message.photo:
 
+        # Telegram already marked it as spoiler.
         if message.has_media_spoiler:
             return
 
@@ -1014,6 +957,7 @@ async def media_spoiler_handler(
 
     if message.video:
 
+        # Telegram already marked it as spoiler.
         if message.has_media_spoiler:
             return
 
@@ -1041,7 +985,7 @@ async def text_message_handler(
 ):
 
     # ======================================================
-    # BIRTHDAY
+    # BIRTHDAY HAS PRIORITY
     # ======================================================
 
     birthday_handled = (
@@ -1056,15 +1000,19 @@ async def text_message_handler(
 
     # ======================================================
     # RAFFLE SETUP
+    #
+    # Only call it when raffle.py actually provides it.
     # ======================================================
 
-    handled = await handle_raffle_setup(
-        update,
-        context,
-    )
+    if callable(handle_raffle_setup):
 
-    if handled:
-        return
+        handled = await handle_raffle_setup(
+            update,
+            context,
+        )
+
+        if handled:
+            return
 
 
 # ==========================================================
@@ -1101,12 +1049,6 @@ def main():
         "Raffle Chat ID: %s",
         RAFFLE_CHAT_ID,
     )
-
-    # ======================================================
-    # DATABASE CHECK
-    # ======================================================
-
-    log_database_information()
 
     # ======================================================
     # FLASK
