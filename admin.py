@@ -17,7 +17,6 @@ from config import ADMIN_IDS
 
 from raffle import (
     start_raffle,
-    enter_raffle,
     raffle_status,
     raffle_entries,
     pending_entries,
@@ -25,11 +24,6 @@ from raffle import (
     cancel_raffle,
     draw_raffle,
 )
-
-
-# ==========================================================
-# LOGGING
-# ==========================================================
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +33,6 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 def is_admin(user_id):
-    """Return True when the Telegram user is an authorized admin."""
-
     try:
         return int(user_id) in [int(admin_id) for admin_id in ADMIN_IDS]
     except (TypeError, ValueError):
@@ -48,7 +40,7 @@ def is_admin(user_id):
 
 
 # ==========================================================
-# MAIN ADMIN MENU
+# MAIN ADMIN KEYBOARD
 # ==========================================================
 
 def admin_main_keyboard():
@@ -77,6 +69,10 @@ def admin_main_keyboard():
     )
 
 
+# ==========================================================
+# MAIN ADMIN MENU
+# ==========================================================
+
 async def admin_menu(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -94,7 +90,7 @@ async def admin_menu(
         return
 
     text = (
-        "👑 **Melanated AZ Admin Panel**\n\n"
+        "👑 *Melanated AZ Admin Panel*\n\n"
         "Welcome, Admin.\n\n"
         "Select a management area below."
     )
@@ -105,7 +101,10 @@ async def admin_menu(
 
         query = update.callback_query
 
-        await query.answer()
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
         try:
             await query.edit_message_text(
@@ -114,23 +113,26 @@ async def admin_menu(
                 parse_mode="Markdown",
             )
         except Exception:
-            await query.message.reply_text(
-                text=text,
-                reply_markup=keyboard,
-                parse_mode="Markdown",
-            )
+            if query.message:
+                await query.message.reply_text(
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode="Markdown",
+                )
 
         return
 
-    await update.effective_message.reply_text(
-        text=text,
-        reply_markup=keyboard,
-        parse_mode="Markdown",
-    )
+    if update.effective_message:
+
+        await update.effective_message.reply_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="Markdown",
+        )
 
 
 # ==========================================================
-# RAFFLE MANAGEMENT MENU
+# RAFFLE MANAGEMENT KEYBOARD
 # ==========================================================
 
 def raffle_management_keyboard():
@@ -143,8 +145,8 @@ def raffle_management_keyboard():
                     callback_data="admin_start_raffle",
                 ),
                 InlineKeyboardButton(
-                    "🎫 Raffle",
-                    callback_data="admin_raffle",
+                    "🎫 Active Raffle",
+                    callback_data="admin_active_raffle",
                 ),
             ],
             [
@@ -180,18 +182,22 @@ def raffle_management_keyboard():
             [
                 InlineKeyboardButton(
                     "🔄 Refresh",
-                    callback_data="admin_refresh",
-                ),
+                    callback_data="admin_raffle_refresh",
+                )
             ],
             [
                 InlineKeyboardButton(
                     "⬅️ Back",
                     callback_data="admin_back",
-                ),
+                )
             ],
         ]
     )
 
+
+# ==========================================================
+# SHOW RAFFLE MANAGEMENT
+# ==========================================================
 
 async def show_raffle_management(
     query,
@@ -199,28 +205,52 @@ async def show_raffle_management(
 ):
 
     text = (
-        "🎟️ **Raffle Management**\n\n"
-        "Use the buttons below to manage the "
-        "Melanated AZ raffle.\n\n"
-        "🎟️ Start Raffle — Create a new raffle\n"
-        "🎫 Raffle — View the active raffle\n"
-        "📊 Status — View raffle status\n"
-        "👥 Entries — View approved entries\n"
-        "⏳ Pending Payments — Review unpaid/pending entries\n"
-        "✅ Completed Payments — View completed entries\n"
-        "🏆 Draw Winner — Select a winner\n"
-        "❌ Cancel Raffle — Cancel the active raffle"
+        "🎟️ *Raffle Management*\n\n"
+        "Manage the Melanated AZ raffle from this menu.\n\n"
+        "🎟️ *Start Raffle*\n"
+        "Create and configure a new raffle.\n\n"
+        "🎫 *Active Raffle*\n"
+        "View the current raffle.\n\n"
+        "📊 *Status*\n"
+        "View the current raffle status.\n\n"
+        "👥 *Entries*\n"
+        "View approved raffle entries.\n\n"
+        "⏳ *Pending Payments*\n"
+        "Review entries waiting for payment verification.\n\n"
+        "✅ *Completed Payments*\n"
+        "View completed/approved payments.\n\n"
+        "🏆 *Draw Winner*\n"
+        "Draw the winner of the active raffle.\n\n"
+        "❌ *Cancel Raffle*\n"
+        "Cancel the active raffle."
     )
 
-    await query.edit_message_text(
-        text=text,
-        reply_markup=raffle_management_keyboard(),
-        parse_mode="Markdown",
-    )
+    try:
+
+        await query.edit_message_text(
+            text=text,
+            reply_markup=raffle_management_keyboard(),
+            parse_mode="Markdown",
+        )
+
+    except Exception as exc:
+
+        logger.exception(
+            "Unable to display raffle management menu: %s",
+            exc,
+        )
+
+        if query.message:
+
+            await query.message.reply_text(
+                text=text,
+                reply_markup=raffle_management_keyboard(),
+                parse_mode="Markdown",
+            )
 
 
 # ==========================================================
-# RUN RAFFLE HANDLER
+# RUN RAFFLE FUNCTION
 # ==========================================================
 
 async def run_raffle_handler(
@@ -237,24 +267,28 @@ async def run_raffle_handler(
             context,
         )
 
-    except Exception:
+    except Exception as exc:
 
         logger.exception(
-            "Error running admin raffle action: %s",
+            "Error running raffle action %s: %s",
             action_name,
+            exc,
         )
 
         query = update.callback_query
 
-        if query:
+        if query and query.message:
 
             try:
+
                 await query.message.reply_text(
-                    "⚠️ An error occurred while processing "
-                    f"the **{action_name}** request.\n\n"
-                    "Please try again.",
+                    f"⚠️ An error occurred while processing "
+                    f"*{action_name}*.\n\n"
+                    f"Please try again.\n\n"
+                    f"Error: `{exc}`",
                     parse_mode="Markdown",
                 )
+
             except Exception:
                 pass
 
@@ -270,7 +304,10 @@ async def admin_start_raffle(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
         start_raffle,
@@ -284,20 +321,23 @@ async def admin_start_raffle(
 # ACTIVE RAFFLE
 # ==========================================================
 
-async def admin_raffle(
+async def admin_active_raffle(
     update,
     context,
 ):
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
-        enter_raffle,
+        raffle_status,
         update,
         context,
-        "Raffle",
+        "Active Raffle",
     )
 
 
@@ -312,7 +352,10 @@ async def admin_status(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
         raffle_status,
@@ -333,7 +376,10 @@ async def admin_entries(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
         raffle_entries,
@@ -344,7 +390,7 @@ async def admin_entries(
 
 
 # ==========================================================
-# PENDING PAYMENTS
+# PENDING
 # ==========================================================
 
 async def admin_pending(
@@ -354,7 +400,10 @@ async def admin_pending(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
         pending_entries,
@@ -365,7 +414,7 @@ async def admin_pending(
 
 
 # ==========================================================
-# COMPLETED PAYMENTS
+# COMPLETED
 # ==========================================================
 
 async def admin_completed(
@@ -375,7 +424,10 @@ async def admin_completed(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
         paid_entry,
@@ -386,7 +438,7 @@ async def admin_completed(
 
 
 # ==========================================================
-# DRAW WINNER
+# DRAW
 # ==========================================================
 
 async def admin_draw(
@@ -396,7 +448,10 @@ async def admin_draw(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
         draw_raffle,
@@ -407,7 +462,7 @@ async def admin_draw(
 
 
 # ==========================================================
-# CANCEL CONFIRMATION
+# CANCEL KEYBOARD
 # ==========================================================
 
 def cancel_confirmation_keyboard():
@@ -430,6 +485,10 @@ def cancel_confirmation_keyboard():
     )
 
 
+# ==========================================================
+# CANCEL
+# ==========================================================
+
 async def admin_cancel(
     update,
     context,
@@ -437,16 +496,23 @@ async def admin_cancel(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await query.edit_message_text(
-        "⚠️ **Cancel Active Raffle?**\n\n"
+        "⚠️ *Cancel Active Raffle?*\n\n"
         "This will cancel the currently active raffle.\n\n"
         "Are you sure you want to continue?",
         reply_markup=cancel_confirmation_keyboard(),
         parse_mode="Markdown",
     )
 
+
+# ==========================================================
+# CONFIRM CANCEL
+# ==========================================================
 
 async def admin_confirm_cancel(
     update,
@@ -455,7 +521,10 @@ async def admin_confirm_cancel(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await run_raffle_handler(
         cancel_raffle,
@@ -466,7 +535,29 @@ async def admin_confirm_cancel(
 
 
 # ==========================================================
-# REFRESH
+# RAFFLE REFRESH
+# ==========================================================
+
+async def admin_raffle_refresh(
+    update,
+    context,
+):
+
+    query = update.callback_query
+
+    try:
+        await query.answer("Raffle menu refreshed.")
+    except Exception:
+        pass
+
+    await show_raffle_management(
+        query,
+        context,
+    )
+
+
+# ==========================================================
+# MAIN REFRESH
 # ==========================================================
 
 async def admin_refresh(
@@ -476,12 +567,14 @@ async def admin_refresh(
 
     query = update.callback_query
 
-    await query.answer(
-        "Admin panel refreshed."
-    )
+    try:
+        await query.answer("Admin panel refreshed.")
+    except Exception:
+        pass
 
     await query.edit_message_text(
-        "👑 **Melanated AZ Admin Panel**\n\n"
+        "👑 *Melanated AZ Admin Panel*\n\n"
+        "Welcome, Admin.\n\n"
         "Select a management area below.",
         reply_markup=admin_main_keyboard(),
         parse_mode="Markdown",
@@ -499,13 +592,57 @@ async def admin_back(
 
     query = update.callback_query
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     await query.edit_message_text(
-        "👑 **Melanated AZ Admin Panel**\n\n"
+        "👑 *Melanated AZ Admin Panel*\n\n"
         "Welcome, Admin.\n\n"
         "Select a management area below.",
         reply_markup=admin_main_keyboard(),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# BIRTHDAY ADMIN MENU
+# ==========================================================
+
+async def admin_birthday(
+    update,
+    context,
+):
+
+    query = update.callback_query
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_back",
+                )
+            ]
+        ]
+    )
+
+    await query.edit_message_text(
+        "🎂 *Birthday Management*\n\n"
+        "Birthday commands:\n\n"
+        "🎂 `/birthday`\n"
+        "Enter or update your birthday.\n\n"
+        "📅 `/mybirthday`\n"
+        "View your saved birthday.\n\n"
+        "🗑️ `/removebirthday`\n"
+        "Remove your saved birthday.",
+        reply_markup=keyboard,
         parse_mode="Markdown",
     )
 
@@ -528,10 +665,13 @@ async def admin_button(
 
     if not user or not is_admin(user.id):
 
-        await query.answer(
-            "⛔ You are not authorized to use the admin panel.",
-            show_alert=True,
-        )
+        try:
+            await query.answer(
+                "⛔ You are not authorized to use the admin panel.",
+                show_alert=True,
+            )
+        except Exception:
+            pass
 
         return
 
@@ -543,9 +683,9 @@ async def admin_button(
         user.id,
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # MAIN MENU
-    # ------------------------------------------------------
+    # ======================================================
 
     if data == "admin_back":
 
@@ -565,13 +705,16 @@ async def admin_button(
 
         return
 
-    # ------------------------------------------------------
+    # ======================================================
     # RAFFLE MANAGEMENT
-    # ------------------------------------------------------
+    # ======================================================
 
     if data == "admin_raffle":
 
-        await query.answer()
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
         await show_raffle_management(
             query,
@@ -583,6 +726,15 @@ async def admin_button(
     if data == "admin_start_raffle":
 
         await admin_start_raffle(
+            update,
+            context,
+        )
+
+        return
+
+    if data == "admin_active_raffle":
+
+        await admin_active_raffle(
             update,
             context,
         )
@@ -652,47 +804,43 @@ async def admin_button(
 
         return
 
-    # ------------------------------------------------------
-    # BIRTHDAY MANAGEMENT
-    # ------------------------------------------------------
+    if data == "admin_raffle_refresh":
 
-    if data == "admin_birthday":
-
-        await query.answer()
-
-        await query.edit_message_text(
-            "🎂 **Birthday Management**\n\n"
-            "Birthday management is available "
-            "through the birthday commands.\n\n"
-            "/birthday\n"
-            "/mybirthday\n"
-            "/removebirthday",
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "⬅️ Back",
-                            callback_data="admin_back",
-                        )
-                    ]
-                ]
-            ),
-            parse_mode="Markdown",
+        await admin_raffle_refresh(
+            update,
+            context,
         )
 
         return
 
-    # ------------------------------------------------------
-    # UNKNOWN ADMIN BUTTON
-    # ------------------------------------------------------
+    # ======================================================
+    # BIRTHDAY
+    # ======================================================
+
+    if data == "admin_birthday":
+
+        await admin_birthday(
+            update,
+            context,
+        )
+
+        return
+
+    # ======================================================
+    # UNKNOWN
+    # ======================================================
 
     logger.warning(
         "Unknown admin callback: %s",
         data,
     )
 
-    await query.answer(
-        "⚠️ This admin option is unavailable.",
-        show_alert=True,
-    )
-```
+    try:
+
+        await query.answer(
+            "⚠️ This admin option is unavailable.",
+            show_alert=True,
+        )
+
+    except Exception:
+        pass
