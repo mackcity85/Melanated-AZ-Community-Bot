@@ -69,6 +69,20 @@ from raffle import (
 )
 
 # ==========================================================
+# BIRTHDAYS
+# ==========================================================
+
+from birthday import (
+    birthday,
+    my_birthday,
+    remove_my_birthday,
+)
+
+from birthday_scheduler import (
+    start_birthday_scheduler,
+)
+
+# ==========================================================
 # LOGGING
 # ==========================================================
 
@@ -79,6 +93,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
 # ==========================================================
 # FLASK HEALTH SERVER
 # ==========================================================
@@ -88,6 +103,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def health():
+
     return "Melanated AZ Bot is running", 200
 
 
@@ -114,8 +130,8 @@ def run_flask():
 # token -> media information
 #
 # NOTE:
-# This is stored in memory. A Render restart clears pending
-# media that has not yet been reposted.
+# This is temporary memory.
+# Raffle and birthday information is stored in SQLite.
 # ==========================================================
 
 pending_media = {}
@@ -145,7 +161,7 @@ Chat: {chat_name}
 
 If you want MelanatedAZ to post the media for you, open the bot using the private link sent in your message.
 
-⚠️ If MelanatedAZ reposts your media, you cannot delete the MelanatedAZ repost.
+⚠️ If MelanatedAZ reposts your media, you cannot delete the MelanatedAZ post.
 
 👑 Thank you for following the MelanatedAZ media rules.
 """
@@ -181,12 +197,13 @@ OPTION 2 — LET MELANATEDAZ POST IT
 
 
 # ==========================================================
-# OPEN BOT BUTTON
-#
-# This sends the member into the bot using a deep link.
+# MEDIA DEEP LINK
 # ==========================================================
 
-def media_deep_link_keyboard(bot_username, token):
+def media_deep_link_keyboard(
+    bot_username,
+    token,
+):
 
     deep_link = (
         f"https://t.me/{bot_username}"
@@ -197,7 +214,7 @@ def media_deep_link_keyboard(bot_username, token):
         [
             [
                 InlineKeyboardButton(
-                    "👑 Open MelanatedAZ Bot to post media",
+                    "👑 Open MelanatedAZ Bot",
                     url=deep_link,
                 )
             ]
@@ -207,12 +224,11 @@ def media_deep_link_keyboard(bot_username, token):
 
 # ==========================================================
 # POST MEDIA BUTTON
-#
-# This button appears INSIDE the bot after the member
-# opens the deep link.
 # ==========================================================
 
-def spoiler_keyboard(token):
+def spoiler_keyboard(
+    token,
+):
 
     return InlineKeyboardMarkup(
         [
@@ -352,15 +368,15 @@ async def send_media_with_spoiler(
 
 
 # ==========================================================
-# MEDIA START FLOW
+# /START ROUTER
 #
-# Handles:
+# Supports:
 #
-# https://t.me/MelanatedAZ_Bot?start=media_TOKEN
-#
-# Telegram converts that into:
-#
+# /start
+# /start raffle_123
 # /start media_TOKEN
+#
+# Deep links automatically open the bot privately.
 # ==========================================================
 
 async def media_start(
@@ -373,18 +389,29 @@ async def media_start(
     if not user:
         return
 
-    # ------------------------------------------------------
-    # Get deep-link argument
-    # ------------------------------------------------------
+    message = update.effective_message
+
+    if not message:
+        return
 
     args = context.args or []
 
+    # ======================================================
+    # NORMAL /START
+    # ======================================================
+
     if not args:
 
-        await update.effective_message.reply_text(
-            "👑 Welcome to the MelanatedAZ Bot.\n\n"
-            "This bot helps manage MelanatedAZ community "
-            "raffles and media moderation."
+        await message.reply_text(
+            "👑 **Welcome to the MelanatedAZ Bot!**\n\n"
+            "I'm the private bot for the Melanated AZ community.\n\n"
+            "🎟️ Raffles\n"
+            "🎂 Birthday recognition\n"
+            "🛡️ Media moderation\n\n"
+            "To enter a raffle, use the "
+            "**REGISTER WITH MELANATED AZ** button "
+            "posted in the group.",
+            parse_mode="Markdown",
         )
 
         return
@@ -401,9 +428,7 @@ async def media_start(
     # MEDIA DEEP LINK
     # ======================================================
 
-    if payload.startswith(
-        "media_"
-    ):
+    if payload.startswith("media_"):
 
         token = payload[
             len("media_"):
@@ -413,13 +438,9 @@ async def media_start(
             token
         )
 
-        # --------------------------------------------------
-        # TOKEN NOT FOUND
-        # --------------------------------------------------
-
         if not media_info:
 
-            await update.effective_message.reply_text(
+            await message.reply_text(
                 "⚠️ This media is no longer available.\n\n"
                 "Please upload the photo/video again "
                 "using Telegram's Spoiler option."
@@ -437,7 +458,7 @@ async def media_start(
 
         if original_user_id != user.id:
 
-            await update.effective_message.reply_text(
+            await message.reply_text(
                 "⚠️ This media belongs to another "
                 "MelanatedAZ member."
             )
@@ -448,8 +469,8 @@ async def media_start(
         # SHOW POST BUTTON
         # --------------------------------------------------
 
-        await update.effective_message.reply_text(
-            "👑 MelanatedAZ Bot\n\n"
+        await message.reply_text(
+            "👑 **MelanatedAZ Bot**\n\n"
             "I have your media ready.\n\n"
             "You can let MelanatedAZ repost it to "
             "the original chat with Telegram's "
@@ -459,27 +480,16 @@ async def media_start(
             reply_markup=spoiler_keyboard(
                 token
             ),
-        )
-
-        logger.info(
-            "Displayed media repost button to user %s "
-            "for token %s",
-            user.id,
-            token,
+            parse_mode="Markdown",
         )
 
         return
 
     # ======================================================
     # RAFFLE DEEP LINK
-    #
-    # Anything beginning with raffle_ is sent to the
-    # existing raffle /start handler.
     # ======================================================
 
-    if payload.startswith(
-        "raffle_"
-    ):
+    if payload.startswith("raffle_"):
 
         await raffle_private_start(
             update,
@@ -489,12 +499,15 @@ async def media_start(
         return
 
     # ======================================================
-    # NORMAL /START
+    # UNKNOWN PAYLOAD
     # ======================================================
 
-    await raffle_private_start(
-        update,
-        context,
+    await message.reply_text(
+        "👑 **Welcome to the MelanatedAZ Bot!**\n\n"
+        "That link is not recognized.\n\n"
+        "Please use the button provided in the "
+        "Melanated AZ group.",
+        parse_mode="Markdown",
     )
 
 
@@ -541,10 +554,6 @@ async def spoiler_repost_button(
         token
     )
 
-    # ======================================================
-    # MEDIA EXPIRED
-    # ======================================================
-
     if not media_info:
 
         await query.answer(
@@ -582,10 +591,6 @@ async def spoiler_repost_button(
 
         return
 
-    # ======================================================
-    # ANSWER BUTTON
-    # ======================================================
-
     await query.answer(
         "MelanatedAZ is posting your media..."
     )
@@ -606,20 +611,17 @@ async def spoiler_repost_button(
             None,
         )
 
-        # ==================================================
-        # CONFIRMATION
-        # ==================================================
-
         try:
 
             await query.edit_message_text(
-                "✅ MelanatedAZ posted your media.\n\n"
+                "✅ **MelanatedAZ posted your media.**\n\n"
                 "Your photo/video was reposted with "
                 "Spoiler enabled.\n\n"
                 "⚠️ Remember: you cannot delete the "
                 "MelanatedAZ repost.\n\n"
                 "👑 Thank you for following the "
-                "MelanatedAZ media rules."
+                "MelanatedAZ media rules.",
+                parse_mode="Markdown",
             )
 
         except Exception:
@@ -673,18 +675,10 @@ async def handle_non_spoiler_media(
     if not message or not user:
         return
 
-    # ======================================================
-    # CHAT NAME
-    # ======================================================
-
     chat_name = (
         message.chat.title
         or "MelanatedAZ"
     )
-
-    # ======================================================
-    # TOKEN
-    # ======================================================
 
     token = uuid.uuid4().hex
 
@@ -718,13 +712,6 @@ async def handle_non_spoiler_media(
     try:
 
         await message.delete()
-
-        logger.info(
-            "Deleted non-spoiler %s from user %s in %s",
-            media_type,
-            user.id,
-            chat_name,
-        )
 
     except Exception:
 
@@ -771,10 +758,6 @@ async def handle_non_spoiler_media(
 
     # ======================================================
     # GROUP WARNING
-    #
-    # NO BUTTON
-    #
-    # DELETED AFTER 60 SECONDS
     # ======================================================
 
     warning_message = None
@@ -788,11 +771,6 @@ async def handle_non_spoiler_media(
             ),
         )
 
-        logger.info(
-            "Sent media warning to %s",
-            chat_name,
-        )
-
     except Exception:
 
         logger.exception(
@@ -803,7 +781,7 @@ async def handle_non_spoiler_media(
     # DELETE WARNING AFTER 60 SECONDS
     # ======================================================
 
-    if warning_message:
+    if warning_message and context.job_queue:
 
         try:
 
@@ -816,12 +794,6 @@ async def handle_non_spoiler_media(
                 },
             )
 
-            logger.info(
-                "Scheduled media warning %s for deletion "
-                "in 60 seconds",
-                warning_message.message_id,
-            )
-
         except Exception:
 
             logger.exception(
@@ -831,12 +803,13 @@ async def handle_non_spoiler_media(
     # ======================================================
     # PRIVATE MESSAGE
     #
-    # IF USER HAS NEVER STARTED BOT:
+    # IMPORTANT:
+    # Telegram cannot initiate a private conversation with
+    # a user who has never started the bot.
     #
-    # Telegram will reject this with 403.
-    #
-    # The group warning still explains the rules, but the
-    # deep link must be available for the member to open.
+    # Therefore the group warning provides instructions,
+    # while the deep-link flow is used once the member
+    # opens the bot.
     # ======================================================
 
     deep_link_markup = media_deep_link_keyboard(
@@ -852,11 +825,6 @@ async def handle_non_spoiler_media(
                 chat_name=chat_name,
             ),
             reply_markup=deep_link_markup,
-        )
-
-        logger.info(
-            "Sent private media instructions to user %s",
-            user.id,
         )
 
     except Exception as exc:
@@ -877,16 +845,16 @@ async def handle_non_spoiler_media(
 # ==========================================================
 # MEDIA SPOILER MODERATION
 #
-# GIFS
-#   ALLOWED
+# GIFS:
+#     ALLOWED
 #
-# PHOTOS
-#   SPOILER     = ALLOWED
-#   NO SPOILER  = DELETED
+# PHOTOS:
+#     SPOILER     = ALLOWED
+#     NO SPOILER  = REMOVED
 #
-# VIDEOS
-#   SPOILER     = ALLOWED
-#   NO SPOILER  = DELETED
+# VIDEOS:
+#     SPOILER     = ALLOWED
+#     NO SPOILER  = REMOVED
 # ==========================================================
 
 async def media_spoiler_handler(
@@ -923,10 +891,6 @@ async def media_spoiler_handler(
 
     if message.photo:
 
-        # --------------------------------------------------
-        # SPOILER PHOTO = ALLOWED
-        # --------------------------------------------------
-
         if message.has_media_spoiler:
 
             logger.info(
@@ -935,10 +899,6 @@ async def media_spoiler_handler(
             )
 
             return
-
-        # --------------------------------------------------
-        # NON-SPOILER PHOTO
-        # --------------------------------------------------
 
         photo = message.photo[-1]
 
@@ -959,10 +919,6 @@ async def media_spoiler_handler(
 
     if message.video:
 
-        # --------------------------------------------------
-        # SPOILER VIDEO = ALLOWED
-        # --------------------------------------------------
-
         if message.has_media_spoiler:
 
             logger.info(
@@ -971,10 +927,6 @@ async def media_spoiler_handler(
             )
 
             return
-
-        # --------------------------------------------------
-        # NON-SPOILER VIDEO
-        # --------------------------------------------------
 
         video = message.video
 
@@ -1017,7 +969,7 @@ async def error_handler(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    logger.exception(
+    logger.error(
         "Exception while processing update:",
         exc_info=context.error,
     )
@@ -1069,19 +1021,7 @@ def main():
     )
 
     # ======================================================
-    # START
-    #
-    # IMPORTANT:
-    # We now use media_start instead of sending every
-    # /start directly to raffle_private_start.
-    #
-    # media_start decides whether the payload is:
-    #
-    # media_TOKEN
-    #
-    # or
-    #
-    # raffle_ID
+    # START / DEEP LINKS
     # ======================================================
 
     application.add_handler(
@@ -1092,7 +1032,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN
+    # ADMIN MENU
     # ======================================================
 
     application.add_handler(
@@ -1114,12 +1054,15 @@ def main():
     )
 
     # ======================================================
-    # ENTER RAFFLE
+    # ENTER / REGISTER RAFFLE
+    #
+    # These commands are still available as a backup.
+    # Normal members should use the REGISTER button.
     # ======================================================
 
     application.add_handler(
         CommandHandler(
-            ["raffle", "enterraffle"],
+            ["raffle", "enterraffle", "register"],
             enter_raffle,
         )
     )
@@ -1136,7 +1079,7 @@ def main():
     )
 
     # ======================================================
-    # STATUS
+    # RAFFLE STATUS
     # ======================================================
 
     application.add_handler(
@@ -1147,7 +1090,7 @@ def main():
     )
 
     # ======================================================
-    # ENTRIES
+    # RAFFLE ENTRIES
     # ======================================================
 
     application.add_handler(
@@ -1224,6 +1167,35 @@ def main():
     )
 
     # ======================================================
+    # BIRTHDAY
+    #
+    # /birthday MM/DD
+    # /mybirthday
+    # /removebirthday
+    # ======================================================
+
+    application.add_handler(
+        CommandHandler(
+            "birthday",
+            birthday,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "mybirthday",
+            my_birthday,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "removebirthday",
+            remove_my_birthday,
+        )
+    )
+
+    # ======================================================
     # ADMIN PANEL BUTTONS
     # ======================================================
 
@@ -1246,7 +1218,7 @@ def main():
     )
 
     # ======================================================
-    # PRIVATE ENTER RAFFLE BUTTON
+    # LEGACY ENTER RAFFLE CALLBACK
     # ======================================================
 
     application.add_handler(
@@ -1257,7 +1229,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN PAYMENT BUTTONS
+    # ADMIN PAYMENT APPROVAL
     # ======================================================
 
     application.add_handler(
@@ -1279,7 +1251,7 @@ def main():
     )
 
     # ======================================================
-    # MEDIA REPOST BUTTON
+    # MEDIA REPOST
     # ======================================================
 
     application.add_handler(
@@ -1290,7 +1262,7 @@ def main():
     )
 
     # ======================================================
-    # MEDIA SPOILER MODERATION
+    # MEDIA MODERATION
     # ======================================================
 
     application.add_handler(
@@ -1311,6 +1283,18 @@ def main():
             filters.TEXT & ~filters.COMMAND,
             text_message_handler,
         )
+    )
+
+    # ======================================================
+    # START BIRTHDAY SCHEDULER
+    #
+    # The scheduler is recreated every time the bot starts.
+    #
+    # The birthday records themselves remain in SQLite.
+    # ======================================================
+
+    start_birthday_scheduler(
+        application
     )
 
     # ======================================================
@@ -1340,4 +1324,5 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
+
     main()
