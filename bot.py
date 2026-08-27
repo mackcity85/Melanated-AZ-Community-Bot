@@ -68,7 +68,6 @@ from raffle import (
     remove_raffle_entry,
 )
 
-
 # ==========================================================
 # LOGGING
 # ==========================================================
@@ -90,6 +89,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def health():
+
     return "Melanated AZ Bot is running", 200
 
 
@@ -112,9 +112,6 @@ def run_flask():
 
 # ==========================================================
 # PENDING MEDIA
-#
-# Temporarily stores non-spoiler media after deletion so
-# the member can have MelanatedAZ repost it with Spoiler.
 # ==========================================================
 
 pending_media = {}
@@ -122,11 +119,6 @@ pending_media = {}
 
 # ==========================================================
 # GROUP MEDIA WARNING
-#
-# This message:
-#   - Appears in the group
-#   - Has NO button
-#   - Is deleted after 30 seconds
 # ==========================================================
 
 GROUP_MEDIA_WARNING = """👑 MelanatedAZ Bot — Media Reminder
@@ -153,9 +145,6 @@ How to post it correctly:
 
 # ==========================================================
 # PRIVATE MEDIA WARNING
-#
-# Same instructions as the group, but also includes the
-# private button allowing MelanatedAZ to repost the media.
 # ==========================================================
 
 PRIVATE_MEDIA_WARNING = """👑 Hi! I'm the MelanatedAZ Bot.
@@ -229,12 +218,6 @@ async def delete_group_warning(
             message_id=message_id,
         )
 
-        logger.info(
-            "Deleted media warning %s from chat %s",
-            message_id,
-            chat_id,
-        )
-
     except Exception:
 
         logger.exception(
@@ -244,14 +227,11 @@ async def delete_group_warning(
 
 # ==========================================================
 # SEND MEDIA WITH SPOILER
-#
-# Reposts to the SAME chat where the original media was
-# posted.
 # ==========================================================
 
 async def send_media_with_spoiler(
-    context: ContextTypes.DEFAULT_TYPE,
-    media_info: dict,
+    context,
+    media_info,
 ):
 
     media_type = media_info.get(
@@ -275,23 +255,13 @@ async def send_media_with_spoiler(
     )
 
     if not media_type:
-        raise ValueError(
-            "Missing media type"
-        )
+        raise ValueError("Missing media type")
 
     if not file_id:
-        raise ValueError(
-            "Missing Telegram file ID"
-        )
+        raise ValueError("Missing Telegram file ID")
 
     if not chat_id:
-        raise ValueError(
-            "Missing original chat ID"
-        )
-
-    # ======================================================
-    # PHOTO
-    # ======================================================
+        raise ValueError("Missing original chat ID")
 
     if media_type == "photo":
 
@@ -304,10 +274,6 @@ async def send_media_with_spoiler(
         )
 
         return
-
-    # ======================================================
-    # VIDEO
-    # ======================================================
 
     if media_type == "video":
 
@@ -331,8 +297,8 @@ async def send_media_with_spoiler(
 # ==========================================================
 
 async def spoiler_repost_button(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     query = update.callback_query
@@ -343,7 +309,9 @@ async def spoiler_repost_button(
     user = update.effective_user
 
     if not user:
+
         await query.answer()
+
         return
 
     data = query.data or ""
@@ -351,7 +319,9 @@ async def spoiler_repost_button(
     if not data.startswith(
         "spoiler_repost:"
     ):
+
         await query.answer()
+
         return
 
     token = data.split(
@@ -362,10 +332,6 @@ async def spoiler_repost_button(
     media_info = pending_media.get(
         token
     )
-
-    # ======================================================
-    # MEDIA EXPIRED
-    # ======================================================
 
     if not media_info:
 
@@ -384,13 +350,10 @@ async def spoiler_repost_button(
             )
 
         except Exception:
+
             pass
 
         return
-
-    # ======================================================
-    # VERIFY USER
-    # ======================================================
 
     original_user_id = media_info.get(
         "user_id"
@@ -404,10 +367,6 @@ async def spoiler_repost_button(
         )
 
         return
-
-    # ======================================================
-    # POST
-    # ======================================================
 
     await query.answer(
         "MelanatedAZ is posting your media..."
@@ -425,10 +384,6 @@ async def spoiler_repost_button(
             None,
         )
 
-        # ==================================================
-        # PRIVATE CONFIRMATION
-        # ==================================================
-
         try:
 
             await query.edit_message_text(
@@ -442,13 +397,8 @@ async def spoiler_repost_button(
             )
 
         except Exception:
-            pass
 
-        logger.info(
-            "Reposted %s with spoiler for user %s",
-            media_info.get("type"),
-            user.id,
-        )
+            pass
 
     except Exception:
 
@@ -466,6 +416,7 @@ async def spoiler_repost_button(
             )
 
         except Exception:
+
             pass
 
 
@@ -474,10 +425,10 @@ async def spoiler_repost_button(
 # ==========================================================
 
 async def handle_non_spoiler_media(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    media_type: str,
-    file_id: str,
+    update,
+    context,
+    media_type,
+    file_id,
     caption=None,
     caption_entities=None,
 ):
@@ -489,24 +440,12 @@ async def handle_non_spoiler_media(
     if not message or not user:
         return
 
-    # ======================================================
-    # CHAT NAME
-    # ======================================================
-
     chat_name = (
         message.chat.title
         or "MelanatedAZ"
     )
 
-    # ======================================================
-    # TOKEN
-    # ======================================================
-
     token = uuid.uuid4().hex
-
-    # ======================================================
-    # SAVE MEDIA
-    # ======================================================
 
     pending_media[token] = {
         "type": media_type,
@@ -519,20 +458,9 @@ async def handle_non_spoiler_media(
         "chat_name": chat_name,
     }
 
-    # ======================================================
-    # DELETE ORIGINAL MEDIA
-    # ======================================================
-
     try:
 
         await message.delete()
-
-        logger.info(
-            "Deleted non-spoiler %s from user %s in %s",
-            media_type,
-            user.id,
-            chat_name,
-        )
 
     except Exception:
 
@@ -548,12 +476,6 @@ async def handle_non_spoiler_media(
 
         return
 
-    # ======================================================
-    # GROUP WARNING
-    #
-    # NO BUTTON
-    # ======================================================
-
     warning_message = None
 
     try:
@@ -565,22 +487,13 @@ async def handle_non_spoiler_media(
             ),
         )
 
-        logger.info(
-            "Sent media warning to %s",
-            chat_name,
-        )
-
     except Exception:
 
         logger.exception(
             "Failed to send group media warning"
         )
 
-    # ======================================================
-    # DELETE GROUP WARNING AFTER 30 SECONDS
-    # ======================================================
-
-    if warning_message:
+    if warning_message and context.job_queue:
 
         try:
 
@@ -599,12 +512,6 @@ async def handle_non_spoiler_media(
                 "Failed to schedule warning deletion"
             )
 
-    # ======================================================
-    # PRIVATE WARNING
-    #
-    # ONLY PRIVATE MESSAGE HAS BUTTON
-    # ======================================================
-
     try:
 
         await context.bot.send_message(
@@ -617,17 +524,11 @@ async def handle_non_spoiler_media(
             ),
         )
 
-        logger.info(
-            "Sent private media warning to user %s",
-            user.id,
-        )
-
     except Exception as exc:
 
         logger.warning(
             "Could not send private media warning "
-            "to user %s. User may not have started "
-            "the bot privately. Error: %s",
+            "to user %s: %s",
             user.id,
             exc,
         )
@@ -635,22 +536,11 @@ async def handle_non_spoiler_media(
 
 # ==========================================================
 # MEDIA SPOILER MODERATION
-#
-# GIFS
-#   ALLOWED
-#
-# PHOTOS
-#   SPOILER     = ALLOWED
-#   NO SPOILER  = DELETED
-#
-# VIDEOS
-#   SPOILER     = ALLOWED
-#   NO SPOILER  = DELETED
 # ==========================================================
 
 async def media_spoiler_handler(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     message = update.effective_message
@@ -663,87 +553,41 @@ async def media_spoiler_handler(
     if not user:
         return
 
-    # ======================================================
-    # GIF / ANIMATION
-    # ======================================================
-
     if message.animation:
-
-        logger.info(
-            "GIF/animation allowed from user %s",
-            user.id,
-        )
-
         return
-
-    # ======================================================
-    # PHOTO
-    # ======================================================
 
     if message.photo:
 
-        # --------------------------------------------------
-        # SPOILER PHOTO = ALLOWED
-        # --------------------------------------------------
-
         if message.has_media_spoiler:
-
-            logger.info(
-                "Spoiler photo allowed from user %s",
-                user.id,
-            )
-
             return
-
-        # --------------------------------------------------
-        # NON-SPOILER PHOTO
-        # --------------------------------------------------
 
         photo = message.photo[-1]
 
         await handle_non_spoiler_media(
-            update=update,
-            context=context,
-            media_type="photo",
-            file_id=photo.file_id,
-            caption=message.caption,
-            caption_entities=message.caption_entities,
+            update,
+            context,
+            "photo",
+            photo.file_id,
+            message.caption,
+            message.caption_entities,
         )
 
         return
 
-    # ======================================================
-    # VIDEO
-    # ======================================================
-
     if message.video:
 
-        # --------------------------------------------------
-        # SPOILER VIDEO = ALLOWED
-        # --------------------------------------------------
-
         if message.has_media_spoiler:
-
-            logger.info(
-                "Spoiler video allowed from user %s",
-                user.id,
-            )
-
             return
-
-        # --------------------------------------------------
-        # NON-SPOILER VIDEO
-        # --------------------------------------------------
 
         video = message.video
 
         await handle_non_spoiler_media(
-            update=update,
-            context=context,
-            media_type="video",
-            file_id=video.file_id,
-            caption=message.caption,
-            caption_entities=message.caption_entities,
+            update,
+            context,
+            "video",
+            video.file_id,
+            message.caption,
+            message.caption_entities,
         )
 
         return
@@ -754,8 +598,8 @@ async def media_spoiler_handler(
 # ==========================================================
 
 async def text_message_handler(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     handled = await handle_raffle_setup(
@@ -772,8 +616,8 @@ async def text_message_handler(
 # ==========================================================
 
 async def error_handler(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     logger.exception(
@@ -1001,7 +845,10 @@ def main():
     )
 
     # ======================================================
-    # PRIVATE ENTER RAFFLE BUTTON
+    # OLD RAFFLE ENTER BUTTONS
+    #
+    # Kept so previously posted raffle messages still work.
+    # New raffle messages use a direct Telegram URL button.
     # ======================================================
 
     application.add_handler(
@@ -1035,8 +882,6 @@ def main():
 
     # ======================================================
     # MEDIA REPOST BUTTON
-    #
-    # ONLY AVAILABLE IN PRIVATE CHAT
     # ======================================================
 
     application.add_handler(
@@ -1048,10 +893,6 @@ def main():
 
     # ======================================================
     # MEDIA SPOILER MODERATION
-    #
-    # GIFS       = ALLOWED
-    # SPOILER    = ALLOWED
-    # NO SPOILER = DELETED
     # ======================================================
 
     application.add_handler(
