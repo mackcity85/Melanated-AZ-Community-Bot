@@ -19,6 +19,12 @@
 #
 # Raffle:
 #   - Existing raffle system preserved
+#
+# Database:
+#   - Persistent SQLite database
+#   - Database location is printed at startup
+#   - Database statistics are printed at startup
+#   - Existing data is NOT deleted
 # ==========================================================
 
 import logging
@@ -86,6 +92,20 @@ from birthday_scheduler import (
     start_birthday_scheduler,
 )
 
+# ==========================================================
+# DATABASE
+# ==========================================================
+#
+# IMPORTANT:
+# Importing this module initializes the database tables
+# without deleting existing data.
+#
+# The diagnostics below tell us exactly which database file
+# the running Render instance is using.
+# ==========================================================
+
+import raffle_database
+
 
 # ==========================================================
 # LOGGING
@@ -103,6 +123,116 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
+# DATABASE DIAGNOSTICS
+# ==========================================================
+
+def log_database_information():
+
+    print("")
+    print("==========================================================")
+    print("Melanated AZ Bot - DATABASE INFORMATION")
+    print("==========================================================")
+
+    try:
+
+        database_path = raffle_database.DB_NAME
+
+        print(
+            "Database path :",
+            database_path,
+        )
+
+        print(
+            "Absolute path :",
+            os.path.abspath(database_path),
+        )
+
+        exists = os.path.exists(
+            database_path
+        )
+
+        print(
+            "Database exists:",
+            exists,
+        )
+
+        if exists:
+
+            print(
+                "Database size :",
+                os.path.getsize(
+                    database_path
+                ),
+                "bytes",
+            )
+
+        print("")
+        print("Checking database tables...")
+
+        # Make absolutely sure required tables exist.
+        raffle_database.initialize_database()
+
+        stats = (
+            raffle_database.get_database_stats()
+        )
+
+        print("")
+        print("DATABASE CONTENTS")
+        print("-----------------")
+
+        print(
+            "Raffles       :",
+            stats.get(
+                "raffles",
+                0,
+            ),
+        )
+
+        print(
+            "Raffle Entries:",
+            stats.get(
+                "raffle_entries",
+                0,
+            ),
+        )
+
+        print(
+            "Birthdays     :",
+            stats.get(
+                "birthdays",
+                0,
+            ),
+        )
+
+        print("")
+        print("Database check completed successfully.")
+
+    except Exception as exc:
+
+        print("")
+        print(
+            "DATABASE ERROR:",
+            str(exc),
+        )
+
+        logger.exception(
+            "Database diagnostics failed"
+        )
+
+    print(
+        "=========================================================="
+    )
+    print("")
+
+
+# ==========================================================
+# RUN DATABASE DIAGNOSTICS
+# ==========================================================
+
+log_database_information()
+
+
+# ==========================================================
 # FLASK HEALTH SERVER
 # ==========================================================
 
@@ -111,6 +241,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def health():
+
     return (
         "Melanated AZ Bot is running",
         200,
@@ -208,12 +339,6 @@ OPTION 2 — LET MELANATEDAZ POST IT
 
 # ==========================================================
 # MEDIA DEEP LINK
-#
-# The group button opens the bot with:
-#
-# /start media_TOKEN
-#
-# The member does NOT have to enter a username or user ID.
 # ==========================================================
 
 def media_deep_link_keyboard(
@@ -242,7 +367,9 @@ def media_deep_link_keyboard(
 # PRIVATE REPOST BUTTON
 # ==========================================================
 
-def spoiler_keyboard(token):
+def spoiler_keyboard(
+    token,
+):
 
     return InlineKeyboardMarkup(
         [
@@ -260,8 +387,6 @@ def spoiler_keyboard(token):
 
 # ==========================================================
 # DELETE GROUP WARNING
-#
-# Runs 180 seconds after the warning is created.
 # ==========================================================
 
 async def delete_group_warning(
@@ -283,7 +408,10 @@ async def delete_group_warning(
         "message_id"
     )
 
-    if chat_id is None or message_id is None:
+    if (
+        chat_id is None
+        or message_id is None
+    ):
         return
 
     try:
@@ -294,8 +422,8 @@ async def delete_group_warning(
         )
 
         logger.info(
-            "Deleted group media warning after 3 minutes | "
-            "chat=%s | message=%s",
+            "Deleted group media warning after "
+            "3 minutes | chat=%s | message=%s",
             chat_id,
             message_id,
         )
@@ -341,23 +469,26 @@ async def send_media_with_spoiler(
     )
 
     if not media_type:
+
         raise ValueError(
             "Missing media type"
         )
 
     if not file_id:
+
         raise ValueError(
             "Missing Telegram file ID"
         )
 
     if chat_id is None:
+
         raise ValueError(
             "Missing original chat ID"
         )
 
-    # ------------------------------------------------------
+    # ======================================================
     # PHOTO
-    # ------------------------------------------------------
+    # ======================================================
 
     if media_type == "photo":
 
@@ -371,9 +502,9 @@ async def send_media_with_spoiler(
 
         return
 
-    # ------------------------------------------------------
+    # ======================================================
     # VIDEO
-    # ------------------------------------------------------
+    # ======================================================
 
     if media_type == "video":
 
@@ -459,7 +590,7 @@ async def media_start(
             return
 
         # --------------------------------------------------
-        # Verify the person opening the link owns the media
+        # SECURITY
         # --------------------------------------------------
 
         if media_info.get(
@@ -472,10 +603,6 @@ async def media_start(
             )
 
             return
-
-        # --------------------------------------------------
-        # Give member repost option
-        # --------------------------------------------------
 
         await message.reply_text(
             "👑 **MelanatedAZ Bot**\n\n"
@@ -595,10 +722,6 @@ async def spoiler_repost_button(
             media_info,
         )
 
-        # --------------------------------------------------
-        # Remove saved media after successful repost
-        # --------------------------------------------------
-
         pending_media.pop(
             token,
             None,
@@ -649,24 +772,12 @@ async def handle_non_spoiler_media(
     if not message or not user:
         return
 
-    # ======================================================
-    # CHAT NAME
-    # ======================================================
-
     chat_name = (
         message.chat.title
         or "MelanatedAZ"
     )
 
-    # ======================================================
-    # UNIQUE TOKEN
-    # ======================================================
-
     token = uuid.uuid4().hex
-
-    # ======================================================
-    # SAVE MEDIA
-    # ======================================================
 
     pending_media[token] = {
         "type": media_type,
@@ -749,10 +860,6 @@ async def handle_non_spoiler_media(
 
         return
 
-    # ======================================================
-    # CREATE THE SAME BUTTON FOR BOTH PLACES
-    # ======================================================
-
     media_button = (
         media_deep_link_keyboard(
             bot_username,
@@ -762,9 +869,6 @@ async def handle_non_spoiler_media(
 
     # ======================================================
     # SEND GROUP WARNING
-    #
-    # IMPORTANT:
-    # The button is attached directly to the GROUP message.
     # ======================================================
 
     warning_message = None
@@ -797,9 +901,7 @@ async def handle_non_spoiler_media(
         )
 
     # ======================================================
-    # KEEP GROUP WARNING FOR 3 MINUTES
-    #
-    # 180 seconds = 3 minutes
+    # DELETE GROUP WARNING AFTER 180 SECONDS
     # ======================================================
 
     if (
@@ -828,10 +930,7 @@ async def handle_non_spoiler_media(
         )
 
     # ======================================================
-    # SEND PRIVATE MESSAGE
-    #
-    # This is attempted, but it is NOT required for the
-    # workflow because the group button is also available.
+    # PRIVATE MESSAGE
     # ======================================================
 
     try:
@@ -893,7 +992,6 @@ async def media_spoiler_handler(
 
     if message.photo:
 
-        # Already spoilered = ALLOW
         if message.has_media_spoiler:
             return
 
@@ -916,7 +1014,6 @@ async def media_spoiler_handler(
 
     if message.video:
 
-        # Already spoilered = ALLOW
         if message.has_media_spoiler:
             return
 
@@ -944,7 +1041,7 @@ async def text_message_handler(
 ):
 
     # ======================================================
-    # BIRTHDAY HAS PRIORITY
+    # BIRTHDAY
     # ======================================================
 
     birthday_handled = (
@@ -1004,6 +1101,12 @@ def main():
         "Raffle Chat ID: %s",
         RAFFLE_CHAT_ID,
     )
+
+    # ======================================================
+    # DATABASE CHECK
+    # ======================================================
+
+    log_database_information()
 
     # ======================================================
     # FLASK
