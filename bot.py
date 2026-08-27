@@ -4,30 +4,21 @@
 #
 # COMPLETE PRODUCTION REPLACEMENT
 #
-# Responsibilities:
-#   - Start Telegram bot
-#   - Start Flask health endpoint
-#   - Media spoiler enforcement
-#   - Birthday commands/scheduler
-#   - Raffle command/callback routing
-#   - Admin command/callback routing
+# FIXES:
+#   - Raffle buttons now work
+#   - Uses raffle.py central callback router
+#   - Correct callback_data routing
+#   - Raffle countdown scheduler enabled
+#   - Birthday scheduler retained
+#   - Media spoiler enforcement retained
 #   - Safe Telegram application lifecycle
 #   - Centralized logging/error handling
 #
 # IMPORTANT:
-#   - Raffle business logic remains in raffle.py
-#   - Birthday business logic remains in birthday.py
-#   - Admin business logic remains in admin.py
-#
-# MEDIA:
-#   - Photos MUST use Telegram Spoiler
-#   - Videos MUST use Telegram Spoiler
-#   - Non-spoiler photos/videos are deleted
-#   - User receives instructions
-#   - User receives a button to repost through the bot
-#   - Bot reposts with Spoiler enabled
-#   - GIFs/animations are allowed
-#   - Image documents are NOT treated as spoiler media
+#   Raffle business logic remains in raffle.py
+#   Birthday business logic remains in birthday.py
+#   Admin business logic remains in admin.py
+#   Database logic remains in raffle_database.py
 #
 # ==========================================================
 
@@ -35,6 +26,7 @@ import logging
 import os
 import threading
 import uuid
+import time
 from typing import Optional
 
 from flask import Flask
@@ -99,8 +91,10 @@ PORT = int(
 
 MEDIA_WARNING_SECONDS = 180
 
-# Maximum amount of time an unsent media item stays in memory.
 MEDIA_EXPIRATION_SECONDS = 600
+
+# Raffle countdown update interval
+RAFFLE_COUNTDOWN_INTERVAL = 60
 
 
 # ==========================================================
@@ -151,12 +145,13 @@ REQUIRED_RAFFLE_FUNCTIONS = [
     "reroll_raffle",
     "bonus_entry",
     "remove_raffle_entry",
+    "raffle_callback_router",
 ]
 
 
 def load_raffle_functions():
     """
-    Validate all raffle functions before Telegram polling starts.
+    Validate raffle functions before Telegram polling starts.
     """
 
     missing = []
@@ -215,7 +210,7 @@ if callable(handle_raffle_setup):
 
 else:
 
-    logger.warning(
+    logger.info(
         "raffle.handle_raffle_setup is not available. "
         "Raffle text setup handler is disabled."
     )
@@ -272,15 +267,6 @@ def run_health_server():
 
 # ==========================================================
 # PENDING MEDIA
-#
-# IMPORTANT:
-# This dictionary is process memory only.
-#
-# Telegram file IDs are used, so media does not need to be
-# downloaded to disk.
-#
-# This is intentionally temporary. Raffle/birthday data is
-# handled by their respective database modules.
 # ==========================================================
 
 pending_media = {}
@@ -465,7 +451,7 @@ async def delete_group_warning(
     except TelegramError as exc:
 
         logger.warning(
-            "Telegram error deleting warning | "
+            "Telegram error deleting media warning | "
             "chat=%s | message=%s | %s",
             chat_id,
             message_id,
@@ -490,8 +476,6 @@ async def delete_group_warning(
 async def cleanup_pending_media(
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
-    import time
 
     now = time.time()
 
@@ -560,26 +544,19 @@ async def send_media_with_spoiler(
     )
 
     if not media_type:
-
         raise ValueError(
             "Missing media type."
         )
 
     if not file_id:
-
         raise ValueError(
             "Missing Telegram file ID."
         )
 
     if chat_id is None:
-
         raise ValueError(
             "Missing original chat ID."
         )
-
-    # ------------------------------------------------------
-    # PHOTO
-    # ------------------------------------------------------
 
     if media_type == "photo":
 
@@ -592,10 +569,6 @@ async def send_media_with_spoiler(
         )
 
         return
-
-    # ------------------------------------------------------
-    # VIDEO
-    # ------------------------------------------------------
 
     if media_type == "video":
 
@@ -631,10 +604,6 @@ async def media_start(
 
     args = context.args or []
 
-    # ------------------------------------------------------
-    # NORMAL /START
-    # ------------------------------------------------------
-
     if not args:
 
         await message.reply_text(
@@ -653,9 +622,7 @@ async def media_start(
     # MEDIA DEEP LINK
     # ------------------------------------------------------
 
-    if payload.startswith(
-        "media_"
-    ):
+    if payload.startswith("media_"):
 
         token = payload[
             len("media_"):
@@ -706,9 +673,7 @@ async def media_start(
     # RAFFLE DEEP LINK
     # ------------------------------------------------------
 
-    if payload.startswith(
-        "raffle_"
-    ):
+    if payload.startswith("raffle_"):
 
         await RAFFLE[
             "raffle_private_start"
@@ -748,9 +713,7 @@ async def spoiler_repost_button(
     user = update.effective_user
 
     if not user:
-
         await query.answer()
-
         return
 
     data = query.data or ""
@@ -803,9 +766,6 @@ async def spoiler_repost_button(
             media_info,
         )
 
-        # Only remove from memory AFTER the
-        # Telegram repost succeeds.
-
         pending_media.pop(
             token,
             None,
@@ -848,9 +808,7 @@ async def spoiler_repost_button(
                 "your media.\n\n"
                 "Your saved media has not been removed "
                 "from the pending queue.\n\n"
-                "Please try the button again. If it "
-                "continues to fail, upload the media "
-                "again using Telegram's Spoiler option."
+                "Please try the button again."
             )
 
         except TelegramError:
@@ -872,8 +830,6 @@ async def handle_non_spoiler_media(
     caption: Optional[str] = None,
     caption_entities=None,
 ):
-
-    import time
 
     message = update.effective_message
     user = update.effective_user
@@ -1103,12 +1059,7 @@ async def media_spoiler_handler(
     if not user:
         return
 
-    # ------------------------------------------------------
-    # GIFS / ANIMATIONS
-    #
-    # GIFs are explicitly allowed.
-    # ------------------------------------------------------
-
+    # GIFs / animations allowed
     if message.animation:
 
         logger.info(
@@ -1119,10 +1070,7 @@ async def media_spoiler_handler(
 
         return
 
-    # ------------------------------------------------------
     # PHOTO
-    # ------------------------------------------------------
-
     if message.photo:
 
         if message.has_media_spoiler:
@@ -1148,10 +1096,7 @@ async def media_spoiler_handler(
 
         return
 
-    # ------------------------------------------------------
     # VIDEO
-    # ------------------------------------------------------
-
     if message.video:
 
         if message.has_media_spoiler:
@@ -1188,7 +1133,7 @@ async def text_message_handler(
 ):
 
     # ------------------------------------------------------
-    # BIRTHDAY TEXT HANDLER
+    # BIRTHDAY
     # ------------------------------------------------------
 
     try:
@@ -1280,9 +1225,9 @@ def register_handlers(
     application: Application,
 ):
 
-    # ------------------------------------------------------
+    # ======================================================
     # START
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1291,9 +1236,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # ADMIN
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1302,9 +1247,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # RAFFLE COMMANDS
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1389,9 +1334,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # BIRTHDAY
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1414,9 +1359,41 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
+    # CALLBACK ROUTING
+    #
+    # IMPORTANT:
+    #
+    # raffle.py already contains the authoritative
+    # raffle_callback_router().
+    #
+    # DO NOT duplicate raffle callback patterns here.
+    #
+    # This fixes the button problem.
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            RAFFLE["raffle_callback_router"],
+            pattern=(
+                r"^(?:"
+                r"raffle_enter"
+                r"|raffle_cashapp"
+                r"|raffle_zelle"
+                r"|pay_cashapp:\d+"
+                r"|pay_zelle:\d+"
+                r"|approve_raffle:\d+"
+                r"|cancel_raffle:\d+"
+                r"|approve_entry:\d+"
+                r"|deny_entry:\d+"
+                r")$"
+            ),
+        )
+    )
+
+    # ======================================================
     # BIRTHDAY CALLBACKS
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1425,9 +1402,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # ADMIN CALLBACKS
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1436,53 +1413,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
-    # RAFFLE APPROVAL
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            RAFFLE["raffle_approval_button"],
-            pattern=r"^raffle_(?:approve|cancel)_\d+$",
-        )
-    )
-
-    # ------------------------------------------------------
-    # RAFFLE ENTER
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            RAFFLE["raffle_enter_button"],
-            pattern=r"^raffle_enter_\d+$",
-        )
-    )
-
-    # ------------------------------------------------------
-    # ADMIN PAYMENT
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            RAFFLE["admin_payment_button"],
-            pattern=r"^(approve|deny)_\d+$",
-        )
-    )
-
-    # ------------------------------------------------------
-    # PAYMENT
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            RAFFLE["payment_button"],
-            pattern=r"^raffle_(cashapp|zelle)_\d+$",
-        )
-    )
-
-    # ------------------------------------------------------
+    # ======================================================
     # MEDIA REPOST
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1491,9 +1424,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # MEDIA
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         MessageHandler(
@@ -1504,9 +1437,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # TEXT
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         MessageHandler(
@@ -1515,9 +1448,9 @@ def register_handlers(
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # ERROR HANDLER
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_error_handler(
         error_handler
@@ -1525,6 +1458,10 @@ def register_handlers(
 
     logger.info(
         "All Telegram handlers registered."
+    )
+
+    logger.info(
+        "Raffle callback router registered."
     )
 
 
@@ -1540,9 +1477,9 @@ async def post_init(
         "Telegram application initialization complete."
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # VERIFY BOT
-    # ------------------------------------------------------
+    # ======================================================
 
     try:
 
@@ -1561,9 +1498,9 @@ async def post_init(
 
         raise
 
-    # ------------------------------------------------------
-    # PENDING MEDIA CLEANUP
-    # ------------------------------------------------------
+    # ======================================================
+    # MEDIA CLEANUP
+    # ======================================================
 
     if application.job_queue:
 
@@ -1576,6 +1513,37 @@ async def post_init(
 
         logger.info(
             "Pending media cleanup scheduler started."
+        )
+
+    else:
+
+        logger.warning(
+            "JobQueue unavailable. "
+            "Media cleanup scheduler disabled."
+        )
+
+    # ======================================================
+    # RAFFLE COUNTDOWN
+    # ======================================================
+
+    if application.job_queue:
+
+        application.job_queue.run_repeating(
+            RAFFLE["update_raffle_countdown"],
+            interval=RAFFLE_COUNTDOWN_INTERVAL,
+            first=10,
+            name="raffle_countdown",
+        )
+
+        logger.info(
+            "Raffle countdown scheduler started."
+        )
+
+    else:
+
+        logger.warning(
+            "JobQueue unavailable. "
+            "Raffle countdown scheduler disabled."
         )
 
 
@@ -1597,9 +1565,9 @@ def main():
         "=================================================="
     )
 
-    # ------------------------------------------------------
-    # STARTUP CONFIG VALIDATION
-    # ------------------------------------------------------
+    # ======================================================
+    # CONFIG VALIDATION
+    # ======================================================
 
     if not BOT_TOKEN:
 
@@ -1622,9 +1590,9 @@ def main():
         PORT,
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # HEALTH SERVER
-    # ------------------------------------------------------
+    # ======================================================
 
     health_thread = threading.Thread(
         target=run_health_server,
@@ -1638,9 +1606,9 @@ def main():
         "🌐 Flask health server started."
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # TELEGRAM APPLICATION
-    # ------------------------------------------------------
+    # ======================================================
 
     application = (
         Application.builder()
@@ -1649,17 +1617,17 @@ def main():
         .build()
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # REGISTER HANDLERS
-    # ------------------------------------------------------
+    # ======================================================
 
     register_handlers(
         application
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # BIRTHDAY SCHEDULER
-    # ------------------------------------------------------
+    # ======================================================
 
     try:
 
@@ -1679,15 +1647,12 @@ def main():
 
         raise
 
-    # ------------------------------------------------------
+    # ======================================================
     # START POLLING
     #
     # IMPORTANT:
-    # Do NOT use drop_pending_updates=True.
-    #
-    # This prevents legitimate updates waiting while
-    # Render restarts/deploys from being silently discarded.
-    # ------------------------------------------------------
+    # Keep pending updates.
+    # ======================================================
 
     logger.info(
         "📡 Starting Telegram polling..."
