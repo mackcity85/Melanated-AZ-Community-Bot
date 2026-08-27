@@ -29,6 +29,9 @@ def birthday_message(birthday):
         or "Melanated AZ member"
     )
 
+    if birthday.get("username") and not birthday.get("display_name"):
+        name = f"@{birthday['username']}"
+
     return (
         "🎉🎂 **HAPPY BIRTHDAY!** 🎂🎉\n\n"
         f"Help us wish **{name}** a very Happy Birthday! 🥳\n\n"
@@ -52,13 +55,24 @@ async def birthday_scheduler(
     month_day = today.strftime("%m/%d")
 
     logger.info(
-        "Birthday scheduler checking %s",
+        "🎂 Birthday scheduler checking %s",
         month_day,
     )
 
-    birthdays = get_birthdays_for_date(
-        month_day
-    )
+    try:
+
+        birthdays = get_birthdays_for_date(
+            month_day
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unable to retrieve birthdays for %s",
+            month_day,
+        )
+
+        return
 
     if not birthdays:
 
@@ -75,9 +89,12 @@ async def birthday_scheduler(
         month_day,
     )
 
-    sent = 0
-
     for birthday in birthdays:
+
+        # --------------------------------------------------
+        # Use the chat where the birthday was registered.
+        # Fall back to RAFFLE_CHAT_ID if necessary.
+        # --------------------------------------------------
 
         chat_id = birthday.get("chat_id")
 
@@ -97,14 +114,14 @@ async def birthday_scheduler(
 
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=birthday_message(birthday),
+                text=birthday_message(
+                    birthday
+                ),
                 parse_mode="Markdown",
             )
 
-            sent += 1
-
             logger.info(
-                "Birthday message sent for user %s "
+                "🎂 Birthday message sent for user %s "
                 "in chat %s",
                 birthday.get("user_id"),
                 chat_id,
@@ -114,43 +131,80 @@ async def birthday_scheduler(
 
             logger.exception(
                 "Unable to send birthday message "
-                "for user %s",
+                "for user %s in chat %s",
                 birthday.get("user_id"),
+                chat_id,
             )
-
-    logger.info(
-        "Birthday scheduler completed. "
-        "Sent %s message(s).",
-        sent,
-    )
 
 
 # ==========================================================
 # START BIRTHDAY SCHEDULER
 # ==========================================================
 
-def start_birthday_scheduler(application):
+def start_birthday_scheduler(
+    application,
+):
+
+    # ------------------------------------------------------
+    # Make sure JobQueue is available.
+    # ------------------------------------------------------
 
     if not application.job_queue:
 
         logger.error(
-            "JobQueue is not available. "
+            "❌ JobQueue is not available.\n"
             "Install python-telegram-bot[job-queue]."
         )
 
         return
 
-    existing_jobs = application.job_queue.jobs(
-        name="melanated_birthday_scheduler"
-    )
+    # ------------------------------------------------------
+    # Check for an existing birthday scheduler.
+    #
+    # IMPORTANT:
+    # python-telegram-bot uses:
+    #
+    # get_jobs_by_name()
+    #
+    # NOT:
+    #
+    # jobs(name=...)
+    # ------------------------------------------------------
+
+    try:
+
+        existing_jobs = (
+            application.job_queue
+            .get_jobs_by_name(
+                "melanated_birthday_scheduler"
+            )
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unable to check for existing birthday scheduler."
+        )
+
+        existing_jobs = ()
 
     if existing_jobs:
 
         logger.info(
-            "Birthday scheduler is already running."
+            "🎂 Birthday scheduler is already running."
         )
 
         return
+
+    # ------------------------------------------------------
+    # Schedule birthday check every day at 9:00 AM.
+    #
+    # The scheduler itself is recreated whenever the bot
+    # restarts.
+    #
+    # Birthday records remain permanently stored in the
+    # SQLite database.
+    # ------------------------------------------------------
 
     application.job_queue.run_daily(
         birthday_scheduler,
@@ -162,5 +216,6 @@ def start_birthday_scheduler(application):
     )
 
     logger.info(
-        "🎂 Birthday scheduler started."
+        "🎂 Birthday scheduler started — "
+        "daily at 9:00 AM."
     )
