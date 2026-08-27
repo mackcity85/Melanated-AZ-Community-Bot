@@ -8,7 +8,21 @@
 #   - Birthdays
 #
 # IMPORTANT:
+#   The database MUST live on the Render Persistent Disk.
+#
+#   Recommended Render Persistent Disk mount:
+#
+#       /var/data
+#
+#   Database:
+#
+#       /var/data/raffle.db
+#
 # This file NEVER deletes existing database data.
+#
+# It will NOT fall back to the application filesystem.
+# If /var/data is not mounted, the bot will stop instead
+# of accidentally creating a temporary database.
 # ==========================================================
 
 import os
@@ -17,42 +31,62 @@ from datetime import datetime
 
 
 # ==========================================================
-# DATABASE LOCATION
-# ==========================================================
-#
-# RAFFLE_DB_NAME can be set in Render environment variables.
-#
-# Recommended Render value:
-#
-# /var/data/raffle.db
-#
-# if your Render Persistent Disk is mounted at /var/data.
-#
-# If RAFFLE_DB_NAME is not set, use /var/data when available.
-# Otherwise use the application's local directory.
+# DATABASE CONFIGURATION
 # ==========================================================
 
-ENV_DB_NAME = os.environ.get("RAFFLE_DB_NAME", "").strip()
+# Render environment variable can explicitly specify the
+# database path.
+#
+# Recommended:
+#
+# RAFFLE_DB_NAME=/var/data/raffle.db
+#
+# If the variable is not present, we still use the persistent
+# disk location.
+#
+# IMPORTANT:
+# Do NOT point this at:
+#
+# /opt/render/project/src/raffle.db
+#
+# That location is part of the application filesystem and
+# is NOT persistent across deployments.
 
-if ENV_DB_NAME:
-    DB_NAME = ENV_DB_NAME
-
-elif os.path.isdir("/var/data"):
-    DB_NAME = "/var/data/raffle.db"
-
-else:
-    BASE_DIR = os.path.dirname(
-        os.path.abspath(__file__)
-    )
-
-    DB_NAME = os.path.join(
-        BASE_DIR,
-        "raffle.db"
-    )
+DB_NAME = os.environ.get(
+    "RAFFLE_DB_NAME",
+    "/var/data/raffle.db"
+).strip()
 
 
 # Always use an absolute path.
 DB_NAME = os.path.abspath(DB_NAME)
+
+
+# ==========================================================
+# VERIFY PERSISTENT STORAGE
+# ==========================================================
+
+DB_DIR = os.path.dirname(DB_NAME)
+
+
+if not os.path.isdir(DB_DIR):
+
+    raise RuntimeError(
+        "\n"
+        "==========================================================\n"
+        "FATAL DATABASE ERROR\n"
+        "==========================================================\n"
+        f"Database directory does not exist:\n"
+        f"{DB_DIR}\n"
+        "\n"
+        "Your Render Persistent Disk must be mounted at:\n"
+        "/var/data\n"
+        "\n"
+        "The bot will NOT create a temporary database in the\n"
+        "application directory because doing so could cause\n"
+        "raffle entries and birthdays to be lost.\n"
+        "==========================================================\n"
+    )
 
 
 # ==========================================================
@@ -63,8 +97,15 @@ print("==========================================================")
 print("Melanated AZ Bot - Database")
 print("==========================================================")
 print("Database path :", DB_NAME)
+print("Database directory:", DB_DIR)
 print("Database exists:", os.path.exists(DB_NAME))
-print("Database size :", os.path.getsize(DB_NAME) if os.path.exists(DB_NAME) else 0)
+print(
+    "Database size :",
+    os.path.getsize(DB_NAME)
+    if os.path.exists(DB_NAME)
+    else 0
+)
+print("Persistent directory exists:", os.path.isdir(DB_DIR))
 print("==========================================================")
 
 
@@ -82,18 +123,27 @@ def get_connection():
 
     conn.row_factory = sqlite3.Row
 
-    # Improve SQLite behavior when multiple operations happen.
+    # Enable WAL mode for better reliability when multiple
+    # bot operations access SQLite.
     try:
+
         conn.execute(
             "PRAGMA journal_mode=WAL"
         )
-    except Exception:
-        pass
 
+    except Exception as e:
+
+        print(
+            "WARNING: Could not enable SQLite WAL mode:",
+            e
+        )
+
+    # Enforce foreign keys.
     conn.execute(
         "PRAGMA foreign_keys=ON"
     )
 
+    # Wait up to 30 seconds if database is temporarily locked.
     conn.execute(
         "PRAGMA busy_timeout=30000"
     )
@@ -120,6 +170,7 @@ def initialize_database():
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS raffles (
+
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 prize TEXT NOT NULL,
@@ -140,6 +191,7 @@ def initialize_database():
             """
         )
 
+
         # ==================================================
         # RAFFLE ENTRIES
         # ==================================================
@@ -147,6 +199,7 @@ def initialize_database():
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS raffle_entries (
+
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 raffle_id INTEGER NOT NULL,
@@ -173,6 +226,7 @@ def initialize_database():
             """
         )
 
+
         # ==================================================
         # BIRTHDAYS
         # ==================================================
@@ -180,6 +234,7 @@ def initialize_database():
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS birthdays (
+
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 user_id INTEGER NOT NULL,
@@ -201,14 +256,64 @@ def initialize_database():
             """
         )
 
+
+        # ==================================================
+        # INDEXES
+        # ==================================================
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_raffle_entries_raffle_id
+            ON raffle_entries(raffle_id)
+            """
+        )
+
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_raffle_entries_status
+            ON raffle_entries(status)
+            """
+        )
+
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_raffles_status
+            ON raffles(status)
+            """
+        )
+
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_birthdays_chat_id
+            ON birthdays(chat_id)
+            """
+        )
+
+
         conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
 
     finally:
 
         conn.close()
 
 
-# Initialize when module loads.
+# ==========================================================
+# INITIALIZE WHEN MODULE LOADS
+# ==========================================================
+
 initialize_database()
 
 
@@ -237,7 +342,14 @@ def create_raffle(
                 status,
                 created_at
             )
-            VALUES (?, ?, ?, 'pending', ?)
+
+            VALUES (
+                ?,
+                ?,
+                ?,
+                'pending',
+                ?
+            )
             """,
             (
                 prize,
@@ -252,6 +364,12 @@ def create_raffle(
         conn.commit()
 
         return raffle_id
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
 
     finally:
 
@@ -373,6 +491,12 @@ def approve_raffle(
 
         return changed
 
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
     finally:
 
         conn.close()
@@ -411,6 +535,12 @@ def cancel_pending_raffle(
 
         return changed
 
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
     finally:
 
         conn.close()
@@ -447,6 +577,12 @@ def set_raffle_post(
         )
 
         conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
 
     finally:
 
@@ -486,6 +622,12 @@ def close_raffle(
 
         return changed
 
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
     finally:
 
         conn.close()
@@ -506,6 +648,9 @@ def add_raffle_entry(
     conn = get_connection()
 
     try:
+
+        # Prevent duplicate active/pending entries from the
+        # same user in the same raffle.
 
         existing = conn.execute(
             """
@@ -531,13 +676,16 @@ def add_raffle_entry(
         ).fetchone()
 
         if existing:
+
             return None
+
 
         cursor = conn.cursor()
 
         cursor.execute(
             """
             INSERT INTO raffle_entries (
+
                 raffle_id,
                 user_id,
                 username,
@@ -548,7 +696,13 @@ def add_raffle_entry(
             )
 
             VALUES (
-                ?, ?, ?, ?, ?, 'pending', ?
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                'pending',
+                ?
             )
             """,
             (
@@ -566,6 +720,12 @@ def add_raffle_entry(
         conn.commit()
 
         return entry_id
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
 
     finally:
 
@@ -667,6 +827,12 @@ def approve_entry(
 
         return changed
 
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
     finally:
 
         conn.close()
@@ -709,6 +875,12 @@ def deny_entry(
         conn.commit()
 
         return changed
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
 
     finally:
 
@@ -780,6 +952,12 @@ def remove_entry(
 
         return changed
 
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
     finally:
 
         conn.close()
@@ -806,6 +984,7 @@ def save_birthday(
         conn.execute(
             """
             INSERT INTO birthdays (
+
                 user_id,
                 chat_id,
                 birthday,
@@ -816,7 +995,13 @@ def save_birthday(
             )
 
             VALUES (
-                ?, ?, ?, ?, ?, ?, ?
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?
             )
 
             ON CONFLICT(user_id, chat_id)
@@ -1004,6 +1189,12 @@ def remove_birthday(
 
         return changed
 
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
     finally:
 
         conn.close()
@@ -1038,6 +1229,12 @@ def remove_birthday_by_id(
 
         return changed
 
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
     finally:
 
         conn.close()
@@ -1045,10 +1242,6 @@ def remove_birthday_by_id(
 
 # ==========================================================
 # DATABASE DIAGNOSTICS
-# ==========================================================
-#
-# Useful for checking whether the database actually contains
-# your saved birthdays and raffle information.
 # ==========================================================
 
 def get_database_stats():
@@ -1058,16 +1251,28 @@ def get_database_stats():
     try:
 
         raffle_count = conn.execute(
-            "SELECT COUNT(*) FROM raffles"
+            """
+            SELECT COUNT(*)
+            FROM raffles
+            """
         ).fetchone()[0]
+
 
         entry_count = conn.execute(
-            "SELECT COUNT(*) FROM raffle_entries"
+            """
+            SELECT COUNT(*)
+            FROM raffle_entries
+            """
         ).fetchone()[0]
 
+
         birthday_count = conn.execute(
-            "SELECT COUNT(*) FROM birthdays"
+            """
+            SELECT COUNT(*)
+            FROM birthdays
+            """
         ).fetchone()[0]
+
 
         return {
             "database": DB_NAME,
@@ -1082,12 +1287,35 @@ def get_database_stats():
 
 
 # ==========================================================
+# DATABASE INTEGRITY CHECK
+# ==========================================================
+
+def check_database_integrity():
+
+    conn = get_connection()
+
+    try:
+
+        result = conn.execute(
+            "PRAGMA integrity_check"
+        ).fetchone()[0]
+
+        return result == "ok"
+
+    finally:
+
+        conn.close()
+
+
+# ==========================================================
 # PRINT DATABASE STATS AT STARTUP
 # ==========================================================
 
 try:
 
     stats = get_database_stats()
+
+    integrity_ok = check_database_integrity()
 
     print("==========================================================")
     print("Melanated AZ Bot - Database Statistics")
@@ -1096,9 +1324,16 @@ try:
     print("Raffles       :", stats["raffles"])
     print("Raffle Entries:", stats["raffle_entries"])
     print("Birthdays     :", stats["birthdays"])
+    print("Integrity     :", "OK" if integrity_ok else "FAILED")
     print("==========================================================")
 
 except Exception as e:
 
-    print("WARNING: Could not read database statistics.")
-    print("Database error:", e)
+    print(
+        "WARNING: Could not read database statistics."
+    )
+
+    print(
+        "Database error:",
+        e
+    )
