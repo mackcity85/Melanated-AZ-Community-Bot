@@ -5,12 +5,13 @@
 # COMPLETE PRODUCTION REPLACEMENT
 #
 # FIXES:
-#   - Raffle buttons now work
-#   - Uses raffle.py central callback router
-#   - Correct callback_data routing
+#   - Raffle buttons route through raffle.py
+#   - No hard-coded raffle callback list
+#   - Central raffle callback router is authoritative
 #   - Raffle countdown scheduler enabled
 #   - Birthday scheduler retained
 #   - Media spoiler enforcement retained
+#   - Media repost buttons retained
 #   - Safe Telegram application lifecycle
 #   - Centralized logging/error handling
 #
@@ -93,7 +94,6 @@ MEDIA_WARNING_SECONDS = 180
 
 MEDIA_EXPIRATION_SECONDS = 600
 
-# Raffle countdown update interval
 RAFFLE_COUNTDOWN_INTERVAL = 60
 
 
@@ -146,6 +146,7 @@ REQUIRED_RAFFLE_FUNCTIONS = [
     "bonus_entry",
     "remove_raffle_entry",
     "raffle_callback_router",
+    "update_raffle_countdown",
 ]
 
 
@@ -713,7 +714,9 @@ async def spoiler_repost_button(
     user = update.effective_user
 
     if not user:
+
         await query.answer()
+
         return
 
     data = query.data or ""
@@ -1182,6 +1185,77 @@ async def text_message_handler(
 
 
 # ==========================================================
+# RAFFLE CALLBACK ROUTER
+#
+# IMPORTANT:
+#
+# DO NOT hard-code individual raffle callback_data values
+# here.
+#
+# raffle.py owns the callback_data definitions.
+#
+# Every callback that is NOT birthday/admin/media is given
+# to raffle.py.
+#
+# This prevents a mismatch between buttons created by
+# raffle.py and callback patterns registered by bot.py.
+# ==========================================================
+
+async def raffle_callback_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    query = update.callback_query
+
+    if not query:
+
+        return
+
+    data = query.data or ""
+
+    logger.info(
+        "Raffle callback received | "
+        "user=%s | data=%s",
+        update.effective_user.id
+        if update.effective_user
+        else "unknown",
+        data,
+    )
+
+    try:
+
+        await RAFFLE[
+            "raffle_callback_router"
+        ](
+            update,
+            context,
+        )
+
+    except Exception as exc:
+
+        logger.exception(
+            "Raffle callback router failed | "
+            "data=%s | error=%s",
+            data,
+            exc,
+        )
+
+        try:
+
+            if not query.answered:
+
+                await query.answer(
+                    "Something went wrong. Please try again.",
+                    show_alert=True,
+                )
+
+        except Exception:
+
+            pass
+
+
+# ==========================================================
 # ERROR HANDLER
 # ==========================================================
 
@@ -1360,35 +1434,36 @@ def register_handlers(
     )
 
     # ======================================================
-    # CALLBACK ROUTING
+    # RAFFLE CALLBACKS
     #
     # IMPORTANT:
     #
-    # raffle.py already contains the authoritative
-    # raffle_callback_router().
+    # We intentionally use a broad callback handler here.
     #
-    # DO NOT duplicate raffle callback patterns here.
+    # raffle.py is the authoritative callback router.
     #
-    # This fixes the button problem.
+    # This means if raffle.py creates:
+    #
+    #   raffle_enter
+    #   raffle_cashapp
+    #   raffle_zelle
+    #   approve_raffle:123
+    #   cancel_raffle:123
+    #   approve_entry:456
+    #   deny_entry:456
+    #
+    # OR another callback_data value handled by
+    # raffle_callback_router(), bot.py will still deliver
+    # the callback to raffle.py.
+    #
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
-            RAFFLE["raffle_callback_router"],
-            pattern=(
-                r"^(?:"
-                r"raffle_enter"
-                r"|raffle_cashapp"
-                r"|raffle_zelle"
-                r"|pay_cashapp:\d+"
-                r"|pay_zelle:\d+"
-                r"|approve_raffle:\d+"
-                r"|cancel_raffle:\d+"
-                r"|approve_entry:\d+"
-                r"|deny_entry:\d+"
-                r")$"
-            ),
-        )
+            raffle_callback_handler,
+            pattern=r"^(?!birthday_|admin_|spoiler_repost:).+",
+        ),
+        group=0,
     )
 
     # ======================================================
@@ -1399,7 +1474,8 @@ def register_handlers(
         CallbackQueryHandler(
             birthday_callback,
             pattern=r"^birthday_(enter|view|remove)$",
-        )
+        ),
+        group=1,
     )
 
     # ======================================================
@@ -1410,7 +1486,8 @@ def register_handlers(
         CallbackQueryHandler(
             admin_button,
             pattern=r"^admin_",
-        )
+        ),
+        group=1,
     )
 
     # ======================================================
@@ -1421,7 +1498,8 @@ def register_handlers(
         CallbackQueryHandler(
             spoiler_repost_button,
             pattern=r"^spoiler_repost:",
-        )
+        ),
+        group=1,
     )
 
     # ======================================================
@@ -1461,7 +1539,7 @@ def register_handlers(
     )
 
     logger.info(
-        "Raffle callback router registered."
+        "Central raffle callback router registered."
     )
 
 
@@ -1649,9 +1727,6 @@ def main():
 
     # ======================================================
     # START POLLING
-    #
-    # IMPORTANT:
-    # Keep pending updates.
     # ======================================================
 
     logger.info(
