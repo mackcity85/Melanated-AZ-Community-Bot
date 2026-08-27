@@ -50,10 +50,6 @@ async def birthday(
 
     birthday_value = context.args[0].strip()
 
-    # ------------------------------------------------------
-    # Validate MM/DD
-    # ------------------------------------------------------
-
     try:
 
         parsed = datetime.strptime(
@@ -78,11 +74,9 @@ async def birthday(
 
         return
 
-    chat_id = message.chat_id
-
     save_birthday(
         user_id=user.id,
-        chat_id=chat_id,
+        chat_id=message.chat_id,
         birthday=birthday_value,
         username=user.username,
         display_name=user.full_name,
@@ -92,7 +86,9 @@ async def birthday(
         "🎂 **Birthday Saved!**\n\n"
         f"Your birthday is saved as **{birthday_value}**.\n\n"
         "🎉 Melanated AZ will recognize your birthday "
-        "in the chat on your special day.",
+        "in the chat on your special day.\n\n"
+        "💾 Your birthday is permanently saved in "
+        "the Melanated AZ database.",
         parse_mode="Markdown",
     )
 
@@ -133,7 +129,8 @@ async def my_birthday(
     await message.reply_text(
         "🎂 **Your Birthday**\n\n"
         f"📅 **{record['birthday']}**\n\n"
-        "Your birthday is saved in the Melanated AZ database.",
+        "💾 Your birthday is saved in the "
+        "Melanated AZ database.",
         parse_mode="Markdown",
     )
 
@@ -163,7 +160,8 @@ async def remove_my_birthday(
     if removed:
 
         await message.reply_text(
-            "🗑️ Your birthday has been removed."
+            "🗑️ Your birthday has been removed "
+            "from the database."
         )
 
     else:
