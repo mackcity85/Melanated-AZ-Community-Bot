@@ -4,12 +4,14 @@
 # ==========================================================
 
 import logging
+from datetime import datetime
 
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Update,
 )
+
 from telegram.ext import ContextTypes
 
 from config import ADMIN_IDS
@@ -30,30 +32,24 @@ logger = logging.getLogger(__name__)
 def is_admin(user_id):
 
     try:
-        return int(user_id) in [int(x) for x in ADMIN_IDS]
+
+        return int(user_id) in [
+            int(x)
+            for x in ADMIN_IDS
+        ]
+
     except Exception:
+
         return False
 
 
 # ==========================================================
-# ADMIN MENU
+# ADMIN MENU KEYBOARD
 # ==========================================================
 
-async def admin_menu(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+def admin_keyboard():
 
-    user = update.effective_user
-
-    if not user or not is_admin(user.id):
-        if update.effective_message:
-            await update.effective_message.reply_text(
-                "❌ Admins only."
-            )
-        return
-
-    keyboard = InlineKeyboardMarkup(
+    return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
@@ -88,16 +84,40 @@ async def admin_menu(
         ]
     )
 
-    await update.effective_message.reply_text(
+
+# ==========================================================
+# ADMIN MENU
+# ==========================================================
+
+async def admin_menu(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    user = update.effective_user
+    message = update.effective_message
+
+    if not user or not message:
+        return
+
+    if not is_admin(user.id):
+
+        await message.reply_text(
+            "❌ Admins only."
+        )
+
+        return
+
+    await message.reply_text(
         "👑 **MELANATED AZ ADMIN PANEL**\n\n"
         "Select an option below.",
-        reply_markup=keyboard,
+        reply_markup=admin_keyboard(),
         parse_mode="Markdown",
     )
 
 
 # ==========================================================
-# ADMIN BUTTON
+# ADMIN BUTTON HANDLER
 # ==========================================================
 
 async def admin_button(
@@ -110,11 +130,15 @@ async def admin_button(
     if not query:
         return
 
-    if not is_admin(query.from_user.id):
+    if not is_admin(
+        query.from_user.id
+    ):
+
         await query.answer(
             "Not authorized.",
             show_alert=True,
         )
+
         return
 
     await query.answer()
@@ -127,52 +151,17 @@ async def admin_button(
 
     if data == "admin_back":
 
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🎟️ Raffle Management",
-                        callback_data="admin_raffle",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🎂 Birthday Management",
-                        callback_data="admin_birthdays",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "📅 Today's Birthdays",
-                        callback_data="admin_birthday_today",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "📋 View All Birthdays",
-                        callback_data="admin_birthday_list",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🔄 Run Birthday Check Now",
-                        callback_data="admin_birthday_check",
-                    )
-                ],
-            ]
-        )
-
         await query.edit_message_text(
             "👑 **MELANATED AZ ADMIN PANEL**\n\n"
             "Select an option below.",
-            reply_markup=keyboard,
+            reply_markup=admin_keyboard(),
             parse_mode="Markdown",
         )
 
         return
 
     # ======================================================
-    # BIRTHDAY MENU
+    # BIRTHDAY MANAGEMENT
     # ======================================================
 
     if data == "admin_birthdays":
@@ -210,6 +199,8 @@ async def admin_button(
             "🎂 **BIRTHDAY MANAGEMENT**\n\n"
             "Birthday records are stored permanently "
             "in the Melanated AZ SQLite database.\n\n"
+            "They are separate from raffle records "
+            "and are not removed when a raffle is closed.\n\n"
             "Choose an option:",
             reply_markup=keyboard,
             parse_mode="Markdown",
@@ -218,7 +209,7 @@ async def admin_button(
         return
 
     # ======================================================
-    # LIST BIRTHDAYS
+    # ALL BIRTHDAYS
     # ======================================================
 
     if data == "admin_birthday_list":
@@ -227,25 +218,19 @@ async def admin_button(
 
         if not birthdays:
 
-            text = (
-                "📋 **BIRTHDAY LIST**\n\n"
-                "No birthdays are currently saved."
-            )
-
-            keyboard = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "⬅️ Back",
-                            callback_data="admin_birthdays",
-                        )
-                    ]
-                ]
-            )
-
             await query.edit_message_text(
-                text,
-                reply_markup=keyboard,
+                "📋 **SAVED BIRTHDAYS**\n\n"
+                "No birthdays are currently saved.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "⬅️ Back",
+                                callback_data="admin_birthdays",
+                            )
+                        ]
+                    ]
+                ),
                 parse_mode="Markdown",
             )
 
@@ -256,22 +241,34 @@ async def admin_button(
             "",
         ]
 
-        for birthday in birthdays:
+        for birthday_record in birthdays:
 
             name = (
-                birthday.get("display_name")
-                or birthday.get("username")
-                or str(birthday.get("user_id"))
+                birthday_record.get(
+                    "display_name"
+                )
+                or birthday_record.get(
+                    "username"
+                )
+                or str(
+                    birthday_record.get(
+                        "user_id"
+                    )
+                )
             )
 
             lines.append(
-                f"🎂 **{birthday['birthday']}** — "
+                f"🎂 **{birthday_record['birthday']}** — "
                 f"{name}"
             )
 
-            if birthday.get("chat_id"):
+            if birthday_record.get(
+                "chat_id"
+            ):
+
                 lines.append(
-                    f"   Chat ID: `{birthday['chat_id']}`"
+                    f"   Chat ID: "
+                    f"`{birthday_record['chat_id']}`"
                 )
 
         keyboard = InlineKeyboardMarkup(
@@ -299,11 +296,13 @@ async def admin_button(
 
     if data == "admin_birthday_today":
 
-        from datetime import datetime
+        today = datetime.now().strftime(
+            "%m/%d"
+        )
 
-        today = datetime.now().strftime("%m/%d")
-
-        birthdays = get_birthdays_for_date(today)
+        birthdays = get_birthdays_for_date(
+            today
+        )
 
         if not birthdays:
 
@@ -321,12 +320,20 @@ async def admin_button(
                 "",
             ]
 
-            for birthday in birthdays:
+            for birthday_record in birthdays:
 
                 name = (
-                    birthday.get("display_name")
-                    or birthday.get("username")
-                    or str(birthday.get("user_id"))
+                    birthday_record.get(
+                        "display_name"
+                    )
+                    or birthday_record.get(
+                        "username"
+                    )
+                    or str(
+                        birthday_record.get(
+                            "user_id"
+                        )
+                    )
                 )
 
                 lines.append(
@@ -360,14 +367,37 @@ async def admin_button(
 
     if data == "admin_birthday_check":
 
-        from birthday_scheduler import birthday_scheduler
+        from birthday_scheduler import (
+            birthday_scheduler,
+        )
 
-        await birthday_scheduler(context)
+        await birthday_scheduler(
+            context
+        )
 
         await query.message.reply_text(
-            "✅ Birthday check completed.\n\n"
-            "Any birthdays scheduled for today were "
-            "processed."
+            "✅ **Birthday check completed.**\n\n"
+            "Any birthdays scheduled for today "
+            "were processed.",
+            parse_mode="Markdown",
+        )
+
+        return
+
+    # ======================================================
+    # RAFFLE ADMIN
+    #
+    # Keep this callback available for your existing
+    # raffle admin system.
+    # ======================================================
+
+    if data == "admin_raffle":
+
+        await query.message.reply_text(
+            "🎟️ **RAFFLE MANAGEMENT**\n\n"
+            "Use the raffle commands from the admin "
+            "panel to manage the current raffle.",
+            parse_mode="Markdown",
         )
 
         return
