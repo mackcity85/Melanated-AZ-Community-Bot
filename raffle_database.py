@@ -9,7 +9,7 @@ from datetime import datetime
 
 
 # ==========================================================
-# DATABASE LOCATION
+# DATABASE CONFIGURATION
 # ==========================================================
 
 BASE_DIR = os.path.dirname(
@@ -21,18 +21,23 @@ DATA_DIR = os.path.join(
     "data"
 )
 
+# Create data directory if it does not exist
 os.makedirs(
     DATA_DIR,
     exist_ok=True
 )
 
+# IMPORTANT:
+# Do NOT use RAFFLE_DB_NAME.
+# The database is always stored here.
+DB_NAME = os.path.join(
+    DATA_DIR,
+    "raffle.db"
+)
 
-DB_NAME = os.environ.get(
-    "RAFFLE_DB_NAME",
-    os.path.join(
-        DATA_DIR,
-        "raffle.db"
-    )
+print(
+    f"RAFFLE DATABASE PATH: {DB_NAME}",
+    flush=True
 )
 
 
@@ -59,8 +64,18 @@ def get_connection():
 
 def initialize_database():
 
+    # Make absolutely sure the directory exists
+    os.makedirs(
+        DATA_DIR,
+        exist_ok=True
+    )
+
     connection = get_connection()
     cursor = connection.cursor()
+
+    # ======================================================
+    # RAFFLES TABLE
+    # ======================================================
 
     cursor.execute(
         """
@@ -87,6 +102,10 @@ def initialize_database():
         )
         """
     )
+
+    # ======================================================
+    # RAFFLE ENTRIES TABLE
+    # ======================================================
 
     cursor.execute(
         """
@@ -133,11 +152,21 @@ def initialize_database():
     }
 
     required_columns = {
-        "price": "TEXT NOT NULL DEFAULT ''",
-        "expires_at": "TEXT NOT NULL DEFAULT ''",
-        "closed_at": "TEXT",
-        "chat_id": "INTEGER",
-        "message_id": "INTEGER",
+
+        "price":
+            "TEXT NOT NULL DEFAULT ''",
+
+        "expires_at":
+            "TEXT NOT NULL DEFAULT ''",
+
+        "closed_at":
+            "TEXT",
+
+        "chat_id":
+            "INTEGER",
+
+        "message_id":
+            "INTEGER",
     }
 
     for column, definition in required_columns.items():
@@ -152,7 +181,7 @@ def initialize_database():
             )
 
     # ======================================================
-    # UPGRADE ENTRIES TABLE
+    # UPGRADE RAFFLE ENTRIES TABLE
     # ======================================================
 
     cursor.execute(
@@ -165,13 +194,27 @@ def initialize_database():
     }
 
     required_entry_columns = {
-        "username": "TEXT",
-        "display_name": "TEXT",
-        "payment_method": "TEXT",
-        "status": "TEXT NOT NULL DEFAULT 'pending'",
-        "approved_by": "INTEGER",
-        "created_at": "TEXT NOT NULL DEFAULT ''",
-        "approved_at": "TEXT",
+
+        "username":
+            "TEXT",
+
+        "display_name":
+            "TEXT",
+
+        "payment_method":
+            "TEXT",
+
+        "status":
+            "TEXT NOT NULL DEFAULT 'pending'",
+
+        "approved_by":
+            "INTEGER",
+
+        "created_at":
+            "TEXT NOT NULL DEFAULT ''",
+
+        "approved_at":
+            "TEXT",
     }
 
     for column, definition in required_entry_columns.items():
@@ -188,9 +231,14 @@ def initialize_database():
     connection.commit()
     connection.close()
 
+    print(
+        "RAFFLE DATABASE INITIALIZED SUCCESSFULLY",
+        flush=True
+    )
+
 
 # ==========================================================
-# CREATE DATABASE
+# INITIALIZE DATABASE
 # ==========================================================
 
 initialize_database()
@@ -437,7 +485,7 @@ def set_raffle_post(
 
 
 # ==========================================================
-# ADD ENTRY
+# ADD RAFFLE ENTRY
 # ==========================================================
 
 def add_raffle_entry(
@@ -451,6 +499,7 @@ def add_raffle_entry(
     connection = get_connection()
     cursor = connection.cursor()
 
+    # Prevent duplicate active/pending entries
     cursor.execute(
         """
         SELECT id
@@ -731,6 +780,7 @@ def remove_entry(
     cursor.execute(
         """
         DELETE FROM raffle_entries
+
         WHERE id = ?
         """,
         (
