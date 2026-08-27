@@ -13,6 +13,8 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
+from config import ADMIN_IDS
+
 from raffle_database import (
     save_birthday,
     get_birthday,
@@ -23,7 +25,22 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# BIRTHDAY KEYBOARD
+# ADMIN CHECK
+# ==========================================================
+
+def is_admin(user_id):
+
+    try:
+        return int(user_id) in [
+            int(admin_id)
+            for admin_id in ADMIN_IDS
+        ]
+    except (TypeError, ValueError):
+        return False
+
+
+# ==========================================================
+# MEMBER BIRTHDAY KEYBOARD
 # ==========================================================
 
 def birthday_keyboard():
@@ -60,10 +77,6 @@ def validate_birthday(value):
 
     value = value.strip()
 
-    # Accept:
-    # 08/26
-    # 8/26
-
     try:
 
         parsed = datetime.strptime(
@@ -81,6 +94,118 @@ def validate_birthday(value):
 
 
 # ==========================================================
+# SAVE ADMIN BIRTHDAY
+# ==========================================================
+
+async def save_admin_birthday(
+    update,
+    context,
+    value,
+):
+
+    message = update.effective_message
+    admin = update.effective_user
+
+    if not message or not admin:
+        return True
+
+    if not is_admin(admin.id):
+        return False
+
+    parts = value.strip().split()
+
+    if len(parts) != 2:
+
+        await message.reply_text(
+            "❌ Invalid format.\n\n"
+            "Use:\n"
+            "`USER_ID MM/DD`\n\n"
+            "Example:\n"
+            "`123456789 08/26`",
+            parse_mode="Markdown",
+        )
+
+        return True
+
+    user_id_text = parts[0]
+    birthday_value = parts[1]
+
+    try:
+
+        user_id = int(user_id_text)
+
+    except ValueError:
+
+        await message.reply_text(
+            "❌ Invalid Telegram User ID.\n\n"
+            "The first value must be a number.",
+        )
+
+        return True
+
+    birthday_value = validate_birthday(
+        birthday_value
+    )
+
+    if not birthday_value:
+
+        await message.reply_text(
+            "❌ Invalid birthday.\n\n"
+            "Use `MM/DD`.\n\n"
+            "Example:\n"
+            "`08/26`",
+            parse_mode="Markdown",
+        )
+
+        return True
+
+    try:
+
+        save_birthday(
+            user_id=user_id,
+            chat_id=message.chat_id,
+            birthday=birthday_value,
+            username=None,
+            display_name=f"User {user_id}",
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Admin failed to save birthday"
+        )
+
+        await message.reply_text(
+            "⚠️ Database error while saving "
+            "the birthday."
+        )
+
+        return True
+
+    context.user_data.pop(
+        "awaiting_admin_birthday",
+        None,
+    )
+
+    await message.reply_text(
+        "🎂 **Birthday Added**\n\n"
+        f"👤 User ID: `{user_id}`\n"
+        f"📅 Birthday: **{birthday_value}**\n\n"
+        "✅ The birthday has been saved.",
+        parse_mode="Markdown",
+    )
+
+    logger.info(
+        "Admin added birthday | admin=%s | user=%s | birthday=%s",
+        admin.id,
+        user_id,
+        birthday_value,
+    )
+
+    return True
+
+
+# ==========================================================
 # /BIRTHDAY
 # ==========================================================
 
@@ -95,15 +220,9 @@ async def birthday(
     if not message or not user:
         return
 
-    # ------------------------------------------------------
-    # /birthday 08/26
-    # ------------------------------------------------------
-
     if context.args:
 
-        birthday_value = (
-            context.args[0].strip()
-        )
+        birthday_value = context.args[0].strip()
 
         await save_birthday_from_value(
             update,
@@ -112,10 +231,6 @@ async def birthday(
         )
 
         return
-
-    # ------------------------------------------------------
-    # Show menu
-    # ------------------------------------------------------
 
     existing = get_birthday(
         user_id=user.id,
@@ -138,8 +253,6 @@ async def birthday(
             "We love celebrating our members! 💜\n\n"
             "Enter your birthday and Melanated AZ "
             "will recognize your special day. 🎉\n\n"
-            "Your birthday is stored in the database "
-            "so it remains saved when the bot restarts.\n\n"
             "Choose an option below:"
         )
 
@@ -151,7 +264,7 @@ async def birthday(
 
 
 # ==========================================================
-# SAVE BIRTHDAY
+# SAVE MEMBER BIRTHDAY
 # ==========================================================
 
 async def save_birthday_from_value(
@@ -174,7 +287,7 @@ async def save_birthday_from_value(
 
         await message.reply_text(
             "❌ **Invalid birthday.**\n\n"
-            "Please enter your birthday as:\n\n"
+            "Please enter:\n\n"
             "`MM/DD`\n\n"
             "Example:\n"
             "`08/26`",
@@ -182,10 +295,6 @@ async def save_birthday_from_value(
         )
 
         return False
-
-    # ------------------------------------------------------
-    # SAVE
-    # ------------------------------------------------------
 
     try:
 
@@ -207,8 +316,7 @@ async def save_birthday_from_value(
 
         await message.reply_text(
             "⚠️ I couldn't save your birthday "
-            "because of a database error.\n\n"
-            "Please try again."
+            "because of a database error."
         )
 
         return False
@@ -216,8 +324,7 @@ async def save_birthday_from_value(
     if not saved:
 
         await message.reply_text(
-            "⚠️ Your birthday could not be saved.\n\n"
-            "Please try again."
+            "⚠️ Your birthday could not be saved."
         )
 
         return False
@@ -227,18 +334,10 @@ async def save_birthday_from_value(
         None,
     )
 
-    logger.info(
-        "🎂 Birthday saved | user=%s | chat=%s | birthday=%s",
-        user.id,
-        message.chat_id,
-        birthday_value,
-    )
-
     await message.reply_text(
         "🎂 **BIRTHDAY SAVED!** 🎂\n\n"
         f"📅 Your birthday: **{birthday_value}**\n\n"
-        "✅ Your birthday has been permanently "
-        "saved in the Melanated AZ database.\n\n"
+        "✅ Your birthday has been saved.\n\n"
         "🎉 Melanated AZ will recognize your "
         "birthday on your special day! 💜",
         parse_mode="Markdown",
@@ -271,9 +370,9 @@ async def birthday_callback(
 
     await query.answer()
 
-    # ======================================================
+    # ------------------------------------------------------
     # ENTER
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "birthday_enter":
 
@@ -283,20 +382,18 @@ async def birthday_callback(
 
         await query.message.reply_text(
             "🎂 **Let's add your birthday!**\n\n"
-            "Please send your birthday as:\n\n"
+            "Send your birthday as:\n\n"
             "`MM/DD`\n\n"
             "Example:\n"
-            "`08/26`\n\n"
-            "I'll save it to the Melanated AZ "
-            "database.",
+            "`08/26`",
             parse_mode="Markdown",
         )
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # VIEW
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "birthday_view":
 
@@ -309,8 +406,7 @@ async def birthday_callback(
 
             await query.message.reply_text(
                 "🎂 **No Birthday Saved**\n\n"
-                "You don't have a birthday saved "
-                "for this chat yet.",
+                "You don't have a birthday saved yet.",
                 reply_markup=birthday_keyboard(),
                 parse_mode="Markdown",
             )
@@ -320,17 +416,16 @@ async def birthday_callback(
         await query.message.reply_text(
             "🎂 **Your Birthday**\n\n"
             f"📅 **{record['birthday']}**\n\n"
-            "✅ Your birthday is saved in the "
-            "Melanated AZ database. 💜",
+            "✅ Your birthday is saved. 💜",
             reply_markup=birthday_keyboard(),
             parse_mode="Markdown",
         )
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # REMOVE
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "birthday_remove":
 
@@ -348,8 +443,7 @@ async def birthday_callback(
 
             await query.message.reply_text(
                 "🗑️ **Birthday Removed**\n\n"
-                "Your birthday has been removed "
-                "from the Melanated AZ database.",
+                "Your birthday has been removed.",
                 parse_mode="Markdown",
             )
 
@@ -372,6 +466,26 @@ async def birthday_text_handler(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
+    # ------------------------------------------------------
+    # ADMIN ADD BIRTHDAY
+    # ------------------------------------------------------
+
+    if context.user_data.get(
+        "awaiting_admin_birthday"
+    ):
+
+        return await save_admin_birthday(
+            update,
+            context,
+            update.effective_message.text
+            if update.effective_message
+            else "",
+        )
+
+    # ------------------------------------------------------
+    # MEMBER BIRTHDAY
+    # ------------------------------------------------------
+
     if not context.user_data.get(
         "awaiting_birthday"
     ):
@@ -381,7 +495,6 @@ async def birthday_text_handler(
     message = update.effective_message
 
     if not message or not message.text:
-
         return False
 
     birthday_value = message.text.strip()
@@ -419,11 +532,7 @@ async def my_birthday(
 
         await message.reply_text(
             "🎂 **No Birthday Saved**\n\n"
-            "You don't have a birthday saved "
-            "for this chat yet.\n\n"
-            "Use:\n"
-            "`/birthday`\n\n"
-            "to add it.",
+            "Use `/birthday` to add your birthday.",
             reply_markup=birthday_keyboard(),
             parse_mode="Markdown",
         )
@@ -433,8 +542,7 @@ async def my_birthday(
     await message.reply_text(
         "🎂 **Your Birthday**\n\n"
         f"📅 **{record['birthday']}**\n\n"
-        "✅ Your birthday is saved in the "
-        "Melanated AZ database. 💜",
+        "✅ Your birthday is saved. 💜",
         reply_markup=birthday_keyboard(),
         parse_mode="Markdown",
     )
@@ -469,8 +577,7 @@ async def remove_my_birthday(
 
         await message.reply_text(
             "🗑️ **Birthday Removed**\n\n"
-            "Your birthday has been removed "
-            "from the Melanated AZ database.",
+            "Your birthday has been removed.",
             parse_mode="Markdown",
         )
 
