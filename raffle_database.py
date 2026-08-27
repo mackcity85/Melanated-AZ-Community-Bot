@@ -82,8 +82,6 @@ def initialize_database():
 
     # ======================================================
     # BIRTHDAYS
-    #
-    # NEVER deleted by raffle functions.
     # ======================================================
 
     cursor.execute(
@@ -99,6 +97,38 @@ def initialize_database():
             updated_at TEXT NOT NULL,
             UNIQUE(user_id, chat_id)
         )
+        """
+    )
+
+    # ======================================================
+    # INDEXES
+    # ======================================================
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_birthdays_date
+        ON birthdays(birthday)
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_birthdays_user_chat
+        ON birthdays(user_id, chat_id)
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_raffle_status
+        ON raffles(status)
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_raffle_entries_status
+        ON raffle_entries(status)
         """
     )
 
@@ -535,41 +565,52 @@ def save_birthday(
 
     conn = get_connection()
 
-    conn.execute(
-        """
-        INSERT INTO birthdays (
-            user_id,
-            chat_id,
-            birthday,
-            username,
-            display_name,
-            created_at,
-            updated_at
+    try:
+
+        conn.execute(
+            """
+            INSERT INTO birthdays (
+                user_id,
+                chat_id,
+                birthday,
+                username,
+                display_name,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+
+            ON CONFLICT(user_id, chat_id)
+            DO UPDATE SET
+                birthday = excluded.birthday,
+                username = excluded.username,
+                display_name = excluded.display_name,
+                updated_at = excluded.updated_at
+            """,
+            (
+                user_id,
+                chat_id,
+                birthday,
+                username,
+                display_name,
+                now,
+                now,
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
 
-        ON CONFLICT(user_id, chat_id)
-        DO UPDATE SET
-            birthday = excluded.birthday,
-            username = excluded.username,
-            display_name = excluded.display_name,
-            updated_at = excluded.updated_at
-        """,
-        (
-            user_id,
-            chat_id,
-            birthday,
-            username,
-            display_name,
-            now,
-            now,
-        ),
-    )
+        conn.commit()
 
-    conn.commit()
-    conn.close()
+        return True
 
-    return True
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
+    finally:
+
+        conn.close()
 
 
 def get_birthday(
@@ -579,23 +620,27 @@ def get_birthday(
 
     conn = get_connection()
 
-    row = conn.execute(
-        """
-        SELECT *
-        FROM birthdays
-        WHERE user_id = ?
-        AND chat_id = ?
-        LIMIT 1
-        """,
-        (
-            user_id,
-            chat_id,
-        ),
-    ).fetchone()
+    try:
 
-    conn.close()
+        row = conn.execute(
+            """
+            SELECT *
+            FROM birthdays
+            WHERE user_id = ?
+            AND chat_id = ?
+            LIMIT 1
+            """,
+            (
+                user_id,
+                chat_id,
+            ),
+        ).fetchone()
 
-    return dict(row) if row else None
+        return dict(row) if row else None
+
+    finally:
+
+        conn.close()
 
 
 def get_birthdays_for_date(
@@ -604,40 +649,47 @@ def get_birthdays_for_date(
 
     conn = get_connection()
 
-    rows = conn.execute(
-        """
-        SELECT *
-        FROM birthdays
-        WHERE birthday = ?
-        ORDER BY display_name COLLATE NOCASE ASC
-        """
-        ,
-        (birthday,),
-    ).fetchall()
+    try:
 
-    conn.close()
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM birthdays
+            WHERE birthday = ?
+            ORDER BY display_name COLLATE NOCASE ASC
+            """,
+            (birthday,),
+        ).fetchall()
 
-    return [dict(row) for row in rows]
+        return [dict(row) for row in rows]
+
+    finally:
+
+        conn.close()
 
 
 def get_all_birthdays():
 
     conn = get_connection()
 
-    rows = conn.execute(
-        """
-        SELECT *
-        FROM birthdays
-        ORDER BY
-            substr(birthday, 1, 2),
-            substr(birthday, 4, 2),
-            display_name COLLATE NOCASE
-        """
-    ).fetchall()
+    try:
 
-    conn.close()
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM birthdays
+            ORDER BY
+                substr(birthday, 1, 2),
+                substr(birthday, 4, 2),
+                display_name COLLATE NOCASE
+            """
+        ).fetchall()
 
-    return [dict(row) for row in rows]
+        return [dict(row) for row in rows]
+
+    finally:
+
+        conn.close()
 
 
 def remove_birthday(
@@ -648,24 +700,35 @@ def remove_birthday(
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        DELETE FROM birthdays
-        WHERE user_id = ?
-        AND chat_id = ?
-        """,
-        (
-            user_id,
-            chat_id,
-        ),
-    )
+    try:
 
-    changed = cursor.rowcount > 0
+        cursor.execute(
+            """
+            DELETE FROM birthdays
+            WHERE user_id = ?
+            AND chat_id = ?
+            """,
+            (
+                user_id,
+                chat_id,
+            ),
+        )
 
-    conn.commit()
-    conn.close()
+        changed = cursor.rowcount > 0
 
-    return changed
+        conn.commit()
+
+        return changed
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
+    finally:
+
+        conn.close()
 
 
 def remove_birthday_by_id(
@@ -675,17 +738,28 @@ def remove_birthday_by_id(
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        DELETE FROM birthdays
-        WHERE id = ?
-        """,
-        (birthday_id,),
-    )
+    try:
 
-    changed = cursor.rowcount > 0
+        cursor.execute(
+            """
+            DELETE FROM birthdays
+            WHERE id = ?
+            """,
+            (birthday_id,),
+        )
 
-    conn.commit()
-    conn.close()
+        changed = cursor.rowcount > 0
 
-    return changed
+        conn.commit()
+
+        return changed
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
+    finally:
+
+        conn.close()
