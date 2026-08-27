@@ -1,4 +1,3 @@
-```python
 # ==========================================================
 # Melanated AZ Bot
 # admin.py
@@ -777,4 +776,4 @@ async def admin_button(
         "⚠️ This option is unavailable.",
         show_alert=True,
     )
-```
+
