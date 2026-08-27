@@ -1,142 +1,31 @@
-# ==========================================================
-
-# Melanated AZ Bot
-
-# raffle_database.py
-
-#
-
-# Persistent SQLite database for:
-
-# - Raffles
-
-# - Raffle Entries
-
-# - Birthdays
-
-#
-
-# PRODUCTION STORAGE:
-
-# Render Persistent Disk:
-
-# /var/data
-
-#
-
-# Database:
-
-# /var/data/raffle.db
-
-#
-
-# IMPORTANT:
-
-# This module NEVER falls back to the application filesystem.
-
-# ==========================================================
-
-import os
-import sqlite3
-from datetime import datetime
-
-# ==========================================================
-
-# DATABASE CONFIGURATION
-
-# ==========================================================
-
+==========================================================
+Melanated AZ Bot
+raffle_database.py
+==========================================================
+import os import sqlite3 from datetime import datetime
+==========================================================
+DATABASE CONFIGURATION
+==========================================================
 DEFAULT_DB_NAME = "/var/data/raffle.db"
-
-DB_NAME = os.environ.get(
-"RAFFLE_DB_NAME",
-DEFAULT_DB_NAME,
-).strip()
-
-DB_NAME = os.path.abspath(DB_NAME)
-DB_DIR = os.path.dirname(DB_NAME)
-
-# ==========================================================
-
-# SAFETY CHECK
-
-# ==========================================================
-
-if not DB_NAME.startswith("/var/data/"):
-raise RuntimeError(
-"\n"
-"==========================================================\n"
-"FATAL DATABASE CONFIGURATION ERROR\n"
-"==========================================================\n"
-f"Database path is:\n{DB_NAME}\n\n"
-"The Melanated AZ Bot database MUST be stored on the\n"
-"Render Persistent Disk.\n\n"
-"Required database location:\n"
-"/var/data/raffle.db\n\n"
-"Set the Render environment variable:\n"
-"RAFFLE_DB_NAME=/var/data/raffle.db\n\n"
-"The bot will NOT use the application filesystem.\n"
-"==========================================================\n"
-)
-
-if not os.path.isdir(DB_DIR):
-raise RuntimeError(
-"\n"
-"==========================================================\n"
-"FATAL DATABASE ERROR\n"
-"==========================================================\n"
-f"Database directory does not exist:\n{DB_DIR}\n\n"
-"Your Render Persistent Disk must be mounted at:\n"
-"/var/data\n\n"
-"Verify your Render service has a Persistent Disk with:\n\n"
-"Mount Path: /var/data\n\n"
-"The bot will NOT create a temporary database.\n"
-"==========================================================\n"
-)
-
-# ==========================================================
-
-# DATABASE INFORMATION
-
-# ==========================================================
-
+DB_NAME = os.environ.get( "RAFFLE_DB_NAME", DEFAULT_DB_NAME, ).strip()
+DB_NAME = os.path.abspath(DB_NAME) DB_DIR = os.path.dirname(DB_NAME)
+==========================================================
+SAFETY CHECK
+==========================================================
+if not DB_NAME.startswith("/var/data/"): raise RuntimeError( "\n" "==========================================================\n" "FATAL DATABASE CONFIGURATION ERROR\n" "==========================================================\n" f"Database path is:\n{DB_NAME}\n\n" "The Melanated AZ Bot database MUST be stored on the\n" "Render Persistent Disk.\n\n" "Required database location:\n" "/var/data/raffle.db\n\n" "Set the Render environment variable:\n" "RAFFLE_DB_NAME=/var/data/raffle.db\n\n" "The bot will NOT use the application filesystem.\n" "==========================================================\n" )
+if not os.path.isdir(DB_DIR): raise RuntimeError( "\n" "==========================================================\n" "FATAL DATABASE ERROR\n" "==========================================================\n" f"Database directory does not exist:\n{DB_DIR}\n\n" "Your Render Persistent Disk must be mounted at:\n" "/var/data\n\n" "Verify your Render service has a Persistent Disk with:\n" "Mount Path: /var/data\n\n" "The bot will NOT create a temporary database.\n" "==========================================================\n" )
+==========================================================
+DATABASE INFORMATION
+==========================================================
+print("==========================================================") print("Melanated AZ Bot - Persistent Database") print("==========================================================") print("Database path :", DB_NAME) print("Database directory :", DB_DIR) print("Database exists :", os.path.exists(DB_NAME))
+if os.path.exists(DB_NAME): print( "Database size :", os.path.getsize(DB_NAME), ) else: print( "Database size :", 0, )
+print( "Persistent directory :", os.path.isdir("/var/data"), )
 print("==========================================================")
-print("Melanated AZ Bot - Persistent Database")
-print("==========================================================")
-print("Database path           :", DB_NAME)
-print("Database directory      :", DB_DIR)
-print("Database exists         :", os.path.exists(DB_NAME))
-print(
-"Database size           :",
-os.path.getsize(DB_NAME)
-if os.path.exists(DB_NAME)
-else 0,
-)
-print(
-"Persistent directory    :",
-os.path.isdir("/var/data"),
-)
-print("==========================================================")
-
-# ==========================================================
-
-# CONNECTION
-
-# ==========================================================
-
-def get_connection():
-conn = sqlite3.connect(
-DB_NAME,
-timeout=30,
-check_same_thread=False,
-)
-
-```
+==========================================================
+CONNECTION
+==========================================================
+def get_connection(): conn = sqlite3.connect( DB_NAME, timeout=30, check_same_thread=False, )
 conn.row_factory = sqlite3.Row
-
-# ------------------------------------------------------
-# WAL
-# ------------------------------------------------------
 
 try:
     conn.execute(
@@ -148,35 +37,19 @@ except Exception as e:
         e,
     )
 
-# ------------------------------------------------------
-# Foreign Keys
-# ------------------------------------------------------
-
 conn.execute(
     "PRAGMA foreign_keys=ON"
 )
-
-# ------------------------------------------------------
-# Busy Timeout
-# ------------------------------------------------------
 
 conn.execute(
     "PRAGMA busy_timeout=30000"
 )
 
 return conn
-```
-
-# ==========================================================
-
-# INITIALIZE DATABASE
-
-# ==========================================================
-
-def initialize_database():
-conn = get_connection()
-
-```
+==========================================================
+INITIALIZE DATABASE
+==========================================================
+def initialize_database(): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -215,7 +88,6 @@ try:
             status TEXT NOT NULL DEFAULT 'pending',
             approved_by INTEGER,
             created_at TEXT NOT NULL,
-
             FOREIGN KEY (raffle_id)
                 REFERENCES raffles(id)
                 ON DELETE CASCADE
@@ -238,7 +110,6 @@ try:
             display_name TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-
             UNIQUE(user_id, chat_id)
         )
         """
@@ -288,30 +159,14 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# INITIALIZE WHEN MODULE LOADS
-
-# ==========================================================
-
+==========================================================
+INITIALIZE WHEN MODULE LOADS
+==========================================================
 initialize_database()
-
-# ==========================================================
-
-# RAFFLE CREATION
-
-# ==========================================================
-
-def create_raffle(
-prize,
-price,
-expires_at,
-):
-conn = get_connection()
-
-```
+==========================================================
+RAFFLE CREATION
+==========================================================
+def create_raffle( prize, price, expires_at, ): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -346,20 +201,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# GET RAFFLE
-
-# ==========================================================
-
-def get_raffle(
-raffle_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+GET RAFFLE
+==========================================================
+def get_raffle(raffle_id): conn = get_connection()
 try:
     row = conn.execute(
         """
@@ -374,18 +219,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# ACTIVE RAFFLE
-
-# ==========================================================
-
-def get_active_raffle():
-conn = get_connection()
-
-```
+==========================================================
+ACTIVE RAFFLE
+==========================================================
+def get_active_raffle(): conn = get_connection()
 try:
     row = conn.execute(
         """
@@ -401,18 +238,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# PENDING RAFFLE
-
-# ==========================================================
-
-def get_pending_raffle():
-conn = get_connection()
-
-```
+==========================================================
+PENDING RAFFLE
+==========================================================
+def get_pending_raffle(): conn = get_connection()
 try:
     row = conn.execute(
         """
@@ -428,20 +257,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# APPROVE RAFFLE
-
-# ==========================================================
-
-def approve_raffle(
-raffle_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+APPROVE RAFFLE
+==========================================================
+def approve_raffle(raffle_id): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -467,20 +286,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# CANCEL PENDING RAFFLE
-
-# ==========================================================
-
-def cancel_pending_raffle(
-raffle_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+CANCEL PENDING RAFFLE
+==========================================================
+def cancel_pending_raffle(raffle_id): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -506,22 +315,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# SET RAFFLE POST
-
-# ==========================================================
-
-def set_raffle_post(
-raffle_id,
-chat_id,
-message_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+SET RAFFLE POST
+==========================================================
+def set_raffle_post( raffle_id, chat_id, message_id, ): conn = get_connection()
 try:
     conn.execute(
         """
@@ -545,20 +342,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# CLOSE RAFFLE
-
-# ==========================================================
-
-def close_raffle(
-raffle_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+CLOSE RAFFLE
+==========================================================
+def close_raffle(raffle_id): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -584,29 +371,11 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# ADD RAFFLE ENTRY
-
-# ==========================================================
-
-def add_raffle_entry(
-raffle_id,
-user_id,
-username,
-display_name,
-payment_method,
-):
-conn = get_connection()
-
-```
+==========================================================
+ADD RAFFLE ENTRY
+==========================================================
+def add_raffle_entry( raffle_id, user_id, username, display_name, payment_method, ): conn = get_connection()
 try:
-    # --------------------------------------------------
-    # Verify raffle exists and is active.
-    # --------------------------------------------------
-
     raffle = conn.execute(
         """
         SELECT id
@@ -620,10 +389,6 @@ try:
 
     if not raffle:
         return None
-
-    # --------------------------------------------------
-    # Prevent duplicate pending/approved entries.
-    # --------------------------------------------------
 
     existing = conn.execute(
         """
@@ -642,10 +407,6 @@ try:
 
     if existing:
         return None
-
-    # --------------------------------------------------
-    # Insert entry.
-    # --------------------------------------------------
 
     cursor = conn.cursor()
 
@@ -692,20 +453,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# GET ENTRY
-
-# ==========================================================
-
-def get_entry(
-entry_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+GET ENTRY
+==========================================================
+def get_entry(entry_id): conn = get_connection()
 try:
     row = conn.execute(
         """
@@ -720,18 +471,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# PENDING ENTRIES
-
-# ==========================================================
-
-def get_pending_entries():
-conn = get_connection()
-
-```
+==========================================================
+PENDING ENTRIES
+==========================================================
+def get_pending_entries(): conn = get_connection()
 try:
     rows = conn.execute(
         """
@@ -749,21 +492,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# APPROVE ENTRY
-
-# ==========================================================
-
-def approve_entry(
-entry_id,
-approved_by,
-):
-conn = get_connection()
-
-```
+==========================================================
+APPROVE ENTRY
+==========================================================
+def approve_entry( entry_id, approved_by, ): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -793,21 +525,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# DENY ENTRY
-
-# ==========================================================
-
-def deny_entry(
-entry_id,
-denied_by,
-):
-conn = get_connection()
-
-```
+==========================================================
+DENY ENTRY
+==========================================================
+def deny_entry( entry_id, denied_by, ): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -837,20 +558,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# APPROVED ENTRIES
-
-# ==========================================================
-
-def get_approved_entries(
-raffle_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+APPROVED ENTRIES
+==========================================================
+def get_approved_entries(raffle_id): conn = get_connection()
 try:
     rows = conn.execute(
         """
@@ -870,20 +581,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# REMOVE ENTRY
-
-# ==========================================================
-
-def remove_entry(
-entry_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+REMOVE ENTRY
+==========================================================
+def remove_entry(entry_id): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -907,24 +608,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# SAVE / UPDATE BIRTHDAY
-
-# ==========================================================
-
-def save_birthday(
-user_id,
-chat_id,
-birthday,
-username=None,
-display_name=None,
-):
-now = datetime.utcnow().isoformat()
-
-```
+==========================================================
+SAVE / UPDATE BIRTHDAY
+==========================================================
+def save_birthday( user_id, chat_id, birthday, username=None, display_name=None, ): now = datetime.utcnow().isoformat()
 conn = get_connection()
 
 try:
@@ -976,21 +663,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# GET USER BIRTHDAY
-
-# ==========================================================
-
-def get_birthday(
-user_id,
-chat_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+GET USER BIRTHDAY
+==========================================================
+def get_birthday( user_id, chat_id, ): conn = get_connection()
 try:
     row = conn.execute(
         """
@@ -1010,20 +686,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# GET BIRTHDAYS FOR DATE
-
-# ==========================================================
-
-def get_birthdays_for_date(
-birthday,
-):
-conn = get_connection()
-
-```
+==========================================================
+GET BIRTHDAYS FOR DATE
+==========================================================
+def get_birthdays_for_date(birthday): conn = get_connection()
 try:
     rows = conn.execute(
         """
@@ -1042,18 +708,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# GET ALL BIRTHDAYS
-
-# ==========================================================
-
-def get_all_birthdays():
-conn = get_connection()
-
-```
+==========================================================
+GET ALL BIRTHDAYS
+==========================================================
+def get_all_birthdays(): conn = get_connection()
 try:
     rows = conn.execute(
         """
@@ -1073,21 +731,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# REMOVE USER BIRTHDAY
-
-# ==========================================================
-
-def remove_birthday(
-user_id,
-chat_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+REMOVE USER BIRTHDAY
+==========================================================
+def remove_birthday( user_id, chat_id, ): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -1115,20 +762,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# REMOVE BIRTHDAY BY DATABASE ID
-
-# ==========================================================
-
-def remove_birthday_by_id(
-birthday_id,
-):
-conn = get_connection()
-
-```
+==========================================================
+REMOVE BIRTHDAY BY DATABASE ID
+==========================================================
+def remove_birthday_by_id(birthday_id): conn = get_connection()
 try:
     cursor = conn.cursor()
 
@@ -1152,18 +789,10 @@ except Exception:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# DATABASE STATISTICS
-
-# ==========================================================
-
-def get_database_stats():
-conn = get_connection()
-
-```
+==========================================================
+DATABASE STATISTICS
+==========================================================
+def get_database_stats(): conn = get_connection()
 try:
     raffle_count = conn.execute(
         """
@@ -1195,18 +824,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# DATABASE INTEGRITY CHECK
-
-# ==========================================================
-
-def check_database_integrity():
-conn = get_connection()
-
-```
+==========================================================
+DATABASE INTEGRITY CHECK
+==========================================================
+def check_database_integrity(): conn = get_connection()
 try:
     result = conn.execute(
         "PRAGMA integrity_check"
@@ -1216,18 +837,10 @@ try:
 
 finally:
     conn.close()
-```
-
-# ==========================================================
-
-# STARTUP DIAGNOSTICS
-
-# ==========================================================
-
-try:
-stats = get_database_stats()
-
-```
+==========================================================
+STARTUP DIAGNOSTICS
+==========================================================
+try: stats = get_database_stats()
 integrity_ok = check_database_integrity()
 
 print("==========================================================")
@@ -1247,19 +860,7 @@ if not integrity_ok:
     raise RuntimeError(
         "SQLite database integrity check FAILED."
     )
-```
-
-except Exception as e:
-print(
-"WARNING: Could not read database statistics."
-)
-print(
-"Database error:",
-e,
-)
-
-# ==========================================================
-
-# END raffle_database.py
-
-# ==========================================================
+except Exception as e: print( "WARNING: Could not read database statistics." ) print( "Database error:", e, )
+==========================================================
+END raffle_database.py
+==========================================================
