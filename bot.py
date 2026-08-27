@@ -68,16 +68,12 @@ from raffle import (
     remove_raffle_entry,
 )
 
-
 # ==========================================================
 # LOGGING
 # ==========================================================
 
 logging.basicConfig(
-    format=(
-        "%(asctime)s - %(name)s - "
-        "%(levelname)s - %(message)s"
-    ),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
@@ -94,10 +90,7 @@ app = Flask(__name__)
 @app.route("/")
 def health():
 
-    return (
-        "Melanated AZ Bot is running",
-        200,
-    )
+    return "Melanated AZ Bot is running", 200
 
 
 def run_flask():
@@ -207,15 +200,8 @@ async def delete_group_warning(
     if not job:
         return
 
-    data = job.data or {}
-
-    chat_id = data.get(
-        "chat_id"
-    )
-
-    message_id = data.get(
-        "message_id"
-    )
+    chat_id = job.data.get("chat_id")
+    message_id = job.data.get("message_id")
 
     if not chat_id or not message_id:
         return
@@ -227,10 +213,16 @@ async def delete_group_warning(
             message_id=message_id,
         )
 
+        logger.info(
+            "Deleted media warning %s from chat %s",
+            message_id,
+            chat_id,
+        )
+
     except Exception:
 
         logger.exception(
-            "Unable to delete group media warning."
+            "Unable to delete group media warning"
         )
 
 
@@ -243,40 +235,20 @@ async def send_media_with_spoiler(
     media_info: dict,
 ):
 
-    media_type = media_info.get(
-        "type"
-    )
-
-    file_id = media_info.get(
-        "file_id"
-    )
-
-    caption = media_info.get(
-        "caption"
-    )
-
-    caption_entities = media_info.get(
-        "caption_entities"
-    )
-
-    chat_id = media_info.get(
-        "chat_id"
-    )
+    media_type = media_info.get("type")
+    file_id = media_info.get("file_id")
+    caption = media_info.get("caption")
+    caption_entities = media_info.get("caption_entities")
+    chat_id = media_info.get("chat_id")
 
     if not media_type:
-        raise ValueError(
-            "Missing media type"
-        )
+        raise ValueError("Missing media type")
 
     if not file_id:
-        raise ValueError(
-            "Missing Telegram file ID"
-        )
+        raise ValueError("Missing Telegram file ID")
 
     if not chat_id:
-        raise ValueError(
-            "Missing original chat ID"
-        )
+        raise ValueError("Missing original chat ID")
 
     if media_type == "photo":
 
@@ -324,29 +296,18 @@ async def spoiler_repost_button(
     user = update.effective_user
 
     if not user:
-
         await query.answer()
-
         return
 
     data = query.data or ""
 
-    if not data.startswith(
-        "spoiler_repost:"
-    ):
-
+    if not data.startswith("spoiler_repost:"):
         await query.answer()
-
         return
 
-    token = data.split(
-        ":",
-        1,
-    )[1]
+    token = data.split(":", 1)[1]
 
-    media_info = pending_media.get(
-        token
-    )
+    media_info = pending_media.get(token)
 
     if not media_info:
 
@@ -369,9 +330,7 @@ async def spoiler_repost_button(
 
         return
 
-    original_user_id = media_info.get(
-        "user_id"
-    )
+    original_user_id = media_info.get("user_id")
 
     if original_user_id != user.id:
 
@@ -413,10 +372,16 @@ async def spoiler_repost_button(
         except Exception:
             pass
 
+        logger.info(
+            "Reposted %s with spoiler for user %s",
+            media_info.get("type"),
+            user.id,
+        )
+
     except Exception:
 
         logger.exception(
-            "Failed to repost media with spoiler."
+            "Failed to repost media with spoiler"
         )
 
         try:
@@ -473,10 +438,18 @@ async def handle_non_spoiler_media(
 
         await message.delete()
 
+        logger.info(
+            "Deleted non-spoiler %s from user %s in %s",
+            media_type,
+            user.id,
+            chat_name,
+        )
+
     except Exception:
 
         logger.exception(
-            "Failed to delete non-spoiler media."
+            "Failed to delete non-spoiler %s",
+            media_type,
         )
 
         pending_media.pop(
@@ -497,13 +470,18 @@ async def handle_non_spoiler_media(
             ),
         )
 
+        logger.info(
+            "Sent media warning to %s",
+            chat_name,
+        )
+
     except Exception:
 
         logger.exception(
-            "Failed to send group media warning."
+            "Failed to send group media warning"
         )
 
-    if warning_message and context.job_queue:
+    if warning_message:
 
         try:
 
@@ -519,7 +497,7 @@ async def handle_non_spoiler_media(
         except Exception:
 
             logger.exception(
-                "Failed to schedule warning deletion."
+                "Failed to schedule warning deletion"
             )
 
     try:
@@ -529,16 +507,20 @@ async def handle_non_spoiler_media(
             text=PRIVATE_MEDIA_WARNING.format(
                 chat_name=chat_name,
             ),
-            reply_markup=spoiler_keyboard(
-                token
-            ),
+            reply_markup=spoiler_keyboard(token),
+        )
+
+        logger.info(
+            "Sent private media warning to user %s",
+            user.id,
         )
 
     except Exception as exc:
 
         logger.warning(
             "Could not send private media warning "
-            "to user %s: %s",
+            "to user %s. User may not have started "
+            "the bot privately. Error: %s",
             user.id,
             exc,
         )
@@ -563,21 +545,23 @@ async def media_spoiler_handler(
     if not user:
         return
 
-    # ------------------------------------------------------
-    # GIF
-    # ------------------------------------------------------
-
     if message.animation:
 
-        return
+        logger.info(
+            "GIF/animation allowed from user %s",
+            user.id,
+        )
 
-    # ------------------------------------------------------
-    # PHOTO
-    # ------------------------------------------------------
+        return
 
     if message.photo:
 
         if message.has_media_spoiler:
+
+            logger.info(
+                "Spoiler photo allowed from user %s",
+                user.id,
+            )
 
             return
 
@@ -594,13 +578,14 @@ async def media_spoiler_handler(
 
         return
 
-    # ------------------------------------------------------
-    # VIDEO
-    # ------------------------------------------------------
-
     if message.video:
 
         if message.has_media_spoiler:
+
+            logger.info(
+                "Spoiler video allowed from user %s",
+                user.id,
+            )
 
             return
 
@@ -645,7 +630,7 @@ async def error_handler(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    logger.error(
+    logger.exception(
         "Exception while processing update:",
         exc_info=context.error,
     )
@@ -671,6 +656,14 @@ def main():
         RAFFLE_CHAT_ID,
     )
 
+    logger.info(
+        "Cash App: Loaded"
+    )
+
+    logger.info(
+        "Zelle: Loaded"
+    )
+
     # ======================================================
     # FLASK
     # ======================================================
@@ -687,7 +680,7 @@ def main():
     )
 
     # ======================================================
-    # APPLICATION
+    # TELEGRAM APPLICATION
     # ======================================================
 
     application = (
@@ -697,7 +690,9 @@ def main():
     )
 
     # ======================================================
-    # /START
+    # PRIVATE RAFFLE DEEP LINK
+    #
+    # /start raffle_123
     # ======================================================
 
     application.add_handler(
@@ -741,7 +736,7 @@ def main():
     )
 
     # ======================================================
-    # PAID
+    # PAID ENTRY
     # ======================================================
 
     application.add_handler(
@@ -774,7 +769,7 @@ def main():
     )
 
     # ======================================================
-    # PENDING
+    # PENDING PAYMENTS
     # ======================================================
 
     application.add_handler(
@@ -785,7 +780,7 @@ def main():
     )
 
     # ======================================================
-    # CANCEL
+    # CANCEL RAFFLE
     # ======================================================
 
     application.add_handler(
@@ -840,7 +835,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN PANEL
+    # ADMIN PANEL BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -851,7 +846,7 @@ def main():
     )
 
     # ======================================================
-    # RAFFLE APPROVAL
+    # RAFFLE APPROVAL / CANCELLATION
     # ======================================================
 
     application.add_handler(
@@ -862,10 +857,10 @@ def main():
     )
 
     # ======================================================
-    # ENTER RAFFLE
+    # LEGACY ENTER RAFFLE CALLBACK
     #
-    # IMPORTANT:
-    # This MUST be registered.
+    # Handles older raffle posts that still contain
+    # callback_data instead of the new deep-link URL.
     # ======================================================
 
     application.add_handler(
@@ -876,7 +871,7 @@ def main():
     )
 
     # ======================================================
-    # ADMIN PAYMENT
+    # ADMIN PAYMENT BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -887,7 +882,7 @@ def main():
     )
 
     # ======================================================
-    # PAYMENT
+    # PAYMENT BUTTONS
     # ======================================================
 
     application.add_handler(
@@ -898,7 +893,7 @@ def main():
     )
 
     # ======================================================
-    # SPOILER REPOST
+    # MEDIA REPOST BUTTON
     # ======================================================
 
     application.add_handler(
@@ -909,7 +904,7 @@ def main():
     )
 
     # ======================================================
-    # MEDIA
+    # MEDIA SPOILER MODERATION
     # ======================================================
 
     application.add_handler(
@@ -922,7 +917,7 @@ def main():
     )
 
     # ======================================================
-    # TEXT
+    # RAFFLE SETUP TEXT
     # ======================================================
 
     application.add_handler(
@@ -933,7 +928,7 @@ def main():
     )
 
     # ======================================================
-    # ERROR
+    # ERROR HANDLER
     # ======================================================
 
     application.add_error_handler(
@@ -941,7 +936,7 @@ def main():
     )
 
     # ======================================================
-    # POLLING
+    # START POLLING
     # ======================================================
 
     logger.info(
@@ -959,5 +954,4 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
-
     main()
