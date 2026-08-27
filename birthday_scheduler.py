@@ -1,4 +1,3 @@
-```python
 # ==========================================================
 # Melanated AZ Bot
 # birthday_scheduler.py
