@@ -2,7 +2,7 @@
 # Melanated AZ Bot
 # bot.py
 #
-# PRODUCTION-READY MAIN BOT
+# COMPLETE REPLACEMENT
 #
 # Responsibilities:
 #   - Start Telegram bot
@@ -18,7 +18,6 @@
 #   - Raffle business logic remains in raffle.py
 #   - Birthday business logic remains in birthday.py
 #   - Admin business logic remains in admin.py
-#   - This file routes updates to those modules
 #
 # Media:
 #   - Photos/videos MUST use Telegram Spoiler
@@ -27,6 +26,11 @@
 #   - User receives a button to repost through the bot
 #   - Bot reposts with Spoiler enabled
 #   - GIFs/animations are allowed
+#
+# Raffle:
+#   - /startraffle is handled directly by raffle.py
+#   - All raffle callback buttons are routed through
+#     raffle.raffle_callback_router
 #
 # ==========================================================
 
@@ -107,23 +111,37 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-logger = logging.getLogger("melanated_az_bot")
+logger = logging.getLogger(
+    "melanated_az_bot"
+)
 
 
 # ==========================================================
 # OPTIONAL TELEGRAM LOGGING
 # ==========================================================
 
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("telegram").setLevel(logging.INFO)
+logging.getLogger(
+    "httpx"
+).setLevel(
+    logging.WARNING
+)
+
+logging.getLogger(
+    "telegram"
+).setLevel(
+    logging.INFO
+)
 
 
 # ==========================================================
 # RAFFLE FUNCTION LOADING
 #
-# Required raffle functions are checked during startup.
-# This makes deployment failures obvious instead of allowing
-# the bot to start partially broken.
+# These functions are required by bot.py.
+#
+# The raffle callback system itself is handled by:
+#
+#     raffle.raffle_callback_router
+#
 # ==========================================================
 
 REQUIRED_RAFFLE_FUNCTIONS = [
@@ -143,17 +161,17 @@ REQUIRED_RAFFLE_FUNCTIONS = [
     "reroll_raffle",
     "bonus_entry",
     "remove_raffle_entry",
+    "raffle_callback_router",
 ]
 
 
 def load_raffle_functions():
     """
-    Load raffle handlers and fail clearly if a required
-    function is missing.
+    Verify that raffle.py contains all required
+    handlers before Telegram polling starts.
     """
 
     missing = []
-
     loaded = {}
 
     for function_name in REQUIRED_RAFFLE_FUNCTIONS:
@@ -185,33 +203,6 @@ def load_raffle_functions():
 
 
 RAFFLE = load_raffle_functions()
-
-
-# ==========================================================
-# OPTIONAL RAFFLE TEXT SETUP
-#
-# Some versions of raffle.py may not contain this function.
-# That should not prevent the bot from starting.
-# ==========================================================
-
-handle_raffle_setup = getattr(
-    raffle,
-    "handle_raffle_setup",
-    None,
-)
-
-if callable(handle_raffle_setup):
-
-    logger.info(
-        "Raffle text setup handler loaded."
-    )
-
-else:
-
-    logger.warning(
-        "raffle.handle_raffle_setup is not available. "
-        "Raffle text setup handler is disabled."
-    )
 
 
 # ==========================================================
@@ -250,7 +241,8 @@ def health_check():
 def run_health_server():
 
     logger.info(
-        "Starting Flask health server on 0.0.0.0:%s",
+        "Starting Flask health server on "
+        "0.0.0.0:%s",
         PORT,
     )
 
@@ -266,14 +258,11 @@ def run_health_server():
 # ==========================================================
 # PENDING MEDIA
 #
-# NOTE:
-# This is intentionally kept in memory for this bot process.
+# Intentionally kept in memory for this bot process.
 #
-# Telegram file IDs are used instead of downloading media,
-# which keeps the bot lightweight.
+# Telegram file IDs are stored instead of downloading
+# the actual media.
 #
-# A future SQLite/media table can replace this dictionary
-# without changing the rest of the media workflow.
 # ==========================================================
 
 pending_media = {}
@@ -413,10 +402,14 @@ async def delete_group_warning(
         "message_id"
     )
 
-    if chat_id is None or message_id is None:
+    if (
+        chat_id is None
+        or message_id is None
+    ):
 
         logger.warning(
-            "Warning deletion job missing chat/message IDs."
+            "Warning deletion job missing "
+            "chat/message IDs."
         )
 
         return
@@ -429,7 +422,8 @@ async def delete_group_warning(
         )
 
         logger.info(
-            "Deleted media warning | chat=%s | message=%s",
+            "Deleted media warning | "
+            "chat=%s | message=%s",
             chat_id,
             message_id,
         )
@@ -475,16 +469,19 @@ async def send_media_with_spoiler(
     )
 
     if not media_type:
+
         raise ValueError(
             "Missing media type."
         )
 
     if not file_id:
+
         raise ValueError(
             "Missing Telegram file ID."
         )
 
     if chat_id is None:
+
         raise ValueError(
             "Missing original chat ID."
         )
@@ -557,7 +554,9 @@ async def media_start(
     # MEDIA DEEP LINK
     # ------------------------------------------------------
 
-    if payload.startswith("media_"):
+    if payload.startswith(
+        "media_"
+    ):
 
         token = payload[
             len("media_"):
@@ -608,7 +607,9 @@ async def media_start(
     # RAFFLE DEEP LINK
     # ------------------------------------------------------
 
-    if payload.startswith("raffle_"):
+    if payload.startswith(
+        "raffle_"
+    ):
 
         await RAFFLE[
             "raffle_private_start"
@@ -724,7 +725,8 @@ async def spoiler_repost_button(
 
             logger.warning(
                 "Media posted successfully but "
-                "confirmation message could not be edited: %s",
+                "confirmation message could not "
+                "be edited: %s",
                 exc,
             )
 
@@ -737,12 +739,17 @@ async def spoiler_repost_button(
             token,
         )
 
-        await query.edit_message_text(
-            "⚠️ MelanatedAZ could not repost "
-            "your media.\n\n"
-            "Please upload it again and select "
-            "Hide with Spoiler / Mark as Spoiler."
-        )
+        try:
+
+            await query.edit_message_text(
+                "⚠️ MelanatedAZ could not repost "
+                "your media.\n\n"
+                "Please upload it again and select "
+                "Hide with Spoiler / Mark as Spoiler."
+            )
+
+        except Exception:
+            pass
 
 
 # ==========================================================
@@ -887,7 +894,8 @@ async def handle_non_spoiler_media(
     except Exception as exc:
 
         logger.warning(
-            "Could not send group media warning | error=%s",
+            "Could not send group media warning | "
+            "error=%s",
             exc,
         )
 
@@ -924,7 +932,8 @@ async def handle_non_spoiler_media(
         )
 
         logger.info(
-            "Sent private media instructions | user=%s",
+            "Sent private media instructions | "
+            "user=%s",
             user.id,
         )
 
@@ -1011,6 +1020,12 @@ async def media_spoiler_handler(
 
 # ==========================================================
 # TEXT HANDLER
+#
+# Birthday text handling remains here.
+#
+# Raffle creation is handled by the /startraffle command
+# directly, so no obsolete handle_raffle_setup handler
+# is needed.
 # ==========================================================
 
 async def text_message_handler(
@@ -1035,32 +1050,6 @@ async def text_message_handler(
         logger.exception(
             "Birthday text handler failed."
         )
-
-    # ------------------------------------------------------
-    # RAFFLE SETUP
-    # ------------------------------------------------------
-
-    if callable(
-        handle_raffle_setup
-    ):
-
-        try:
-
-            handled = (
-                await handle_raffle_setup(
-                    update,
-                    context,
-                )
-            )
-
-            if handled:
-                return
-
-        except Exception:
-
-            logger.exception(
-                "Raffle text setup handler failed."
-            )
 
 
 # ==========================================================
@@ -1252,46 +1241,49 @@ def register_handlers(
     )
 
     # ------------------------------------------------------
-    # RAFFLE APPROVAL
+    # RAFFLE CALLBACK ROUTER
+    #
+    # IMPORTANT:
+    #
+    # raffle.py creates callback_data in these formats:
+    #
+    #   raffle_enter
+    #   raffle_cashapp
+    #   raffle_zelle
+    #
+    #   pay_cashapp:ID
+    #   pay_zelle:ID
+    #
+    #   approve_raffle:ID
+    #   cancel_raffle:ID
+    #
+    #   approve_entry:ID
+    #   deny_entry:ID
+    #
+    # The old bot.py patterns did NOT match these values.
+    #
+    # Everything is now routed through the central
+    # raffle_callback_router() in raffle.py.
     # ------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
-            RAFFLE["raffle_approval_button"],
-            pattern=r"^raffle_(?:approve|cancel)_\d+$",
-        )
-    )
-
-    # ------------------------------------------------------
-    # RAFFLE ENTER
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            RAFFLE["raffle_enter_button"],
-            pattern=r"^raffle_enter_\d+$",
-        )
-    )
-
-    # ------------------------------------------------------
-    # ADMIN PAYMENT
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            RAFFLE["admin_payment_button"],
-            pattern=r"^(approve|deny)_\d+$",
-        )
-    )
-
-    # ------------------------------------------------------
-    # PAYMENT
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            RAFFLE["payment_button"],
-            pattern=r"^raffle_(cashapp|zelle)_\d+$",
+            RAFFLE[
+                "raffle_callback_router"
+            ],
+            pattern=(
+                r"^(?:"
+                r"raffle_enter"
+                r"|raffle_cashapp"
+                r"|raffle_zelle"
+                r"|pay_cashapp:\d+"
+                r"|pay_zelle:\d+"
+                r"|approve_raffle:\d+"
+                r"|cancel_raffle:\d+"
+                r"|approve_entry:\d+"
+                r"|deny_entry:\d+"
+                r")$"
+            ),
         )
     )
 
