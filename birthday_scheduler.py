@@ -162,4 +162,3 @@ def start_birthday_scheduler(application):
     logger.info(
         "🎂 Birthday scheduler started — daily at 9:00 AM."
     )
-```
