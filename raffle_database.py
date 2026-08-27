@@ -15,7 +15,7 @@ DB_NAME = os.environ.get(
 
 
 # ==========================================================
-# CONNECTION
+# DATABASE CONNECTION
 # ==========================================================
 
 def get_connection():
@@ -37,7 +37,6 @@ def get_connection():
 def initialize_database():
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     # ======================================================
@@ -84,8 +83,7 @@ def initialize_database():
     # ======================================================
     # BIRTHDAYS
     #
-    # IMPORTANT:
-    # These records are NOT deleted by raffle operations.
+    # NEVER deleted by raffle functions.
     # ======================================================
 
     cursor.execute(
@@ -108,10 +106,6 @@ def initialize_database():
     conn.close()
 
 
-# ==========================================================
-# RUN DATABASE INITIALIZATION
-# ==========================================================
-
 initialize_database()
 
 
@@ -126,7 +120,6 @@ def create_raffle(
 ):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -156,7 +149,9 @@ def create_raffle(
     return raffle_id
 
 
-def get_raffle(raffle_id):
+def get_raffle(
+    raffle_id,
+):
 
     conn = get_connection()
 
@@ -212,10 +207,11 @@ def get_pending_raffle():
     return dict(row) if row else None
 
 
-def approve_raffle(raffle_id):
+def approve_raffle(
+    raffle_id,
+):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -236,10 +232,11 @@ def approve_raffle(raffle_id):
     return changed
 
 
-def cancel_pending_raffle(raffle_id):
+def cancel_pending_raffle(
+    raffle_id,
+):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -286,10 +283,11 @@ def set_raffle_post(
     conn.close()
 
 
-def close_raffle(raffle_id):
+def close_raffle(
+    raffle_id,
+):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -311,7 +309,7 @@ def close_raffle(raffle_id):
 
 
 # ==========================================================
-# ENTRY FUNCTIONS
+# RAFFLE ENTRIES
 # ==========================================================
 
 def add_raffle_entry(
@@ -378,7 +376,9 @@ def add_raffle_entry(
     return entry_id
 
 
-def get_entry(entry_id):
+def get_entry(
+    entry_id,
+):
 
     conn = get_connection()
 
@@ -420,7 +420,6 @@ def approve_entry(
 ):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -451,7 +450,6 @@ def deny_entry(
 ):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -498,10 +496,11 @@ def get_approved_entries(
     return [dict(row) for row in rows]
 
 
-def remove_entry(entry_id):
+def remove_entry(
+    entry_id,
+):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -611,7 +610,8 @@ def get_birthdays_for_date(
         FROM birthdays
         WHERE birthday = ?
         ORDER BY display_name COLLATE NOCASE ASC
-        """,
+        """
+        ,
         (birthday,),
     ).fetchall()
 
@@ -646,7 +646,6 @@ def remove_birthday(
 ):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
@@ -674,7 +673,6 @@ def remove_birthday_by_id(
 ):
 
     conn = get_connection()
-
     cursor = conn.cursor()
 
     cursor.execute(
