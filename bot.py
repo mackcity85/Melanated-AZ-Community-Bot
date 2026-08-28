@@ -4,7 +4,7 @@
 #
 # COMPLETE PRODUCTION VERSION
 #
-# FEATURES:
+# Features:
 # - Persistent raffle system
 # - Persistent birthday system
 # - Media spoiler enforcement
@@ -14,7 +14,7 @@
 # - Private media instructions
 # - Media repost with Telegram Spoiler enabled
 # - Pending media expiration
-# - Raffle user messages can be removed after 1 minute
+# - Raffle user messages removed after 1 minute
 # - Start Raffle button
 # - FREE raffle support
 # - Central raffle callback routing
@@ -30,7 +30,7 @@
 # Admin business logic remains in admin.py
 # Database logic remains in raffle_database.py
 #
-# EXISTING DATABASE:
+# Existing database:
 # /var/data/raffle.db
 #
 # This file does NOT delete, recreate, reset, or migrate
@@ -407,7 +407,7 @@ def spoiler_keyboard(
 
 
 # ==========================================================
-# DELETE MESSAGE SAFELY
+# SAFE MESSAGE DELETION
 # ==========================================================
 
 async def delete_message_safely(
@@ -445,8 +445,7 @@ async def delete_message_safely(
     except BadRequest as exc:
 
         logger.info(
-            "Could not delete %s because it is already "
-            "deleted/unavailable: %s",
+            "Could not delete %s: %s",
             description,
             exc,
         )
@@ -492,18 +491,10 @@ async def delete_group_warning(
 
     data = job.data or {}
 
-    chat_id = data.get(
-        "chat_id"
-    )
-
-    message_id = data.get(
-        "message_id"
-    )
-
     await delete_message_safely(
         context,
-        chat_id,
-        message_id,
+        data.get("chat_id"),
+        data.get("message_id"),
         description="media warning",
     )
 
@@ -523,18 +514,10 @@ async def delete_raffle_user_message(
 
     data = job.data or {}
 
-    chat_id = data.get(
-        "chat_id"
-    )
-
-    message_id = data.get(
-        "message_id"
-    )
-
     await delete_message_safely(
         context,
-        chat_id,
-        message_id,
+        data.get("chat_id"),
+        data.get("message_id"),
         description="raffle user message",
     )
 
@@ -570,14 +553,6 @@ def schedule_raffle_message_deletion(
             f"{chat_id}_"
             f"{message_id}"
         ),
-    )
-
-    logger.info(
-        "Scheduled raffle user message deletion "
-        "in %s seconds | chat=%s | message=%s",
-        RAFFLE_MESSAGE_DELETE_SECONDS,
-        chat_id,
-        message_id,
     )
 
 
@@ -635,43 +610,20 @@ async def send_media_with_spoiler(
     media_info: dict,
 ):
 
-    media_type = media_info.get(
-        "type"
-    )
-
-    file_id = media_info.get(
-        "file_id"
-    )
-
-    caption = media_info.get(
-        "caption"
-    )
-
-    caption_entities = media_info.get(
-        "caption_entities"
-    )
-
-    chat_id = media_info.get(
-        "chat_id"
-    )
+    media_type = media_info.get("type")
+    file_id = media_info.get("file_id")
+    caption = media_info.get("caption")
+    caption_entities = media_info.get("caption_entities")
+    chat_id = media_info.get("chat_id")
 
     if not media_type:
-
-        raise ValueError(
-            "Missing media type."
-        )
+        raise ValueError("Missing media type.")
 
     if not file_id:
-
-        raise ValueError(
-            "Missing Telegram file ID."
-        )
+        raise ValueError("Missing Telegram file ID.")
 
     if chat_id is None:
-
-        raise ValueError(
-            "Missing original chat ID."
-        )
+        raise ValueError("Missing original chat ID.")
 
     if media_type == "photo":
 
@@ -733,19 +685,11 @@ async def media_start(
 
     payload = args[0].strip()
 
-    # ======================================================
-    # MEDIA DEEP LINK
-    # ======================================================
-
     if payload.startswith("media_"):
 
-        token = payload[
-            len("media_"):
-        ]
+        token = payload[len("media_"):]
 
-        media_info = pending_media.get(
-            token
-        )
+        media_info = pending_media.get(token)
 
         if not media_info:
 
@@ -757,9 +701,7 @@ async def media_start(
 
             return
 
-        if media_info.get(
-            "user_id"
-        ) != user.id:
+        if media_info.get("user_id") != user.id:
 
             await message.reply_text(
                 "⚠️ This media belongs to another "
@@ -777,31 +719,21 @@ async def media_start(
             "Spoiler option enabled.\n\n"
             "⚠️ If MelanatedAZ reposts your media, "
             "you cannot delete the MelanatedAZ repost.",
-            reply_markup=spoiler_keyboard(
-                token
-            ),
+            reply_markup=spoiler_keyboard(token),
         )
 
         return
 
-    # ======================================================
-    # RAFFLE DEEP LINK
-    # ======================================================
-
     if payload.startswith("raffle_"):
 
-        await RAFFLE[
-            "raffle_private_start"
-        ](
+        await RAFFLE["raffle_private_start"](
             update,
             context,
         )
 
         return
 
-    await RAFFLE[
-        "raffle_private_start"
-    ](
+    await RAFFLE["raffle_private_start"](
         update,
         context,
     )
@@ -826,27 +758,18 @@ async def spoiler_repost_button(
     if not user:
 
         await query.answer()
-
         return
 
     data = query.data or ""
 
-    if not data.startswith(
-        "spoiler_repost:"
-    ):
+    if not data.startswith("spoiler_repost:"):
 
         await query.answer()
-
         return
 
-    token = data.split(
-        ":",
-        1,
-    )[1]
+    token = data.split(":", 1)[1]
 
-    media_info = pending_media.get(
-        token
-    )
+    media_info = pending_media.get(token)
 
     if not media_info:
 
@@ -857,9 +780,7 @@ async def spoiler_repost_button(
 
         return
 
-    if media_info.get(
-        "user_id"
-    ) != user.id:
+    if media_info.get("user_id") != user.id:
 
         await query.answer(
             "This media belongs to another member.",
@@ -896,12 +817,8 @@ async def spoiler_repost_button(
                 "MelanatedAZ media rules."
             )
 
-        except TelegramError as exc:
-
-            logger.warning(
-                "Could not edit media confirmation: %s",
-                exc,
-            )
+        except TelegramError:
+            pass
 
     except Exception:
 
@@ -914,13 +831,10 @@ async def spoiler_repost_button(
             await query.edit_message_text(
                 "⚠️ MelanatedAZ could not repost "
                 "your media.\n\n"
-                "Your saved media has not been removed "
-                "from the pending queue.\n\n"
                 "Please try the button again."
             )
 
         except TelegramError:
-
             pass
 
 
@@ -969,10 +883,7 @@ async def handle_non_spoiler_media(
 
     except TelegramError:
 
-        pending_media.pop(
-            token,
-            None,
-        )
+        pending_media.pop(token, None)
 
         logger.warning(
             "Could not delete non-spoiler media."
@@ -987,17 +898,13 @@ async def handle_non_spoiler_media(
         bot_username = bot_user.username
 
         if not bot_username:
-
             raise RuntimeError(
                 "Bot username unavailable."
             )
 
     except Exception:
 
-        pending_media.pop(
-            token,
-            None,
-        )
+        pending_media.pop(token, None)
 
         logger.exception(
             "Could not determine bot username."
@@ -1005,25 +912,21 @@ async def handle_non_spoiler_media(
 
         return
 
-    media_button = (
-        media_deep_link_keyboard(
-            bot_username,
-            token,
-        )
+    media_button = media_deep_link_keyboard(
+        bot_username,
+        token,
     )
 
     warning_message = None
 
     try:
 
-        warning_message = (
-            await context.bot.send_message(
-                chat_id=message.chat_id,
-                text=GROUP_MEDIA_WARNING.format(
-                    chat_name=chat_name,
-                ),
-                reply_markup=media_button,
-            )
+        warning_message = await context.bot.send_message(
+            chat_id=message.chat_id,
+            text=GROUP_MEDIA_WARNING.format(
+                chat_name=chat_name,
+            ),
+            reply_markup=media_button,
         )
 
     except TelegramError:
@@ -1032,10 +935,7 @@ async def handle_non_spoiler_media(
             "Could not send group media warning."
         )
 
-    if (
-        warning_message
-        and context.job_queue
-    ):
+    if warning_message and context.job_queue:
 
         context.job_queue.run_once(
             delete_group_warning,
@@ -1049,12 +949,6 @@ async def handle_non_spoiler_media(
                 f"{warning_message.chat_id}_"
                 f"{warning_message.message_id}"
             ),
-        )
-
-        logger.info(
-            "Scheduled media warning deletion in "
-            "%s seconds.",
-            MEDIA_WARNING_SECONDS,
         )
 
     try:
@@ -1101,9 +995,7 @@ async def media_spoiler_handler(
     if not user:
         return
 
-    # ======================================================
-    # GIFS / ANIMATIONS ARE ALLOWED
-    # ======================================================
+    # GIFs / animations are allowed
 
     if message.animation:
 
@@ -1115,9 +1007,7 @@ async def media_spoiler_handler(
 
         return
 
-    # ======================================================
     # PHOTO
-    # ======================================================
 
     if message.photo:
 
@@ -1144,9 +1034,7 @@ async def media_spoiler_handler(
 
         return
 
-    # ======================================================
     # VIDEO
-    # ======================================================
 
     if message.video:
 
@@ -1188,17 +1076,11 @@ async def text_message_handler(
     if not message:
         return
 
-    # ======================================================
-    # BIRTHDAY
-    # ======================================================
-
     try:
 
-        birthday_handled = (
-            await birthday_text_handler(
-                update,
-                context,
-            )
+        birthday_handled = await birthday_text_handler(
+            update,
+            context,
         )
 
         if birthday_handled:
@@ -1210,21 +1092,13 @@ async def text_message_handler(
             "Birthday text handler failed."
         )
 
-    # ======================================================
-    # RAFFLE TEXT SETUP
-    # ======================================================
-
-    if callable(
-        handle_raffle_setup
-    ):
+    if callable(handle_raffle_setup):
 
         try:
 
-            handled = (
-                await handle_raffle_setup(
-                    update,
-                    context,
-                )
+            handled = await handle_raffle_setup(
+                update,
+                context,
             )
 
             if handled:
@@ -1246,6 +1120,12 @@ async def text_message_handler(
 
 # ==========================================================
 # START RAFFLE BUTTON
+#
+# THIS HANDLER IS INTENTIONALLY SEPARATE FROM THE
+# GENERAL RAFFLE CALLBACK ROUTER.
+#
+# This guarantees that the Start Raffle button
+# actually starts the raffle setup flow.
 # ==========================================================
 
 async def start_raffle_button(
@@ -1263,30 +1143,38 @@ async def start_raffle_button(
     if not user:
 
         await query.answer()
-
         return
 
-    if ADMIN_IDS:
+    # ------------------------------------------------------
+    # ADMIN CHECK
+    # ------------------------------------------------------
+
+    admin_ids = set()
+
+    for admin_id in ADMIN_IDS or []:
 
         try:
 
-            admin_ids = {
+            admin_ids.add(
                 int(admin_id)
-                for admin_id in ADMIN_IDS
-            }
+            )
 
         except (TypeError, ValueError):
 
-            admin_ids = set()
+            continue
 
-        if user.id not in admin_ids:
+    if admin_ids and user.id not in admin_ids:
 
-            await query.answer(
-                "You are not authorized to start a raffle.",
-                show_alert=True,
-            )
+        await query.answer(
+            "You are not authorized to start a raffle.",
+            show_alert=True,
+        )
 
-            return
+        return
+
+    # ------------------------------------------------------
+    # START RAFFLE SETUP
+    # ------------------------------------------------------
 
     context.user_data[
         "awaiting_raffle_setup"
@@ -1306,20 +1194,33 @@ async def start_raffle_button(
         "Raffle setup started."
     )
 
+    prompt = (
+        "🎟️ START RAFFLE\n\n"
+        "Enter the raffle information in this format:\n\n"
+        "$100 Cash Prize | $5\n\n"
+        "FREE raffles are also supported:\n\n"
+        "$100 Cash Prize | FREE\n\n"
+        "Example:\n"
+        "$250 Cash Prize | $10\n\n"
+        "The first part is the prize.\n"
+        "The second part is the entry price.\n\n"
+        "Type the information now."
+    )
+
     try:
 
-        await query.message.reply_text(
-            "🎟️ START RAFFLE\n\n"
-            "Enter the raffle information in this format:\n\n"
-            "$100 Cash Prize | $5\n\n"
-            "FREE raffles are also supported:\n\n"
-            "$100 Cash Prize | FREE\n\n"
-            "Example:\n"
-            "$250 Cash Prize | $10\n\n"
-            "The first part is the prize.\n"
-            "The second part is the entry price.\n\n"
-            "Type the information now."
-        )
+        if query.message:
+
+            await query.message.reply_text(
+                prompt
+            )
+
+        else:
+
+            await context.bot.send_message(
+                chat_id=user.id,
+                text=prompt,
+            )
 
         logger.info(
             "Start Raffle button activated | user=%s",
@@ -1335,7 +1236,7 @@ async def start_raffle_button(
 
 
 # ==========================================================
-# RAFFLE CALLBACK ROUTER
+# CENTRAL RAFFLE CALLBACK ROUTER
 # ==========================================================
 
 async def raffle_callback_handler(
@@ -1350,19 +1251,24 @@ async def raffle_callback_handler(
 
     data = query.data or ""
 
+    normalized = (
+        data
+        .strip()
+        .lower()
+        .replace("-", "_")
+    )
+
     logger.info(
-        "Raffle callback received | "
-        "user=%s | data=%s",
+        "Raffle callback received | user=%s | data=%s",
         update.effective_user.id
         if update.effective_user
         else "unknown",
         data,
     )
 
-    normalized = data.lower().replace(
-        "-",
-        "_",
-    )
+    # ------------------------------------------------------
+    # ALL KNOWN START RAFFLE CALLBACK VALUES
+    # ------------------------------------------------------
 
     start_raffle_callbacks = {
         "start_raffle",
@@ -1371,6 +1277,9 @@ async def raffle_callback_handler(
         "startraffle",
         "raffle_start_button",
         "start_raffle_button",
+        "startraffle",
+        "raffle:start",
+        "raffle_start_now",
     }
 
     if normalized in start_raffle_callbacks:
@@ -1381,6 +1290,10 @@ async def raffle_callback_handler(
         )
 
         return
+
+    # ------------------------------------------------------
+    # CATCH START RAFFLE VARIATIONS
+    # ------------------------------------------------------
 
     if (
         "start" in normalized
@@ -1393,6 +1306,10 @@ async def raffle_callback_handler(
         )
 
         return
+
+    # ------------------------------------------------------
+    # SEND ALL OTHER RAFFLE CALLBACKS TO raffle.py
+    # ------------------------------------------------------
 
     try:
 
@@ -1420,7 +1337,6 @@ async def raffle_callback_handler(
             )
 
         except Exception:
-
             pass
 
 
@@ -1462,9 +1378,9 @@ def register_handlers(
     application: Application,
 ):
 
-    # ======================================================
+    # ------------------------------------------------------
     # START
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -1473,9 +1389,9 @@ def register_handlers(
         )
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # ADMIN
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -1484,9 +1400,9 @@ def register_handlers(
         )
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # RAFFLE COMMANDS
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -1571,9 +1487,9 @@ def register_handlers(
         )
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # BIRTHDAY
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -1596,21 +1512,30 @@ def register_handlers(
         )
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # RAFFLE CALLBACKS
-    # ======================================================
+    #
+    # IMPORTANT:
+    # This handler MUST NOT capture birthday,
+    # admin, or spoiler callbacks.
+    # ------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
             raffle_callback_handler,
-            pattern=r"^(?!birthday_|admin_|spoiler_repost:).+",
+            pattern=(
+                r"^(?!birthday_)"
+                r"(?!admin_)"
+                r"(?!spoiler_repost:)"
+                r".+"
+            ),
         ),
         group=0,
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # BIRTHDAY CALLBACKS
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1620,9 +1545,9 @@ def register_handlers(
         group=1,
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # ADMIN CALLBACKS
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1632,9 +1557,9 @@ def register_handlers(
         group=1,
     )
 
-    # ======================================================
-    # MEDIA REPOST
-    # ======================================================
+    # ------------------------------------------------------
+    # MEDIA REPOST CALLBACKS
+    # ------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1644,9 +1569,9 @@ def register_handlers(
         group=1,
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # MEDIA
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         MessageHandler(
@@ -1657,9 +1582,9 @@ def register_handlers(
         )
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # TEXT
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         MessageHandler(
@@ -1668,9 +1593,9 @@ def register_handlers(
         )
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # ERROR HANDLER
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_error_handler(
         error_handler
@@ -1681,7 +1606,7 @@ def register_handlers(
     )
 
     logger.info(
-        "Start Raffle button setup handler enabled."
+        "Start Raffle button handler enabled."
     )
 
     logger.info(
@@ -1705,9 +1630,9 @@ async def post_init(
         "Telegram application initialization complete."
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # VERIFY BOT
-    # ======================================================
+    # ------------------------------------------------------
 
     try:
 
@@ -1726,9 +1651,9 @@ async def post_init(
 
         raise
 
-    # ======================================================
+    # ------------------------------------------------------
     # MEDIA CLEANUP
-    # ======================================================
+    # ------------------------------------------------------
 
     if application.job_queue:
 
@@ -1750,9 +1675,9 @@ async def post_init(
             "Media cleanup scheduler disabled."
         )
 
-    # ======================================================
+    # ------------------------------------------------------
     # RAFFLE COUNTDOWN
-    # ======================================================
+    # ------------------------------------------------------
 
     if application.job_queue:
 
@@ -1795,9 +1720,9 @@ def main():
         "=================================================="
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # CONFIG VALIDATION
-    # ======================================================
+    # ------------------------------------------------------
 
     if not BOT_TOKEN:
 
@@ -1830,9 +1755,9 @@ def main():
         RAFFLE_MESSAGE_DELETE_SECONDS,
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # HEALTH SERVER
-    # ======================================================
+    # ------------------------------------------------------
 
     health_thread = threading.Thread(
         target=run_health_server,
@@ -1846,9 +1771,9 @@ def main():
         "🌐 Flask health server started."
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # TELEGRAM APPLICATION
-    # ======================================================
+    # ------------------------------------------------------
 
     application = (
         Application.builder()
@@ -1857,17 +1782,17 @@ def main():
         .build()
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # REGISTER HANDLERS
-    # ======================================================
+    # ------------------------------------------------------
 
     register_handlers(
         application
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # BIRTHDAY SCHEDULER
-    # ======================================================
+    # ------------------------------------------------------
 
     try:
 
@@ -1887,9 +1812,9 @@ def main():
 
         raise
 
-    # ======================================================
+    # ------------------------------------------------------
     # START POLLING
-    # ======================================================
+    # ------------------------------------------------------
 
     logger.info(
         "📡 Starting Telegram polling..."
