@@ -8,6 +8,7 @@
 #   - /admin admin panel
 #   - Raffle button routing
 #   - Birthday system
+#   - Truth or Dare
 #   - Persistent SQLite database
 #   - Media spoiler enforcement
 #   - GIF / animation support
@@ -17,12 +18,10 @@
 #   - Flask health server for Render
 #   - Telegram polling
 #
-# Database is handled by raffle_database.py
-# Database location:
+# Database:
 #   /var/data/raffle.db
 # ==========================================================
 
-import asyncio
 import logging
 import os
 import threading
@@ -68,10 +67,6 @@ from config import (
 from admin import (
     admin_menu,
     admin_button,
-    admin_birthday_add,
-    admin_birthday_remove,
-    admin_birthdays,
-    admin_remove_birthday,
     is_admin,
 )
 
@@ -110,6 +105,20 @@ from raffle import (
     paid_entry,
     cancel_raffle,
     draw_raffle,
+)
+
+# ==========================================================
+# TRUTH OR DARE
+# ==========================================================
+
+from truth_dare import (
+    truth,
+    dare,
+    truth_dare_menu,
+    truth_dare_callback,
+    truth_dare_admin_menu,
+    toggle_truth_dare,
+    truth_dare_help,
 )
 
 # ==========================================================
@@ -188,18 +197,21 @@ async def delete_message_later(
         return
 
     try:
+
         await context.bot.delete_message(
             chat_id=chat_id,
             message_id=message_id,
         )
 
     except TelegramError as exc:
+
         logger.debug(
             "Could not delete temporary message: %s",
             exc,
         )
 
     except Exception:
+
         logger.exception(
             "Unexpected temporary message deletion error."
         )
@@ -210,6 +222,7 @@ async def delete_after(
     message,
     seconds=30,
 ):
+
     if not message:
         return
 
@@ -233,6 +246,7 @@ async def delete_after(
 async def get_bot_username(
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     username = context.application.bot_data.get(
         "bot_username"
     )
@@ -241,11 +255,13 @@ async def get_bot_username(
         return username
 
     try:
+
         me = await context.bot.get_me()
 
         username = me.username
 
         if username:
+
             context.application.bot_data[
                 "bot_username"
             ] = username
@@ -253,6 +269,7 @@ async def get_bot_username(
         return username
 
     except Exception:
+
         logger.exception(
             "Could not retrieve bot username."
         )
@@ -267,7 +284,10 @@ async def get_bot_username(
 async def bot_private_button(
     context,
 ):
-    username = await get_bot_username(context)
+
+    username = await get_bot_username(
+        context
+    )
 
     if not username:
         return None
@@ -295,6 +315,7 @@ async def send_media_warning(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if not message:
@@ -305,11 +326,14 @@ async def send_media_warning(
     if not user:
         return
 
-    username = await get_bot_username(context)
+    username = await get_bot_username(
+        context
+    )
 
     keyboard = None
 
     if username:
+
         keyboard = InlineKeyboardMarkup(
             [
                 [
@@ -322,18 +346,19 @@ async def send_media_warning(
         )
 
     warning_text = (
-        "⚠️ **Media Spoiler Required**\n\n"
+        "⚠️ <b>Media Spoiler Required</b>\n\n"
         f"{user.mention_html()}, your photo/video "
         "was removed because it was not marked as "
         "a spoiler.\n\n"
         "Please resend the media using Telegram's "
-        "🚫 **Spoiler** option.\n\n"
+        "🚫 <b>Spoiler</b> option.\n\n"
         "You can also send it to the "
-        "**Melanated AZ Bot** and let the bot "
+        "<b>Melanated AZ Bot</b> and let the bot "
         "handle the posting for you."
     )
 
     try:
+
         warning = await context.bot.send_message(
             chat_id=message.chat_id,
             text=warning_text,
@@ -348,6 +373,7 @@ async def send_media_warning(
         )
 
     except TelegramError:
+
         logger.exception(
             "Could not send media warning."
         )
@@ -361,16 +387,20 @@ async def send_private_media_warning(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     user = update.effective_user
 
     if not user:
         return
 
-    username = await get_bot_username(context)
+    username = await get_bot_username(
+        context
+    )
 
     keyboard = None
 
     if username:
+
         keyboard = InlineKeyboardMarkup(
             [
                 [
@@ -383,15 +413,15 @@ async def send_private_media_warning(
         )
 
     text = (
-        "👋 Hey! This is the **Melanated AZ Bot** "
+        "👋 Hey! This is the <b>Melanated AZ Bot</b> "
         "from the Melanated AZ group.\n\n"
         "Your photo/video was removed from the group "
-        "because Telegram's **Spoiler** option was not "
-        "enabled.\n\n"
-        "📸 **How to post it correctly:**\n\n"
+        "because Telegram's <b>Spoiler</b> option was "
+        "not enabled.\n\n"
+        "📸 <b>How to post it correctly:</b>\n\n"
         "1️⃣ Select your photo or video.\n"
-        "2️⃣ Tap the **⋮** menu/options.\n"
-        "3️⃣ Select **Hide with Spoiler**.\n"
+        "2️⃣ Tap the <b>⋮</b> menu/options.\n"
+        "3️⃣ Select <b>Hide with Spoiler</b>.\n"
         "4️⃣ Send the media.\n\n"
         "You can also send the media directly to me "
         "and use the bot to post it for you.\n\n"
@@ -400,16 +430,19 @@ async def send_private_media_warning(
     )
 
     try:
+
         await context.bot.send_message(
             chat_id=user.id,
             text=text,
             reply_markup=keyboard,
-            parse_mode=ParseMode.MARKDOWN,
+            parse_mode=ParseMode.HTML,
         )
 
     except TelegramError as exc:
+
         logger.info(
-            "Could not send private media warning to %s: %s",
+            "Could not send private media warning "
+            "to %s: %s",
             user.id,
             exc,
         )
@@ -423,16 +456,14 @@ async def handle_photo(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if not message:
         return
 
-    # ------------------------------------------------------
-    # SPOILERED PHOTO = ALLOWED
-    # ------------------------------------------------------
-
     if message.has_media_spoiler:
+
         logger.info(
             "Allowed spoilered photo | chat=%s | user=%s",
             message.chat_id,
@@ -443,10 +474,6 @@ async def handle_photo(
 
         return
 
-    # ------------------------------------------------------
-    # NON-SPOILER PHOTO = DELETE
-    # ------------------------------------------------------
-
     logger.info(
         "Deleting non-spoiler photo | chat=%s | user=%s",
         message.chat_id,
@@ -456,8 +483,11 @@ async def handle_photo(
     )
 
     try:
+
         await message.delete()
+
     except TelegramError:
+
         logger.exception(
             "Could not delete non-spoiler photo."
         )
@@ -481,16 +511,14 @@ async def handle_video(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if not message:
         return
 
-    # ------------------------------------------------------
-    # SPOILERED VIDEO = ALLOWED
-    # ------------------------------------------------------
-
     if message.has_media_spoiler:
+
         logger.info(
             "Allowed spoilered video | chat=%s | user=%s",
             message.chat_id,
@@ -501,10 +529,6 @@ async def handle_video(
 
         return
 
-    # ------------------------------------------------------
-    # NON-SPOILER VIDEO = DELETE
-    # ------------------------------------------------------
-
     logger.info(
         "Deleting non-spoiler video | chat=%s | user=%s",
         message.chat_id,
@@ -514,8 +538,11 @@ async def handle_video(
     )
 
     try:
+
         await message.delete()
+
     except TelegramError:
+
         logger.exception(
             "Could not delete non-spoiler video."
         )
@@ -539,9 +566,6 @@ async def handle_animation(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """
-    GIFs / Telegram animations are allowed.
-    """
 
     message = update.effective_message
 
@@ -565,9 +589,6 @@ async def handle_image_document(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """
-    Image files sent as documents are allowed.
-    """
 
     message = update.effective_message
 
@@ -589,8 +610,6 @@ async def handle_image_document(
             else "unknown",
         )
 
-        return
-
 
 # ==========================================================
 # ADMIN BIRTHDAY TEXT INPUT
@@ -600,6 +619,7 @@ async def handle_admin_birthday_text(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
     user = update.effective_user
 
@@ -622,7 +642,7 @@ async def handle_admin_birthday_text(
 
     if len(parts) != 2:
 
-        await message.reply_text(
+        response = await message.reply_text(
             "❌ Invalid format.\n\n"
             "Use:\n"
             "`USER_ID MM/DD`\n\n"
@@ -631,14 +651,28 @@ async def handle_admin_birthday_text(
             parse_mode=ParseMode.MARKDOWN,
         )
 
+        await delete_after(
+            context,
+            response,
+            60,
+        )
+
         return True
 
     try:
+
         member_id = int(parts[0])
+
     except ValueError:
 
-        await message.reply_text(
+        response = await message.reply_text(
             "❌ The Telegram User ID must be a number."
+        )
+
+        await delete_after(
+            context,
+            response,
+            60,
         )
 
         return True
@@ -649,18 +683,20 @@ async def handle_admin_birthday_text(
 
     if not birthday_value:
 
-        await message.reply_text(
+        response = await message.reply_text(
             "❌ Invalid birthday.\n\n"
             "Use MM/DD.\n\n"
             "Example: `08/27`",
             parse_mode=ParseMode.MARKDOWN,
         )
 
-        return True
+        await delete_after(
+            context,
+            response,
+            60,
+        )
 
-    # ------------------------------------------------------
-    # SAVE FOR THE RAFFLE CHAT
-    # ------------------------------------------------------
+        return True
 
     success = save_birthday(
         user_id=member_id,
@@ -678,10 +714,10 @@ async def handle_admin_birthday_text(
     if success:
 
         response = await message.reply_text(
-            "🎉 **Birthday Saved!**\n\n"
-            f"👤 User ID: `{member_id}`\n"
-            f"🎂 Birthday: **{birthday_value}**",
-            parse_mode=ParseMode.MARKDOWN,
+            "🎉 <b>Birthday Saved!</b>\n\n"
+            f"👤 User ID: <code>{member_id}</code>\n"
+            f"🎂 Birthday: <b>{birthday_value}</b>",
+            parse_mode=ParseMode.HTML,
         )
 
         await delete_after(
@@ -701,16 +737,9 @@ async def text_router(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """
-    Routes text input to whichever system is waiting
-    for input.
-
-    IMPORTANT:
-    Birthday input is checked before normal text handling.
-    """
 
     # ------------------------------------------------------
-    # ADMIN BIRTHDAY
+    # ADMIN BIRTHDAY INPUT
     # ------------------------------------------------------
 
     handled = await handle_admin_birthday_text(
@@ -722,7 +751,7 @@ async def text_router(
         return
 
     # ------------------------------------------------------
-    # USER BIRTHDAY
+    # USER BIRTHDAY INPUT
     # ------------------------------------------------------
 
     handled = await birthday_text_handler(
@@ -742,6 +771,7 @@ async def start_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
     user = update.effective_user
 
@@ -749,24 +779,30 @@ async def start_command(
         return
 
     text = (
-        "👋 **Welcome to Melanated AZ Bot!**\n\n"
+        "👋 <b>Welcome to Melanated AZ Bot!</b>\n\n"
         "I'm the bot for the Melanated AZ community.\n\n"
         "I can help with:\n\n"
         "🎂 Birthdays\n"
         "🎟️ Raffles\n"
+        "🔥 Truth or Dare\n"
         "🛡️ Media protection\n\n"
-        "Use `/birthday` to manage your birthday."
+        "🎂 <b>Birthday</b>\n"
+        "Use /birthday to manage your birthday.\n\n"
+        "🔥 <b>Truth or Dare</b>\n"
+        "Use /truthdare to open the game.\n"
+        "You can also use /truth or /dare."
     )
 
     if is_admin(user.id):
+
         text += (
-            "\n\n👑 **Admin:**\n"
-            "Use `/admin` to open the admin panel."
+            "\n\n👑 <b>Admin</b>\n"
+            "Use /admin to open the admin panel."
         )
 
     await message.reply_text(
         text,
-        parse_mode=ParseMode.MARKDOWN,
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -778,9 +814,6 @@ async def admin_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """
-    /admin is the main administrator entry point.
-    """
 
     user = update.effective_user
 
@@ -810,12 +843,6 @@ async def admin_callback_router(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """
-    Routes every callback beginning with admin_
-    into admin.py.
-
-    This is what makes the /admin buttons work.
-    """
 
     query = update.callback_query
 
@@ -833,6 +860,80 @@ async def admin_callback_router(
 
         return
 
+    data = query.data or ""
+
+    logger.info(
+        "Admin callback: %s | user=%s",
+        data,
+        user.id,
+    )
+
+    # ------------------------------------------------------
+    # TRUTH OR DARE ADMIN SETTINGS
+    # ------------------------------------------------------
+
+    if data == "admin_truthdare":
+
+        try:
+            await truth_dare_admin_menu(
+                update,
+                context,
+            )
+        except Exception:
+            logger.exception(
+                "Truth or Dare admin menu failed."
+            )
+
+            try:
+                await query.answer(
+                    "⚠️ Truth or Dare settings failed.",
+                    show_alert=True,
+                )
+            except Exception:
+                pass
+
+        return
+
+    if data == "admin_truthdare_toggle":
+
+        try:
+            await toggle_truth_dare(
+                update,
+                context,
+            )
+        except Exception:
+            logger.exception(
+                "Truth or Dare toggle failed."
+            )
+
+            try:
+                await query.answer(
+                    "⚠️ Could not change Truth or Dare.",
+                    show_alert=True,
+                )
+            except Exception:
+                pass
+
+        return
+
+    if data == "admin_truthdare_help":
+
+        try:
+            await truth_dare_help(
+                update,
+                context,
+            )
+        except Exception:
+            logger.exception(
+                "Truth or Dare help failed."
+            )
+
+        return
+
+    # ------------------------------------------------------
+    # NORMAL ADMIN PANEL
+    # ------------------------------------------------------
+
     try:
 
         await admin_button(
@@ -847,10 +948,12 @@ async def admin_callback_router(
         )
 
         try:
+
             await query.answer(
                 "⚠️ Something went wrong.",
                 show_alert=True,
             )
+
         except Exception:
             pass
 
@@ -863,6 +966,7 @@ async def birthday_callback_router(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     try:
 
         await birthday_callback(
@@ -881,12 +985,58 @@ async def birthday_callback_router(
         if query:
 
             try:
+
                 await query.answer(
                     "⚠️ Something went wrong.",
                     show_alert=True,
                 )
+
             except Exception:
                 pass
+
+
+# ==========================================================
+# TRUTH OR DARE CALLBACK ROUTER
+# ==========================================================
+
+async def truth_dare_callback_router(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    user = update.effective_user
+
+    if not user:
+        await query.answer()
+        return
+
+    try:
+
+        await truth_dare_callback(
+            update,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Truth or Dare callback failed."
+        )
+
+        try:
+
+            await query.answer(
+                "⚠️ Something went wrong.",
+                show_alert=True,
+            )
+
+        except Exception:
+            pass
 
 
 # ==========================================================
@@ -897,13 +1047,6 @@ async def raffle_callback_router(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """
-    Handles raffle callbacks that belong to the
-    existing raffle.py system.
-
-    The existing raffle.py functions are still
-    responsible for the actual raffle processing.
-    """
 
     query = update.callback_query
 
@@ -918,49 +1061,61 @@ async def raffle_callback_router(
     )
 
     # ------------------------------------------------------
-    # START / STATUS / ENTRIES / PENDING / PAID / DRAW
+    # ADMIN RAFFLE CALLBACKS
     # ------------------------------------------------------
 
     if data == "admin_start_raffle":
+
         await start_raffle(
             update,
             context,
         )
+
         return
 
     if data == "admin_status":
+
         await raffle_status(
             update,
             context,
         )
+
         return
 
     if data == "admin_entries":
+
         await raffle_entries(
             update,
             context,
         )
+
         return
 
     if data == "admin_pending":
+
         await pending_entries(
             update,
             context,
         )
+
         return
 
     if data == "admin_completed":
+
         await paid_entry(
             update,
             context,
         )
+
         return
 
     if data == "admin_draw":
+
         await draw_raffle(
             update,
             context,
         )
+
         return
 
     if data == "admin_cancel":
@@ -968,9 +1123,6 @@ async def raffle_callback_router(
 
     # ------------------------------------------------------
     # OTHER RAFFLE CALLBACKS
-    #
-    # These are intentionally left available for the
-    # existing raffle.py callback handlers.
     # ------------------------------------------------------
 
     logger.debug(
@@ -1025,6 +1177,7 @@ def database_startup_check():
         )
 
         if not integrity:
+
             raise RuntimeError(
                 "Database integrity check failed."
             )
@@ -1047,6 +1200,7 @@ def database_startup_check():
 async def post_init(
     application: Application,
 ):
+
     logger.info(
         "Telegram application initialized."
     )
@@ -1079,6 +1233,7 @@ async def error_handler(
     update: object,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     error = context.error
 
     if isinstance(error, BadRequest):
@@ -1103,6 +1258,7 @@ async def error_handler(
 def build_application():
 
     if not BOT_TOKEN:
+
         raise RuntimeError(
             "BOT_TOKEN is not configured."
         )
@@ -1125,9 +1281,9 @@ def build_application():
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # ADMIN
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1136,9 +1292,9 @@ def build_application():
         )
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # BIRTHDAYS
-    # ------------------------------------------------------
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1162,12 +1318,39 @@ def build_application():
     )
 
     # ======================================================
+    # TRUTH OR DARE
+    # ======================================================
+
+    application.add_handler(
+        CommandHandler(
+            "truthdare",
+            truth_dare_menu,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "truth",
+            truth,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "dare",
+            dare,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "truthdarehelp",
+            truth_dare_help,
+        )
+    )
+
+    # ======================================================
     # ADMIN CALLBACKS
-    #
-    # THIS IS CRITICAL.
-    #
-    # All admin buttons use callback_data beginning with
-    # admin_ and are routed to admin.py.
     # ======================================================
 
     application.add_handler(
@@ -1189,17 +1372,36 @@ def build_application():
     )
 
     # ======================================================
+    # TRUTH OR DARE CALLBACKS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            truth_dare_callback_router,
+            pattern=r"^truthdare_",
+        )
+    )
+
+    # ======================================================
     # RAFFLE CALLBACKS
-    #
-    # Member raffle buttons and raffle approval buttons
-    # can be handled by raffle.py handlers if registered
-    # there. Admin callbacks are already captured above.
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             raffle_callback_router,
-            pattern=r"^(raffle_|enter_|pay_|payment_|approve_|deny_|paid_|draw_|reroll_|bonus_|remove_)",
+            pattern=(
+                r"^(raffle_|"
+                r"enter_|"
+                r"pay_|"
+                r"payment_|"
+                r"approve_|"
+                r"deny_|"
+                r"paid_|"
+                r"draw_|"
+                r"reroll_|"
+                r"bonus_|"
+                r"remove_)"
+            ),
         )
     )
 
@@ -1207,7 +1409,6 @@ def build_application():
     # MEDIA
     # ======================================================
 
-    # Photos
     application.add_handler(
         MessageHandler(
             filters.PHOTO,
@@ -1216,7 +1417,6 @@ def build_application():
         group=5,
     )
 
-    # Videos
     application.add_handler(
         MessageHandler(
             filters.VIDEO,
@@ -1225,7 +1425,6 @@ def build_application():
         group=5,
     )
 
-    # GIFs / animations
     application.add_handler(
         MessageHandler(
             filters.ANIMATION,
@@ -1234,7 +1433,6 @@ def build_application():
         group=5,
     )
 
-    # Image documents
     application.add_handler(
         MessageHandler(
             filters.Document.IMAGE,
