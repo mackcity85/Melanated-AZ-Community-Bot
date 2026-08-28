@@ -14,9 +14,8 @@
 # Birthday format:
 #   MM/DD
 #
-# Birthday-related response messages are automatically
-# deleted after 60 seconds to prevent the chat from filling
-# with confirmations.
+# Birthday response messages automatically delete after
+# 60 seconds so the chat does not fill with confirmations.
 #
 # ==========================================================
 
@@ -73,6 +72,7 @@ def normalize_birthday(value):
 
     value = value.strip()
 
+    # Allow 08/27 and 8/27
     value = value.replace("-", "/")
 
     parts = value.split("/")
@@ -101,7 +101,7 @@ def normalize_birthday(value):
 
 
 # ==========================================================
-# DELETE BIRTHDAY RESPONSE
+# DELETE TEMPORARY BIRTHDAY RESPONSE
 # ==========================================================
 
 async def delete_birthday_response(
@@ -138,8 +138,7 @@ async def delete_birthday_response(
     except TelegramError as exc:
 
         logger.info(
-            "Birthday response already removed "
-            "or could not be deleted | "
+            "Could not delete birthday response | "
             "chat=%s | message=%s | error=%s",
             chat_id,
             message_id,
@@ -273,11 +272,9 @@ async def birthday(
 
             return
 
-        chat_id = message.chat_id
-
         success = save_birthday(
             user_id=user.id,
-            chat_id=chat_id,
+            chat_id=message.chat_id,
             birthday=birthday_value,
             username=user.username,
             display_name=user.full_name,
@@ -287,7 +284,7 @@ async def birthday(
 
             await send_birthday_response(
                 context,
-                chat_id,
+                message.chat_id,
                 "🎉 Your birthday has been saved!\n\n"
                 f"🎂 Birthday: {birthday_value}\n\n"
                 "We'll celebrate you in Melanated AZ "
