@@ -4,7 +4,7 @@
 #
 # Persistent Birthday System
 #
-# Uses the existing raffle_database.py birthdays table.
+# Uses raffle_database.py
 #
 # Commands:
 #   /birthday
@@ -13,9 +13,6 @@
 #
 # Birthday format:
 #   MM/DD
-#
-# Birthday response messages automatically delete after
-# 60 seconds so the chat does not fill with confirmations.
 #
 # ==========================================================
 
@@ -39,8 +36,6 @@ from raffle_database import (
     remove_birthday,
 )
 
-from admin import is_admin
-
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +52,8 @@ BIRTHDAY_RESPONSE_DELETE_SECONDS = 60
 # ==========================================================
 
 BIRTHDAY_PATTERN = re.compile(
-    r"^(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])$"
+    r"^(0[1-9]|1[0-2])/"
+    r"(0[1-9]|[12][0-9]|3[01])$"
 )
 
 
@@ -72,8 +68,10 @@ def normalize_birthday(value):
 
     value = value.strip()
 
-    # Allow 08/27 and 8/27
-    value = value.replace("-", "/")
+    value = value.replace(
+        "-",
+        "/",
+    )
 
     parts = value.split("/")
 
@@ -81,9 +79,12 @@ def normalize_birthday(value):
         return None
 
     try:
+
         month = int(parts[0])
         day = int(parts[1])
+
     except ValueError:
+
         return None
 
     if month < 1 or month > 12:
@@ -92,9 +93,13 @@ def normalize_birthday(value):
     if day < 1 or day > 31:
         return None
 
-    birthday_value = f"{month:02d}/{day:02d}"
+    birthday_value = (
+        f"{month:02d}/{day:02d}"
+    )
 
-    if not BIRTHDAY_PATTERN.match(birthday_value):
+    if not BIRTHDAY_PATTERN.match(
+        birthday_value
+    ):
         return None
 
     return birthday_value
@@ -115,10 +120,18 @@ async def delete_birthday_response(
 
     data = job.data or {}
 
-    chat_id = data.get("chat_id")
-    message_id = data.get("message_id")
+    chat_id = data.get(
+        "chat_id"
+    )
 
-    if chat_id is None or message_id is None:
+    message_id = data.get(
+        "message_id"
+    )
+
+    if (
+        chat_id is None
+        or message_id is None
+    ):
         return
 
     try:
@@ -183,10 +196,12 @@ async def send_birthday_response(
                 when=BIRTHDAY_RESPONSE_DELETE_SECONDS,
                 data={
                     "chat_id": chat_id,
-                    "message_id": sent_message.message_id,
+                    "message_id": (
+                        sent_message.message_id
+                    ),
                 },
                 name=(
-                    f"delete_birthday_response_"
+                    "delete_birthday_response_"
                     f"{chat_id}_"
                     f"{sent_message.message_id}"
                 ),
@@ -481,6 +496,7 @@ async def birthday_callback(
     if not user:
 
         await query.answer()
+
         return
 
     await query.answer()
@@ -588,69 +604,6 @@ async def birthday_callback(
             )
 
         return
-
-
-# ==========================================================
-# ADMIN BIRTHDAY LIST
-# ==========================================================
-
-async def birthday_admin_list(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    if not await is_admin(update, context):
-        return
-
-    birthdays = get_all_birthdays()
-
-    if not birthdays:
-
-        await send_birthday_response(
-            context,
-            update.effective_message.chat_id,
-            "🎂 There are no birthdays saved.",
-        )
-
-        return
-
-    lines = [
-        "🎂 **Melanated AZ Birthday List**",
-        "",
-    ]
-
-    for record in birthdays:
-
-        birthday_id = record.get("id")
-
-        name = (
-            record.get("display_name")
-            or record.get("username")
-            or "Unknown"
-        )
-
-        birthday_value = record.get(
-            "birthday",
-            "Unknown",
-        )
-
-        chat_id = record.get(
-            "chat_id"
-        )
-
-        lines.append(
-            f"#{birthday_id} — "
-            f"{birthday_value} — "
-            f"{name} — "
-            f"{chat_id}"
-        )
-
-    await send_birthday_response(
-        context,
-        update.effective_message.chat_id,
-        "\n".join(lines),
-        parse_mode="Markdown",
-    )
 
 
 # ==========================================================
