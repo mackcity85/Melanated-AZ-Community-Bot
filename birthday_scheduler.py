@@ -7,10 +7,14 @@
 # Birthday announcements:
 #   - Run every day at 9:00 AM
 #   - Only announce birthdays matching today's MM/DD
+#   - Multiple birthdays are combined into ONE message
 #   - Announcement remains for 24 hours
 #   - Automatically deleted after 24 hours
 #
 # Uses the existing raffle_database.py database.
+#
+# IMPORTANT:
+# This file does NOT modify or reset the database.
 #
 # ==========================================================
 
@@ -18,6 +22,8 @@ import logging
 from datetime import datetime, time
 
 from telegram.ext import ContextTypes
+
+from telegram.error import TelegramError
 
 from config import RAFFLE_CHAT_ID
 
@@ -29,6 +35,10 @@ from raffle_database import (
 logger = logging.getLogger(__name__)
 
 
+# ==========================================================
+# CONFIGURATION
+# ==========================================================
+
 BIRTHDAY_JOB_NAME = (
     "melanated_birthday_scheduler"
 )
@@ -37,34 +47,93 @@ BIRTHDAY_DELETE_JOB_PREFIX = (
     "melanated_birthday_delete"
 )
 
+BIRTHDAY_ANNOUNCEMENT_SECONDS = 86400
+
 
 # ==========================================================
 # BIRTHDAY MESSAGE
 # ==========================================================
 
 def birthday_message(
-    birthday,
+    birthdays,
 ):
 
-    name = (
-        birthday.get("display_name")
-        or birthday.get("username")
-        or "Melanated AZ member"
+    if not birthdays:
+        return None
+
+    lines = [
+        "🎉🎂 HAPPY BIRTHDAY! 🎂🎉",
+        "",
+    ]
+
+    if len(birthdays) == 1:
+
+        birthday = birthdays[0]
+
+        name = (
+            birthday.get("display_name")
+            or birthday.get("username")
+            or "Melanated AZ member"
+        )
+
+        lines.extend(
+            [
+                f"Help us wish {name} a very Happy Birthday! 🥳",
+                "",
+                "👑 From everyone at Melanated AZ — "
+                "we hope your day is filled with good vibes, "
+                "good people, love, laughter, and plenty of fun! 💜",
+                "",
+                "🎁 HAPPY BIRTHDAY! 🎉",
+                "",
+                "💜 Enjoy YOUR day!",
+            ]
+        )
+
+        return "\n".join(lines)
+
+    # ------------------------------------------------------
+    # Multiple birthdays
+    # ------------------------------------------------------
+
+    lines.extend(
+        [
+            "Help us wish our birthday members a "
+            "VERY HAPPY BIRTHDAY! 🥳💜",
+            "",
+        ]
     )
 
-    return (
-        "🎉🎂 HAPPY BIRTHDAY! 🎂🎉\n\n"
-        f"Help us wish {name} a very Happy Birthday! 🥳\n\n"
-        "👑 From everyone at Melanated AZ — "
-        "we hope your day is filled with good vibes, "
-        "good people, love, laughter, and plenty of fun! 💜\n\n"
-        "🎁 HAPPY BIRTHDAY! 🎉\n\n"
-        "💜 Enjoy YOUR day!"
+    for birthday in birthdays:
+
+        name = (
+            birthday.get("display_name")
+            or birthday.get("username")
+            or "Melanated AZ member"
+        )
+
+        lines.append(
+            f"🎂 {name}"
+        )
+
+    lines.extend(
+        [
+            "",
+            "👑 From everyone at Melanated AZ — "
+            "we hope your day is filled with good vibes, "
+            "good people, love, laughter, and plenty of fun! 💜",
+            "",
+            "🎁 HAPPY BIRTHDAY TO ALL OF YOU! 🎉",
+            "",
+            "💜 Enjoy YOUR day!",
+        ]
     )
+
+    return "\n".join(lines)
 
 
 # ==========================================================
-# DELETE BIRTHDAY MESSAGE
+# DELETE BIRTHDAY ANNOUNCEMENT
 # ==========================================================
 
 async def delete_birthday_message(
@@ -103,19 +172,26 @@ async def delete_birthday_message(
             message_id,
         )
 
-    except Exception as exc:
+    except TelegramError as exc:
 
-        logger.warning(
-            "Could not delete birthday announcement "
-            "| chat=%s | message=%s | error=%s",
+        logger.info(
+            "Birthday announcement already removed "
+            "or could not be deleted | "
+            "chat=%s | message=%s | error=%s",
             chat_id,
             message_id,
             exc,
         )
 
+    except Exception:
+
+        logger.exception(
+            "Unexpected error deleting birthday announcement."
+        )
+
 
 # ==========================================================
-# SEND BIRTHDAY MESSAGES
+# SEND BIRTHDAY ANNOUNCEMENT
 # ==========================================================
 
 async def birthday_scheduler(
@@ -152,93 +228,106 @@ async def birthday_scheduler(
         month_day,
     )
 
-    for birthday in birthdays:
+    # ------------------------------------------------------
+    # Determine chat
+    #
+    # The configured Melanated AZ raffle chat is preferred.
+    # This prevents the same birthday from being posted into
+    # multiple chats when users have records in different
+    # chats.
+    # ------------------------------------------------------
 
-        chat_id = birthday.get(
+    chat_id = RAFFLE_CHAT_ID
+
+    if not chat_id:
+
+        # Fall back to the first birthday's original chat.
+        chat_id = birthdays[0].get(
             "chat_id"
         )
 
-        # --------------------------------------------------
-        # Use the birthday's original chat when available.
-        # Otherwise use the configured Melanated AZ chat.
-        # --------------------------------------------------
+    if not chat_id:
 
-        if not chat_id:
-            chat_id = RAFFLE_CHAT_ID
+        logger.warning(
+            "No chat ID available for birthday announcements."
+        )
 
-        if not chat_id:
+        return
 
-            logger.warning(
-                "No chat ID available for birthday user %s",
-                birthday.get("user_id"),
+    message_text = birthday_message(
+        birthdays
+    )
+
+    if not message_text:
+        return
+
+    try:
+
+        sent_message = (
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=message_text,
             )
+        )
 
-            continue
+        logger.info(
+            "🎂 Birthday announcement sent "
+            "for %s birthday(s) in chat %s | "
+            "message=%s",
+            len(birthdays),
+            chat_id,
+            sent_message.message_id,
+        )
 
-        try:
+        # --------------------------------------------------
+        # DELETE AFTER 24 HOURS
+        # --------------------------------------------------
 
-            sent_message = (
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=birthday_message(
-                        birthday
+        if context.job_queue:
+
+            context.job_queue.run_once(
+                delete_birthday_message,
+                when=BIRTHDAY_ANNOUNCEMENT_SECONDS,
+                data={
+                    "chat_id": chat_id,
+                    "message_id": (
+                        sent_message.message_id
                     ),
-                )
+                },
+                name=(
+                    f"{BIRTHDAY_DELETE_JOB_PREFIX}_"
+                    f"{chat_id}_"
+                    f"{sent_message.message_id}"
+                ),
             )
 
             logger.info(
-                "🎂 Birthday announcement sent "
-                "for user %s in chat %s | message=%s",
-                birthday.get("user_id"),
+                "Scheduled birthday announcement "
+                "deletion in 24 hours | "
+                "chat=%s | message=%s",
                 chat_id,
                 sent_message.message_id,
             )
 
-            # --------------------------------------------------
-            # Keep birthday announcement for 24 HOURS.
-            # --------------------------------------------------
+        else:
 
-            if context.job_queue:
-
-                context.job_queue.run_once(
-                    delete_birthday_message,
-                    when=86400,
-                    data={
-                        "chat_id": chat_id,
-                        "message_id": (
-                            sent_message.message_id
-                        ),
-                    },
-                    name=(
-                        f"{BIRTHDAY_DELETE_JOB_PREFIX}_"
-                        f"{chat_id}_"
-                        f"{sent_message.message_id}"
-                    ),
-                )
-
-                logger.info(
-                    "Scheduled birthday announcement "
-                    "deletion in 24 hours | "
-                    "chat=%s | message=%s",
-                    chat_id,
-                    sent_message.message_id,
-                )
-
-            else:
-
-                logger.warning(
-                    "JobQueue unavailable. "
-                    "Birthday announcement will NOT "
-                    "be automatically deleted."
-                )
-
-        except Exception:
-
-            logger.exception(
-                "Unable to send birthday announcement "
-                "for user %s",
-                birthday.get("user_id"),
+            logger.warning(
+                "JobQueue unavailable. "
+                "Birthday announcement will NOT "
+                "be automatically deleted."
             )
+
+    except TelegramError:
+
+        logger.exception(
+            "Unable to send birthday announcement."
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unexpected birthday scheduler error."
+        )
 
 
 # ==========================================================
@@ -278,9 +367,6 @@ def start_birthday_scheduler(
 
     # ------------------------------------------------------
     # Run every day at 9:00 AM.
-    #
-    # The actual birthday announcement stays in the
-    # Telegram group for 24 hours.
     # ------------------------------------------------------
 
     application.job_queue.run_daily(
