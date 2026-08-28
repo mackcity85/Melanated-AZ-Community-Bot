@@ -14,7 +14,7 @@
 # Uses the existing raffle_database.py database.
 #
 # IMPORTANT:
-# This file does NOT modify or reset the database.
+# This file does NOT reset, recreate, or modify the database.
 #
 # ==========================================================
 
@@ -51,7 +51,7 @@ BIRTHDAY_ANNOUNCEMENT_SECONDS = 86400
 
 
 # ==========================================================
-# BIRTHDAY MESSAGE
+# BUILD BIRTHDAY MESSAGE
 # ==========================================================
 
 def birthday_message(
@@ -61,10 +61,9 @@ def birthday_message(
     if not birthdays:
         return None
 
-    lines = [
-        "🎉🎂 HAPPY BIRTHDAY! 🎂🎉",
-        "",
-    ]
+    # ------------------------------------------------------
+    # ONE BIRTHDAY
+    # ------------------------------------------------------
 
     if len(birthdays) == 1:
 
@@ -76,33 +75,27 @@ def birthday_message(
             or "Melanated AZ member"
         )
 
-        lines.extend(
-            [
-                f"Help us wish {name} a very Happy Birthday! 🥳",
-                "",
-                "👑 From everyone at Melanated AZ — "
-                "we hope your day is filled with good vibes, "
-                "good people, love, laughter, and plenty of fun! 💜",
-                "",
-                "🎁 HAPPY BIRTHDAY! 🎉",
-                "",
-                "💜 Enjoy YOUR day!",
-            ]
+        return (
+            "🎉🎂 HAPPY BIRTHDAY! 🎂🎉\n\n"
+            f"Help us wish {name} a very Happy Birthday! 🥳\n\n"
+            "👑 From everyone at Melanated AZ — "
+            "we hope your day is filled with good vibes, "
+            "good people, love, laughter, and plenty of fun! 💜\n\n"
+            "🎁 HAPPY BIRTHDAY! 🎉\n\n"
+            "💜 Enjoy YOUR day!"
         )
 
-        return "\n".join(lines)
-
     # ------------------------------------------------------
-    # Multiple birthdays
+    # MULTIPLE BIRTHDAYS
     # ------------------------------------------------------
 
-    lines.extend(
-        [
-            "Help us wish our birthday members a "
-            "VERY HAPPY BIRTHDAY! 🥳💜",
-            "",
-        ]
-    )
+    lines = [
+        "🎉🎂 HAPPY BIRTHDAY! 🎂🎉",
+        "",
+        "Help us wish our birthday members a "
+        "VERY HAPPY BIRTHDAY! 🥳💜",
+        "",
+    ]
 
     for birthday in birthdays:
 
@@ -229,19 +222,17 @@ async def birthday_scheduler(
     )
 
     # ------------------------------------------------------
-    # Determine chat
-    #
-    # The configured Melanated AZ raffle chat is preferred.
-    # This prevents the same birthday from being posted into
-    # multiple chats when users have records in different
-    # chats.
+    # Use the configured Melanated AZ chat.
     # ------------------------------------------------------
 
     chat_id = RAFFLE_CHAT_ID
 
+    # ------------------------------------------------------
+    # Fallback to the birthday record's chat.
+    # ------------------------------------------------------
+
     if not chat_id:
 
-        # Fall back to the first birthday's original chat.
         chat_id = birthdays[0].get(
             "chat_id"
         )
@@ -249,7 +240,7 @@ async def birthday_scheduler(
     if not chat_id:
 
         logger.warning(
-            "No chat ID available for birthday announcements."
+            "No chat ID available for birthday announcement."
         )
 
         return
@@ -272,15 +263,15 @@ async def birthday_scheduler(
 
         logger.info(
             "🎂 Birthday announcement sent "
-            "for %s birthday(s) in chat %s | "
-            "message=%s",
+            "for %s birthday(s) | "
+            "chat=%s | message=%s",
             len(birthdays),
             chat_id,
             sent_message.message_id,
         )
 
         # --------------------------------------------------
-        # DELETE AFTER 24 HOURS
+        # Schedule deletion after 24 hours.
         # --------------------------------------------------
 
         if context.job_queue:
