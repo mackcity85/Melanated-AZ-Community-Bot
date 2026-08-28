@@ -8,14 +8,14 @@
 #   - /admin admin panel
 #   - Raffle button routing
 #   - Birthday system
-#   - Truth or Dare
 #   - Persistent SQLite database
 #   - Media spoiler enforcement
 #   - GIF / animation support
 #   - Image document support
 #   - Private media instructions
 #   - Group warning
-#   - Flask health server for Render
+#   - Truth or Dare
+#   - Flask health server
 #   - Telegram polling
 #
 # Database:
@@ -50,6 +50,7 @@ from telegram.ext import (
     filters,
 )
 
+
 # ==========================================================
 # CONFIG
 # ==========================================================
@@ -60,6 +61,7 @@ from config import (
     RAFFLE_CHAT_ID,
 )
 
+
 # ==========================================================
 # ADMIN
 # ==========================================================
@@ -67,8 +69,11 @@ from config import (
 from admin import (
     admin_menu,
     admin_button,
+    admin_birthday_text_handler,
+    cancel_birthday_input,
     is_admin,
 )
+
 
 # ==========================================================
 # BIRTHDAY
@@ -80,18 +85,18 @@ from birthday import (
     remove_my_birthday,
     birthday_callback,
     birthday_text_handler,
-    normalize_birthday,
 )
+
 
 # ==========================================================
 # DATABASE
 # ==========================================================
 
 from raffle_database import (
-    save_birthday,
     get_database_stats,
     check_database_integrity,
 )
+
 
 # ==========================================================
 # RAFFLE
@@ -107,6 +112,7 @@ from raffle import (
     draw_raffle,
 )
 
+
 # ==========================================================
 # TRUTH OR DARE
 # ==========================================================
@@ -116,10 +122,8 @@ from truth_dare import (
     dare,
     truth_dare_menu,
     truth_dare_callback,
-    truth_dare_admin_menu,
-    toggle_truth_dare,
-    truth_dare_help,
 )
+
 
 # ==========================================================
 # LOGGING
@@ -135,7 +139,9 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-logger = logging.getLogger("melanated_az_bot")
+logger = logging.getLogger(
+    "melanated_az_bot"
+)
 
 
 # ==========================================================
@@ -147,15 +153,21 @@ app = Flask(__name__)
 
 @app.route("/")
 def health_check():
-    return "Melanated AZ Bot is running.", 200
+
+    return (
+        "Melanated AZ Bot is running.",
+        200,
+    )
 
 
 @app.route("/health")
 def health():
+
     return "OK", 200
 
 
 def run_flask():
+
     port = int(
         os.environ.get(
             "PORT",
@@ -183,6 +195,7 @@ def run_flask():
 async def delete_message_later(
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     job = context.job
 
     if not job:
@@ -213,7 +226,8 @@ async def delete_message_later(
     except Exception:
 
         logger.exception(
-            "Unexpected temporary message deletion error."
+            "Unexpected temporary message "
+            "deletion error."
         )
 
 
@@ -247,8 +261,10 @@ async def get_bot_username(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    username = context.application.bot_data.get(
-        "bot_username"
+    username = (
+        context.application.bot_data.get(
+            "bot_username"
+        )
     )
 
     if username:
@@ -275,33 +291,6 @@ async def get_bot_username(
         )
 
     return None
-
-
-# ==========================================================
-# BOT BUTTON
-# ==========================================================
-
-async def bot_private_button(
-    context,
-):
-
-    username = await get_bot_username(
-        context
-    )
-
-    if not username:
-        return None
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🤖 Open Melanated AZ Bot",
-                    url=f"https://t.me/{username}",
-                )
-            ]
-        ]
-    )
 
 
 # ==========================================================
@@ -346,14 +335,14 @@ async def send_media_warning(
         )
 
     warning_text = (
-        "⚠️ <b>Media Spoiler Required</b>\n\n"
+        "⚠️ Media Spoiler Required\n\n"
         f"{user.mention_html()}, your photo/video "
         "was removed because it was not marked as "
         "a spoiler.\n\n"
         "Please resend the media using Telegram's "
-        "🚫 <b>Spoiler</b> option.\n\n"
+        "🚫 Spoiler option.\n\n"
         "You can also send it to the "
-        "<b>Melanated AZ Bot</b> and let the bot "
+        "Melanated AZ Bot and let the bot "
         "handle the posting for you."
     )
 
@@ -413,20 +402,20 @@ async def send_private_media_warning(
         )
 
     text = (
-        "👋 Hey! This is the <b>Melanated AZ Bot</b> "
+        "👋 Hey! This is the Melanated AZ Bot "
         "from the Melanated AZ group.\n\n"
         "Your photo/video was removed from the group "
-        "because Telegram's <b>Spoiler</b> option was "
-        "not enabled.\n\n"
-        "📸 <b>How to post it correctly:</b>\n\n"
+        "because Telegram's Spoiler option was not "
+        "enabled.\n\n"
+        "📸 How to post it correctly:\n\n"
         "1️⃣ Select your photo or video.\n"
-        "2️⃣ Tap the <b>⋮</b> menu/options.\n"
-        "3️⃣ Select <b>Hide with Spoiler</b>.\n"
+        "2️⃣ Tap the ⋮ menu/options.\n"
+        "3️⃣ Select Hide with Spoiler.\n"
         "4️⃣ Send the media.\n\n"
         "You can also send the media directly to me "
         "and use the bot to post it for you.\n\n"
-        "⚠️ Please remember: media posted without the "
-        "required spoiler may be removed automatically."
+        "⚠️ Media posted without the required spoiler "
+        "may be removed automatically."
     )
 
     try:
@@ -435,7 +424,6 @@ async def send_private_media_warning(
             chat_id=user.id,
             text=text,
             reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
         )
 
     except TelegramError as exc:
@@ -449,7 +437,7 @@ async def send_private_media_warning(
 
 
 # ==========================================================
-# PHOTO HANDLER
+# PHOTO
 # ==========================================================
 
 async def handle_photo(
@@ -504,7 +492,7 @@ async def handle_photo(
 
 
 # ==========================================================
-# VIDEO HANDLER
+# VIDEO
 # ==========================================================
 
 async def handle_video(
@@ -559,7 +547,7 @@ async def handle_video(
 
 
 # ==========================================================
-# ANIMATION / GIF HANDLER
+# GIF / ANIMATION
 # ==========================================================
 
 async def handle_animation(
@@ -582,7 +570,7 @@ async def handle_animation(
 
 
 # ==========================================================
-# IMAGE DOCUMENT HANDLER
+# IMAGE DOCUMENT
 # ==========================================================
 
 async def handle_image_document(
@@ -596,8 +584,7 @@ async def handle_image_document(
         return
 
     mime_type = (
-        message.document.mime_type
-        or ""
+        message.document.mime_type or ""
     ).lower()
 
     if mime_type.startswith("image/"):
@@ -612,125 +599,7 @@ async def handle_image_document(
 
 
 # ==========================================================
-# ADMIN BIRTHDAY TEXT INPUT
-# ==========================================================
-
-async def handle_admin_birthday_text(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    message = update.effective_message
-    user = update.effective_user
-
-    if not message or not user:
-        return False
-
-    if not is_admin(user.id):
-        return False
-
-    awaiting = context.user_data.get(
-        "awaiting_admin_birthday"
-    )
-
-    if not awaiting:
-        return False
-
-    text = (message.text or "").strip()
-
-    parts = text.split()
-
-    if len(parts) != 2:
-
-        response = await message.reply_text(
-            "❌ Invalid format.\n\n"
-            "Use:\n"
-            "`USER_ID MM/DD`\n\n"
-            "Example:\n"
-            "`123456789 08/27`",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-
-        await delete_after(
-            context,
-            response,
-            60,
-        )
-
-        return True
-
-    try:
-
-        member_id = int(parts[0])
-
-    except ValueError:
-
-        response = await message.reply_text(
-            "❌ The Telegram User ID must be a number."
-        )
-
-        await delete_after(
-            context,
-            response,
-            60,
-        )
-
-        return True
-
-    birthday_value = normalize_birthday(
-        parts[1]
-    )
-
-    if not birthday_value:
-
-        response = await message.reply_text(
-            "❌ Invalid birthday.\n\n"
-            "Use MM/DD.\n\n"
-            "Example: `08/27`",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-
-        await delete_after(
-            context,
-            response,
-            60,
-        )
-
-        return True
-
-    success = save_birthday(
-        user_id=member_id,
-        chat_id=RAFFLE_CHAT_ID,
-        birthday=birthday_value,
-        username=None,
-        display_name=None,
-    )
-
-    context.user_data.pop(
-        "awaiting_admin_birthday",
-        None,
-    )
-
-    if success:
-
-        response = await message.reply_text(
-            "🎉 <b>Birthday Saved!</b>\n\n"
-            f"👤 User ID: <code>{member_id}</code>\n"
-            f"🎂 Birthday: <b>{birthday_value}</b>",
-            parse_mode=ParseMode.HTML,
-        )
-
-        await delete_after(
-            context,
-            response,
-            60,
-        )
-
-    return True
-
-
-# ==========================================================
-# GENERAL TEXT ROUTER
+# TEXT ROUTER
 # ==========================================================
 
 async def text_router(
@@ -740,9 +609,11 @@ async def text_router(
 
     # ------------------------------------------------------
     # ADMIN BIRTHDAY INPUT
+    #
+    # MUST COME FIRST.
     # ------------------------------------------------------
 
-    handled = await handle_admin_birthday_text(
+    handled = await admin_birthday_text_handler(
         update,
         context,
     )
@@ -764,7 +635,7 @@ async def text_router(
 
 
 # ==========================================================
-# START COMMAND
+# START
 # ==========================================================
 
 async def start_command(
@@ -779,35 +650,37 @@ async def start_command(
         return
 
     text = (
-        "👋 <b>Welcome to Melanated AZ Bot!</b>\n\n"
+        "👋 Welcome to Melanated AZ Bot!\n\n"
         "I'm the bot for the Melanated AZ community.\n\n"
         "I can help with:\n\n"
         "🎂 Birthdays\n"
         "🎟️ Raffles\n"
         "🔥 Truth or Dare\n"
         "🛡️ Media protection\n\n"
-        "🎂 <b>Birthday</b>\n"
-        "Use /birthday to manage your birthday.\n\n"
-        "🔥 <b>Truth or Dare</b>\n"
-        "Use /truthdare to open the game.\n"
-        "You can also use /truth or /dare."
+        "Birthday:\n"
+        "/birthday\n\n"
+        "Truth or Dare:\n"
+        "/truthdare\n\n"
+        "Truth:\n"
+        "/truth\n\n"
+        "Dare:\n"
+        "/dare"
     )
 
     if is_admin(user.id):
 
         text += (
-            "\n\n👑 <b>Admin</b>\n"
-            "Use /admin to open the admin panel."
+            "\n\n👑 ADMIN\n"
+            "/admin"
         )
 
     await message.reply_text(
-        text,
-        parse_mode=ParseMode.HTML,
+        text
     )
 
 
 # ==========================================================
-# ADMIN COMMAND
+# ADMIN
 # ==========================================================
 
 async def admin_command(
@@ -836,6 +709,31 @@ async def admin_command(
 
 
 # ==========================================================
+# CANCEL COMMAND
+# ==========================================================
+
+async def cancel_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if context.user_data.get(
+        "awaiting_admin_birthday"
+    ):
+
+        await cancel_birthday_input(
+            update,
+            context,
+        )
+
+        return
+
+    await update.effective_message.reply_text(
+        "Nothing is currently waiting for input."
+    )
+
+
+# ==========================================================
 # ADMIN CALLBACK ROUTER
 # ==========================================================
 
@@ -859,80 +757,6 @@ async def admin_callback_router(
         )
 
         return
-
-    data = query.data or ""
-
-    logger.info(
-        "Admin callback: %s | user=%s",
-        data,
-        user.id,
-    )
-
-    # ------------------------------------------------------
-    # TRUTH OR DARE ADMIN SETTINGS
-    # ------------------------------------------------------
-
-    if data == "admin_truthdare":
-
-        try:
-            await truth_dare_admin_menu(
-                update,
-                context,
-            )
-        except Exception:
-            logger.exception(
-                "Truth or Dare admin menu failed."
-            )
-
-            try:
-                await query.answer(
-                    "⚠️ Truth or Dare settings failed.",
-                    show_alert=True,
-                )
-            except Exception:
-                pass
-
-        return
-
-    if data == "admin_truthdare_toggle":
-
-        try:
-            await toggle_truth_dare(
-                update,
-                context,
-            )
-        except Exception:
-            logger.exception(
-                "Truth or Dare toggle failed."
-            )
-
-            try:
-                await query.answer(
-                    "⚠️ Could not change Truth or Dare.",
-                    show_alert=True,
-                )
-            except Exception:
-                pass
-
-        return
-
-    if data == "admin_truthdare_help":
-
-        try:
-            await truth_dare_help(
-                update,
-                context,
-            )
-        except Exception:
-            logger.exception(
-                "Truth or Dare help failed."
-            )
-
-        return
-
-    # ------------------------------------------------------
-    # NORMAL ADMIN PANEL
-    # ------------------------------------------------------
 
     try:
 
@@ -959,7 +783,7 @@ async def admin_callback_router(
 
 
 # ==========================================================
-# BIRTHDAY CALLBACK ROUTER
+# BIRTHDAY CALLBACK
 # ==========================================================
 
 async def birthday_callback_router(
@@ -996,24 +820,13 @@ async def birthday_callback_router(
 
 
 # ==========================================================
-# TRUTH OR DARE CALLBACK ROUTER
+# TRUTH / DARE CALLBACK
 # ==========================================================
 
 async def truth_dare_callback_router(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
-    query = update.callback_query
-
-    if not query:
-        return
-
-    user = update.effective_user
-
-    if not user:
-        await query.answer()
-        return
 
     try:
 
@@ -1028,19 +841,23 @@ async def truth_dare_callback_router(
             "Truth or Dare callback failed."
         )
 
-        try:
+        query = update.callback_query
 
-            await query.answer(
-                "⚠️ Something went wrong.",
-                show_alert=True,
-            )
+        if query:
 
-        except Exception:
-            pass
+            try:
+
+                await query.answer(
+                    "⚠️ Something went wrong.",
+                    show_alert=True,
+                )
+
+            except Exception:
+                pass
 
 
 # ==========================================================
-# RAFFLE CALLBACK ROUTER
+# RAFFLE CALLBACK
 # ==========================================================
 
 async def raffle_callback_router(
@@ -1059,10 +876,6 @@ async def raffle_callback_router(
         "Raffle callback received: %s",
         data,
     )
-
-    # ------------------------------------------------------
-    # ADMIN RAFFLE CALLBACKS
-    # ------------------------------------------------------
 
     if data == "admin_start_raffle":
 
@@ -1118,13 +931,6 @@ async def raffle_callback_router(
 
         return
 
-    if data == "admin_cancel":
-        return
-
-    # ------------------------------------------------------
-    # OTHER RAFFLE CALLBACKS
-    # ------------------------------------------------------
-
     logger.debug(
         "Unclaimed raffle callback: %s",
         data,
@@ -1132,7 +938,7 @@ async def raffle_callback_router(
 
 
 # ==========================================================
-# DATABASE STARTUP CHECK
+# DATABASE STARTUP
 # ==========================================================
 
 def database_startup_check():
@@ -1194,7 +1000,7 @@ def database_startup_check():
 
 
 # ==========================================================
-# POST INITIALIZATION
+# POST INIT
 # ==========================================================
 
 async def post_init(
@@ -1281,9 +1087,16 @@ def build_application():
         )
     )
 
-    # ======================================================
+    application.add_handler(
+        CommandHandler(
+            "cancel",
+            cancel_command,
+        )
+    )
+
+    # ------------------------------------------------------
     # ADMIN
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -1292,9 +1105,9 @@ def build_application():
         )
     )
 
-    # ======================================================
-    # BIRTHDAYS
-    # ======================================================
+    # ------------------------------------------------------
+    # BIRTHDAY
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -1317,9 +1130,9 @@ def build_application():
         )
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # TRUTH OR DARE
-    # ======================================================
+    # ------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -1339,13 +1152,6 @@ def build_application():
         CommandHandler(
             "dare",
             dare,
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "truthdarehelp",
-            truth_dare_help,
         )
     )
 
@@ -1372,7 +1178,7 @@ def build_application():
     )
 
     # ======================================================
-    # TRUTH OR DARE CALLBACKS
+    # TRUTH / DARE CALLBACKS
     # ======================================================
 
     application.add_handler(
@@ -1390,17 +1196,9 @@ def build_application():
         CallbackQueryHandler(
             raffle_callback_router,
             pattern=(
-                r"^(raffle_|"
-                r"enter_|"
-                r"pay_|"
-                r"payment_|"
-                r"approve_|"
-                r"deny_|"
-                r"paid_|"
-                r"draw_|"
-                r"reroll_|"
-                r"bonus_|"
-                r"remove_)"
+                r"^(raffle_|enter_|pay_|payment_|"
+                r"approve_|deny_|paid_|draw_|"
+                r"reroll_|bonus_|remove_)"
             ),
         )
     )
@@ -1483,15 +1281,7 @@ def main():
         "=========================================================="
     )
 
-    # ------------------------------------------------------
-    # DATABASE
-    # ------------------------------------------------------
-
     database_startup_check()
-
-    # ------------------------------------------------------
-    # HEALTH SERVER
-    # ------------------------------------------------------
 
     flask_thread = threading.Thread(
         target=run_flask,
@@ -1505,19 +1295,11 @@ def main():
         "Flask health server started."
     )
 
-    # ------------------------------------------------------
-    # TELEGRAM APPLICATION
-    # ------------------------------------------------------
-
     application = build_application()
 
     logger.info(
         "Telegram application created."
     )
-
-    # ------------------------------------------------------
-    # START POLLING
-    # ------------------------------------------------------
 
     logger.info(
         "Starting Telegram polling..."
