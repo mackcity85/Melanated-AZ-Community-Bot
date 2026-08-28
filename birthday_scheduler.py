@@ -2,36 +2,91 @@
 # Melanated AZ Bot
 # birthday_scheduler.py
 #
-# Birthday announcements:
-#   - Checked daily at 9:00 AM
-#   - Posted into the saved chat
-#   - Remain posted for 24 HOURS
-#   - Automatically deleted after 24 HOURS
+# Birthday announcements
+#
+# Features:
+# - Checks birthdays every day at 9:00 AM
+# - Posts birthday announcement in saved chat
+# - Birthday announcement remains for 24 HOURS
+# - Automatically deletes announcement after 24 hours
+# - Uses persistent SQLite birthday records
 # ==========================================================
 
 import logging
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from telegram.ext import ContextTypes
 
 from config import RAFFLE_CHAT_ID
 
-from raffle_database import get_birthdays_for_date
-
+from raffle_database import (
+    get_birthdays_for_date,
+)
 
 logger = logging.getLogger(__name__)
 
 BIRTHDAY_JOB_NAME = "melanated_birthday_scheduler"
-BIRTHDAY_DELETE_JOB_NAME = "melanated_birthday_delete"
 
-BIRTHDAY_ANNOUNCEMENT_SECONDS = 24 * 60 * 60
+BIRTHDAY_ANNOUNCEMENT_HOURS = 24
+
+
+# ==========================================================
+# DELETE BIRTHDAY ANNOUNCEMENT
+# ==========================================================
+
+async def delete_birthday_announcement(
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    job = context.job
+
+    if not job:
+        return
+
+    data = job.data or {}
+
+    chat_id = data.get(
+        "chat_id"
+    )
+
+    message_id = data.get(
+        "message_id"
+    )
+
+    if chat_id is None or message_id is None:
+        return
+
+    try:
+
+        await context.bot.delete_message(
+            chat_id=chat_id,
+            message_id=message_id,
+        )
+
+        logger.info(
+            "🎂 Deleted birthday announcement "
+            "after 24 hours | chat=%s | message=%s",
+            chat_id,
+            message_id,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unable to delete birthday announcement "
+            "| chat=%s | message=%s",
+            chat_id,
+            message_id,
+        )
 
 
 # ==========================================================
 # BIRTHDAY MESSAGE
 # ==========================================================
 
-def birthday_message(birthday):
+def birthday_message(
+    birthday,
+):
 
     name = (
         birthday.get("display_name")
@@ -50,57 +105,6 @@ def birthday_message(birthday):
 
 
 # ==========================================================
-# DELETE BIRTHDAY ANNOUNCEMENT
-# ==========================================================
-
-async def delete_birthday_announcement(
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    job = context.job
-
-    if not job:
-        return
-
-    data = job.data or {}
-
-    chat_id = data.get("chat_id")
-    message_id = data.get("message_id")
-
-    if chat_id is None or message_id is None:
-
-        logger.warning(
-            "Birthday deletion job missing chat/message ID."
-        )
-
-        return
-
-    try:
-
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=message_id,
-        )
-
-        logger.info(
-            "🎂 Birthday announcement deleted after 24 hours | "
-            "chat=%s | message=%s",
-            chat_id,
-            message_id,
-        )
-
-    except Exception as exc:
-
-        logger.info(
-            "Birthday announcement already deleted/unavailable | "
-            "chat=%s | message=%s | error=%s",
-            chat_id,
-            message_id,
-            exc,
-        )
-
-
-# ==========================================================
 # SEND BIRTHDAY MESSAGES
 # ==========================================================
 
@@ -109,7 +113,10 @@ async def birthday_scheduler(
 ):
 
     today = datetime.now()
-    month_day = today.strftime("%m/%d")
+
+    month_day = today.strftime(
+        "%m/%d"
+    )
 
     logger.info(
         "🎂 Birthday scheduler checking %s",
@@ -167,10 +174,14 @@ async def birthday_scheduler(
 
         try:
 
-            sent_message = await context.bot.send_message(
-                chat_id=chat_id,
-                text=birthday_message(birthday),
-                parse_mode="Markdown",
+            sent_message = (
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=birthday_message(
+                        birthday
+                    ),
+                    parse_mode="Markdown",
+                )
             )
 
             logger.info(
@@ -182,24 +193,33 @@ async def birthday_scheduler(
             )
 
             # --------------------------------------------------
-            # DELETE AFTER 24 HOURS
+            # KEEP BIRTHDAY ANNOUNCEMENT UP FOR 24 HOURS
             # --------------------------------------------------
 
             if context.job_queue:
 
                 context.job_queue.run_once(
                     delete_birthday_announcement,
-                    when=BIRTHDAY_ANNOUNCEMENT_SECONDS,
+                    when=timedelta(
+                        hours=BIRTHDAY_ANNOUNCEMENT_HOURS
+                    ),
                     data={
                         "chat_id": chat_id,
-                        "message_id": sent_message.message_id,
+                        "message_id": (
+                            sent_message.message_id
+                        ),
                     },
-                    name=BIRTHDAY_DELETE_JOB_NAME,
+                    name=(
+                        f"delete_birthday_"
+                        f"{chat_id}_"
+                        f"{sent_message.message_id}"
+                    ),
                 )
 
                 logger.info(
-                    "Scheduled birthday announcement deletion "
-                    "for 24 hours later | chat=%s | message=%s",
+                    "🎂 Birthday announcement scheduled "
+                    "for deletion in 24 hours | "
+                    "chat=%s | message=%s",
                     chat_id,
                     sent_message.message_id,
                 )
@@ -215,7 +235,8 @@ async def birthday_scheduler(
         except Exception:
 
             logger.exception(
-                "Unable to send birthday message for user %s",
+                "Unable to send birthday message "
+                "for user %s",
                 birthday.get("user_id"),
             )
 
@@ -224,7 +245,9 @@ async def birthday_scheduler(
 # START BIRTHDAY SCHEDULER
 # ==========================================================
 
-def start_birthday_scheduler(application):
+def start_birthday_scheduler(
+    application,
+):
 
     if not application.job_queue:
 
@@ -236,7 +259,7 @@ def start_birthday_scheduler(application):
         return
 
     # ------------------------------------------------------
-    # PREVENT DUPLICATE DAILY JOB
+    # Prevent duplicate scheduler jobs
     # ------------------------------------------------------
 
     existing_jobs = [
@@ -254,7 +277,7 @@ def start_birthday_scheduler(application):
         return
 
     # ------------------------------------------------------
-    # RUN EVERY DAY AT 9:00 AM
+    # Run every day at 9:00 AM
     # ------------------------------------------------------
 
     application.job_queue.run_daily(
@@ -267,5 +290,6 @@ def start_birthday_scheduler(application):
     )
 
     logger.info(
-        "🎂 Birthday scheduler started — daily at 9:00 AM."
+        "🎂 Birthday scheduler started — "
+        "daily at 9:00 AM."
     )
