@@ -6,15 +6,6 @@
 #
 # Uses the existing raffle_database.py birthdays table.
 #
-# Database fields:
-#   user_id
-#   chat_id
-#   birthday
-#   username
-#   display_name
-#   created_at
-#   updated_at
-#
 # Commands:
 #   /birthday
 #   /mybirthday
@@ -23,9 +14,9 @@
 # Birthday format:
 #   MM/DD
 #
-# Examples:
-#   /birthday 08/27
-#   /birthday 12/25
+# Birthday-related response messages are automatically
+# deleted after 60 seconds to prevent the chat from filling
+# with confirmations.
 #
 # ==========================================================
 
@@ -40,18 +31,26 @@ from telegram import (
 
 from telegram.ext import ContextTypes
 
+from telegram.error import TelegramError
+
 from raffle_database import (
     save_birthday,
     get_birthday,
     get_all_birthdays,
     remove_birthday,
-    remove_birthday_by_id,
 )
 
 from admin import is_admin
 
 
 logger = logging.getLogger(__name__)
+
+
+# ==========================================================
+# CONFIGURATION
+# ==========================================================
+
+BIRTHDAY_RESPONSE_DELETE_SECONDS = 60
 
 
 # ==========================================================
@@ -64,7 +63,7 @@ BIRTHDAY_PATTERN = re.compile(
 
 
 # ==========================================================
-# VALIDATE BIRTHDAY
+# NORMALIZE BIRTHDAY
 # ==========================================================
 
 def normalize_birthday(value):
@@ -74,7 +73,6 @@ def normalize_birthday(value):
 
     value = value.strip()
 
-    # Allow 8/27 as well as 08/27
     value = value.replace("-", "/")
 
     parts = value.split("/")
@@ -94,12 +92,116 @@ def normalize_birthday(value):
     if day < 1 or day > 31:
         return None
 
-    birthday = f"{month:02d}/{day:02d}"
+    birthday_value = f"{month:02d}/{day:02d}"
 
-    if not BIRTHDAY_PATTERN.match(birthday):
+    if not BIRTHDAY_PATTERN.match(birthday_value):
         return None
 
-    return birthday
+    return birthday_value
+
+
+# ==========================================================
+# DELETE BIRTHDAY RESPONSE
+# ==========================================================
+
+async def delete_birthday_response(
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    job = context.job
+
+    if not job:
+        return
+
+    data = job.data or {}
+
+    chat_id = data.get("chat_id")
+    message_id = data.get("message_id")
+
+    if chat_id is None or message_id is None:
+        return
+
+    try:
+
+        await context.bot.delete_message(
+            chat_id=chat_id,
+            message_id=message_id,
+        )
+
+        logger.info(
+            "Deleted birthday response | "
+            "chat=%s | message=%s",
+            chat_id,
+            message_id,
+        )
+
+    except TelegramError as exc:
+
+        logger.info(
+            "Birthday response already removed "
+            "or could not be deleted | "
+            "chat=%s | message=%s | error=%s",
+            chat_id,
+            message_id,
+            exc,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unexpected error deleting birthday response."
+        )
+
+
+# ==========================================================
+# SEND TEMPORARY BIRTHDAY RESPONSE
+# ==========================================================
+
+async def send_birthday_response(
+    context,
+    chat_id,
+    text,
+    reply_markup=None,
+    parse_mode=None,
+):
+
+    if chat_id is None:
+        return None
+
+    try:
+
+        sent_message = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=parse_mode,
+        )
+
+        if context.job_queue:
+
+            context.job_queue.run_once(
+                delete_birthday_response,
+                when=BIRTHDAY_RESPONSE_DELETE_SECONDS,
+                data={
+                    "chat_id": chat_id,
+                    "message_id": sent_message.message_id,
+                },
+                name=(
+                    f"delete_birthday_response_"
+                    f"{chat_id}_"
+                    f"{sent_message.message_id}"
+                ),
+            )
+
+        return sent_message
+
+    except TelegramError:
+
+        logger.exception(
+            "Could not send birthday response."
+        )
+
+    return None
 
 
 # ==========================================================
@@ -148,7 +250,7 @@ async def birthday(
         return
 
     # ------------------------------------------------------
-    # If a date was supplied
+    # DATE SUPPLIED
     # ------------------------------------------------------
 
     if context.args:
@@ -159,12 +261,14 @@ async def birthday(
 
         if not birthday_value:
 
-            await message.reply_text(
+            await send_birthday_response(
+                context,
+                message.chat_id,
                 "🎂 I couldn't understand that birthday.\n\n"
                 "Please use:\n"
                 "/birthday MM/DD\n\n"
                 "Example:\n"
-                "/birthday 08/27"
+                "/birthday 08/27",
             )
 
             return
@@ -181,20 +285,24 @@ async def birthday(
 
         if success:
 
-            await message.reply_text(
+            await send_birthday_response(
+                context,
+                chat_id,
                 "🎉 Your birthday has been saved!\n\n"
                 f"🎂 Birthday: {birthday_value}\n\n"
                 "We'll celebrate you in Melanated AZ "
-                "on your birthday! 🥳💜"
+                "on your birthday! 🥳💜",
             )
 
         return
 
     # ------------------------------------------------------
-    # Show birthday menu
+    # SHOW BIRTHDAY MENU
     # ------------------------------------------------------
 
-    await message.reply_text(
+    await send_birthday_response(
+        context,
+        message.chat_id,
         "🎂 **Melanated AZ Birthday System**\n\n"
         "Let's celebrate each other! 🥳\n\n"
         "To add or update your birthday, use:\n\n"
@@ -204,8 +312,8 @@ async def birthday(
         "Your birthday is saved permanently in the "
         "Melanated AZ database until you change or "
         "remove it.",
-        parse_mode="Markdown",
         reply_markup=birthday_keyboard(),
+        parse_mode="Markdown",
     )
 
 
@@ -231,12 +339,14 @@ async def my_birthday(
 
     if not birthday_record:
 
-        await message.reply_text(
+        await send_birthday_response(
+            context,
+            message.chat_id,
             "🎂 You don't have a birthday saved yet.\n\n"
             "Use:\n"
             "/birthday MM/DD\n\n"
             "Example:\n"
-            "/birthday 08/27"
+            "/birthday 08/27",
         )
 
         return
@@ -245,7 +355,9 @@ async def my_birthday(
         "birthday"
     )
 
-    await message.reply_text(
+    await send_birthday_response(
+        context,
+        message.chat_id,
         "🎂 **Your Melanated AZ Birthday**\n\n"
         f"🎉 {birthday_value}\n\n"
         "Use `/birthday MM/DD` to update it.",
@@ -275,16 +387,20 @@ async def remove_my_birthday(
 
     if removed:
 
-        await message.reply_text(
+        await send_birthday_response(
+            context,
+            message.chat_id,
             "🗑️ Your birthday has been removed "
-            "from the Melanated AZ birthday list."
+            "from the Melanated AZ birthday list.",
         )
 
     else:
 
-        await message.reply_text(
+        await send_birthday_response(
+            context,
+            message.chat_id,
             "🎂 You don't currently have a birthday "
-            "saved in this chat."
+            "saved in this chat.",
         )
 
 
@@ -316,9 +432,11 @@ async def birthday_text_handler(
 
     if not birthday_value:
 
-        await message.reply_text(
+        await send_birthday_response(
+            context,
+            message.chat_id,
             "🎂 Please enter your birthday using MM/DD.\n\n"
-            "Example: 08/27"
+            "Example: 08/27",
         )
 
         return True
@@ -336,10 +454,12 @@ async def birthday_text_handler(
         None,
     )
 
-    await message.reply_text(
+    await send_birthday_response(
+        context,
+        message.chat_id,
         "🎉 Birthday saved!\n\n"
         f"🎂 {birthday_value}\n\n"
-        "We'll celebrate you on your birthday! 🥳💜"
+        "We'll celebrate you on your birthday! 🥳💜",
     )
 
     return True
@@ -362,6 +482,7 @@ async def birthday_callback(
     user = update.effective_user
 
     if not user:
+
         await query.answer()
         return
 
@@ -379,7 +500,9 @@ async def birthday_callback(
             "awaiting_birthday"
         ] = True
 
-        await query.message.reply_text(
+        await send_birthday_response(
+            context,
+            query.message.chat_id,
             "🎂 **Set Your Birthday**\n\n"
             "Enter your birthday using:\n\n"
             "MM/DD\n\n"
@@ -400,8 +523,10 @@ async def birthday_callback(
 
         if not birthdays:
 
-            await query.message.reply_text(
-                "🎂 No birthdays have been added yet."
+            await send_birthday_response(
+                context,
+                query.message.chat_id,
+                "🎂 No birthdays have been added yet.",
             )
 
             return
@@ -428,7 +553,9 @@ async def birthday_callback(
                 f"🎂 {birthday_value} — {name}"
             )
 
-        await query.message.reply_text(
+        await send_birthday_response(
+            context,
+            query.message.chat_id,
             "\n".join(lines),
             parse_mode="Markdown",
         )
@@ -448,15 +575,19 @@ async def birthday_callback(
 
         if removed:
 
-            await query.message.reply_text(
-                "🗑️ Your birthday has been removed."
+            await send_birthday_response(
+                context,
+                query.message.chat_id,
+                "🗑️ Your birthday has been removed.",
             )
 
         else:
 
-            await query.message.reply_text(
+            await send_birthday_response(
+                context,
+                query.message.chat_id,
                 "🎂 You don't have a birthday saved "
-                "in this chat."
+                "in this chat.",
             )
 
         return
@@ -478,8 +609,10 @@ async def birthday_admin_list(
 
     if not birthdays:
 
-        await update.effective_message.reply_text(
-            "🎂 There are no birthdays saved."
+        await send_birthday_response(
+            context,
+            update.effective_message.chat_id,
+            "🎂 There are no birthdays saved.",
         )
 
         return
@@ -515,7 +648,9 @@ async def birthday_admin_list(
             f"{chat_id}"
         )
 
-    await update.effective_message.reply_text(
+    await send_birthday_response(
+        context,
+        update.effective_message.chat_id,
         "\n".join(lines),
         parse_mode="Markdown",
     )
