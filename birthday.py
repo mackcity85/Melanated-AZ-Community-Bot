@@ -4,14 +4,16 @@
 #
 # MEMBER SELF-ENTRY ONLY
 #
-# Birthday setup/reply cleanup:
-#   - Birthday saved confirmation: 10 seconds
-#   - Birthday-related replies: 1 minute
-#
-# Birthday announcements are handled by:
-#   birthday_scheduler.py
-#
-# Actual birthday announcements remain for 24 hours.
+# Features:
+# - /birthday
+# - Add / Update My Birthday button
+# - View My Birthday
+# - Remove My Birthday
+# - Accept MM/DD or M/D
+# - Persistent SQLite storage
+# - Automatic Telegram user identification
+# - Birthday-related user messages cleaned up after 1 minute
+# - Birthday confirmation/menu messages cleaned up after 10 seconds
 # ==========================================================
 
 import logging
@@ -22,6 +24,7 @@ from telegram import (
     InlineKeyboardMarkup,
     Update,
 )
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from raffle_database import (
@@ -34,11 +37,11 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# CONFIGURATION
+# SETTINGS
 # ==========================================================
 
-BIRTHDAY_SAVED_DELETE_SECONDS = 10
 BIRTHDAY_REPLY_DELETE_SECONDS = 60
+BIRTHDAY_SAVED_DELETE_SECONDS = 10
 
 
 # ==========================================================
@@ -72,7 +75,7 @@ def birthday_keyboard():
 
 
 # ==========================================================
-# DELETE BIRTHDAY-RELATED MESSAGE
+# DELETE MESSAGE HELPER
 # ==========================================================
 
 async def delete_birthday_message(
@@ -100,37 +103,43 @@ async def delete_birthday_message(
         )
 
         logger.info(
-            "Deleted birthday-related message | "
-            "chat=%s | message=%s",
+            "Deleted birthday message | chat=%s | message=%s",
             chat_id,
             message_id,
         )
 
-    except Exception as exc:
+    except TelegramError as exc:
 
         logger.info(
-            "Birthday message already deleted/unavailable | "
-            "chat=%s | message=%s | error=%s",
-            chat_id,
-            message_id,
+            "Birthday message could not be deleted: %s",
             exc,
         )
 
+    except Exception:
+
+        logger.exception(
+            "Unexpected error deleting birthday message."
+        )
+
 
 # ==========================================================
-# SCHEDULE MESSAGE DELETION
+# SCHEDULE BIRTHDAY MESSAGE DELETION
 # ==========================================================
 
-def schedule_birthday_message_delete(
-    context,
+def schedule_birthday_message_deletion(
+    context: ContextTypes.DEFAULT_TYPE,
     message,
-    seconds,
+    seconds: int = BIRTHDAY_REPLY_DELETE_SECONDS,
 ):
+
+    if not message:
+        return
 
     if not context.job_queue:
 
         logger.warning(
-            "JobQueue unavailable; birthday cleanup disabled."
+            "JobQueue unavailable. "
+            "Birthday message cleanup disabled."
         )
 
         return
@@ -142,6 +151,11 @@ def schedule_birthday_message_delete(
             "chat_id": message.chat_id,
             "message_id": message.message_id,
         },
+        name=(
+            f"delete_birthday_message_"
+            f"{message.chat_id}_"
+            f"{message.message_id}"
+        ),
     )
 
 
@@ -155,6 +169,7 @@ def validate_birthday(value):
         return None
 
     value = value.strip()
+
     value = value.replace("-", "/")
 
     try:
@@ -204,10 +219,18 @@ async def birthday(
 
         return
 
+    # ------------------------------------------------------
+    # Cancel previous entry mode
+    # ------------------------------------------------------
+
     context.user_data.pop(
         "awaiting_birthday",
         None,
     )
+
+    # ------------------------------------------------------
+    # Retrieve existing birthday
+    # ------------------------------------------------------
 
     try:
 
@@ -225,13 +248,22 @@ async def birthday(
 
         existing = None
 
+    # ------------------------------------------------------
+    # Existing birthday
+    # ------------------------------------------------------
+
     if existing:
 
         text = (
             "🎂 **Your Melanated AZ Birthday** 🎂\n\n"
-            f"📅 Current birthday: **{existing['birthday']}**\n\n"
+            f"📅 Current birthday: "
+            f"**{existing['birthday']}**\n\n"
             "You can update or remove it below."
         )
+
+    # ------------------------------------------------------
+    # No birthday
+    # ------------------------------------------------------
 
     else:
 
@@ -240,8 +272,8 @@ async def birthday(
             "We love celebrating our members! 💜\n\n"
             "Add your birthday and Melanated AZ "
             "will recognize your special day. 🎉\n\n"
-            "Your birthday is securely saved in "
-            "the Melanated AZ database.\n\n"
+            "Your birthday is saved to the "
+            "Melanated AZ database.\n\n"
             "Choose an option below:"
         )
 
@@ -251,7 +283,11 @@ async def birthday(
         parse_mode="Markdown",
     )
 
-    schedule_birthday_message_delete(
+    # ------------------------------------------------------
+    # Remove /birthday response after 1 minute
+    # ------------------------------------------------------
+
+    schedule_birthday_message_deletion(
         context,
         sent,
         BIRTHDAY_REPLY_DELETE_SECONDS,
@@ -293,15 +329,15 @@ async def save_birthday_from_value(
             parse_mode="Markdown",
         )
 
-        schedule_birthday_message_delete(
+        context.user_data[
+            "awaiting_birthday"
+        ] = True
+
+        schedule_birthday_message_deletion(
             context,
             sent,
             BIRTHDAY_REPLY_DELETE_SECONDS,
         )
-
-        context.user_data[
-            "awaiting_birthday"
-        ] = True
 
         return False
 
@@ -332,7 +368,7 @@ async def save_birthday_from_value(
             "Please try again.",
         )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
             BIRTHDAY_REPLY_DELETE_SECONDS,
@@ -347,7 +383,7 @@ async def save_birthday_from_value(
             "Please try again.",
         )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
             BIRTHDAY_REPLY_DELETE_SECONDS,
@@ -371,18 +407,25 @@ async def save_birthday_from_value(
         birthday_value,
     )
 
+    # ------------------------------------------------------
+    # CONFIRMATION
+    # ------------------------------------------------------
+
     sent = await message.reply_text(
         "🎂 **BIRTHDAY SAVED!** 🎂\n\n"
         f"📅 Your birthday: **{birthday_value}**\n\n"
-        "✅ Your birthday has been securely saved "
+        "✅ Your birthday has been saved "
         "to the Melanated AZ database.\n\n"
         "🎉 We'll recognize your special day! 💜",
         reply_markup=birthday_keyboard(),
         parse_mode="Markdown",
     )
 
-    # Saved confirmation disappears after 10 seconds.
-    schedule_birthday_message_delete(
+    # ------------------------------------------------------
+    # Remove confirmation after 10 seconds
+    # ------------------------------------------------------
+
+    schedule_birthday_message_deletion(
         context,
         sent,
         BIRTHDAY_SAVED_DELETE_SECONDS,
@@ -408,9 +451,7 @@ async def birthday_callback(
     user = query.from_user
 
     if not user:
-
         await query.answer()
-
         return
 
     data = query.data or ""
@@ -448,7 +489,8 @@ async def birthday_callback(
 
             text = (
                 "🎂 **Your Melanated AZ Birthday** 🎂\n\n"
-                f"📅 Current birthday: **{existing['birthday']}**\n\n"
+                f"📅 Current birthday: "
+                f"**{existing['birthday']}**\n\n"
                 "Choose an option below:"
             )
 
@@ -463,25 +505,39 @@ async def birthday_callback(
 
         try:
 
-            await query.edit_message_text(
+            edited = await query.edit_message_text(
                 text,
                 reply_markup=birthday_keyboard(),
                 parse_mode="Markdown",
+            )
+
+            schedule_birthday_message_deletion(
+                context,
+                edited,
+                BIRTHDAY_REPLY_DELETE_SECONDS,
             )
 
         except Exception:
 
-            sent = await query.message.reply_text(
-                text,
-                reply_markup=birthday_keyboard(),
-                parse_mode="Markdown",
-            )
+            try:
 
-            schedule_birthday_message_delete(
-                context,
-                sent,
-                BIRTHDAY_REPLY_DELETE_SECONDS,
-            )
+                sent = await query.message.reply_text(
+                    text,
+                    reply_markup=birthday_keyboard(),
+                    parse_mode="Markdown",
+                )
+
+                schedule_birthday_message_deletion(
+                    context,
+                    sent,
+                    BIRTHDAY_REPLY_DELETE_SECONDS,
+                )
+
+            except Exception:
+
+                logger.exception(
+                    "Unable to display birthday menu."
+                )
 
         return
 
@@ -505,7 +561,7 @@ async def birthday_callback(
             parse_mode="Markdown",
         )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
             BIRTHDAY_REPLY_DELETE_SECONDS,
@@ -538,10 +594,9 @@ async def birthday_callback(
                 "right now. Please try again.",
             )
 
-            schedule_birthday_message_delete(
+            schedule_birthday_message_deletion(
                 context,
                 sent,
-                BIRTHDAY_REPLY_DELETE_SECONDS,
             )
 
             return
@@ -557,10 +612,9 @@ async def birthday_callback(
                 parse_mode="Markdown",
             )
 
-            schedule_birthday_message_delete(
+            schedule_birthday_message_deletion(
                 context,
                 sent,
-                BIRTHDAY_REPLY_DELETE_SECONDS,
             )
 
             return
@@ -574,10 +628,9 @@ async def birthday_callback(
             parse_mode="Markdown",
         )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
-            BIRTHDAY_REPLY_DELETE_SECONDS,
         )
 
         return
@@ -612,10 +665,9 @@ async def birthday_callback(
                 "right now. Please try again.",
             )
 
-            schedule_birthday_message_delete(
+            schedule_birthday_message_deletion(
                 context,
                 sent,
-                BIRTHDAY_REPLY_DELETE_SECONDS,
             )
 
             return
@@ -638,17 +690,19 @@ async def birthday_callback(
                 reply_markup=birthday_keyboard(),
             )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
-            BIRTHDAY_REPLY_DELETE_SECONDS,
         )
 
         return
 
 
 # ==========================================================
-# BIRTHDAY TEXT INPUT
+# TEXT INPUT
+#
+# Catches the birthday AFTER the member clicks
+# "Add / Update My Birthday".
 # ==========================================================
 
 async def birthday_text_handler(
@@ -713,10 +767,9 @@ async def my_birthday(
             "right now. Please try again.",
         )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
-            BIRTHDAY_REPLY_DELETE_SECONDS,
         )
 
         return
@@ -732,10 +785,9 @@ async def my_birthday(
             parse_mode="Markdown",
         )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
-            BIRTHDAY_REPLY_DELETE_SECONDS,
         )
 
         return
@@ -749,10 +801,9 @@ async def my_birthday(
         parse_mode="Markdown",
     )
 
-    schedule_birthday_message_delete(
+    schedule_birthday_message_deletion(
         context,
         sent,
-        BIRTHDAY_REPLY_DELETE_SECONDS,
     )
 
 
@@ -790,10 +841,9 @@ async def remove_my_birthday(
             "right now. Please try again.",
         )
 
-        schedule_birthday_message_delete(
+        schedule_birthday_message_deletion(
             context,
             sent,
-            BIRTHDAY_REPLY_DELETE_SECONDS,
         )
 
         return
@@ -821,8 +871,7 @@ async def remove_my_birthday(
             reply_markup=birthday_keyboard(),
         )
 
-    schedule_birthday_message_delete(
+    schedule_birthday_message_deletion(
         context,
         sent,
-        BIRTHDAY_REPLY_DELETE_SECONDS,
     )
