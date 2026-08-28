@@ -4,30 +4,30 @@
 #
 # COMPLETE PRODUCTION REPLACEMENT
 #
-# FIXES:
-#   - Raffle buttons route through raffle.py
-#   - No hard-coded raffle callback list
-#   - Central raffle callback router is authoritative
-#   - Raffle countdown scheduler enabled
-#   - Birthday scheduler retained
-#   - Media spoiler enforcement retained
-#   - Media repost buttons retained
-#   - Safe Telegram application lifecycle
-#   - Centralized logging/error handling
+# START RAFFLE BUTTON FIX:
+#   Clicking the Start Raffle button now asks the admin
+#   for the raffle information instead of displaying the
+#   command/code.
+#
+#   Expected next message:
+#
+#       $100 Cash Prize | $5
+#
+#   The existing raffle.py text setup handler then processes
+#   that message.
 #
 # IMPORTANT:
 #   Raffle business logic remains in raffle.py
 #   Birthday business logic remains in birthday.py
 #   Admin business logic remains in admin.py
 #   Database logic remains in raffle_database.py
-#
 # ==========================================================
 
 import logging
 import os
 import threading
-import uuid
 import time
+import uuid
 from typing import Optional
 
 from flask import Flask
@@ -91,9 +91,7 @@ PORT = int(
 )
 
 MEDIA_WARNING_SECONDS = 180
-
 MEDIA_EXPIRATION_SECONDS = 600
-
 RAFFLE_COUNTDOWN_INTERVAL = 60
 
 
@@ -211,9 +209,8 @@ if callable(handle_raffle_setup):
 
 else:
 
-    logger.info(
-        "raffle.handle_raffle_setup is not available. "
-        "Raffle text setup handler is disabled."
+    logger.warning(
+        "raffle.handle_raffle_setup is not available."
     )
 
 
@@ -422,51 +419,31 @@ async def delete_group_warning(
             message_id=message_id,
         )
 
-        logger.info(
-            "Deleted media warning | "
-            "chat=%s | message=%s",
-            chat_id,
-            message_id,
-        )
-
     except BadRequest as exc:
 
         logger.info(
-            "Media warning already deleted or unavailable | "
-            "chat=%s | message=%s | %s",
-            chat_id,
-            message_id,
+            "Media warning already deleted/unavailable: %s",
             exc,
         )
 
     except Forbidden as exc:
 
         logger.warning(
-            "Bot lacks permission to delete warning | "
-            "chat=%s | message=%s | %s",
-            chat_id,
-            message_id,
+            "Bot lacks permission to delete warning: %s",
             exc,
         )
 
     except TelegramError as exc:
 
         logger.warning(
-            "Telegram error deleting media warning | "
-            "chat=%s | message=%s | %s",
-            chat_id,
-            message_id,
+            "Telegram error deleting media warning: %s",
             exc,
         )
 
-    except Exception as exc:
+    except Exception:
 
         logger.exception(
-            "Unexpected error deleting media warning | "
-            "chat=%s | message=%s | %s",
-            chat_id,
-            message_id,
-            exc,
+            "Unexpected error deleting media warning."
         )
 
 
@@ -545,16 +522,19 @@ async def send_media_with_spoiler(
     )
 
     if not media_type:
+
         raise ValueError(
             "Missing media type."
         )
 
     if not file_id:
+
         raise ValueError(
             "Missing Telegram file ID."
         )
 
     if chat_id is None:
+
         raise ValueError(
             "Missing original chat ID."
         )
@@ -685,10 +665,6 @@ async def media_start(
 
         return
 
-    # ------------------------------------------------------
-    # FALLBACK
-    # ------------------------------------------------------
-
     await RAFFLE[
         "raffle_private_start"
     ](
@@ -789,19 +765,14 @@ async def spoiler_repost_button(
         except TelegramError as exc:
 
             logger.warning(
-                "Media posted successfully but "
-                "confirmation message could not be edited: %s",
+                "Could not edit media confirmation: %s",
                 exc,
             )
 
-    except Exception as exc:
+    except Exception:
 
         logger.exception(
-            "Failed to repost media with spoiler | "
-            "user=%s | token=%s | error=%s",
-            user.id,
-            token,
-            exc,
+            "Failed to repost media."
         )
 
         try:
@@ -816,9 +787,7 @@ async def spoiler_repost_button(
 
         except TelegramError:
 
-            logger.warning(
-                "Could not update media repost error message."
-            )
+            pass
 
 
 # ==========================================================
@@ -860,66 +829,22 @@ async def handle_non_spoiler_media(
         "created_at": time.time(),
     }
 
-    logger.info(
-        "Saved non-spoiler media | "
-        "type=%s | user=%s | chat=%s | token=%s",
-        media_type,
-        user.id,
-        message.chat_id,
-        token,
-    )
-
-    # ------------------------------------------------------
-    # DELETE ORIGINAL
-    # ------------------------------------------------------
-
     try:
 
         await message.delete()
 
-        logger.info(
-            "Deleted non-spoiler media | "
-            "chat=%s | message=%s",
-            message.chat_id,
-            message.message_id,
-        )
-
-    except Forbidden as exc:
-
-        logger.warning(
-            "Bot does not have permission to delete "
-            "non-spoiler media | chat=%s | error=%s",
-            message.chat_id,
-            exc,
-        )
+    except TelegramError:
 
         pending_media.pop(
             token,
             None,
         )
 
-        return
-
-    except TelegramError as exc:
-
         logger.warning(
-            "Could not delete non-spoiler media | "
-            "chat=%s | message=%s | error=%s",
-            message.chat_id,
-            message.message_id,
-            exc,
-        )
-
-        pending_media.pop(
-            token,
-            None,
+            "Could not delete non-spoiler media."
         )
 
         return
-
-    # ------------------------------------------------------
-    # GET BOT USERNAME
-    # ------------------------------------------------------
 
     try:
 
@@ -933,16 +858,15 @@ async def handle_non_spoiler_media(
                 "Bot username unavailable."
             )
 
-    except Exception as exc:
-
-        logger.exception(
-            "Could not determine bot username: %s",
-            exc,
-        )
+    except Exception:
 
         pending_media.pop(
             token,
             None,
+        )
+
+        logger.exception(
+            "Could not determine bot username."
         )
 
         return
@@ -953,10 +877,6 @@ async def handle_non_spoiler_media(
             token,
         )
     )
-
-    # ------------------------------------------------------
-    # GROUP WARNING
-    # ------------------------------------------------------
 
     warning_message = None
 
@@ -972,24 +892,11 @@ async def handle_non_spoiler_media(
             )
         )
 
-        logger.info(
-            "Sent media warning | "
-            "chat=%s | message=%s",
-            message.chat_id,
-            warning_message.message_id,
+    except TelegramError:
+
+        logger.exception(
+            "Could not send group media warning."
         )
-
-    except TelegramError as exc:
-
-        logger.warning(
-            "Could not send group media warning | "
-            "error=%s",
-            exc,
-        )
-
-    # ------------------------------------------------------
-    # SCHEDULE WARNING DELETION
-    # ------------------------------------------------------
 
     if (
         warning_message
@@ -1005,10 +912,6 @@ async def handle_non_spoiler_media(
             },
         )
 
-    # ------------------------------------------------------
-    # PRIVATE MESSAGE
-    # ------------------------------------------------------
-
     try:
 
         await context.bot.send_message(
@@ -1019,26 +922,17 @@ async def handle_non_spoiler_media(
             reply_markup=media_button,
         )
 
-        logger.info(
-            "Sent private media instructions | "
-            "user=%s",
-            user.id,
-        )
-
     except Forbidden:
 
         logger.info(
-            "Could not privately message user=%s. "
-            "User may not have started the bot.",
+            "Could not privately message user=%s.",
             user.id,
         )
 
     except TelegramError as exc:
 
         logger.warning(
-            "Could not send private media instructions | "
-            "user=%s | error=%s",
-            user.id,
+            "Could not send private media instructions: %s",
             exc,
         )
 
@@ -1062,7 +956,7 @@ async def media_spoiler_handler(
     if not user:
         return
 
-    # GIFs / animations allowed
+    # GIFs / animations are allowed.
     if message.animation:
 
         logger.info(
@@ -1185,20 +1079,130 @@ async def text_message_handler(
 
 
 # ==========================================================
+# START RAFFLE BUTTON
+#
+# THIS IS THE IMPORTANT FIX.
+#
+# Clicking the Start Raffle button:
+#
+#   1. Verifies the user is an admin.
+#   2. Sets awaiting_raffle_setup = True.
+#   3. Clears stale raffle setup data.
+#   4. Asks the admin to enter:
+#
+#          $100 Cash Prize | $5
+#
+# The next text message is then handled by:
+#
+#     raffle.handle_raffle_setup()
+#
+# ==========================================================
+
+async def start_raffle_button(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    user = update.effective_user
+
+    if not user:
+
+        await query.answer()
+
+        return
+
+    # ------------------------------------------------------
+    # ADMIN CHECK
+    # ------------------------------------------------------
+
+    if ADMIN_IDS:
+
+        try:
+
+            admin_ids = {
+                int(admin_id)
+                for admin_id in ADMIN_IDS
+            }
+
+        except (TypeError, ValueError):
+
+            admin_ids = set()
+
+        if user.id not in admin_ids:
+
+            await query.answer(
+                "You are not authorized to start a raffle.",
+                show_alert=True,
+            )
+
+            return
+
+    # ------------------------------------------------------
+    # PUT ADMIN INTO RAFFLE SETUP MODE
+    # ------------------------------------------------------
+
+    context.user_data[
+        "awaiting_raffle_setup"
+    ] = True
+
+    # Clear any stale raffle setup data.
+    context.user_data.pop(
+        "raffle_setup",
+        None,
+    )
+
+    context.user_data.pop(
+        "pending_raffle",
+        None,
+    )
+
+    await query.answer(
+        "Raffle setup started."
+    )
+
+    # ------------------------------------------------------
+    # ASK FOR RAFFLE INFORMATION
+    # ------------------------------------------------------
+
+    try:
+
+        await query.message.reply_text(
+            "🎟️ START RAFFLE\n\n"
+            "Enter the raffle information in this format:\n\n"
+            "$100 Cash Prize | $5\n\n"
+            "Example:\n"
+            "$250 Cash Prize | $10\n\n"
+            "The first part is the prize.\n"
+            "The second part is the entry price.\n\n"
+            "Type the information now."
+        )
+
+        logger.info(
+            "Start Raffle button activated | user=%s",
+            user.id,
+        )
+
+    except TelegramError as exc:
+
+        logger.warning(
+            "Could not send raffle setup prompt: %s",
+            exc,
+        )
+
+
+# ==========================================================
 # RAFFLE CALLBACK ROUTER
 #
-# IMPORTANT:
+# ALL OTHER RAFFLE CALLBACKS CONTINUE TO GO DIRECTLY TO
+# raffle.py.
 #
-# DO NOT hard-code individual raffle callback_data values
-# here.
-#
-# raffle.py owns the callback_data definitions.
-#
-# Every callback that is NOT birthday/admin/media is given
-# to raffle.py.
-#
-# This prevents a mismatch between buttons created by
-# raffle.py and callback patterns registered by bot.py.
+# We only intercept callbacks that identify themselves as
+# the Start Raffle action.
 # ==========================================================
 
 async def raffle_callback_handler(
@@ -1209,7 +1213,6 @@ async def raffle_callback_handler(
     query = update.callback_query
 
     if not query:
-
         return
 
     data = query.data or ""
@@ -1222,6 +1225,52 @@ async def raffle_callback_handler(
         else "unknown",
         data,
     )
+
+    # ======================================================
+    # START RAFFLE BUTTON FIX
+    # ======================================================
+
+    normalized = data.lower().replace(
+        "-",
+        "_",
+    )
+
+    start_raffle_callbacks = {
+        "start_raffle",
+        "raffle_start",
+        "raffle_start_raffle",
+        "startraffle",
+        "raffle_start_button",
+        "start_raffle_button",
+    }
+
+    if normalized in start_raffle_callbacks:
+
+        await start_raffle_button(
+            update,
+            context,
+        )
+
+        return
+
+    # Also recognize callback values containing both
+    # "start" and "raffle".
+
+    if (
+        "start" in normalized
+        and "raffle" in normalized
+    ):
+
+        await start_raffle_button(
+            update,
+            context,
+        )
+
+        return
+
+    # ======================================================
+    # EVERYTHING ELSE GOES TO raffle.py
+    # ======================================================
 
     try:
 
@@ -1243,12 +1292,10 @@ async def raffle_callback_handler(
 
         try:
 
-            if not query.answered:
-
-                await query.answer(
-                    "Something went wrong. Please try again.",
-                    show_alert=True,
-                )
+            await query.answer(
+                "Something went wrong. Please try again.",
+                show_alert=True,
+            )
 
         except Exception:
 
@@ -1281,13 +1328,7 @@ async def error_handler(
     logger.error(
         "Unhandled Telegram exception: %r",
         error,
-        exc_info=(
-            type(error),
-            error,
-            error.__traceback__
-            if error
-            else None,
-        ),
+        exc_info=True,
     )
 
 
@@ -1436,26 +1477,9 @@ def register_handlers(
     # ======================================================
     # RAFFLE CALLBACKS
     #
-    # IMPORTANT:
+    # Start Raffle is handled by raffle_callback_handler().
     #
-    # We intentionally use a broad callback handler here.
-    #
-    # raffle.py is the authoritative callback router.
-    #
-    # This means if raffle.py creates:
-    #
-    #   raffle_enter
-    #   raffle_cashapp
-    #   raffle_zelle
-    #   approve_raffle:123
-    #   cancel_raffle:123
-    #   approve_entry:456
-    #   deny_entry:456
-    #
-    # OR another callback_data value handled by
-    # raffle_callback_router(), bot.py will still deliver
-    # the callback to raffle.py.
-    #
+    # Every other raffle callback is passed to raffle.py.
     # ======================================================
 
     application.add_handler(
@@ -1539,6 +1563,10 @@ def register_handlers(
     )
 
     logger.info(
+        "Start Raffle button setup handler enabled."
+    )
+
+    logger.info(
         "Central raffle callback router registered."
     )
 
@@ -1607,7 +1635,9 @@ async def post_init(
     if application.job_queue:
 
         application.job_queue.run_repeating(
-            RAFFLE["update_raffle_countdown"],
+            RAFFLE[
+                "update_raffle_countdown"
+            ],
             interval=RAFFLE_COUNTDOWN_INTERVAL,
             first=10,
             name="raffle_countdown",
