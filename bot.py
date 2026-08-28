@@ -4,23 +4,28 @@
 #
 # COMPLETE PRODUCTION REPLACEMENT
 #
-# START RAFFLE BUTTON FIX:
-#   Clicking the Start Raffle button now asks the admin
-#   for the raffle information instead of displaying the
-#   command/code.
-#
-#   Expected next message:
-#
-#       $100 Cash Prize | $5
-#
-#   The existing raffle.py text setup handler then processes
-#   that message.
+# FEATURES:
+# - Persistent raffle system
+# - Persistent birthday system
+# - Media spoiler enforcement
+# - Non-spoiler media removed immediately
+# - Group media warning removed after 3 minutes
+# - Private media instructions
+# - Media deep-link repost with Spoiler enabled
+# - Pending media automatically expires
+# - Raffle user messages can be removed after 1 minute
+# - Start Raffle button opens raffle setup
+# - FREE raffle price supported by raffle.py
+# - Central raffle callback routing
+# - Birthday callbacks
+# - Admin callbacks
+# - Flask health server
 #
 # IMPORTANT:
-#   Raffle business logic remains in raffle.py
-#   Birthday business logic remains in birthday.py
-#   Admin business logic remains in admin.py
-#   Database logic remains in raffle_database.py
+# Raffle business logic remains in raffle.py
+# Birthday business logic remains in birthday.py
+# Admin business logic remains in admin.py
+# Database logic remains in raffle_database.py
 # ==========================================================
 
 import logging
@@ -90,9 +95,41 @@ PORT = int(
     )
 )
 
+# ----------------------------------------------------------
+# Media warning remains visible for 3 minutes.
+# ----------------------------------------------------------
+
 MEDIA_WARNING_SECONDS = 180
+
+# ----------------------------------------------------------
+# Pending media expires after 10 minutes.
+# ----------------------------------------------------------
+
 MEDIA_EXPIRATION_SECONDS = 600
+
+# ----------------------------------------------------------
+# Raffle countdown updates every 60 seconds.
+# ----------------------------------------------------------
+
 RAFFLE_COUNTDOWN_INTERVAL = 60
+
+# ----------------------------------------------------------
+# Raffle-related user messages are removed after 1 minute.
+#
+# This is intentionally configurable through Render.
+#
+# Environment variable:
+#
+# RAFFLE_MESSAGE_DELETE_SECONDS=60
+#
+# ----------------------------------------------------------
+
+RAFFLE_MESSAGE_DELETE_SECONDS = int(
+    os.environ.get(
+        "RAFFLE_MESSAGE_DELETE_SECONDS",
+        "60",
+    )
+)
 
 
 # ==========================================================
@@ -382,6 +419,77 @@ def spoiler_keyboard(
 
 
 # ==========================================================
+# DELETE MESSAGE HELPER
+# ==========================================================
+
+async def delete_message_safely(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id,
+    message_id,
+    description="message",
+):
+
+    if chat_id is None or message_id is None:
+
+        logger.warning(
+            "Cannot delete %s: missing chat_id/message_id.",
+            description,
+        )
+
+        return False
+
+    try:
+
+        await context.bot.delete_message(
+            chat_id=chat_id,
+            message_id=message_id,
+        )
+
+        logger.info(
+            "Deleted %s | chat=%s | message=%s",
+            description,
+            chat_id,
+            message_id,
+        )
+
+        return True
+
+    except BadRequest as exc:
+
+        logger.info(
+            "Could not delete %s because it is already "
+            "deleted/unavailable: %s",
+            description,
+            exc,
+        )
+
+    except Forbidden as exc:
+
+        logger.warning(
+            "Bot lacks permission to delete %s: %s",
+            description,
+            exc,
+        )
+
+    except TelegramError as exc:
+
+        logger.warning(
+            "Telegram error deleting %s: %s",
+            description,
+            exc,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unexpected error deleting %s.",
+            description,
+        )
+
+    return False
+
+
+# ==========================================================
 # DELETE GROUP WARNING
 # ==========================================================
 
@@ -404,47 +512,85 @@ async def delete_group_warning(
         "message_id"
     )
 
-    if chat_id is None or message_id is None:
+    await delete_message_safely(
+        context,
+        chat_id,
+        message_id,
+        description="media warning",
+    )
+
+
+# ==========================================================
+# DELETE RAFFLE USER MESSAGE
+# ==========================================================
+
+async def delete_raffle_user_message(
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    job = context.job
+
+    if not job:
+        return
+
+    data = job.data or {}
+
+    chat_id = data.get(
+        "chat_id"
+    )
+
+    message_id = data.get(
+        "message_id"
+    )
+
+    await delete_message_safely(
+        context,
+        chat_id,
+        message_id,
+        description="raffle user message",
+    )
+
+
+# ==========================================================
+# SCHEDULE RAFFLE MESSAGE DELETION
+# ==========================================================
+
+def schedule_raffle_message_deletion(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id,
+    message_id,
+):
+
+    if not context.job_queue:
 
         logger.warning(
-            "Warning deletion job missing IDs."
+            "JobQueue unavailable. "
+            "Could not schedule raffle message deletion."
         )
 
         return
 
-    try:
+    context.job_queue.run_once(
+        delete_raffle_user_message,
+        when=RAFFLE_MESSAGE_DELETE_SECONDS,
+        data={
+            "chat_id": chat_id,
+            "message_id": message_id,
+        },
+        name=(
+            f"delete_raffle_message_"
+            f"{chat_id}_"
+            f"{message_id}"
+        ),
+    )
 
-        await context.bot.delete_message(
-            chat_id=chat_id,
-            message_id=message_id,
-        )
-
-    except BadRequest as exc:
-
-        logger.info(
-            "Media warning already deleted/unavailable: %s",
-            exc,
-        )
-
-    except Forbidden as exc:
-
-        logger.warning(
-            "Bot lacks permission to delete warning: %s",
-            exc,
-        )
-
-    except TelegramError as exc:
-
-        logger.warning(
-            "Telegram error deleting media warning: %s",
-            exc,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Unexpected error deleting media warning."
-        )
+    logger.info(
+        "Scheduled raffle user message deletion "
+        "in %s seconds | chat=%s | message=%s",
+        RAFFLE_MESSAGE_DELETE_SECONDS,
+        chat_id,
+        message_id,
+    )
 
 
 # ==========================================================
@@ -898,6 +1044,10 @@ async def handle_non_spoiler_media(
             "Could not send group media warning."
         )
 
+    # ------------------------------------------------------
+    # DELETE GROUP WARNING AFTER 3 MINUTES
+    # ------------------------------------------------------
+
     if (
         warning_message
         and context.job_queue
@@ -910,6 +1060,17 @@ async def handle_non_spoiler_media(
                 "chat_id": warning_message.chat_id,
                 "message_id": warning_message.message_id,
             },
+            name=(
+                f"delete_media_warning_"
+                f"{warning_message.chat_id}_"
+                f"{warning_message.message_id}"
+            ),
+        )
+
+        logger.info(
+            "Scheduled media warning deletion in "
+            "%s seconds.",
+            MEDIA_WARNING_SECONDS,
         )
 
     try:
@@ -956,7 +1117,10 @@ async def media_spoiler_handler(
     if not user:
         return
 
-    # GIFs / animations are allowed.
+    # ------------------------------------------------------
+    # GIFS / ANIMATIONS ARE ALLOWED
+    # ------------------------------------------------------
+
     if message.animation:
 
         logger.info(
@@ -967,7 +1131,10 @@ async def media_spoiler_handler(
 
         return
 
+    # ------------------------------------------------------
     # PHOTO
+    # ------------------------------------------------------
+
     if message.photo:
 
         if message.has_media_spoiler:
@@ -993,7 +1160,10 @@ async def media_spoiler_handler(
 
         return
 
+    # ------------------------------------------------------
     # VIDEO
+    # ------------------------------------------------------
+
     if message.video:
 
         if message.has_media_spoiler:
@@ -1029,6 +1199,11 @@ async def text_message_handler(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
+    message = update.effective_message
+
+    if not message:
+        return
+
     # ------------------------------------------------------
     # BIRTHDAY
     # ------------------------------------------------------
@@ -1053,6 +1228,15 @@ async def text_message_handler(
 
     # ------------------------------------------------------
     # RAFFLE TEXT SETUP
+    #
+    # This allows:
+    #
+    # $100 Cash Prize | $5
+    #
+    # and, assuming raffle.py supports it:
+    #
+    # $100 Cash Prize | FREE
+    #
     # ------------------------------------------------------
 
     if callable(
@@ -1069,6 +1253,18 @@ async def text_message_handler(
             )
 
             if handled:
+
+                # --------------------------------------------------
+                # DELETE THE ADMIN'S RAFFLE SETUP MESSAGE AFTER
+                # ONE MINUTE.
+                # --------------------------------------------------
+
+                schedule_raffle_message_deletion(
+                    context,
+                    message.chat_id,
+                    message.message_id,
+                )
+
                 return
 
         except Exception:
@@ -1080,22 +1276,6 @@ async def text_message_handler(
 
 # ==========================================================
 # START RAFFLE BUTTON
-#
-# THIS IS THE IMPORTANT FIX.
-#
-# Clicking the Start Raffle button:
-#
-#   1. Verifies the user is an admin.
-#   2. Sets awaiting_raffle_setup = True.
-#   3. Clears stale raffle setup data.
-#   4. Asks the admin to enter:
-#
-#          $100 Cash Prize | $5
-#
-# The next text message is then handled by:
-#
-#     raffle.handle_raffle_setup()
-#
 # ==========================================================
 
 async def start_raffle_button(
@@ -1150,7 +1330,6 @@ async def start_raffle_button(
         "awaiting_raffle_setup"
     ] = True
 
-    # Clear any stale raffle setup data.
     context.user_data.pop(
         "raffle_setup",
         None,
@@ -1171,16 +1350,23 @@ async def start_raffle_button(
 
     try:
 
-        await query.message.reply_text(
+        prompt = await query.message.reply_text(
             "🎟️ START RAFFLE\n\n"
             "Enter the raffle information in this format:\n\n"
             "$100 Cash Prize | $5\n\n"
+            "FREE raffles are also supported:\n\n"
+            "$100 Cash Prize | FREE\n\n"
             "Example:\n"
             "$250 Cash Prize | $10\n\n"
             "The first part is the prize.\n"
             "The second part is the entry price.\n\n"
             "Type the information now."
         )
+
+        # --------------------------------------------------
+        # The setup prompt itself is intentionally NOT
+        # deleted. The admin needs to see the instructions.
+        # --------------------------------------------------
 
         logger.info(
             "Start Raffle button activated | user=%s",
@@ -1197,12 +1383,6 @@ async def start_raffle_button(
 
 # ==========================================================
 # RAFFLE CALLBACK ROUTER
-#
-# ALL OTHER RAFFLE CALLBACKS CONTINUE TO GO DIRECTLY TO
-# raffle.py.
-#
-# We only intercept callbacks that identify themselves as
-# the Start Raffle action.
 # ==========================================================
 
 async def raffle_callback_handler(
@@ -1227,7 +1407,7 @@ async def raffle_callback_handler(
     )
 
     # ======================================================
-    # START RAFFLE BUTTON FIX
+    # START RAFFLE BUTTON
     # ======================================================
 
     normalized = data.lower().replace(
@@ -1252,9 +1432,6 @@ async def raffle_callback_handler(
         )
 
         return
-
-    # Also recognize callback values containing both
-    # "start" and "raffle".
 
     if (
         "start" in normalized
@@ -1476,10 +1653,6 @@ def register_handlers(
 
     # ======================================================
     # RAFFLE CALLBACKS
-    #
-    # Start Raffle is handled by raffle_callback_handler().
-    #
-    # Every other raffle callback is passed to raffle.py.
     # ======================================================
 
     application.add_handler(
@@ -1568,6 +1741,11 @@ def register_handlers(
 
     logger.info(
         "Central raffle callback router registered."
+    )
+
+    logger.info(
+        "Raffle message deletion enabled: %s seconds.",
+        RAFFLE_MESSAGE_DELETE_SECONDS,
     )
 
 
@@ -1696,6 +1874,16 @@ def main():
     logger.info(
         "Health server port: %s",
         PORT,
+    )
+
+    logger.info(
+        "Media warning deletion: %s seconds",
+        MEDIA_WARNING_SECONDS,
+    )
+
+    logger.info(
+        "Raffle message deletion: %s seconds",
+        RAFFLE_MESSAGE_DELETE_SECONDS,
     )
 
     # ======================================================
