@@ -2,31 +2,36 @@
 # Melanated AZ Bot
 # games/game_engine.py
 #
-# SHARED GAME ENGINE
+# Shared game engine
 #
-# Used by:
-#   - Truth or Dare
-#   - Would You Rather
-#   - Never Have I Ever
-#   - This or That
+# Handles:
+#   - Game state
+#   - Player tracking
+#   - Levels
+#   - Scores
+#   - Pass
+#   - Reset
+#   - Random game content
 #
-# Features:
-#   - Shared difficulty levels
-#   - Random prompt selection
-#   - PASS support
-#   - Button navigation
-#   - Safe callback handling
-#   - Per-user game state
-#   - No dependency on admin.py
-#
+# IMPORTANT:
+#   This file does NOT import bot.py or admin.py.
 # ==========================================================
 
 import logging
 import random
+from typing import Any, Dict, Optional
 
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
+from .game_data import (
+    GAME_DEFINITIONS,
+    WOULD_YOU_RATHER,
+    NEVER_HAVE_I_EVER,
+    MOST_LIKELY,
+    THIS_OR_THAT,
+    HOT_SEAT,
+    CONFESSIONS,
+    COMPLIMENT_BATTLE,
+    DICE_RESULTS,
+    COIN_RESULTS,
 )
 
 
@@ -34,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# LEVELS
+# CONSTANTS
 # ==========================================================
 
 VALID_LEVELS = (
@@ -48,750 +53,718 @@ DEFAULT_LEVEL = "mild"
 
 
 # ==========================================================
-# GAME IDENTIFIERS
-# ==========================================================
-
-GAME_TRUTH_DARE = "truthdare"
-GAME_WOULD_YOU_RATHER = "wouldyourather"
-GAME_NEVER_HAVE_I_EVER = "neverhaveiever"
-GAME_THIS_OR_THAT = "thisorthat"
-
-
-VALID_GAMES = (
-    GAME_TRUTH_DARE,
-    GAME_WOULD_YOU_RATHER,
-    GAME_NEVER_HAVE_I_EVER,
-    GAME_THIS_OR_THAT,
-)
-
-
-# ==========================================================
-# LEVEL DISPLAY
-# ==========================================================
-
-LEVEL_DISPLAY = {
-    "mild": "🟢 Mild",
-    "spicy": "🌶️ Spicy",
-    "extreme": "🔥 Extreme",
-}
-
-
-def normalize_level(level):
-    """
-    Normalize a level value.
-
-    Invalid values automatically become mild.
-    """
-
-    if not isinstance(level, str):
-        return DEFAULT_LEVEL
-
-    level = level.lower().strip()
-
-    if level not in VALID_LEVELS:
-        return DEFAULT_LEVEL
-
-    return level
-
-
-def get_level(context):
-    """
-    Get the current level for the user.
-
-    Each Telegram user gets their own level through
-    context.user_data.
-    """
-
-    if not context:
-        return DEFAULT_LEVEL
-
-    level = context.user_data.get(
-        "games_level",
-        DEFAULT_LEVEL,
-    )
-
-    level = normalize_level(level)
-
-    context.user_data["games_level"] = level
-
-    return level
-
-
-def set_level(context, level):
-    """
-    Save the user's selected level.
-    """
-
-    level = normalize_level(level)
-
-    if context:
-        context.user_data["games_level"] = level
-
-    return level
-
-
-# ==========================================================
 # GAME STATE
 # ==========================================================
 
+def get_game_state(context) -> Dict[str, Any]:
+    """
+    Get the current user's game state.
+
+    State is stored in Telegram user_data so every player
+    can have their own current game level and score.
+    """
+
+    state = context.user_data.get(
+        "games_state"
+    )
+
+    if not isinstance(state, dict):
+        state = {
+            "level": DEFAULT_LEVEL,
+            "score": 0,
+            "rounds": 0,
+            "passes": 0,
+            "current_game": None,
+            "current_prompt": None,
+        }
+
+        context.user_data[
+            "games_state"
+        ] = state
+
+    return state
+
+
+# ==========================================================
+# LEVEL
+# ==========================================================
+
+def get_level(context) -> str:
+    """
+    Return the current game level.
+    """
+
+    state = get_game_state(context)
+
+    level = state.get(
+        "level",
+        DEFAULT_LEVEL,
+    )
+
+    if level not in VALID_LEVELS:
+        level = DEFAULT_LEVEL
+        state["level"] = level
+
+    return level
+
+
+def set_level(
+    context,
+    level: str,
+) -> str:
+    """
+    Set the current game level.
+
+    Invalid levels automatically become mild.
+    """
+
+    level = str(level or "").lower().strip()
+
+    if level not in VALID_LEVELS:
+        level = DEFAULT_LEVEL
+
+    state = get_game_state(context)
+
+    state["level"] = level
+
+    return level
+
+
+# ==========================================================
+# SCORE
+# ==========================================================
+
+def get_score(context) -> int:
+    """
+    Return the current score.
+    """
+
+    state = get_game_state(context)
+
+    try:
+        return int(
+            state.get(
+                "score",
+                0,
+            )
+        )
+
+    except (TypeError, ValueError):
+        state["score"] = 0
+        return 0
+
+
+def add_score(
+    context,
+    amount: int = 1,
+) -> int:
+    """
+    Add points to the current player's score.
+    """
+
+    state = get_game_state(context)
+
+    try:
+        amount = int(amount)
+
+    except (TypeError, ValueError):
+        amount = 1
+
+    state["score"] = (
+        get_score(context) + amount
+    )
+
+    return state["score"]
+
+
+def reset_score(context) -> None:
+    """
+    Reset the current player's score.
+    """
+
+    state = get_game_state(context)
+
+    state["score"] = 0
+
+
+# ==========================================================
+# ROUNDS
+# ==========================================================
+
+def get_rounds(context) -> int:
+    """
+    Return number of completed rounds.
+    """
+
+    state = get_game_state(context)
+
+    try:
+        return int(
+            state.get(
+                "rounds",
+                0,
+            )
+        )
+
+    except (TypeError, ValueError):
+        state["rounds"] = 0
+        return 0
+
+
+def add_round(context) -> int:
+    """
+    Add one completed round.
+    """
+
+    state = get_game_state(context)
+
+    state["rounds"] = (
+        get_rounds(context) + 1
+    )
+
+    return state["rounds"]
+
+
+# ==========================================================
+# PASSES
+# ==========================================================
+
+def get_passes(context) -> int:
+    """
+    Return number of passes.
+    """
+
+    state = get_game_state(context)
+
+    try:
+        return int(
+            state.get(
+                "passes",
+                0,
+            )
+        )
+
+    except (TypeError, ValueError):
+        state["passes"] = 0
+        return 0
+
+
+def add_pass(context) -> int:
+    """
+    Record a PASS.
+
+    PASS never costs points.
+    """
+
+    state = get_game_state(context)
+
+    state["passes"] = (
+        get_passes(context) + 1
+    )
+
+    return state["passes"]
+
+
+# ==========================================================
+# CURRENT GAME
+# ==========================================================
+
+def set_current_game(
+    context,
+    game_key: Optional[str],
+) -> None:
+    """
+    Store the current game.
+    """
+
+    state = get_game_state(context)
+
+    state["current_game"] = game_key
+
+
 def get_current_game(context):
     """
-    Return the game currently being played by the user.
+    Return current game key.
     """
 
-    if not context:
-        return None
+    state = get_game_state(context)
 
-    game = context.user_data.get(
-        "games_current_game"
+    return state.get(
+        "current_game"
     )
 
-    if game not in VALID_GAMES:
-        return None
 
-    return game
-
-
-def set_current_game(context, game):
+def set_current_prompt(
+    context,
+    prompt: Any,
+) -> None:
     """
-    Save the game currently being played.
+    Store the current prompt.
     """
 
-    if game not in VALID_GAMES:
-        return None
+    state = get_game_state(context)
 
-    if context:
-        context.user_data[
-            "games_current_game"
-        ] = game
-
-    return game
+    state["current_prompt"] = prompt
 
 
-def clear_current_game(context):
+def get_current_prompt(context):
     """
-    Clear the user's current game.
+    Return the current prompt.
     """
 
-    if context:
-        context.user_data.pop(
-            "games_current_game",
-            None,
-        )
+    state = get_game_state(context)
+
+    return state.get(
+        "current_prompt"
+    )
 
 
 # ==========================================================
-# PROMPT MEMORY
+# RESET GAME
 # ==========================================================
 
-def get_used_prompts(context, game, level):
+def reset_game(
+    context,
+    keep_level: bool = True,
+) -> None:
     """
-    Return prompts already used during the current
-    game session.
+    Reset game state.
 
-    This helps prevent the same question from appearing
-    repeatedly until the available prompts have been used.
+    By default the player's selected level remains.
     """
 
-    if not context:
-        return set()
+    old_level = get_level(context)
 
-    used = context.user_data.setdefault(
-        "games_used_prompts",
-        {},
+    context.user_data[
+        "games_state"
+    ] = {
+        "level": (
+            old_level
+            if keep_level
+            else DEFAULT_LEVEL
+        ),
+        "score": 0,
+        "rounds": 0,
+        "passes": 0,
+        "current_game": None,
+        "current_prompt": None,
+    }
+
+
+# ==========================================================
+# GAME LOOKUP
+# ==========================================================
+
+def get_game_definition(
+    game_key: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Return a game definition.
+    """
+
+    return GAME_DEFINITIONS.get(
+        game_key
     )
 
-    game_used = used.setdefault(
-        game,
-        {},
-    )
 
-    level_used = game_used.setdefault(
+def game_exists(
+    game_key: str,
+) -> bool:
+    """
+    Check whether a game exists.
+    """
+
+    return game_key in GAME_DEFINITIONS
+
+
+# ==========================================================
+# RANDOM CONTENT
+# ==========================================================
+
+def random_would_you_rather(
+    level: str = DEFAULT_LEVEL,
+):
+    """
+    Return a random Would You Rather question.
+    """
+
+    questions = WOULD_YOU_RATHER.get(
         level,
-        [],
+        WOULD_YOU_RATHER[DEFAULT_LEVEL],
     )
 
-    return set(level_used)
+    return random.choice(
+        questions
+    )
 
 
-def remember_prompt(
-    context,
-    game,
-    level,
-    prompt,
+def random_never_have_i_ever(
+    level: str = DEFAULT_LEVEL,
 ):
     """
-    Remember a prompt that was shown to the user.
+    Return a random Never Have I Ever statement.
     """
 
-    if not context:
-        return
-
-    used = context.user_data.setdefault(
-        "games_used_prompts",
-        {},
-    )
-
-    game_used = used.setdefault(
-        game,
-        {},
-    )
-
-    level_used = game_used.setdefault(
+    questions = NEVER_HAVE_I_EVER.get(
         level,
-        [],
+        NEVER_HAVE_I_EVER[DEFAULT_LEVEL],
     )
 
-    if prompt not in level_used:
-        level_used.append(prompt)
+    return random.choice(
+        questions
+    )
 
 
-def reset_used_prompts(
-    context,
-    game=None,
-    level=None,
+def random_most_likely(
+    level: str = DEFAULT_LEVEL,
 ):
     """
-    Reset prompt history.
-
-    Examples:
-
-        reset_used_prompts(context)
-
-        reset_used_prompts(
-            context,
-            "truthdare",
-        )
-
-        reset_used_prompts(
-            context,
-            "truthdare",
-            "spicy",
-        )
+    Return a random Most Likely To question.
     """
 
-    if not context:
-        return
-
-    if game is None:
-
-        context.user_data.pop(
-            "games_used_prompts",
-            None,
-        )
-
-        return
-
-    used = context.user_data.get(
-        "games_used_prompts",
-        {},
+    questions = MOST_LIKELY.get(
+        level,
+        MOST_LIKELY[DEFAULT_LEVEL],
     )
 
-    if game not in used:
-        return
+    return random.choice(
+        questions
+    )
 
-    if level is None:
 
-        used.pop(game, None)
+def random_this_or_that(
+    level: str = DEFAULT_LEVEL,
+):
+    """
+    Return a random This or That question.
+    """
 
-        return
+    choices = THIS_OR_THAT.get(
+        level,
+        THIS_OR_THAT[DEFAULT_LEVEL],
+    )
 
-    used[game].pop(level, None)
+    return random.choice(
+        choices
+    )
+
+
+def random_hot_seat(
+    level: str = DEFAULT_LEVEL,
+):
+    """
+    Return a random Hot Seat question.
+    """
+
+    questions = HOT_SEAT.get(
+        level,
+        HOT_SEAT[DEFAULT_LEVEL],
+    )
+
+    return random.choice(
+        questions
+    )
+
+
+def random_confession(
+    level: str = DEFAULT_LEVEL,
+):
+    """
+    Return a random confession prompt.
+    """
+
+    questions = CONFESSIONS.get(
+        level,
+        CONFESSIONS[DEFAULT_LEVEL],
+    )
+
+    return random.choice(
+        questions
+    )
+
+
+def random_compliment():
+    """
+    Return a random compliment challenge.
+    """
+
+    return random.choice(
+        COMPLIMENT_BATTLE
+    )
+
+
+def random_dice():
+    """
+    Return a random dice result.
+    """
+
+    return random.choice(
+        DICE_RESULTS
+    )
+
+
+def random_coin():
+    """
+    Return a random coin result.
+    """
+
+    return random.choice(
+        COIN_RESULTS
+    )
 
 
 # ==========================================================
-# RANDOM PROMPT
+# DICE ROLL
 # ==========================================================
 
-def get_random_prompt(
+def roll_dice() -> int:
+    """
+    Roll a standard six-sided die.
+    """
+
+    return random.randint(
+        1,
+        6,
+    )
+
+
+# ==========================================================
+# COIN FLIP
+# ==========================================================
+
+def flip_coin() -> str:
+    """
+    Return HEADS or TAILS.
+    """
+
+    return random.choice(
+        (
+            "HEADS",
+            "TAILS",
+        )
+    )
+
+
+# ==========================================================
+# PLAYER NAME
+# ==========================================================
+
+def get_player_name(update) -> str:
+    """
+    Safely determine the player's display name.
+    """
+
+    user = update.effective_user
+
+    if not user:
+        return "Player"
+
+    if user.full_name:
+        return user.full_name
+
+    if user.username:
+        return f"@{user.username}"
+
+    return "Player"
+
+
+# ==========================================================
+# GAME ROUND
+# ==========================================================
+
+def start_round(
     context,
-    game,
-    level,
-    prompts,
-):
+    game_key: str,
+    prompt: Any,
+) -> None:
     """
-    Select a random prompt while attempting to avoid
-    repeats.
-
-    When every prompt has been used, the history for that
-    game/level is automatically reset and a new prompt
-    is selected.
+    Start and store a new game round.
     """
 
-    level = normalize_level(level)
-
-    if not prompts:
-        return None
-
-    prompt_list = list(prompts)
-
-    used = get_used_prompts(
+    set_current_game(
         context,
-        game,
-        level,
+        game_key,
     )
 
-    available = [
-        prompt
-        for prompt in prompt_list
-        if prompt not in used
-    ]
-
-    if not available:
-
-        reset_used_prompts(
-            context,
-            game,
-            level,
-        )
-
-        available = prompt_list
-
-    prompt = random.choice(
-        available
-    )
-
-    remember_prompt(
+    set_current_prompt(
         context,
-        game,
-        level,
         prompt,
     )
 
-    return prompt
+    add_round(context)
 
 
 # ==========================================================
-# GAME MENU KEYBOARD
+# COMPLETE ROUND
 # ==========================================================
 
-def games_back_keyboard():
+def complete_round(
+    context,
+    points: int = 1,
+) -> int:
     """
-    Generic back-to-Games button.
+    Complete the current round and award points.
     """
 
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🎮 Games",
-                    callback_data="games_menu",
-                )
-            ]
-        ]
+    return add_score(
+        context,
+        points,
     )
 
 
 # ==========================================================
-# LEVEL MENU
+# PASS
 # ==========================================================
 
-def level_keyboard(
-    prefix,
-):
+def pass_current_round(
+    context,
+) -> int:
     """
-    Build a level-selection keyboard.
+    Pass the current challenge.
 
-    prefix example:
-
-        truthdare
-        wouldyourather
-        neverhaveiever
-        thisorthat
+    Passing does not remove points.
     """
 
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🟢 Mild",
-                    callback_data=(
-                        f"{prefix}_level_mild"
-                    ),
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🌶️ Spicy",
-                    callback_data=(
-                        f"{prefix}_level_spicy"
-                    ),
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔥 Extreme",
-                    callback_data=(
-                        f"{prefix}_level_extreme"
-                    ),
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "⬅️ Games",
-                    callback_data="games_menu",
-                )
-            ],
-        ]
-    )
+    add_pass(context)
+
+    state = get_game_state(context)
+
+    state["current_prompt"] = None
+
+    return get_passes(context)
 
 
 # ==========================================================
-# STANDARD GAME BUTTONS
+# GAME STATISTICS
 # ==========================================================
 
-def standard_game_keyboard(
-    game,
-    level=None,
-    include_level=True,
-):
+def get_statistics(
+    context,
+) -> Dict[str, int]:
     """
-    Build a standard game navigation keyboard.
-
-    Individual games can add their own specialized
-    buttons on top of this structure.
+    Return current player statistics.
     """
 
-    buttons = []
-
-    if game == GAME_TRUTH_DARE:
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    "🔥 Truth",
-                    callback_data=(
-                        "truthdare_truth"
-                    ),
-                ),
-                InlineKeyboardButton(
-                    "😈 Dare",
-                    callback_data=(
-                        "truthdare_dare"
-                    ),
-                ),
-            ]
-        )
-
-    elif game == GAME_WOULD_YOU_RATHER:
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    "🤔 Another One",
-                    callback_data=(
-                        "wyr_question"
-                    ),
-                )
-            ]
-        )
-
-    elif game == GAME_NEVER_HAVE_I_EVER:
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    "🙈 Next Statement",
-                    callback_data=(
-                        "nhie_statement"
-                    ),
-                )
-            ]
-        )
-
-    elif game == GAME_THIS_OR_THAT:
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    "⚡ Next Choice",
-                    callback_data=(
-                        "tot_choice"
-                    ),
-                )
-            ]
-        )
-
-    if include_level:
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    "🔄 Change Level",
-                    callback_data=(
-                        f"{game}_menu"
-                    ),
-                )
-            ]
-        )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                "🎮 Games",
-                callback_data="games_menu",
-            )
-        ]
-    )
-
-    return InlineKeyboardMarkup(
-        buttons
-    )
+    return {
+        "score": get_score(context),
+        "rounds": get_rounds(context),
+        "passes": get_passes(context),
+    }
 
 
 # ==========================================================
-# PASS KEYBOARD
+# FORMAT STATISTICS
 # ==========================================================
 
-def pass_keyboard(
-    game,
-    next_callback=None,
-):
+def format_statistics(
+    context,
+) -> str:
     """
-    Create a PASS button.
-
-    PASS never requires an explanation.
+    Format player statistics for Telegram.
     """
 
-    buttons = []
-
-    if next_callback:
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    "➡️ Next",
-                    callback_data=next_callback,
-                )
-            ]
-        )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                "😈 PASS",
-                callback_data=(
-                    f"{game}_pass"
-                ),
-            )
-        ]
+    stats = get_statistics(
+        context
     )
 
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                "🔄 Change Level",
-                callback_data=(
-                    f"{game}_menu"
-                ),
-            )
-        ]
+    level = get_level(
+        context
     )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                "🎮 Games",
-                callback_data="games_menu",
-            )
-        ]
-    )
-
-    return InlineKeyboardMarkup(
-        buttons
-    )
-
-
-# ==========================================================
-# FULL GAME KEYBOARD
-# ==========================================================
-
-def game_prompt_keyboard(
-    game,
-    next_callback,
-    include_pass=True,
-):
-    """
-    Keyboard displayed beneath a game prompt.
-    """
-
-    buttons = [
-        [
-            InlineKeyboardButton(
-                "➡️ Next",
-                callback_data=next_callback,
-            )
-        ],
-    ]
-
-    if include_pass:
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    "😈 PASS",
-                    callback_data=(
-                        f"{game}_pass"
-                    ),
-                )
-            ]
-        )
-
-    buttons.extend(
-        [
-            [
-                InlineKeyboardButton(
-                    "🔄 Change Level",
-                    callback_data=(
-                        f"{game}_menu"
-                    ),
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🎮 Games",
-                    callback_data="games_menu",
-                )
-            ],
-        ]
-    )
-
-    return InlineKeyboardMarkup(
-        buttons
-    )
-
-
-# ==========================================================
-# DISPLAY HELPERS
-# ==========================================================
-
-def level_label(level):
-    """
-    Return the friendly display name for a level.
-    """
-
-    level = normalize_level(level)
-
-    return LEVEL_DISPLAY.get(
-        level,
-        LEVEL_DISPLAY[DEFAULT_LEVEL],
-    )
-
-
-def game_header(
-    title,
-    level,
-):
-    """
-    Create a consistent game header.
-    """
 
     return (
-        f"{title}\n\n"
-        f"Level: {level_label(level)}"
+        "🎮 YOUR GAME STATS\n\n"
+        f"🏆 Score: {stats['score']}\n"
+        f"🎯 Rounds: {stats['rounds']}\n"
+        f"😈 Passes: {stats['passes']}\n"
+        f"🔥 Level: {level.upper()}"
     )
 
 
 # ==========================================================
-# PASS MESSAGE
+# SAFE CALLBACK PARSER
 # ==========================================================
 
-def pass_message(game_title):
+def parse_callback(
+    callback_data: str,
+):
     """
-    Standard PASS response.
+    Split callback data safely.
+
+    Example:
+
+        game_wyr:mild
+
+    becomes:
+
+        ("game_wyr", "mild")
     """
+
+    if not callback_data:
+        return (
+            "",
+            "",
+        )
+
+    parts = callback_data.split(
+        ":",
+        1,
+    )
+
+    if len(parts) == 1:
+        return (
+            parts[0],
+            "",
+        )
 
     return (
-        f"{game_title}\n\n"
-        "😈 PASS accepted.\n\n"
-        "No explanation needed. "
-        "Choose another prompt when you're ready."
+        parts[0],
+        parts[1],
     )
 
 
 # ==========================================================
-# ERROR-SAFE CALLBACK EDIT
+# CALLBACK LEVEL
 # ==========================================================
 
-async def safe_edit(
-    query,
-    text,
-    reply_markup=None,
-    parse_mode=None,
-):
+def level_from_callback(
+    callback_data: str,
+) -> Optional[str]:
     """
-    Safely edit an inline-button message.
-
-    Telegram can throw an error when the message has
-    already been changed or is otherwise unavailable.
+    Extract a valid level from callback data.
     """
 
-    if not query:
-        return False
+    _, value = parse_callback(
+        callback_data
+    )
 
-    try:
+    if value in VALID_LEVELS:
+        return value
 
-        kwargs = {
-            "text": text,
-        }
-
-        if reply_markup is not None:
-            kwargs["reply_markup"] = reply_markup
-
-        if parse_mode is not None:
-            kwargs["parse_mode"] = parse_mode
-
-        await query.edit_message_text(
-            **kwargs
-        )
-
-        return True
-
-    except Exception as exc:
-
-        logger.debug(
-            "Unable to edit game message: %s",
-            exc,
-        )
-
-        return False
+    return None
 
 
 # ==========================================================
-# CALLBACK ANSWER
+# LOGGING HELPER
 # ==========================================================
 
-async def safe_answer(
-    query,
-    text=None,
-    show_alert=False,
-):
+def log_game_event(
+    game_key: str,
+    user_id: Optional[int] = None,
+    action: Optional[str] = None,
+) -> None:
     """
-    Safely answer an inline keyboard callback.
+    Log game activity.
+
+    This intentionally does not log game answers or
+    potentially sensitive player content.
     """
 
-    if not query:
-        return
-
-    try:
-
-        if text:
-
-            await query.answer(
-                text=text,
-                show_alert=show_alert,
-            )
-
-        else:
-
-            await query.answer()
-
-    except Exception as exc:
-
-        logger.debug(
-            "Unable to answer callback: %s",
-            exc,
-        )
+    logger.info(
+        "Game event | game=%s | user_id=%s | action=%s",
+        game_key,
+        user_id,
+        action,
+    )
 
 
 # ==========================================================
