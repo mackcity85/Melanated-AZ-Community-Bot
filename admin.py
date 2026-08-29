@@ -9,6 +9,11 @@
 #   - Birthday management
 #   - Truth or Dare
 #   - Persistent birthday storage
+#
+# IMPORTANT:
+#   Truth or Dare is imported lazily inside the button
+#   handlers to prevent a circular import between
+#   admin.py and truth_dare.py.
 # ==========================================================
 
 import logging
@@ -39,12 +44,6 @@ from raffle_database import (
     save_birthday,
 )
 
-from truth_dare import (
-    truth_dare_admin_menu,
-    toggle_truth_dare,
-    truth_dare_help,
-)
-
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +55,12 @@ logger = logging.getLogger(__name__)
 def is_admin(user_id):
 
     try:
-
         return int(user_id) in [
             int(admin_id)
             for admin_id in ADMIN_IDS
         ]
 
     except (TypeError, ValueError):
-
         return False
 
 
@@ -200,11 +197,13 @@ async def admin_menu(
 
         return
 
-    await update.effective_message.reply_text(
-        text=admin_menu_text(),
-        reply_markup=admin_main_keyboard(),
-        parse_mode="Markdown",
-    )
+    if update.effective_message:
+
+        await update.effective_message.reply_text(
+            text=admin_menu_text(),
+            reply_markup=admin_main_keyboard(),
+            parse_mode="Markdown",
+        )
 
 
 # ==========================================================
@@ -234,7 +233,7 @@ async def run_raffle_handler(
 
         query = update.callback_query
 
-        if query:
+        if query and query.message:
 
             try:
 
@@ -258,6 +257,7 @@ async def admin_start_raffle(update, context):
     query = update.callback_query
 
     if query:
+
         await query.answer(
             "Starting raffle setup..."
         )
@@ -389,6 +389,7 @@ async def admin_confirm_cancel(update, context):
     query = update.callback_query
 
     if query:
+
         await query.answer(
             "Cancelling raffle..."
         )
@@ -483,7 +484,7 @@ async def admin_birthday_add(update, context):
 
 
 # ==========================================================
-# ADMIN BIRTHDAY TEXT
+# ADMIN BIRTHDAY TEXT HANDLER
 # ==========================================================
 
 async def admin_birthday_text_handler(
@@ -640,7 +641,8 @@ async def admin_birthday_text_handler(
     )
 
     logger.info(
-        "Admin added birthday | admin=%s | member=%s | birthday=%s | chat=%s",
+        "Admin added birthday | admin=%s | "
+        "member=%s | birthday=%s | chat=%s",
         user.id,
         member_user_id,
         birthday_value,
@@ -960,18 +962,36 @@ async def admin_button(
     # ------------------------------------------------------
 
     if data == "admin_back":
-        await admin_back(update, context)
+
+        await admin_back(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_refresh":
-        await admin_refresh(update, context)
+
+        await admin_refresh(
+            update,
+            context,
+        )
+
         return
 
     # ------------------------------------------------------
     # TRUTH OR DARE
+    #
+    # IMPORTANT:
+    # Import these functions here instead of at the top
+    # of admin.py. This prevents the circular import:
+    #
+    # admin.py -> truth_dare.py -> admin.py
     # ------------------------------------------------------
 
     if data == "admin_truthdare":
+
+        from truth_dare import truth_dare_admin_menu
 
         await truth_dare_admin_menu(
             update,
@@ -982,6 +1002,8 @@ async def admin_button(
 
     if data == "admin_truthdare_toggle":
 
+        from truth_dare import toggle_truth_dare
+
         await toggle_truth_dare(
             update,
             context,
@@ -990,6 +1012,8 @@ async def admin_button(
         return
 
     if data == "admin_truthdare_help":
+
+        from truth_dare import truth_dare_help
 
         await truth_dare_help(
             update,
@@ -1003,35 +1027,75 @@ async def admin_button(
     # ------------------------------------------------------
 
     if data == "admin_start_raffle":
-        await admin_start_raffle(update, context)
+
+        await admin_start_raffle(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_status":
-        await admin_status(update, context)
+
+        await admin_status(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_entries":
-        await admin_entries(update, context)
+
+        await admin_entries(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_pending":
-        await admin_pending(update, context)
+
+        await admin_pending(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_completed":
-        await admin_completed(update, context)
+
+        await admin_completed(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_draw":
-        await admin_draw(update, context)
+
+        await admin_draw(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_cancel":
-        await admin_cancel(update, context)
+
+        await admin_cancel(
+            update,
+            context,
+        )
+
         return
 
     if data == "admin_confirm_cancel":
-        await admin_confirm_cancel(update, context)
+
+        await admin_confirm_cancel(
+            update,
+            context,
+        )
+
         return
 
     # ------------------------------------------------------
