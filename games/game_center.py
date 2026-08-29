@@ -8,8 +8,12 @@
 #   - /games
 #   - Game Center menu
 #   - Game categories
+#   - Game menus
 #   - Player profiles
+#   - Leaderboards
 #   - Game database foundation
+#   - XP / Coins foundation
+#
 # ==========================================================
 
 import logging
@@ -41,6 +45,7 @@ logger = logging.getLogger(
 # ==========================================================
 
 GAME_CATEGORIES = {
+
     "arcade": {
         "name": "🕹️ Arcade",
         "description": (
@@ -117,6 +122,106 @@ GAME_CATEGORIES = {
             "Arena battles and fighting games."
         ),
     },
+}
+
+
+# ==========================================================
+# GAME LISTS
+#
+# These are the games currently exposed in the Game Center.
+#
+# More games can be added without changing bot.py.
+# ==========================================================
+
+GAMES = {
+
+    "arcade": [
+        ("reaction", "⚡ Reaction Test"),
+        ("number_guess", "🔢 Number Guess"),
+        ("high_low", "📈 High or Low"),
+        ("coin_flip", "🪙 Coin Flip"),
+        ("dice_roll", "🎲 Dice Roll"),
+    ],
+
+    "outdoor": [
+        ("fishing", "🎣 Fishing"),
+        ("camping", "🏕️ Camping"),
+        ("hiking", "🥾 Hiking Challenge"),
+        ("hunting", "🏹 Hunting Challenge"),
+        ("survival", "🔥 Survival"),
+    ],
+
+    "solo": [
+        ("number_guess", "🔢 Number Guess"),
+        ("coin_flip", "🪙 Coin Flip"),
+        ("dice_roll", "🎲 Dice Roll"),
+        ("high_low", "📈 High or Low"),
+        ("reaction", "⚡ Reaction Test"),
+    ],
+
+    "shooting": [
+        ("target", "🎯 Target Practice"),
+        ("quick_shot", "🔫 Quick Shot"),
+        ("bullseye", "🎯 Bullseye"),
+        ("accuracy", "🏹 Accuracy"),
+        ("sniper", "🔭 Sniper Challenge"),
+    ],
+
+    "board": [
+        ("dice_roll", "🎲 Dice Roll"),
+        ("high_low", "📈 High or Low"),
+        ("number_guess", "🔢 Number Guess"),
+        ("strategy", "♟️ Strategy"),
+        ("dice_duel", "🎲 Dice Duel"),
+    ],
+
+    "party": [
+        ("coin_flip", "🪙 Coin Flip"),
+        ("dice_roll", "🎲 Dice Roll"),
+        ("truth_dare", "🔥 Truth or Dare"),
+        ("high_low", "📈 High or Low"),
+        ("reaction", "⚡ Reaction Test"),
+    ],
+
+    "trivia": [
+        ("general_trivia", "🧠 General Trivia"),
+        ("music_trivia", "🎵 Music Trivia"),
+        ("sports_trivia", "🏆 Sports Trivia"),
+        ("movie_trivia", "🎬 Movie Trivia"),
+        ("word_challenge", "🔤 Word Challenge"),
+    ],
+
+    "sports": [
+        ("football", "🏈 Football Challenge"),
+        ("basketball", "🏀 Basketball Challenge"),
+        ("baseball", "⚾ Baseball Challenge"),
+        ("boxing", "🥊 Boxing Challenge"),
+        ("soccer", "⚽ Soccer Challenge"),
+    ],
+
+    "racing": [
+        ("car_race", "🏎️ Car Race"),
+        ("bike_race", "🏍️ Bike Race"),
+        ("boat_race", "🚤 Boat Race"),
+        ("drag_race", "🏁 Drag Race"),
+        ("street_race", "🏎️ Street Race"),
+    ],
+
+    "mystery": [
+        ("detective", "🕵🏾 Detective"),
+        ("murder_mystery", "🔎 Mystery Case"),
+        ("code_breaker", "🔐 Code Breaker"),
+        ("escape", "🚪 Escape Room"),
+        ("investigation", "🔍 Investigation"),
+    ],
+
+    "fighting": [
+        ("boxing", "🥊 Boxing"),
+        ("mma", "🥋 MMA"),
+        ("karate", "🥋 Karate"),
+        ("street_fight", "👊 Street Fight"),
+        ("arena", "⚔️ Arena Battle"),
+    ],
 }
 
 
@@ -441,6 +546,48 @@ def game_center_keyboard():
 
 
 # ==========================================================
+# CATEGORY GAME KEYBOARD
+# ==========================================================
+
+def category_game_keyboard(
+    category_id,
+):
+
+    games = GAMES.get(
+        category_id,
+        [],
+    )
+
+    keyboard = []
+
+    for game_id, game_name in games:
+
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    game_name,
+                    callback_data=(
+                        f"games_play_{game_id}"
+                    ),
+                )
+            ]
+        )
+
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                "⬅️ Game Center",
+                callback_data="games_home",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        keyboard
+    )
+
+
+# ==========================================================
 # /GAMES
 # ==========================================================
 
@@ -524,27 +671,36 @@ async def games_category_callback(
         0,
     )
 
+    games = GAMES.get(
+        category_id,
+        [],
+    )
+
     text = (
         f"<b>{category['name']}</b>\n\n"
         f"{category['description']}\n\n"
-        f"🎮 <b>{count} games</b>\n\n"
-        "🚧 Games are being added to this category."
+        f"🎮 <b>{count} games available</b>\n\n"
+        "Choose a game:"
     )
 
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "⬅️ Game Center",
-                    callback_data="games_home",
-                )
-            ]
-        ]
-    )
+    # ------------------------------------------------------
+    # If this category has no registered games yet.
+    # ------------------------------------------------------
+
+    if not games:
+
+        text = (
+            f"<b>{category['name']}</b>\n\n"
+            f"{category['description']}\n\n"
+            f"🎮 <b>{count} games planned</b>\n\n"
+            "🚧 Games are being added."
+        )
 
     await query.edit_message_text(
         text,
-        reply_markup=keyboard,
+        reply_markup=category_game_keyboard(
+            category_id
+        ),
         parse_mode=ParseMode.HTML,
     )
 
@@ -744,9 +900,14 @@ async def games_leaderboards_callback(
             else:
                 medal = f"{index}."
 
+            display_name = (
+                player["display_name"]
+                or "Player"
+            )
+
             lines.append(
                 f"{medal} "
-                f"<b>{player['display_name']}</b> "
+                f"<b>{display_name}</b> "
                 f"— ⭐ {player['xp']:,} XP"
             )
 
@@ -773,7 +934,154 @@ async def games_leaderboards_callback(
 
 
 # ==========================================================
+# GAME PLAY CALLBACK
+#
+# This is the central entry point for actual games.
+#
+# For now it provides a clean placeholder for games that
+# have not yet been implemented.
+#
+# ==========================================================
+
+async def games_play_callback(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    query = update.callback_query
+    user = update.effective_user
+
+    if not query or not user:
+        return
+
+    await query.answer()
+
+    data = query.data or ""
+
+    prefix = "games_play_"
+
+    if not data.startswith(prefix):
+        return
+
+    game_id = data[
+        len(prefix):
+    ]
+
+    ensure_game_player(
+        user_id=user.id,
+        username=user.username,
+        display_name=user.full_name,
+    )
+
+    # ------------------------------------------------------
+    # GAME ROUTING
+    #
+    # Actual games will be plugged into this section.
+    # ------------------------------------------------------
+
+    game_names = {
+
+        "reaction": "⚡ Reaction Test",
+        "number_guess": "🔢 Number Guess",
+        "high_low": "📈 High or Low",
+        "coin_flip": "🪙 Coin Flip",
+        "dice_roll": "🎲 Dice Roll",
+
+        "fishing": "🎣 Fishing",
+        "camping": "🏕️ Camping",
+        "hiking": "🥾 Hiking Challenge",
+        "hunting": "🏹 Hunting Challenge",
+        "survival": "🔥 Survival",
+
+        "target": "🎯 Target Practice",
+        "quick_shot": "🔫 Quick Shot",
+        "bullseye": "🎯 Bullseye",
+        "accuracy": "🏹 Accuracy",
+        "sniper": "🔭 Sniper Challenge",
+
+        "strategy": "♟️ Strategy",
+        "dice_duel": "🎲 Dice Duel",
+
+        "truth_dare": "🔥 Truth or Dare",
+
+        "general_trivia": "🧠 General Trivia",
+        "music_trivia": "🎵 Music Trivia",
+        "sports_trivia": "🏆 Sports Trivia",
+        "movie_trivia": "🎬 Movie Trivia",
+        "word_challenge": "🔤 Word Challenge",
+
+        "football": "🏈 Football Challenge",
+        "basketball": "🏀 Basketball Challenge",
+        "baseball": "⚾ Baseball Challenge",
+        "boxing": "🥊 Boxing Challenge",
+        "soccer": "⚽ Soccer Challenge",
+
+        "car_race": "🏎️ Car Race",
+        "bike_race": "🏍️ Bike Race",
+        "boat_race": "🚤 Boat Race",
+        "drag_race": "🏁 Drag Race",
+        "street_race": "🏎️ Street Race",
+
+        "detective": "🕵🏾 Detective",
+        "murder_mystery": "🔎 Mystery Case",
+        "code_breaker": "🔐 Code Breaker",
+        "escape": "🚪 Escape Room",
+        "investigation": "🔍 Investigation",
+
+        "mma": "🥋 MMA",
+        "karate": "🥋 Karate",
+        "street_fight": "👊 Street Fight",
+        "arena": "⚔️ Arena Battle",
+    }
+
+    game_name = game_names.get(
+        game_id,
+        "🎮 Game",
+    )
+
+    # ------------------------------------------------------
+    # TEMPORARY PLAY SCREEN
+    #
+    # This will be replaced as each actual game is built.
+    # ------------------------------------------------------
+
+    text = (
+        f"🎮 <b>{game_name}</b>\n\n"
+        "🚧 <b>Game coming next!</b>\n\n"
+        "The Game Center is ready for this game, "
+        "but the actual gameplay is being installed.\n\n"
+        "🪙 AZ Coins\n"
+        "⭐ XP\n"
+        "🏆 Scores\n"
+        "🎖️ Achievements\n\n"
+        "More games are coming!"
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "⬅️ Game Center",
+                    callback_data="games_home",
+                )
+            ],
+        ]
+    )
+
+    await query.edit_message_text(
+        text,
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ==========================================================
 # INITIALIZE GAME DATABASE
 # ==========================================================
 
 initialize_game_database()
+
+
+# ==========================================================
+# END game_center.py
+# ==========================================================
