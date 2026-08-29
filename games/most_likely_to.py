@@ -8,8 +8,7 @@
 #   - Button-based game
 #   - Mild / Spicy / Extreme
 #   - Random prompts
-#   - Vote for yourself
-#   - Vote for someone else by username
+#   - Player selection
 #   - PASS allowed
 #   - Next prompt
 #   - Change level
@@ -60,30 +59,30 @@ PROMPTS = {
     "mild": [
 
         "Who is most likely to make the first move?",
-        "Who is most likely to flirt with someone first?",
-        "Who is most likely to plan the perfect date?",
+        "Who is most likely to start a conversation with a stranger?",
+        "Who is most likely to plan an amazing date?",
+        "Who is most likely to flirt without realizing it?",
         "Who is most likely to stay up all night talking?",
-        "Who is most likely to fall for someone's personality?",
-        "Who is most likely to send the first message?",
         "Who is most likely to make everyone laugh?",
+        "Who is most likely to send the first message?",
         "Who is most likely to have a secret crush?",
-        "Who is most likely to organize a group adventure?",
+        "Who is most likely to organize a group outing?",
+        "Who is most likely to try something new?",
         "Who is most likely to make someone blush?",
-        "Who is most likely to break the ice at a party?",
-        "Who is most likely to start dancing first?",
-        "Who is most likely to remember everyone's birthday?",
-        "Who is most likely to take a spontaneous trip?",
-        "Who is most likely to give the best relationship advice?",
+        "Who is most likely to give the best compliment?",
+        "Who is most likely to fall for someone's personality first?",
         "Who is most likely to have the best pickup line?",
-        "Who is most likely to turn a friendship into something more?",
-        "Who is most likely to make the first phone call?",
-        "Who is most likely to make a bold entrance?",
-        "Who is most likely to get everyone's attention without trying?",
-        "Who is most likely to plan a surprise date?",
-        "Who is most likely to make a new friend immediately?",
-        "Who is most likely to be the biggest flirt?",
-        "Who is most likely to have the best energy in the room?",
-        "Who is most likely to convince everyone to go out?",
+        "Who is most likely to turn a casual conversation into flirting?",
+        "Who is most likely to plan a spontaneous adventure?",
+        "Who is most likely to remember everyone's birthday?",
+        "Who is most likely to make a new friend tonight?",
+        "Who is most likely to get caught checking someone out?",
+        "Who is most likely to have the best date story?",
+        "Who is most likely to break the ice in an awkward situation?",
+        "Who is most likely to make the first romantic gesture?",
+        "Who is most likely to dance with someone they just met?",
+        "Who is most likely to compliment someone's outfit?",
+        "Who is most likely to turn a boring night into a fun one?",
     ],
 
     # ======================================================
@@ -92,35 +91,35 @@ PROMPTS = {
 
     "spicy": [
 
-        "Who is most likely to make the first flirty move?",
-        "Who is most likely to send a spicy message first?",
+        "Who is most likely to send a flirty message first?",
         "Who is most likely to make someone blush?",
+        "Who is most likely to have the boldest pickup line?",
         "Who is most likely to flirt across the room?",
-        "Who is most likely to turn a casual conversation into flirting?",
-        "Who is most likely to have the boldest dating story?",
-        "Who is most likely to plan a romantic getaway?",
-        "Who is most likely to create instant chemistry?",
-        "Who is most likely to tease someone they like?",
-        "Who is most likely to make the first move on a date?",
-        "Who is most likely to have a secret admirer?",
+        "Who is most likely to make the first move?",
+        "Who is most likely to turn a conversation spicy?",
+        "Who is most likely to plan an adults-only date?",
+        "Who is most likely to tease someone just because they enjoy the reaction?",
+        "Who is most likely to have unexpected chemistry with someone?",
+        "Who is most likely to send a message that makes someone blush?",
+        "Who is most likely to suggest moving a conversation to private chat?",
+        "Who is most likely to have the most adventurous date?",
         "Who is most likely to flirt with someone they just met?",
-        "Who is most likely to make the first kiss happen?",
-        "Who is most likely to have the most adventurous dating life?",
+        "Who is most likely to be the biggest tease?",
+        "Who is most likely to receive the most DMs?",
         "Who is most likely to make someone nervous in a good way?",
-        "Who is most likely to have the best flirting game?",
-        "Who is most likely to start a private conversation after meeting someone?",
-        "Who is most likely to make a date last all night?",
-        "Who is most likely to surprise someone with a bold compliment?",
-        "Who is most likely to have chemistry with someone unexpected?",
-        "Who is most likely to suggest an adventurous date?",
-        "Who is most likely to make the first romantic move?",
-        "Who is most likely to be caught flirting?",
-        "Who is most likely to turn up the heat during a date?",
-        "Who is most likely to make someone think about them afterward?",
-        "Who is most likely to have someone crushing on them without realizing it?",
-        "Who is most likely to confidently approach someone attractive?",
+        "Who is most likely to plan a spontaneous romantic adventure?",
+        "Who is most likely to admit they are attracted to someone first?",
+        "Who is most likely to create instant chemistry?",
+        "Who is most likely to make a bold romantic move?",
+        "Who is most likely to have a secret admirer?",
+        "Who is most likely to suggest trying something new?",
+        "Who is most likely to turn flirting into an actual date?",
+        "Who is most likely to make someone forget what they were saying?",
         "Who is most likely to have the most interesting dating story?",
-        "Who is most likely to get asked for their number?",
+        "Who is most likely to make the room's energy change when they walk in?",
+        "Who is most likely to be the one doing the pursuing?",
+        "Who is most likely to enjoy being pursued?",
+        "Who is most likely to create the most tension without saying much?",
         "Who is most likely to leave someone wanting more?",
     ],
 
@@ -130,36 +129,36 @@ PROMPTS = {
 
     "extreme": [
 
-        "Who is most likely to suggest a wild adventure?",
-        "Who is most likely to explore a new kink with a consenting partner?",
+        "Who is most likely to suggest an adventurous experience?",
         "Who is most likely to have the boldest fantasy?",
-        "Who is most likely to suggest trying something completely new?",
+        "Who is most likely to try something completely new with a consenting partner?",
         "Who is most likely to attend an adults-only event?",
+        "Who is most likely to suggest exploring a new kink?",
+        "Who is most likely to have the wildest date story?",
+        "Who is most likely to make a bold move when the chemistry is strong?",
         "Who is most likely to plan an adventurous night?",
-        "Who is most likely to flirt confidently with someone they find irresistible?",
-        "Who is most likely to suggest exploring with another consenting adult?",
-        "Who is most likely to have the wildest bucket list?",
-        "Who is most likely to surprise their partner with an adventurous idea?",
-        "Who is most likely to have a fantasy they have never told anyone?",
-        "Who is most likely to say YES to a spontaneous adult adventure?",
-        "Who is most likely to research a new kink before trying it?",
-        "Who is most likely to establish boundaries before an adventurous experience?",
-        "Who is most likely to create the perfect adults-only atmosphere?",
-        "Who is most likely to turn a conversation extremely flirty?",
-        "Who is most likely to suggest a fantasy to their partner?",
-        "Who is most likely to try something outside their normal type?",
-        "Who is most likely to have an unforgettable adults-only date?",
-        "Who is most likely to make the boldest first move?",
-        "Who is most likely to surprise everyone with their adventurous side?",
-        "Who is most likely to suggest a consensual group adventure?",
-        "Who is most likely to have the most adventurous bucket list?",
-        "Who is most likely to be the biggest tease?",
-        "Who is most likely to make someone blush with one sentence?",
-        "Who is most likely to turn a date into an adventure?",
-        "Who is most likely to have a fantasy become reality?",
-        "Who is most likely to confidently discuss their boundaries?",
-        "Who is most likely to suggest something nobody else expected?",
-        "Who is most likely to say 'let's try it' after discussing boundaries?",
+        "Who is most likely to talk openly about their fantasies?",
+        "Who is most likely to suggest a spontaneous adults-only adventure?",
+        "Who is most likely to have a secret adventurous side?",
+        "Who is most likely to surprise their partner with a new idea?",
+        "Who is most likely to say YES to a new experience after discussing boundaries?",
+        "Who is most likely to have the most interesting bucket list?",
+        "Who is most likely to suggest something outside their normal comfort zone?",
+        "Who is most likely to have the boldest answer in this game?",
+        "Who is most likely to turn chemistry into an adventure?",
+        "Who is most likely to be curious about exploring with another consenting adult?",
+        "Who is most likely to have an unexpected fantasy?",
+        "Who is most likely to suggest a private adults-only gathering?",
+        "Who is most likely to make the first bold move?",
+        "Who is most likely to enjoy being the center of attention?",
+        "Who is most likely to surprise everyone with their answer?",
+        "Who is most likely to have a hidden adventurous side?",
+        "Who is most likely to say 'let's try it' after establishing consent?",
+        "Who is most likely to have the most adventurous weekend?",
+        "Who is most likely to discover a new kink through a partner?",
+        "Who is most likely to plan an unforgettable adults-only date?",
+        "Who is most likely to be the biggest flirt in the room?",
+        "Who is most likely to create undeniable chemistry?",
     ],
 }
 
@@ -201,7 +200,7 @@ def get_level(context):
 
 
 # ==========================================================
-# LEVEL MENU
+# LEVEL KEYBOARD
 # ==========================================================
 
 def level_keyboard():
@@ -211,17 +210,17 @@ def level_keyboard():
             [
                 InlineKeyboardButton(
                     "🟢 Mild",
-                    callback_data="mlt_level_mild",
+                    callback_data="mostlikely_level_mild",
                 ),
                 InlineKeyboardButton(
                     "🌶️ Spicy",
-                    callback_data="mlt_level_spicy",
+                    callback_data="mostlikely_level_spicy",
                 ),
             ],
             [
                 InlineKeyboardButton(
                     "🔥 Extreme",
-                    callback_data="mlt_level_extreme",
+                    callback_data="mostlikely_level_extreme",
                 ),
             ],
             [
@@ -244,30 +243,54 @@ def game_keyboard():
         [
             [
                 InlineKeyboardButton(
-                    "🙋 ME",
-                    callback_data="mlt_me",
-                ),
-                InlineKeyboardButton(
-                    "👥 SOMEONE ELSE",
-                    callback_data="mlt_other",
+                    "👑 PICK SOMEONE",
+                    callback_data="mostlikely_pick",
                 ),
             ],
             [
                 InlineKeyboardButton(
                     "😈 PASS",
-                    callback_data="mlt_pass",
+                    callback_data="mostlikely_pass",
                 ),
             ],
             [
                 InlineKeyboardButton(
                     "➡️ Next",
-                    callback_data="mlt_next",
+                    callback_data="mostlikely_next",
                 ),
             ],
             [
                 InlineKeyboardButton(
                     "🔄 Change Level",
-                    callback_data="mlt_menu",
+                    callback_data="mostlikely_menu",
+                ),
+                InlineKeyboardButton(
+                    "🎮 Games",
+                    callback_data="games_menu",
+                ),
+            ],
+        ]
+    )
+
+
+# ==========================================================
+# RESULT KEYBOARD
+# ==========================================================
+
+def result_keyboard():
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "➡️ Next",
+                    callback_data="mostlikely_next",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔄 Change Level",
+                    callback_data="mostlikely_menu",
                 ),
                 InlineKeyboardButton(
                     "🎮 Games",
@@ -284,17 +307,14 @@ def game_keyboard():
 
 def initialize_stats(context):
 
-    if "mlt_me" not in context.user_data:
-        context.user_data["mlt_me"] = 0
+    if "mostlikely_picks" not in context.user_data:
+        context.user_data["mostlikely_picks"] = 0
 
-    if "mlt_other" not in context.user_data:
-        context.user_data["mlt_other"] = 0
+    if "mostlikely_passes" not in context.user_data:
+        context.user_data["mostlikely_passes"] = 0
 
-    if "mlt_passes" not in context.user_data:
-        context.user_data["mlt_passes"] = 0
-
-    if "mlt_rounds" not in context.user_data:
-        context.user_data["mlt_rounds"] = 0
+    if "mostlikely_rounds" not in context.user_data:
+        context.user_data["mostlikely_rounds"] = 0
 
 
 def stats_text(context):
@@ -302,10 +322,9 @@ def stats_text(context):
     initialize_stats(context)
 
     return (
-        f"🙋 Votes for me: {context.user_data['mlt_me']}\n"
-        f"👥 Votes for someone else: {context.user_data['mlt_other']}\n"
-        f"😈 Passes: {context.user_data['mlt_passes']}\n"
-        f"🎯 Rounds: {context.user_data['mlt_rounds']}"
+        f"👑 Picks: {context.user_data['mostlikely_picks']}\n"
+        f"😈 Passes: {context.user_data['mostlikely_passes']}\n"
+        f"🎯 Rounds: {context.user_data['mostlikely_rounds']}"
     )
 
 
@@ -325,11 +344,11 @@ def get_prompt(context):
     prompt = random.choice(prompts)
 
     context.user_data[
-        "mlt_current_prompt"
+        "mostlikely_current_prompt"
     ] = prompt
 
     context.user_data[
-        "mlt_answered"
+        "mostlikely_answered"
     ] = False
 
     return prompt
@@ -347,11 +366,11 @@ def format_prompt(
     level = get_level(context)
 
     return (
-        "👀 MOST LIKELY TO\n\n"
+        "👑 MOST LIKELY TO\n\n"
         f"🎯 Level: {LEVEL_NAMES.get(level, level)}\n\n"
         f"👉 {prompt}\n\n"
         f"{stats_text(context)}\n\n"
-        "Who are you voting for?"
+        "Choose someone in the chat!"
     )
 
 
@@ -392,7 +411,7 @@ async def most_likely_to(
     if not MOST_LIKELY_ENABLED:
 
         await message.reply_text(
-            "👀 Most Likely To is currently disabled."
+            "👑 Most Likely To is currently disabled."
         )
 
         return
@@ -400,7 +419,7 @@ async def most_likely_to(
     initialize_stats(context)
 
     await message.reply_text(
-        "👀 MOST LIKELY TO\n\n"
+        "👑 MOST LIKELY TO\n\n"
         "Choose your level:\n\n"
         "🟢 Mild — fun & flirty\n"
         "🌶️ Spicy — adult-community vibes\n"
@@ -446,10 +465,10 @@ async def callback(
     # LEVEL MENU
     # ======================================================
 
-    if data == "mlt_menu":
+    if data == "mostlikely_menu":
 
         await query.edit_message_text(
-            "👀 MOST LIKELY TO\n\n"
+            "👑 MOST LIKELY TO\n\n"
             "Choose your level:\n\n"
             "🟢 Mild — fun & flirty\n"
             "🌶️ Spicy — adult-community vibes\n"
@@ -463,10 +482,10 @@ async def callback(
     # LEVEL SELECTION
     # ======================================================
 
-    if data.startswith("mlt_level_"):
+    if data.startswith("mostlikely_level_"):
 
         level = data.replace(
-            "mlt_level_",
+            "mostlikely_level_",
             "",
             1,
         )
@@ -486,130 +505,48 @@ async def callback(
         return
 
     # ======================================================
-    # ME
+    # PICK SOMEONE
+    #
+    # Telegram bots cannot automatically determine which
+    # member a user is pointing at from a normal button.
+    #
+    # We therefore instruct the player to reply to/tag
+    # someone in the chat.
     # ======================================================
 
-    if data == "mlt_me":
+    if data == "mostlikely_pick":
 
         if context.user_data.get(
-            "mlt_answered",
+            "mostlikely_answered",
             False,
         ):
 
             await query.answer(
-                "You've already voted this round.",
+                "You've already picked someone this round.",
                 show_alert=True,
             )
 
             return
 
         context.user_data[
-            "mlt_answered"
+            "mostlikely_answered"
         ] = True
 
         context.user_data[
-            "mlt_me"
+            "mostlikely_picks"
         ] += 1
 
         context.user_data[
-            "mlt_rounds"
+            "mostlikely_rounds"
         ] += 1
-
-        await query.answer(
-            "🙋 You picked yourself!",
-            show_alert=True,
-        )
 
         await query.edit_message_text(
-            "👀 MOST LIKELY TO\n\n"
-            "🙋 You picked YOURSELF!\n\n"
-            f"{stats_text(context)}\n\n"
-            "Ready for another?",
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "➡️ Next",
-                            callback_data="mlt_next",
-                        ),
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            "🔄 Change Level",
-                            callback_data="mlt_menu",
-                        ),
-                        InlineKeyboardButton(
-                            "🎮 Games",
-                            callback_data="games_menu",
-                        ),
-                    ],
-                ]
-            ),
-        )
-
-        return
-
-    # ======================================================
-    # SOMEONE ELSE
-    # ======================================================
-
-    if data == "mlt_other":
-
-        if context.user_data.get(
-            "mlt_answered",
-            False,
-        ):
-
-            await query.answer(
-                "You've already voted this round.",
-                show_alert=True,
-            )
-
-            return
-
-        context.user_data[
-            "mlt_answered"
-        ] = True
-
-        context.user_data[
-            "mlt_other"
-        ] += 1
-
-        context.user_data[
-            "mlt_rounds"
-        ] += 1
-
-        await query.answer(
-            "👥 Someone else!",
-            show_alert=True,
-        )
-
-        await query.edit_message_text(
-            "👀 MOST LIKELY TO\n\n"
-            "👥 You picked SOMEONE ELSE!\n\n"
-            "Drop their name or tag in the chat if you want to reveal who you picked. 😉\n\n"
-            f"{stats_text(context)}\n\n"
-            "Ready for another?",
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "➡️ Next",
-                            callback_data="mlt_next",
-                        ),
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            "🔄 Change Level",
-                            callback_data="mlt_menu",
-                        ),
-                        InlineKeyboardButton(
-                            "🎮 Games",
-                            callback_data="games_menu",
-                        ),
-                    ],
-                ]
-            ),
+            "👑 MOST LIKELY TO\n\n"
+            f"{context.user_data.get('mostlikely_current_prompt', '')}\n\n"
+            "👑 PICK SOMEONE IN THE CHAT!\n\n"
+            "Reply to or tag the person you think fits best.\n\n"
+            f"{stats_text(context)}",
+            reply_markup=result_keyboard(),
         )
 
         return
@@ -618,10 +555,10 @@ async def callback(
     # PASS
     # ======================================================
 
-    if data == "mlt_pass":
+    if data == "mostlikely_pass":
 
         if context.user_data.get(
-            "mlt_answered",
+            "mostlikely_answered",
             False,
         ):
 
@@ -633,15 +570,15 @@ async def callback(
             return
 
         context.user_data[
-            "mlt_answered"
+            "mostlikely_answered"
         ] = True
 
         context.user_data[
-            "mlt_passes"
+            "mostlikely_passes"
         ] += 1
 
         context.user_data[
-            "mlt_rounds"
+            "mostlikely_rounds"
         ] += 1
 
         await query.answer(
@@ -650,30 +587,11 @@ async def callback(
         )
 
         await query.edit_message_text(
-            "👀 MOST LIKELY TO\n\n"
+            "👑 MOST LIKELY TO\n\n"
             "😈 PASS ACCEPTED.\n\n"
             "No pressure.\n\n"
             f"{stats_text(context)}",
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "➡️ Next",
-                            callback_data="mlt_next",
-                        ),
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            "🔄 Change Level",
-                            callback_data="mlt_menu",
-                        ),
-                        InlineKeyboardButton(
-                            "🎮 Games",
-                            callback_data="games_menu",
-                        ),
-                    ],
-                ]
-            ),
+            reply_markup=result_keyboard(),
         )
 
         return
@@ -682,7 +600,7 @@ async def callback(
     # NEXT
     # ======================================================
 
-    if data == "mlt_next":
+    if data == "mostlikely_next":
 
         await start_round(
             query,
@@ -699,23 +617,19 @@ async def callback(
 def reset_stats(context):
 
     context.user_data[
-        "mlt_me"
+        "mostlikely_picks"
     ] = 0
 
     context.user_data[
-        "mlt_other"
+        "mostlikely_passes"
     ] = 0
 
     context.user_data[
-        "mlt_passes"
+        "mostlikely_rounds"
     ] = 0
 
     context.user_data[
-        "mlt_rounds"
-    ] = 0
-
-    context.user_data[
-        "mlt_answered"
+        "mostlikely_answered"
     ] = False
 
 
