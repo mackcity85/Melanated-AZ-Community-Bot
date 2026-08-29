@@ -2,15 +2,17 @@
 # Melanated AZ Bot
 # games/game_center.py
 #
-# GAME CENTER
+# GAME CENTER MENU / CALLBACK ROUTER
 #
 # Handles:
-#   - Main Game Center menu
-#   - Game category menus
+#   - Game Center home
+#   - Game categories
 #   - Game selection
-#   - Game launch callbacks
-#   - Compatibility aliases used by bot.py / games/__init__.py
+#   - Game launching
+#   - Game callbacks
 #
+# Compatible with:
+#   games/games.py
 # ==========================================================
 
 import logging
@@ -26,21 +28,20 @@ from telegram.ext import ContextTypes
 from .games import (
     GAME_NAMES,
     play_game,
+    games_callback_router,
 )
 
-# ==========================================================
-# LOGGING
-# ==========================================================
 
 logger = logging.getLogger("melanated_az_bot.games")
 
+
 # ==========================================================
-# GAME CATEGORIES
+# CATEGORY DEFINITIONS
 # ==========================================================
 
 GAME_CATEGORIES = {
     "arcade": {
-        "name": "🕹️ Arcade",
+        "title": "🕹️ Arcade Games",
         "games": [
             "reaction",
             "number_guess",
@@ -51,7 +52,7 @@ GAME_CATEGORIES = {
     },
 
     "outdoor": {
-        "name": "🌲 Outdoor",
+        "title": "🌲 Outdoor Games",
         "games": [
             "fishing",
             "camping",
@@ -62,7 +63,7 @@ GAME_CATEGORIES = {
     },
 
     "shooting": {
-        "name": "🎯 Shooting",
+        "title": "🎯 Shooting Games",
         "games": [
             "target",
             "quick_shot",
@@ -73,7 +74,7 @@ GAME_CATEGORIES = {
     },
 
     "board": {
-        "name": "♟️ Board",
+        "title": "♟️ Board Games",
         "games": [
             "strategy",
             "dice_duel",
@@ -81,14 +82,14 @@ GAME_CATEGORIES = {
     },
 
     "party": {
-        "name": "🎉 Party",
+        "title": "🎉 Party Games",
         "games": [
             "truth_dare",
         ],
     },
 
     "trivia": {
-        "name": "🧠 Trivia",
+        "title": "🧠 Trivia",
         "games": [
             "general_trivia",
             "music_trivia",
@@ -99,7 +100,7 @@ GAME_CATEGORIES = {
     },
 
     "sports": {
-        "name": "🏆 Sports",
+        "title": "🏆 Sports Games",
         "games": [
             "football",
             "basketball",
@@ -110,7 +111,7 @@ GAME_CATEGORIES = {
     },
 
     "racing": {
-        "name": "🏎️ Racing",
+        "title": "🏁 Racing Games",
         "games": [
             "car_race",
             "bike_race",
@@ -121,7 +122,7 @@ GAME_CATEGORIES = {
     },
 
     "mystery": {
-        "name": "🕵🏾 Mystery",
+        "title": "🕵🏾 Mystery Games",
         "games": [
             "detective",
             "murder_mystery",
@@ -132,7 +133,7 @@ GAME_CATEGORIES = {
     },
 
     "fighting": {
-        "name": "🥊 Fighting",
+        "title": "🥊 Fighting Games",
         "games": [
             "mma",
             "karate",
@@ -142,90 +143,160 @@ GAME_CATEGORIES = {
     },
 }
 
-# ==========================================================
-# GAME CATEGORY LOOKUP
-# ==========================================================
-
-GAME_TO_CATEGORY = {}
-
-for category_id, category_data in GAME_CATEGORIES.items():
-
-    for game_id in category_data["games"]:
-
-        GAME_TO_CATEGORY[game_id] = category_id
-
 
 # ==========================================================
-# MAIN GAME CENTER KEYBOARD
+# GAME CENTER HOME
 # ==========================================================
 
-def games_main_keyboard():
+async def games_home_callback(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     """
-    Main Game Center keyboard.
+    Display the main Game Center menu.
     """
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🕹️ Arcade",
+                callback_data="games_category_arcade",
+            ),
+            InlineKeyboardButton(
+                "🌲 Outdoor",
+                callback_data="games_category_outdoor",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🎯 Shooting",
+                callback_data="games_category_shooting",
+            ),
+            InlineKeyboardButton(
+                "♟️ Board",
+                callback_data="games_category_board",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🎉 Party",
+                callback_data="games_category_party",
+            ),
+            InlineKeyboardButton(
+                "🧠 Trivia",
+                callback_data="games_category_trivia",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🏆 Sports",
+                callback_data="games_category_sports",
+            ),
+            InlineKeyboardButton(
+                "🏁 Racing",
+                callback_data="games_category_racing",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🕵🏾 Mystery",
+                callback_data="games_category_mystery",
+            ),
+            InlineKeyboardButton(
+                "🥊 Fighting",
+                callback_data="games_category_fighting",
+            ),
+        ],
+    ]
+
+    text = (
+        "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
+        "Choose a game category below.\n\n"
+        "🏆 Play games\n"
+        "⭐ Earn XP\n"
+        "🪙 Earn AZ Coins\n"
+        "📊 Build your game stats"
+    )
+
+    try:
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.HTML,
+        )
+
+    except Exception:
+        logger.exception(
+            "Could not display Game Center home."
+        )
+
+
+# ==========================================================
+# CATEGORY MENU
+# ==========================================================
+
+async def games_category_callback(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    category: str,
+):
+    """
+    Display games belonging to a category.
+    """
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    category_data = GAME_CATEGORIES.get(category)
+
+    if not category_data:
+
+        await query.answer(
+            "Game category not found.",
+            show_alert=True,
+        )
+
+        return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     keyboard = []
 
-    row = []
+    game_ids = category_data["games"]
 
-    for category_id, category_data in GAME_CATEGORIES.items():
+    for index in range(0, len(game_ids), 2):
 
-        row.append(
-            InlineKeyboardButton(
-                category_data["name"],
-                callback_data=f"games_category_{category_id}",
+        row = []
+
+        for game_id in game_ids[index:index + 2]:
+
+            name = GAME_NAMES.get(
+                game_id,
+                game_id,
             )
-        )
 
-        if len(row) == 2:
-
-            keyboard.append(row)
-            row = []
-
-    if row:
-        keyboard.append(row)
-
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ==========================================================
-# CATEGORY KEYBOARD
-# ==========================================================
-
-def games_category_keyboard(category_id):
-    """
-    Build keyboard for a game category.
-    """
-
-    category = GAME_CATEGORIES.get(category_id)
-
-    if not category:
-        return games_main_keyboard()
-
-    keyboard = []
-
-    row = []
-
-    for game_id in category["games"]:
-
-        game_name = GAME_NAMES.get(
-            game_id,
-            game_id.replace("_", " ").title(),
-        )
-
-        row.append(
-            InlineKeyboardButton(
-                game_name,
-                callback_data=f"games_play_{game_id}",
+            row.append(
+                InlineKeyboardButton(
+                    name,
+                    callback_data=f"games_play_{game_id}",
+                )
             )
-        )
 
-        if len(row) == 2:
-
-            keyboard.append(row)
-            row = []
-
-    if row:
         keyboard.append(row)
 
     keyboard.append(
@@ -237,182 +308,40 @@ def games_category_keyboard(category_id):
         ]
     )
 
-    return InlineKeyboardMarkup(keyboard)
-
-
-# ==========================================================
-# GAME CENTER MENU
-# ==========================================================
-
-async def games_menu(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """
-    Open the main Game Center menu.
-
-    Supports:
-        /games
-        /gamecenter
-        callback_data = games_home
-    """
-
-    query = update.callback_query
-
-    if query:
-
-        await query.answer()
-
-        await query.edit_message_text(
-            "🎮 <b>Melanated AZ Game Center</b>\n\n"
-            "Choose a category below and pick a game.\n\n"
-            "🏆 Play games\n"
-            "⭐ Earn XP\n"
-            "🪙 Earn AZ Coins\n"
-            "📊 Build your game stats",
-            reply_markup=games_main_keyboard(),
-            parse_mode=ParseMode.HTML,
-        )
-
-        return
-
-    if update.message:
-
-        await update.message.reply_text(
-            "🎮 <b>Melanated AZ Game Center</b>\n\n"
-            "Choose a category below and pick a game.\n\n"
-            "🏆 Play games\n"
-            "⭐ Earn XP\n"
-            "🪙 Earn AZ Coins\n"
-            "📊 Build your game stats",
-            reply_markup=games_main_keyboard(),
-            parse_mode=ParseMode.HTML,
-        )
-
-
-# ==========================================================
-# GAME CENTER HOME CALLBACK
-# ==========================================================
-
-async def games_home_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """
-    Handles:
-
-        games_home
-    """
-
-    query = update.callback_query
-
-    if not query:
-        return
+    text = (
+        f"<b>{category_data['title']}</b>\n\n"
+        "Choose a game:"
+    )
 
     try:
-
-        await query.answer()
-
         await query.edit_message_text(
-            "🎮 <b>Melanated AZ Game Center</b>\n\n"
-            "Choose a category below and pick a game.\n\n"
-            "🏆 Play games\n"
-            "⭐ Earn XP\n"
-            "🪙 Earn AZ Coins\n"
-            "📊 Build your game stats",
-            reply_markup=games_main_keyboard(),
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode=ParseMode.HTML,
         )
 
     except Exception:
-
         logger.exception(
-            "Failed to display Game Center home."
+            "Could not display game category: %s",
+            category,
         )
 
 
 # ==========================================================
-# CATEGORY CALLBACK
-# ==========================================================
-
-async def games_category_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """
-    Handles:
-
-        games_category_arcade
-        games_category_outdoor
-        games_category_shooting
-        etc.
-    """
-
-    query = update.callback_query
-
-    if not query:
-        return
-
-    data = query.data or ""
-
-    prefix = "games_category_"
-
-    if not data.startswith(prefix):
-        return
-
-    category_id = data[len(prefix):]
-
-    category = GAME_CATEGORIES.get(category_id)
-
-    if not category:
-
-        await query.answer(
-            "Game category not found.",
-            show_alert=True,
-        )
-
-        return
-
-    try:
-
-        await query.answer()
-
-        await query.edit_message_text(
-            f"🎮 <b>{category['name']}</b>\n\n"
-            "Choose a game:",
-            reply_markup=games_category_keyboard(
-                category_id
-            ),
-            parse_mode=ParseMode.HTML,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Failed to display game category: %s",
-            category_id,
-        )
-
-
-# ==========================================================
-# GAME PLAY CALLBACK
+# PLAY GAME CALLBACK
 # ==========================================================
 
 async def games_play_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
+    game_id: str | None = None,
 ):
     """
-    Handles:
+    Launch a selected game.
 
-        games_play_reaction
-        games_play_number_guess
-        games_play_high_low
-        games_play_coin_flip
-        games_play_dice_roll
-        etc.
-
-    This is the callback expected by bot.py.
+    Supports both:
+        games_play_<game>
+    and direct game_id calls.
     """
 
     query = update.callback_query
@@ -420,31 +349,34 @@ async def games_play_callback(
     if not query:
         return
 
-    data = query.data or ""
+    if game_id is None:
 
-    prefix = "games_play_"
+        data = query.data or ""
 
-    if not data.startswith(prefix):
+        if data.startswith("games_play_"):
 
-        await query.answer(
-            "Game action not recognized.",
-            show_alert=True,
-        )
+            game_id = data[
+                len("games_play_"):
+            ]
 
-        return
+        else:
 
-    game_id = data[len(prefix):]
+            await query.answer(
+                "Game action not recognized.",
+                show_alert=True,
+            )
 
-    # ------------------------------------------------------
-    # Validate game
-    # ------------------------------------------------------
+            return
+
+    logger.info(
+        "Starting Game Center game: %s | user=%s",
+        game_id,
+        update.effective_user.id
+        if update.effective_user
+        else "unknown",
+    )
 
     if game_id not in GAME_NAMES:
-
-        logger.warning(
-            "Unknown game requested: %s",
-            game_id,
-        )
 
         await query.answer(
             "That game is not available.",
@@ -454,16 +386,11 @@ async def games_play_callback(
         return
 
     try:
-
         await query.answer()
+    except Exception:
+        pass
 
-        # --------------------------------------------------
-        # IMPORTANT
-        #
-        # Pass the ORIGINAL update/context to games.py.
-        #
-        # games.py handles the actual gameplay.
-        # --------------------------------------------------
+    try:
 
         await play_game(
             update,
@@ -474,7 +401,7 @@ async def games_play_callback(
     except Exception:
 
         logger.exception(
-            "Failed to launch game: %s",
+            "Game launch failed: %s",
             game_id,
         )
 
@@ -483,7 +410,7 @@ async def games_play_callback(
             await query.edit_message_text(
                 "⚠️ <b>Game Error</b>\n\n"
                 "Something went wrong starting "
-                "that game.\n\n"
+                "this game.\n\n"
                 "Please try again.",
                 reply_markup=InlineKeyboardMarkup(
                     [
@@ -499,30 +426,110 @@ async def games_play_callback(
             )
 
         except Exception:
-
             logger.exception(
                 "Could not display game error."
             )
 
 
 # ==========================================================
-# UNIVERSAL GAME CENTER CALLBACK ROUTER
+# REACTION TEST COMPATIBILITY ROUTER
 # ==========================================================
 
-async def games_callback_router(
+async def games_reaction_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
     """
-    Central router for Game Center callbacks.
+    Handles the reaction button.
+
+    Older Game Center versions use:
+        games_react
+
+    Newer games.py versions use:
+        game_reaction_tap
+
+    Accept both so the files remain compatible.
+    """
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    logger.info(
+        "Reaction callback received."
+    )
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    try:
+
+        await games_callback_router(
+            update,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Reaction callback failed."
+        )
+
+        try:
+
+            await query.edit_message_text(
+                "⚠️ <b>Game Error</b>\n\n"
+                "The reaction game could not "
+                "process your move.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "🔄 Play Again",
+                                callback_data="games_play_reaction",
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                "⬅️ Game Center",
+                                callback_data="games_home",
+                            )
+                        ],
+                    ]
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+
+        except Exception:
+            pass
+
+
+# ==========================================================
+# CENTRAL GAME CENTER CALLBACK
+# ==========================================================
+
+async def game_center_callback_router(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    """
+    Central Game Center callback router.
 
     Handles:
-
         games_home
-        games_category_*
-        games_play_*
-
-    Gameplay-specific callbacks are passed to games.py.
+        games_category_<category>
+        games_play_<game>
+        games_react
+        game_reaction_tap
+        game_guess_<number>
+        game_high
+        game_low
+        game_td_truth
+        game_td_dare
+        game_trivia_<answer>
     """
 
     query = update.callback_query
@@ -532,8 +539,13 @@ async def games_callback_router(
 
     data = query.data or ""
 
+    logger.info(
+        "Game Center callback received: %s",
+        data,
+    )
+
     # ------------------------------------------------------
-    # GAME CENTER HOME
+    # HOME
     # ------------------------------------------------------
 
     if data == "games_home":
@@ -553,7 +565,48 @@ async def games_callback_router(
         "games_category_"
     ):
 
+        category = data[
+            len("games_category_"):
+        ]
+
         await games_category_callback(
+            update,
+            context,
+            category,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # PLAY GAME
+    # ------------------------------------------------------
+
+    if data.startswith(
+        "games_play_"
+    ):
+
+        game_id = data[
+            len("games_play_"):
+        ]
+
+        await games_play_callback(
+            update,
+            context,
+            game_id,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # OLD REACTION CALLBACK
+    #
+    # Existing button uses:
+    # games_react
+    # ------------------------------------------------------
+
+    if data == "games_react":
+
+        await games_reaction_callback(
             update,
             context,
         )
@@ -561,14 +614,15 @@ async def games_callback_router(
         return
 
     # ------------------------------------------------------
-    # GAME PLAY
+    # NEW REACTION CALLBACK
+    #
+    # games.py uses:
+    # game_reaction_tap
     # ------------------------------------------------------
 
-    if data.startswith(
-        "games_play_"
-    ):
+    if data == "game_reaction_tap":
 
-        await games_play_callback(
+        await games_reaction_callback(
             update,
             context,
         )
@@ -578,16 +632,20 @@ async def games_callback_router(
     # ------------------------------------------------------
     # OTHER GAME ACTIONS
     #
-    # These belong to games.py.
+    # Pass these to games.py
     # ------------------------------------------------------
 
-    if (
-        data.startswith("game_")
-        or data.startswith("games_")
-    ):
+    game_action_prefixes = (
+        "game_guess_",
+        "game_high",
+        "game_low",
+        "game_td_",
+        "game_trivia_",
+    )
 
-        # Import here to avoid circular imports.
-        from .games import games_callback_router
+    if (
+        data.startswith(game_action_prefixes)
+    ):
 
         await games_callback_router(
             update,
@@ -597,56 +655,32 @@ async def games_callback_router(
         return
 
     # ------------------------------------------------------
-    # UNKNOWN ACTION
+    # UNKNOWN CALLBACK
     # ------------------------------------------------------
 
     logger.warning(
-        "Unrecognized Game Center callback: %s",
+        "Unknown Game Center callback: %s",
         data,
     )
 
-    await query.answer(
-        "Game action not recognized.",
-        show_alert=True,
-    )
+    try:
+
+        await query.answer(
+            "Game action not recognized.",
+            show_alert=True,
+        )
+
+    except Exception:
+        pass
 
 
 # ==========================================================
-# COMPATIBILITY ALIASES
+# ALIAS
 # ==========================================================
 
-# Some versions of bot.py may use these names.
-
-game_center_callback = games_callback_router
-
-game_center_home_callback = games_home_callback
-
-game_center_play_callback = games_play_callback
-
-game_category_callback = games_category_callback
+games_callback = game_center_callback_router
 
 
 # ==========================================================
-# COMMAND HANDLER
-# ==========================================================
-
-async def game_center_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """
-    Command handler for:
-
-        /games
-        /gamecenter
-    """
-
-    await games_menu(
-        update,
-        context,
-    )
-
-
-# ==========================================================
-# END game_center.py
+# END games/game_center.py
 # ==========================================================
