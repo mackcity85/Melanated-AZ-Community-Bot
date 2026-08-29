@@ -9,6 +9,7 @@
 #   - Raffle button routing
 #   - Birthday system
 #   - Truth or Dare
+#   - MELANATED AZ GAME CENTER
 #   - Persistent SQLite database
 #   - Media spoiler enforcement
 #   - GIF / animation support
@@ -82,6 +83,23 @@ from raffle_database import (
     get_database_stats,
     check_database_integrity,
 )
+
+# ==========================================================
+# GAME CENTER
+# ==========================================================
+
+from games.game_center import (
+    games_command,
+    games_category_callback,
+    games_home_callback,
+    games_profile_callback,
+    games_leaderboards_callback,
+)
+
+
+# ==========================================================
+# TRUTH OR DARE
+# ==========================================================
 
 from truth_dare import (
     truth,
@@ -206,6 +224,10 @@ async def delete_after(
         return
 
     if not context.job_queue:
+        logger.warning(
+            "Job queue unavailable; temporary message "
+            "cannot be scheduled for deletion."
+        )
         return
 
     context.job_queue.run_once(
@@ -365,15 +387,15 @@ async def send_private_media_warning(
         )
 
     text = (
-        "👋 Hey! This is the **Melanated AZ Bot** "
+        "👋 Hey! This is the Melanated AZ Bot "
         "from the Melanated AZ group.\n\n"
         "Your photo/video was removed from the group "
-        "because Telegram's **Spoiler** option was not "
+        "because Telegram's Spoiler option was not "
         "enabled.\n\n"
-        "📸 **How to post it correctly:**\n\n"
+        "📸 How to post it correctly:\n\n"
         "1️⃣ Select your photo or video.\n"
-        "2️⃣ Tap the **⋮** menu/options.\n"
-        "3️⃣ Select **Hide with Spoiler**.\n"
+        "2️⃣ Tap the ⋮ menu/options.\n"
+        "3️⃣ Select Hide with Spoiler.\n"
         "4️⃣ Send the media.\n\n"
         "You can also send the media directly to me "
         "and use the bot to post it for you.\n\n"
@@ -387,7 +409,6 @@ async def send_private_media_warning(
             chat_id=user.id,
             text=text,
             reply_markup=keyboard,
-            parse_mode=ParseMode.MARKDOWN,
         )
 
     except TelegramError as exc:
@@ -511,7 +532,7 @@ async def handle_video(
 
 
 # ==========================================================
-# GIF
+# GIF / ANIMATION
 # ==========================================================
 
 async def handle_animation(
@@ -613,27 +634,28 @@ async def start_command(
         return
 
     text = (
-        "👋 **Welcome to Melanated AZ Bot!**\n\n"
+        "👋 Welcome to Melanated AZ Bot!\n\n"
         "I'm the bot for the Melanated AZ community.\n\n"
         "I can help with:\n\n"
         "🎂 Birthdays\n"
         "🎟️ Raffles\n"
         "🔥 Truth or Dare\n"
+        "🎮 Game Center\n"
         "🛡️ Media protection\n\n"
-        "Birthday: `/birthday`\n"
-        "Truth or Dare: `/truthdare`"
+        "Birthday: /birthday\n"
+        "Truth or Dare: /truthdare\n"
+        "Game Center: /games"
     )
 
     if is_admin(user.id):
 
         text += (
-            "\n\n👑 **Admin:**\n"
-            "Use `/admin` to open the admin panel."
+            "\n\n👑 Admin:\n"
+            "Use /admin to open the admin panel."
         )
 
     await message.reply_text(
         text,
-        parse_mode=ParseMode.MARKDOWN,
     )
 
 
@@ -653,10 +675,12 @@ async def admin_command(
 
     if not is_admin(user.id):
 
-        await update.effective_message.reply_text(
-            "⛔ You are not authorized to use "
-            "the admin panel."
-        )
+        if update.effective_message:
+
+            await update.effective_message.reply_text(
+                "⛔ You are not authorized to use "
+                "the admin panel."
+            )
 
         return
 
@@ -753,6 +777,100 @@ async def birthday_callback_router(
 
 
 # ==========================================================
+# GAME CENTER CALLBACK
+# ==========================================================
+
+async def game_center_callback_router(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    data = query.data or ""
+
+    logger.info(
+        "Game Center callback received: %s",
+        data,
+    )
+
+    try:
+
+        # --------------------------------------------------
+        # GAME CENTER HOME
+        # --------------------------------------------------
+
+        if data == "games_home":
+
+            await games_home_callback(
+                update,
+                context,
+            )
+
+            return
+
+        # --------------------------------------------------
+        # CATEGORY
+        # --------------------------------------------------
+
+        if data.startswith(
+            "games_category_"
+        ):
+
+            await games_category_callback(
+                update,
+                context,
+            )
+
+            return
+
+        # --------------------------------------------------
+        # PROFILE
+        # --------------------------------------------------
+
+        if data == "games_profile":
+
+            await games_profile_callback(
+                update,
+                context,
+            )
+
+            return
+
+        # --------------------------------------------------
+        # LEADERBOARDS
+        # --------------------------------------------------
+
+        if data == "games_leaderboards":
+
+            await games_leaderboards_callback(
+                update,
+                context,
+            )
+
+            return
+
+    except Exception:
+
+        logger.exception(
+            "Game Center callback failed."
+        )
+
+        try:
+
+            await query.answer(
+                "⚠️ Game Center action failed.",
+                show_alert=True,
+            )
+
+        except Exception:
+            pass
+
+
+# ==========================================================
 # RAFFLE CALLBACK
 # ==========================================================
 
@@ -773,20 +891,25 @@ async def raffle_callback_router(
         data,
     )
 
-    # These are kept here for raffle.py callbacks
-    # that are not part of the admin menu.
-
     try:
+
+        # --------------------------------------------------
+        # START RAFFLE
+        # --------------------------------------------------
 
         if data == "admin_start_raffle":
 
-            if not is_admin(
-                update.effective_user.id
+            user = update.effective_user
+
+            if not user or not is_admin(
+                user.id
             ):
+
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
                 )
+
                 return
 
             await start_raffle(
@@ -796,11 +919,23 @@ async def raffle_callback_router(
 
             return
 
+        # --------------------------------------------------
+        # RAFFLE STATUS
+        # --------------------------------------------------
+
         if data == "admin_status":
 
-            if not is_admin(
-                update.effective_user.id
+            user = update.effective_user
+
+            if not user or not is_admin(
+                user.id
             ):
+
+                await query.answer(
+                    "Not authorized.",
+                    show_alert=True,
+                )
+
                 return
 
             await raffle_status(
@@ -810,11 +945,23 @@ async def raffle_callback_router(
 
             return
 
+        # --------------------------------------------------
+        # RAFFLE ENTRIES
+        # --------------------------------------------------
+
         if data == "admin_entries":
 
-            if not is_admin(
-                update.effective_user.id
+            user = update.effective_user
+
+            if not user or not is_admin(
+                user.id
             ):
+
+                await query.answer(
+                    "Not authorized.",
+                    show_alert=True,
+                )
+
                 return
 
             await raffle_entries(
@@ -824,11 +971,23 @@ async def raffle_callback_router(
 
             return
 
+        # --------------------------------------------------
+        # PENDING ENTRIES
+        # --------------------------------------------------
+
         if data == "admin_pending":
 
-            if not is_admin(
-                update.effective_user.id
+            user = update.effective_user
+
+            if not user or not is_admin(
+                user.id
             ):
+
+                await query.answer(
+                    "Not authorized.",
+                    show_alert=True,
+                )
+
                 return
 
             await pending_entries(
@@ -838,11 +997,23 @@ async def raffle_callback_router(
 
             return
 
+        # --------------------------------------------------
+        # COMPLETED / PAID
+        # --------------------------------------------------
+
         if data == "admin_completed":
 
-            if not is_admin(
-                update.effective_user.id
+            user = update.effective_user
+
+            if not user or not is_admin(
+                user.id
             ):
+
+                await query.answer(
+                    "Not authorized.",
+                    show_alert=True,
+                )
+
                 return
 
             await paid_entry(
@@ -852,11 +1023,23 @@ async def raffle_callback_router(
 
             return
 
+        # --------------------------------------------------
+        # DRAW
+        # --------------------------------------------------
+
         if data == "admin_draw":
 
-            if not is_admin(
-                update.effective_user.id
+            user = update.effective_user
+
+            if not user or not is_admin(
+                user.id
             ):
+
+                await query.answer(
+                    "Not authorized.",
+                    show_alert=True,
+                )
+
                 return
 
             await draw_raffle(
@@ -866,11 +1049,23 @@ async def raffle_callback_router(
 
             return
 
+        # --------------------------------------------------
+        # CONFIRM CANCEL
+        # --------------------------------------------------
+
         if data == "admin_confirm_cancel":
 
-            if not is_admin(
-                update.effective_user.id
+            user = update.effective_user
+
+            if not user or not is_admin(
+                user.id
             ):
+
+                await query.answer(
+                    "Not authorized.",
+                    show_alert=True,
+                )
+
                 return
 
             await cancel_raffle(
@@ -1054,9 +1249,9 @@ def build_application():
         )
     )
 
-    # ------------------------------------------------------
-    # BIRTHDAY
-    # ------------------------------------------------------
+    # ======================================================
+    # BIRTHDAY COMMANDS
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1079,9 +1274,9 @@ def build_application():
         )
     )
 
-    # ------------------------------------------------------
-    # TRUTH OR DARE
-    # ------------------------------------------------------
+    # ======================================================
+    # TRUTH OR DARE COMMANDS
+    # ======================================================
 
     application.add_handler(
         CommandHandler(
@@ -1105,10 +1300,26 @@ def build_application():
     )
 
     # ======================================================
+    # GAME CENTER
+    # ======================================================
+
+    application.add_handler(
+        CommandHandler(
+            "games",
+            games_command,
+        )
+    )
+
+    # ======================================================
     # CALLBACKS
     # ======================================================
 
-    # Admin buttons MUST be registered first.
+    # ------------------------------------------------------
+    # ADMIN
+    #
+    # Registered first because admin.py owns the admin menu.
+    # ------------------------------------------------------
+
     application.add_handler(
         CallbackQueryHandler(
             admin_callback_router,
@@ -1116,7 +1327,10 @@ def build_application():
         )
     )
 
-    # Birthday buttons.
+    # ------------------------------------------------------
+    # BIRTHDAY
+    # ------------------------------------------------------
+
     application.add_handler(
         CallbackQueryHandler(
             birthday_callback_router,
@@ -1124,7 +1338,21 @@ def build_application():
         )
     )
 
-    # Truth or Dare buttons.
+    # ------------------------------------------------------
+    # GAME CENTER
+    # ------------------------------------------------------
+
+    application.add_handler(
+        CallbackQueryHandler(
+            game_center_callback_router,
+            pattern=r"^games_",
+        )
+    )
+
+    # ------------------------------------------------------
+    # TRUTH OR DARE
+    # ------------------------------------------------------
+
     application.add_handler(
         CallbackQueryHandler(
             truth_dare_callback,
@@ -1132,7 +1360,10 @@ def build_application():
         )
     )
 
-    # Raffle/member/payment buttons.
+    # ------------------------------------------------------
+    # RAFFLE
+    # ------------------------------------------------------
+
     application.add_handler(
         CallbackQueryHandler(
             raffle_callback_router,
@@ -1229,7 +1460,15 @@ def main():
         "=========================================================="
     )
 
+    # ------------------------------------------------------
+    # DATABASE
+    # ------------------------------------------------------
+
     database_startup_check()
+
+    # ------------------------------------------------------
+    # FLASK
+    # ------------------------------------------------------
 
     flask_thread = threading.Thread(
         target=run_flask,
@@ -1243,11 +1482,19 @@ def main():
         "Flask health server started."
     )
 
+    # ------------------------------------------------------
+    # TELEGRAM APPLICATION
+    # ------------------------------------------------------
+
     application = build_application()
 
     logger.info(
         "Telegram application created."
     )
+
+    # ------------------------------------------------------
+    # POLLING
+    # ------------------------------------------------------
 
     logger.info(
         "Starting Telegram polling..."
@@ -1265,4 +1512,5 @@ def main():
 # ==========================================================
 
 if __name__ == "__main__":
+
     main()
