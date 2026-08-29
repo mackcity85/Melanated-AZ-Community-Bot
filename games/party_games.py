@@ -2,9 +2,9 @@
 # Melanated AZ Bot
 # games/party_games.py
 #
-# PARTY GAMES CATEGORY
+# PARTY GAMES
 #
-# Games included:
+# Includes:
 #   - Never Have I Ever
 #   - Most Likely To
 #   - This or That
@@ -14,9 +14,10 @@
 # Features:
 #   - Button-based menus
 #   - Random prompts
-#   - PASS support
+#   - PASS allowed
 #   - Next prompt
-#   - Return to Games category
+#   - Return to party menu
+#   - Return to main Games menu
 #
 # IMPORTANT:
 # This file does NOT import from games.py.
@@ -51,31 +52,37 @@ PARTY_GAMES_ENABLED = True
 
 NEVER_HAVE_I_EVER = [
 
-    "Never have I ever flirted with someone I just met.",
+    "Never have I ever lied about why I was late.",
     "Never have I ever sent a message to the wrong person.",
-    "Never have I ever had a crush on someone in this group.",
-    "Never have I ever gone on a date and immediately wanted to leave.",
+    "Never have I ever pretended to know someone I didn't remember.",
+    "Never have I ever danced when nobody was watching.",
     "Never have I ever stayed up all night talking to someone.",
-    "Never have I ever kissed someone on the first date.",
+    "Never have I ever had a crush on someone I shouldn't have.",
+    "Never have I ever flirted just for fun.",
+    "Never have I ever deleted a message because I got nervous.",
+    "Never have I ever gone on a spontaneous adventure.",
+    "Never have I ever regretted sending a late-night message.",
     "Never have I ever had chemistry with someone completely unexpected.",
-    "Never have I ever pretended not to be interested when I actually was.",
-    "Never have I ever slid into someone's DMs first.",
-    "Never have I ever been caught flirting.",
+    "Never have I ever flirted with someone I met online.",
     "Never have I ever had a secret crush.",
-    "Never have I ever gone on a spontaneous date.",
-    "Never have I ever regretted sending a flirty message.",
-    "Never have I ever flirted with someone older than me.",
-    "Never have I ever flirted with someone younger than me.",
-    "Never have I ever matched with someone I already knew.",
-    "Never have I ever gone on a date without telling anyone where I was.",
-    "Never have I ever fallen for someone's personality before their looks.",
-    "Never have I ever been attracted to someone I knew I shouldn't be.",
-    "Never have I ever had a friends-with-benefits situation.",
-    "Never have I ever kissed more than one person in the same night.",
-    "Never have I ever had a crush on a friend's partner.",
-    "Never have I ever changed my plans because someone attractive invited me out.",
-    "Never have I ever used a cheesy pickup line.",
-    "Never have I ever been the one to make the first move.",
+    "Never have I ever gone somewhere just because someone I liked was there.",
+    "Never have I ever stayed in a conversation way longer than I planned.",
+    "Never have I ever been caught checking someone out.",
+    "Never have I ever had a crush on a friend's friend.",
+    "Never have I ever made the first move.",
+    "Never have I ever been the one who got pursued.",
+    "Never have I ever changed my plans because of someone attractive.",
+    "Never have I ever kissed someone on a first date.",
+    "Never have I ever had a dating app story worth telling.",
+    "Never have I ever flirted with someone I knew was trouble.",
+    "Never have I ever had an unforgettable first date.",
+    "Never have I ever been attracted to someone because of their voice.",
+    "Never have I ever developed feelings unexpectedly.",
+    "Never have I ever had chemistry with someone I initially wasn't interested in.",
+    "Never have I ever gone on a date without telling anyone where I was going.",
+    "Never have I ever had a crush that lasted way too long.",
+    "Never have I ever been surprised by who I found attractive.",
+
 ]
 
 
@@ -87,29 +94,35 @@ MOST_LIKELY_TO = [
 
     "Who is most likely to make the first move?",
     "Who is most likely to flirt with someone they just met?",
-    "Who is most likely to plan the perfect date?",
-    "Who is most likely to disappear from the chat and come back with a story?",
-    "Who is most likely to fall for someone's personality?",
-    "Who is most likely to have a secret crush?",
-    "Who is most likely to start a conversation with a stranger?",
-    "Who is most likely to send the first DM?",
-    "Who is most likely to organize a group adventure?",
+    "Who is most likely to plan a spontaneous adventure?",
     "Who is most likely to stay up all night talking?",
+    "Who is most likely to have a secret crush?",
+    "Who is most likely to send the first message?",
     "Who is most likely to make everyone laugh?",
+    "Who is most likely to disappear on a weekend adventure?",
+    "Who is most likely to organize the group?",
     "Who is most likely to break the ice?",
-    "Who is most likely to try something completely new?",
+    "Who is most likely to get caught flirting?",
     "Who is most likely to have the best pickup line?",
-    "Who is most likely to turn a casual date into an adventure?",
-    "Who is most likely to be the biggest flirt?",
-    "Who is most likely to make someone blush?",
-    "Who is most likely to suggest a spontaneous road trip?",
-    "Who is most likely to have the wildest bucket list?",
+    "Who is most likely to turn a casual night into an adventure?",
+    "Who is most likely to fall for someone's personality first?",
+    "Who is most likely to make a bold decision?",
+    "Who is most likely to be the biggest tease?",
     "Who is most likely to make the first move at a party?",
-    "Who is most likely to remember everyone's birthday?",
-    "Who is most likely to make a new friend anywhere?",
-    "Who is most likely to talk their way out of trouble?",
-    "Who is most likely to say YES to an adventure?",
-    "Who is most likely to turn a boring night into a good time?",
+    "Who is most likely to have chemistry with someone unexpected?",
+    "Who is most likely to convince everyone to go out?",
+    "Who is most likely to start a group conversation?",
+    "Who is most likely to plan the perfect date?",
+    "Who is most likely to keep a secret?",
+    "Who is most likely to make someone blush?",
+    "Who is most likely to get everyone's attention without trying?",
+    "Who is most likely to say yes to a spontaneous adventure?",
+    "Who is most likely to have the wildest story?",
+    "Who is most likely to become friends with a stranger?",
+    "Who is most likely to be the last person awake?",
+    "Who is most likely to make a dramatic entrance?",
+    "Who is most likely to surprise everyone?",
+
 ]
 
 
@@ -119,31 +132,106 @@ MOST_LIKELY_TO = [
 
 THIS_OR_THAT = [
 
-    ("Beach", "Mountains"),
-    ("Texting", "Calling"),
-    ("Morning date", "Late-night date"),
-    ("Dinner date", "Adventure date"),
-    ("Stay in", "Go out"),
-    ("Make the first move", "Be pursued"),
-    ("Romantic", "Adventurous"),
-    ("Sweet", "Spicy"),
-    ("Slow burn", "Instant chemistry"),
-    ("Planned date", "Spontaneous date"),
-    ("Movies", "Concert"),
-    ("Road trip", "Flight"),
-    ("Coffee date", "Dinner date"),
-    ("Flirty texts", "Flirty calls"),
-    ("Private conversation", "Group conversation"),
-    ("One-on-one", "Group date"),
-    ("Casual", "Formal"),
-    ("Sunrise", "Sunset"),
-    ("City", "Beach"),
-    ("Dance floor", "Lounge"),
-    ("Music", "Movies"),
-    ("Funny", "Confident"),
-    ("Brains", "Looks"),
-    ("Personality", "Chemistry"),
-    ("Kiss", "Cuddle"),
+    (
+        "Beach vacation 🌴",
+        "Mountain getaway 🏔️",
+    ),
+
+    (
+        "Morning date ☀️",
+        "Late-night date 🌙",
+    ),
+
+    (
+        "Texting 💬",
+        "Phone calls 📞",
+    ),
+
+    (
+        "Dinner date 🍽️",
+        "Drinks date 🥂",
+    ),
+
+    (
+        "Stay in 🏠",
+        "Go out 🎉",
+    ),
+
+    (
+        "Plan everything 📋",
+        "Go with the flow 🌊",
+    ),
+
+    (
+        "Make the first move 😈",
+        "Be pursued 🔥",
+    ),
+
+    (
+        "Slow burn ❤️",
+        "Instant chemistry ⚡",
+    ),
+
+    (
+        "Romantic date 🌹",
+        "Adventurous date 🔥",
+    ),
+
+    (
+        "Movie night 🎬",
+        "Game night 🎮",
+    ),
+
+    (
+        "Big party 🎉",
+        "Small gathering 🥂",
+    ),
+
+    (
+        "Sweet compliments 💜",
+        "Flirty teasing 😈",
+    ),
+
+    (
+        "Dance floor 💃",
+        "Lounge area 🛋️",
+    ),
+
+    (
+        "Road trip 🚗",
+        "Flight somewhere new ✈️",
+    ),
+
+    (
+        "Surprise date 🎁",
+        "Planned date 📅",
+    ),
+
+    (
+        "Private conversation 💬",
+        "Group conversation 👥",
+    ),
+
+    (
+        "Confidence 😎",
+        "Mystery 🖤",
+    ),
+
+    (
+        "Funny personality 😂",
+        "Flirty personality 😏",
+    ),
+
+    (
+        "First kiss 💋",
+        "First deep conversation ❤️",
+    ),
+
+    (
+        "Adventure 🗺️",
+        "Relaxation 🛋️",
+    ),
+
 ]
 
 
@@ -153,31 +241,37 @@ THIS_OR_THAT = [
 
 HOT_SEAT = [
 
-    "What is something people would never guess about you?",
+    "What is something people notice about you first?",
     "What is your biggest green flag?",
-    "What is your biggest red flag?",
-    "What instantly gets your attention?",
-    "What makes you feel comfortable around someone?",
-    "What is your favorite type of date?",
-    "What is something adventurous you want to try?",
-    "What is one thing you absolutely will not compromise on?",
-    "What is something you find unexpectedly attractive?",
-    "What is your biggest dating pet peeve?",
-    "What is the best compliment you have ever received?",
-    "What is the boldest thing you have done on a date?",
-    "What makes someone unforgettable to you?",
-    "What is one thing you wish people knew about you?",
-    "What kind of energy attracts you?",
+    "What is your biggest dating red flag?",
+    "What makes you feel instantly comfortable around someone?",
     "What is your favorite way to flirt?",
-    "What makes you lose interest immediately?",
+    "What type of personality attracts you?",
+    "What is your ideal date?",
+    "What makes someone unforgettable to you?",
+    "What is something adventurous you want to try?",
+    "What is something you are surprisingly good at?",
+    "What is one thing you could talk about for hours?",
+    "What is your biggest pet peeve?",
+    "What instantly makes you laugh?",
+    "What is something you find unexpectedly attractive?",
+    "What is your favorite way to spend a free night?",
     "What is something on your bucket list?",
-    "What is your ideal night out?",
-    "What is one thing you are always willing to try?",
-    "What is one thing you will always say NO to?",
-    "What is something that instantly makes you smile?",
-    "What is your favorite way to meet new people?",
-    "What is something you have learned from past relationships?",
-    "What is one adventure you want to experience someday?",
+    "What is one thing you will never compromise on?",
+    "What is your favorite compliment to receive?",
+    "What kind of energy attracts you?",
+    "What makes you lose interest immediately?",
+    "What is something people often misunderstand about you?",
+    "What is your favorite type of adventure?",
+    "What is something you have always wanted to learn?",
+    "What is your perfect weekend?",
+    "What is one thing you would change about your dating life?",
+    "What is your favorite way to make someone feel special?",
+    "What is something that always puts you in a good mood?",
+    "What is one experience you will never forget?",
+    "What is something you want to accomplish this year?",
+    "What is your definition of great chemistry?",
+
 ]
 
 
@@ -187,31 +281,37 @@ HOT_SEAT = [
 
 FINISH_THE_SENTENCE = [
 
-    "The fastest way to get my attention is ______.",
-    "My perfect date would be ______.",
-    "I instantly smile when ______.",
-    "The biggest green flag is ______.",
-    "The biggest red flag is ______.",
-    "I feel most confident when ______.",
-    "My idea of a perfect night is ______.",
-    "I would never say no to ______.",
-    "One thing on my bucket list is ______.",
-    "The best way to flirt with me is ______.",
-    "I know there is chemistry when ______.",
-    "I immediately notice someone's ______.",
-    "The most adventurous thing I would try is ______.",
-    "My favorite way to spend a weekend is ______.",
-    "A great conversation starts with ______.",
-    "I cannot resist someone who ______.",
-    "My biggest weakness is ______.",
-    "I am always down for ______.",
-    "The perfect first date includes ______.",
-    "I feel most comfortable when ______.",
-    "Something that always makes me laugh is ______.",
-    "The best compliment someone can give me is ______.",
-    "If I could travel anywhere tomorrow, I would go to ______.",
-    "A spontaneous adventure sounds like ______.",
-    "One thing I want to experience someday is ______.",
+    "The fastest way to get my attention is...",
+    "My biggest green flag is...",
+    "My biggest turn-off is...",
+    "A perfect date would be...",
+    "I instantly smile when...",
+    "I know there is chemistry when...",
+    "My idea of a perfect weekend is...",
+    "One thing I will always make time for is...",
+    "The most adventurous thing I would try is...",
+    "I am secretly really good at...",
+    "One thing people should know about me is...",
+    "The best compliment someone can give me is...",
+    "I could never live without...",
+    "My biggest weakness is...",
+    "The quickest way to make me laugh is...",
+    "A place I would love to visit is...",
+    "My favorite way to relax is...",
+    "If I could plan any date, it would be...",
+    "Something I have always wanted to try is...",
+    "My ideal night starts with...",
+    "Someone instantly becomes more attractive when...",
+    "I feel most confident when...",
+    "One thing on my bucket list is...",
+    "The best kind of chemistry is...",
+    "If I could have one superpower, it would be...",
+    "The most spontaneous thing I would do is...",
+    "My perfect adventure would be...",
+    "One thing that always makes me smile is...",
+    "If I had an unexpected day off, I would...",
+    "The one thing I would never compromise on is...",
+
 ]
 
 
@@ -220,11 +320,17 @@ FINISH_THE_SENTENCE = [
 # ==========================================================
 
 GAME_NAMES = {
-    "never": "🙅 Never Have I Ever",
-    "most_likely": "👀 Most Likely To",
-    "this_that": "⚖️ This or That",
+
+    "never": "🙅🏾 Never Have I Ever",
+
+    "likely": "👀 Most Likely To",
+
+    "this_or_that": "🔀 This or That",
+
     "hot_seat": "🔥 Hot Seat",
-    "finish": "✍️ Finish the Sentence",
+
+    "finish": "✍🏾 Finish the Sentence",
+
 }
 
 
@@ -233,6 +339,7 @@ GAME_NAMES = {
 # ==========================================================
 
 def is_enabled():
+
     return PARTY_GAMES_ENABLED
 
 
@@ -240,197 +347,294 @@ def is_enabled():
 # MAIN MENU
 # ==========================================================
 
-def party_games_keyboard():
+def party_menu_keyboard():
 
     return InlineKeyboardMarkup(
+
         [
+
             [
                 InlineKeyboardButton(
                     GAME_NAMES["never"],
-                    callback_data="party_game_never",
+                    callback_data="party_never",
                 ),
             ],
+
             [
                 InlineKeyboardButton(
-                    GAME_NAMES["most_likely"],
-                    callback_data="party_game_most_likely",
+                    GAME_NAMES["likely"],
+                    callback_data="party_likely",
                 ),
             ],
+
             [
                 InlineKeyboardButton(
-                    GAME_NAMES["this_that"],
-                    callback_data="party_game_this_that",
+                    GAME_NAMES["this_or_that"],
+                    callback_data="party_this_or_that",
                 ),
             ],
+
             [
                 InlineKeyboardButton(
                     GAME_NAMES["hot_seat"],
-                    callback_data="party_game_hot_seat",
+                    callback_data="party_hot_seat",
                 ),
             ],
+
             [
                 InlineKeyboardButton(
                     GAME_NAMES["finish"],
-                    callback_data="party_game_finish",
+                    callback_data="party_finish",
                 ),
             ],
+
             [
                 InlineKeyboardButton(
-                    "🔙 Games",
-                    callback_data="games_main",
+                    "🔙 Games Menu",
+                    callback_data="games_menu",
                 ),
             ],
+
         ]
+
     )
 
 
 # ==========================================================
-# GAME CONTROLS
+# PROMPT KEYBOARD
 # ==========================================================
 
-def game_controls():
+def prompt_keyboard():
 
     return InlineKeyboardMarkup(
+
         [
+
             [
                 InlineKeyboardButton(
                     "➡️ Next",
-                    callback_data="party_game_next",
+                    callback_data="party_next",
                 ),
                 InlineKeyboardButton(
                     "😈 PASS",
-                    callback_data="party_game_pass",
+                    callback_data="party_pass",
                 ),
             ],
+
             [
                 InlineKeyboardButton(
-                    "🎮 Other Party Games",
-                    callback_data="party_games_menu",
+                    "🎉 Party Games",
+                    callback_data="party_menu",
                 ),
             ],
+
             [
                 InlineKeyboardButton(
-                    "🔙 Games",
-                    callback_data="games_main",
+                    "🎮 Games Menu",
+                    callback_data="games_menu",
                 ),
             ],
+
         ]
+
     )
 
 
 # ==========================================================
-# GET CURRENT GAME
+# THIS OR THAT KEYBOARD
 # ==========================================================
 
-def get_current_game(context):
+def this_or_that_keyboard():
 
-    return context.user_data.get(
-        "party_current_game",
+    return InlineKeyboardMarkup(
+
+        [
+
+            [
+                InlineKeyboardButton(
+                    "1️⃣ OPTION 1",
+                    callback_data="party_choice_0",
+                ),
+            ],
+
+            [
+                InlineKeyboardButton(
+                    "2️⃣ OPTION 2",
+                    callback_data="party_choice_1",
+                ),
+            ],
+
+            [
+                InlineKeyboardButton(
+                    "😈 PASS",
+                    callback_data="party_pass",
+                ),
+            ],
+
+            [
+                InlineKeyboardButton(
+                    "➡️ Next",
+                    callback_data="party_next",
+                ),
+            ],
+
+        ]
+
+    )
+
+
+# ==========================================================
+# GET GAME
+# ==========================================================
+
+def get_game(context):
+
+    game = context.user_data.get(
+        "party_game",
         "never",
     )
-
-
-# ==========================================================
-# GET PROMPT
-# ==========================================================
-
-def get_prompt(context):
-
-    game = get_current_game(context)
-
-    if game == "never":
-
-        return random.choice(
-            NEVER_HAVE_I_EVER
-        )
-
-    if game == "most_likely":
-
-        return random.choice(
-            MOST_LIKELY_TO
-        )
-
-    if game == "this_that":
-
-        first, second = random.choice(
-            THIS_OR_THAT
-        )
-
-        return (
-            f"Would you rather choose:\n\n"
-            f"🅰️ {first}\n\n"
-            f"OR\n\n"
-            f"🅱️ {second}"
-        )
-
-    if game == "hot_seat":
-
-        return random.choice(
-            HOT_SEAT
-        )
-
-    if game == "finish":
-
-        return random.choice(
-            FINISH_THE_SENTENCE
-        )
-
-    return random.choice(
-        NEVER_HAVE_I_EVER
-    )
-
-
-# ==========================================================
-# FORMAT GAME
-# ==========================================================
-
-def format_game(context):
-
-    game = get_current_game(context)
-
-    title = GAME_NAMES.get(
-        game,
-        "🎮 Party Game",
-    )
-
-    prompt = get_prompt(context)
-
-    context.user_data[
-        "party_current_prompt"
-    ] = prompt
-
-    return (
-        f"{title}\n\n"
-        f"{prompt}\n\n"
-        "😈 You can PASS at any time."
-    )
-
-
-# ==========================================================
-# START GAME
-# ==========================================================
-
-async def start_game(
-    query,
-    context,
-    game,
-):
 
     if game not in GAME_NAMES:
 
         game = "never"
 
-    context.user_data[
-        "party_current_game"
-    ] = game
+    return game
+
+
+# ==========================================================
+# GET RANDOM PROMPT
+# ==========================================================
+
+def get_prompt(context):
+
+    game = get_game(context)
+
+    if game == "never":
+
+        prompt = random.choice(
+            NEVER_HAVE_I_EVER
+        )
+
+    elif game == "likely":
+
+        prompt = random.choice(
+            MOST_LIKELY_TO
+        )
+
+    elif game == "hot_seat":
+
+        prompt = random.choice(
+            HOT_SEAT
+        )
+
+    elif game == "finish":
+
+        prompt = random.choice(
+            FINISH_THE_SENTENCE
+        )
+
+    else:
+
+        prompt = random.choice(
+            NEVER_HAVE_I_EVER
+        )
 
     context.user_data[
         "party_current_prompt"
-    ] = None
+    ] = prompt
+
+    context.user_data[
+        "party_answered"
+    ] = False
+
+    return prompt
+
+
+# ==========================================================
+# SHOW MENU
+# ==========================================================
+
+async def show_menu(
+    query,
+    context,
+):
 
     await query.edit_message_text(
-        format_game(context),
-        reply_markup=game_controls(),
+
+        "🎉 PARTY GAMES\n\n"
+        "Choose a game:\n\n"
+        "🙅🏾 Never Have I Ever\n"
+        "👀 Most Likely To\n"
+        "🔀 This or That\n"
+        "🔥 Hot Seat\n"
+        "✍🏾 Finish the Sentence\n\n"
+        "😈 PASS is always allowed.",
+
+        reply_markup=party_menu_keyboard(),
+
+    )
+
+
+# ==========================================================
+# SHOW PROMPT
+# ==========================================================
+
+async def show_prompt(
+    query,
+    context,
+):
+
+    game = get_game(context)
+
+    # ------------------------------------------------------
+    # THIS OR THAT
+    # ------------------------------------------------------
+
+    if game == "this_or_that":
+
+        option1, option2 = random.choice(
+            THIS_OR_THAT
+        )
+
+        context.user_data[
+            "party_current_prompt"
+        ] = (
+            option1,
+            option2,
+        )
+
+        context.user_data[
+            "party_answered"
+        ] = False
+
+        await query.edit_message_text(
+
+            "🔀 THIS OR THAT\n\n"
+            "Choose one:\n\n"
+            f"1️⃣ {option1}\n\n"
+            f"2️⃣ {option2}\n\n"
+            "😈 PASS is always allowed.",
+
+            reply_markup=this_or_that_keyboard(),
+
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # NORMAL PROMPTS
+    # ------------------------------------------------------
+
+    prompt = get_prompt(context)
+
+    await query.edit_message_text(
+
+        f"{GAME_NAMES.get(game, '🎉 Party Game')}\n\n"
+        f"{prompt}\n\n"
+        "😈 PASS is always allowed.",
+
+        reply_markup=prompt_keyboard(),
+
     )
 
 
@@ -452,17 +656,24 @@ async def party_games(
     if not PARTY_GAMES_ENABLED:
 
         await message.reply_text(
-            "🎮 Party Games are currently disabled."
+            "🎉 Party Games are currently disabled."
         )
 
         return
 
     await message.reply_text(
-        "🎮 PARTY GAMES\n\n"
+
+        "🎉 PARTY GAMES\n\n"
         "Choose a game:\n\n"
-        "Have fun, respect boundaries, "
-        "and remember that PASS is always allowed.",
-        reply_markup=party_games_keyboard(),
+        "🙅🏾 Never Have I Ever\n"
+        "👀 Most Likely To\n"
+        "🔀 This or That\n"
+        "🔥 Hot Seat\n"
+        "✍🏾 Finish the Sentence\n\n"
+        "😈 PASS is always allowed.",
+
+        reply_markup=party_menu_keyboard(),
+
     )
 
 
@@ -501,55 +712,112 @@ async def callback(
         return
 
     # ======================================================
-    # MENU
+    # PARTY MENU
     # ======================================================
 
-    if data == "party_games_menu":
+    if data == "party_menu":
 
-        await query.edit_message_text(
-            "🎮 PARTY GAMES\n\n"
-            "Choose a game:",
-            reply_markup=party_games_keyboard(),
+        await show_menu(
+            query,
+            context,
         )
 
         return
 
     # ======================================================
-    # GAME SELECTION
+    # SELECT NEVER HAVE I EVER
     # ======================================================
 
-    if data.startswith("party_game_"):
+    if data == "party_never":
 
-        game = data.replace(
-            "party_game_",
-            "",
-            1,
+        context.user_data[
+            "party_game"
+        ] = "never"
+
+        await show_prompt(
+            query,
+            context,
         )
 
-        # Don't treat controls as games.
+        return
 
-        if game in GAME_NAMES:
+    # ======================================================
+    # SELECT MOST LIKELY TO
+    # ======================================================
 
-            await start_game(
-                query,
-                context,
-                game,
-            )
+    if data == "party_likely":
 
-            return
+        context.user_data[
+            "party_game"
+        ] = "likely"
+
+        await show_prompt(
+            query,
+            context,
+        )
+
+        return
+
+    # ======================================================
+    # SELECT THIS OR THAT
+    # ======================================================
+
+    if data == "party_this_or_that":
+
+        context.user_data[
+            "party_game"
+        ] = "this_or_that"
+
+        await show_prompt(
+            query,
+            context,
+        )
+
+        return
+
+    # ======================================================
+    # SELECT HOT SEAT
+    # ======================================================
+
+    if data == "party_hot_seat":
+
+        context.user_data[
+            "party_game"
+        ] = "hot_seat"
+
+        await show_prompt(
+            query,
+            context,
+        )
+
+        return
+
+    # ======================================================
+    # SELECT FINISH THE SENTENCE
+    # ======================================================
+
+    if data == "party_finish":
+
+        context.user_data[
+            "party_game"
+        ] = "finish"
+
+        await show_prompt(
+            query,
+            context,
+        )
+
+        return
 
     # ======================================================
     # NEXT
     # ======================================================
 
-    if data == "party_game_next":
+    if data == "party_next":
 
-        game = get_current_game(context)
-
-        await start_game(
+        await show_prompt(
             query,
             context,
-            game,
         )
 
         return
@@ -558,24 +826,179 @@ async def callback(
     # PASS
     # ======================================================
 
-    if data == "party_game_pass":
+    if data == "party_pass":
 
-        game = get_current_game(context)
+        context.user_data[
+            "party_answered"
+        ] = True
 
-        title = GAME_NAMES.get(
-            game,
-            "🎮 Party Game",
+        await query.answer(
+            "😈 PASS accepted!",
+            show_alert=True,
         )
 
         await query.edit_message_text(
-            f"{title}\n\n"
-            "😈 PASS ACCEPTED!\n\n"
-            "No explanation needed. "
-            "Choose another prompt when you're ready.",
-            reply_markup=game_controls(),
+
+            "😈 PASS ACCEPTED\n\n"
+            "No explanation needed.\n"
+            "Respect the boundaries.\n\n"
+            "Ready for another one?",
+
+            reply_markup=InlineKeyboardMarkup(
+
+                [
+
+                    [
+                        InlineKeyboardButton(
+                            "➡️ Next",
+                            callback_data="party_next",
+                        ),
+                    ],
+
+                    [
+                        InlineKeyboardButton(
+                            "🎉 Party Games",
+                            callback_data="party_menu",
+                        ),
+                    ],
+
+                    [
+                        InlineKeyboardButton(
+                            "🎮 Games Menu",
+                            callback_data="games_menu",
+                        ),
+                    ],
+
+                ]
+
+            ),
+
         )
 
         return
+
+    # ======================================================
+    # THIS OR THAT CHOICE
+    # ======================================================
+
+    if data.startswith("party_choice_"):
+
+        if context.user_data.get(
+            "party_answered",
+            False,
+        ):
+
+            await query.answer(
+                "This round is already finished.",
+                show_alert=True,
+            )
+
+            return
+
+        try:
+
+            choice = int(
+                data.replace(
+                    "party_choice_",
+                    "",
+                    1,
+                )
+            )
+
+        except ValueError:
+
+            return
+
+        prompt = context.user_data.get(
+            "party_current_prompt"
+        )
+
+        if not isinstance(
+            prompt,
+            tuple,
+        ):
+
+            await query.answer(
+                "Please start a new round.",
+                show_alert=True,
+            )
+
+            return
+
+        if choice not in (0, 1):
+
+            return
+
+        context.user_data[
+            "party_answered"
+        ] = True
+
+        selected = prompt[choice]
+
+        await query.answer(
+            "Choice recorded!",
+            show_alert=True,
+        )
+
+        await query.edit_message_text(
+
+            "🔀 THIS OR THAT\n\n"
+            f"👉 You chose:\n"
+            f"{selected}\n\n"
+            "🔥 Good choice!\n\n"
+            "Ready for another one?",
+
+            reply_markup=InlineKeyboardMarkup(
+
+                [
+
+                    [
+                        InlineKeyboardButton(
+                            "➡️ Next",
+                            callback_data="party_next",
+                        ),
+                    ],
+
+                    [
+                        InlineKeyboardButton(
+                            "🎉 Party Games",
+                            callback_data="party_menu",
+                        ),
+                    ],
+
+                    [
+                        InlineKeyboardButton(
+                            "🎮 Games Menu",
+                            callback_data="games_menu",
+                        ),
+                    ],
+
+                ]
+
+            ),
+
+        )
+
+        return
+
+
+# ==========================================================
+# RESET
+# ==========================================================
+
+def reset_party_game(context):
+
+    context.user_data[
+        "party_game"
+    ] = "never"
+
+    context.user_data[
+        "party_current_prompt"
+    ] = None
+
+    context.user_data[
+        "party_answered"
+    ] = False
 
 
 # ==========================================================
