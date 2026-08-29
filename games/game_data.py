@@ -2,917 +2,504 @@
 # Melanated AZ Bot
 # games/game_data.py
 #
-# Game categories, game definitions, and prompts.
+# GAME CONTENT DATABASE
 #
-# IMPORTANT:
-# This file contains GAME CONTENT only.
-# The game engine and Telegram handlers are separate.
+# Games:
+#   - Would You Rather
+#   - Never Have I Ever
+#   - This or That
 #
-# PASS is always allowed.
-# Keep all interactions respectful and consent-focused.
-# ==========================================================
-
-
-# ==========================================================
-# GAME CATEGORIES
-# ==========================================================
-
-GAME_CATEGORIES = {
-
-    "adult": "🔥 Adult & Spicy",
-
-    "couples": "💜 Couples",
-
-    "party": "😈 Party Games",
-
-    "lifestyle": "🦄 Lifestyle",
-
-    "icebreakers": "😂 Icebreakers",
-}
-
-
-# ==========================================================
-# GAMES
+# Levels:
+#   - Mild
+#   - Spicy
+#   - Extreme
 #
-# Each game has:
-#   name
-#   description
-#
-# The key is used internally by the game engine.
+# Content is adult-community oriented, but consent-focused.
+# PASS is always available through the game engine.
 # ==========================================================
-
-GAMES = {
-
-    # ======================================================
-    # ADULT & SPICY
-    # ======================================================
-
-    "adult": {
-
-        "truth_dare": {
-            "name": "🔥 Truth or Dare",
-            "description": (
-                "Choose Truth or Dare with different "
-                "levels of intensity."
-            ),
-        },
-
-        "would_you_rather": {
-            "name": "🌶️ Would You Rather",
-            "description": (
-                "Choose between two fun, flirty, "
-                "or adventurous options."
-            ),
-        },
-
-        "never_have_i_ever": {
-            "name": "😈 Never Have I Ever",
-            "description": (
-                "Reveal whether you have ever done "
-                "something from the prompt."
-            ),
-        },
-
-        "hot_seat": {
-            "name": "🔥 Hot Seat",
-            "description": (
-                "Answer a bold question while you're "
-                "in the hot seat."
-            ),
-        },
-    },
-
-
-    # ======================================================
-    # COUPLES
-    # ======================================================
-
-    "couples": {
-
-        "couples_challenge": {
-            "name": "💜 Couple's Challenge",
-            "description": (
-                "Fun challenges designed for couples."
-            ),
-        },
-
-        "know_your_partner": {
-            "name": "🫶 Know Your Partner",
-            "description": (
-                "See how well you really know your partner."
-            ),
-        },
-
-        "couples_would_you_rather": {
-            "name": "💜 Couple's Would You Rather",
-            "description": (
-                "Couples choose between fun scenarios."
-            ),
-        },
-    },
-
-
-    # ======================================================
-    # PARTY GAMES
-    # ======================================================
-
-    "party": {
-
-        "most_likely": {
-            "name": "😂 Most Likely To",
-            "description": (
-                "Choose the person in the group "
-                "most likely to fit the prompt."
-            ),
-        },
-
-        "two_truths": {
-            "name": "🎭 Two Truths & A Lie",
-            "description": (
-                "Give the group three statements "
-                "and see if they can find the lie."
-            ),
-        },
-
-        "pick_a_player": {
-            "name": "🎯 Pick A Player",
-            "description": (
-                "Choose another player for a fun challenge."
-            ),
-        },
-
-        "finish_sentence": {
-            "name": "🗣️ Finish The Sentence",
-            "description": (
-                "Complete a random sentence "
-                "with your own answer."
-            ),
-        },
-    },
-
-
-    # ======================================================
-    # LIFESTYLE
-    # ======================================================
-
-    "lifestyle": {
-
-        "yes_maybe_no": {
-            "name": "🦄 Yes / Maybe / No",
-            "description": (
-                "Discuss different experiences "
-                "using Yes, Maybe, or No."
-            ),
-        },
-
-        "kink_quiz": {
-            "name": "🦄 Kink Quiz",
-            "description": (
-                "Explore interests, communication, "
-                "boundaries, and preferences."
-            ),
-        },
-
-        "lifestyle_would_you_rather": {
-            "name": "🌶️ Lifestyle Would You Rather",
-            "description": (
-                "Choose between different "
-                "lifestyle scenarios."
-            ),
-        },
-    },
-
-
-    # ======================================================
-    # ICEBREAKERS
-    # ======================================================
-
-    "icebreakers": {
-
-        "random_question": {
-            "name": "💬 Random Question",
-            "description": (
-                "A random question to get "
-                "the conversation started."
-            ),
-        },
-
-        "this_or_that": {
-            "name": "⚡ This or That",
-            "description": (
-                "Quick-fire choices. "
-                "Pick one."
-            ),
-        },
-
-        "compliment_challenge": {
-            "name": "💜 Compliment Challenge",
-            "description": (
-                "Give another member a genuine "
-                "and respectful compliment."
-            ),
-        },
-
-        "rapid_fire": {
-            "name": "⚡ Rapid Fire",
-            "description": (
-                "Answer quick questions "
-                "without overthinking."
-            ),
-        },
-    },
-}
 
 
 # ==========================================================
-# GAME PROMPTS
-#
-# These are organized by GAME KEY.
-#
-# The engine randomly selects from the appropriate list.
+# WOULD YOU RATHER
 # ==========================================================
 
-PROMPTS = {
+WOULD_YOU_RATHER = {
 
+    "mild": [
 
-    # ======================================================
-    # WOULD YOU RATHER
-    # ======================================================
-
-    "would_you_rather": [
-
-        "Would you rather plan the adventure or be surprised?",
-
-        "Would you rather have instant chemistry or build it slowly?",
-
-        "Would you rather flirt through messages or face to face?",
-
-        "Would you rather go on a spontaneous date or a carefully planned one?",
-
-        "Would you rather meet a fun single or an adventurous couple?",
-
-        "Would you rather be pursued or do the pursuing?",
-
-        "Would you rather have a romantic night in or a wild night out?",
+        "Would you rather go on a romantic dinner date or a fun adventure date?",
 
         "Would you rather make the first move or have someone approach you?",
 
-        "Would you rather travel with your partner or stay home together?",
+        "Would you rather flirt through texting or face-to-face?",
 
-        "Would you rather have great conversation or instant physical chemistry?",
+        "Would you rather have amazing chemistry or amazing conversation?",
+
+        "Would you rather receive a surprise date or plan the entire date yourself?",
+
+        "Would you rather spend a night dancing or relaxing together?",
+
+        "Would you rather meet someone through friends or at an event?",
+
+        "Would you rather have a partner who is very affectionate or very playful?",
+
+        "Would you rather receive compliments or playful teasing?",
+
+        "Would you rather have a spontaneous weekend adventure or a perfectly planned getaway?",
+
+        "Would you rather be the one doing the flirting or the one being flirted with?",
+
+        "Would you rather have someone remember every little detail about you or surprise you constantly?",
+
+        "Would you rather have a great first date that lasts all night or several short dates?",
+
+        "Would you rather be attracted to someone's personality first or their appearance first?",
+
+        "Would you rather have deep conversations all night or laugh together all night?",
+
+        "Would you rather receive flowers or have someone cook dinner for you?",
+
+        "Would you rather have a beach date or a city-night date?",
+
+        "Would you rather travel with someone new or take a staycation together?",
+
+        "Would you rather be adventurous with food or adventurous with activities?",
+
+        "Would you rather have someone confidently make the first move or slowly build chemistry?",
     ],
 
+    "spicy": [
 
-    # ======================================================
-    # NEVER HAVE I EVER
-    # ======================================================
+        "Would you rather have a long make-out session or spend the night building anticipation?",
 
-    "never_have_i_ever": [
+        "Would you rather be the tease or be the one getting teased?",
+
+        "Would you rather receive a flirty text during the day or a surprise visit at night?",
+
+        "Would you rather have instant chemistry or slow-burn chemistry?",
+
+        "Would you rather plan an adults-only date or let someone else surprise you?",
+
+        "Would you rather flirt privately or openly in the group?",
+
+        "Would you rather have someone whisper something flirty to you or send it by text?",
+
+        "Would you rather be pursued confidently or seduced slowly?",
+
+        "Would you rather have a playful partner or a very confident partner?",
+
+        "Would you rather explore a new experience together or revisit something you already know you enjoy?",
+
+        "Would you rather have an intimate dinner or a late-night adventure?",
+
+        "Would you rather be surprised by someone's fantasy or tell them yours first?",
+
+        "Would you rather exchange flirty pictures or flirty messages?",
+
+        "Would you rather have someone tell you exactly what they want or make you guess?",
+
+        "Would you rather spend the evening teasing each other or being completely spontaneous?",
+
+        "Would you rather have chemistry with someone immediately or discover it over time?",
+
+        "Would you rather have a confident flirt or a shy flirt make the first move?",
+
+        "Would you rather have a romantic night or a mischievous night?",
+
+        "Would you rather explore a fantasy with someone you've known for years or someone you recently connected with?",
+
+        "Would you rather have an adventurous date at home or go somewhere exciting together?",
+    ],
+
+    "extreme": [
+
+        "Would you rather reveal one fantasy or answer one extremely personal question?",
+
+        "Would you rather plan an adventurous experience or let trusted partners take the lead?",
+
+        "Would you rather explore a fantasy you've talked about for years or try something completely new?",
+
+        "Would you rather be the one setting the pace or surrender control to someone you trust?",
+
+        "Would you rather explore with another couple or with a single new connection?",
+
+        "Would you rather have a partner read your mind or have to tell them exactly what you want?",
+
+        "Would you rather have an unforgettable spontaneous night or a carefully planned adventure?",
+
+        "Would you rather be watched flirting or be the one doing the watching?",
+
+        "Would you rather reveal your biggest YES or your biggest MAYBE?",
+
+        "Would you rather have someone challenge you to step outside your comfort zone or let you decide everything?",
+
+        "Would you rather explore a fantasy with your partner or create a completely new fantasy together?",
+
+        "Would you rather have intense chemistry immediately or build anticipation for weeks?",
+
+        "Would you rather be surprised with an adventurous date or design the experience yourself?",
+
+        "Would you rather have a trusted partner choose the adventure or choose the adventure for everyone?",
+
+        "Would you rather discuss your wildest fantasy openly or keep one fantasy completely private?",
+
+        "Would you rather have a night focused entirely on teasing or one focused entirely on spontaneity?",
+
+        "Would you rather try something once out of curiosity or only explore things you already know you enjoy?",
+
+        "Would you rather have someone ask exactly what you want or figure it out through conversation?",
+
+        "Would you rather explore with people you already know well or meet new consenting adults?",
+
+        "Would you rather have an adventurous weekend getaway or one unforgettable night?",
+    ],
+}
+
+
+# ==========================================================
+# NEVER HAVE I EVER
+# ==========================================================
+
+NEVER_HAVE_I_EVER = {
+
+    "mild": [
 
         "Never have I ever flirted with someone I just met.",
 
-        "Never have I ever gone on a completely spontaneous date.",
+        "Never have I ever had a crush on someone in this group.",
 
-        "Never have I ever had unexpected chemistry with someone.",
+        "Never have I ever stayed up all night talking to someone I liked.",
 
-        "Never have I ever changed my plans because the vibe was too good.",
+        "Never have I ever sent a flirty message and immediately regretted it.",
 
-        "Never have I ever stayed up all night talking to someone new.",
+        "Never have I ever pretended not to notice someone checking me out.",
 
-        "Never have I ever tried something adventurous because my partner suggested it.",
+        "Never have I ever had chemistry with someone completely unexpected.",
 
-        "Never have I ever flirted with someone through a dating app.",
+        "Never have I ever planned an entire date in my head before asking someone out.",
 
-        "Never have I ever gone somewhere without knowing how the night would end.",
+        "Never have I ever used a pickup line seriously.",
 
-        "Never have I ever developed a crush on someone I didn't expect to.",
+        "Never have I ever gotten nervous around someone I found attractive.",
 
-        "Never have I ever made the first move on someone.",
+        "Never have I ever flirted just for fun.",
+
+        "Never have I ever had a secret crush.",
+
+        "Never have I ever gone on a date without telling anyone where I was going.",
+
+        "Never have I ever danced with someone just because I liked their energy.",
+
+        "Never have I ever changed my outfit because I knew someone attractive would be there.",
+
+        "Never have I ever caught someone flirting with me and acted like I didn't notice.",
+
+        "Never have I ever made the first move.",
+
+        "Never have I ever fallen for someone's personality before their appearance.",
+
+        "Never have I ever had a spontaneous date.",
+
+        "Never have I ever received a compliment that I still remember.",
+
+        "Never have I ever had a crush on someone who had no idea.",
     ],
-
-
-    # ======================================================
-    # HOT SEAT
-    # ======================================================
-
-    "hot_seat": [
-
-        "What instantly makes someone more attractive to you?",
-
-        "What is your biggest green flag?",
-
-        "What kind of chemistry catches your attention?",
-
-        "What is something adventurous you would like to try someday?",
-
-        "What is your biggest YES when exploring with consenting adults?",
-
-        "What is one boundary you communicate upfront?",
-
-        "What kind of flirting gets your attention fastest?",
-
-        "What makes someone unforgettable to you?",
-
-        "What type of confidence do you find attractive?",
-
-        "What is something you find unexpectedly attractive?",
-
-        "What makes you feel comfortable around someone new?",
-
-        "What is one thing that instantly kills the vibe for you?",
-    ],
-
-
-    # ======================================================
-    # COUPLE'S CHALLENGE
-    # ======================================================
-
-    "couples_challenge": [
-
-        "Each partner gives the other one genuine compliment.",
-
-        "Describe your partner in three words.",
-
-        "Tell the group one thing you appreciate about your partner.",
-
-        "Choose a song that represents your relationship.",
-
-        "Share one adventure you would like to take together.",
-
-        "Give your partner a playful nickname for the next round.",
-
-        "Tell your partner one thing they do that always makes you smile.",
-
-        "Describe your perfect date together.",
-
-        "Tell your partner one thing you would like to do together someday.",
-
-        "Each partner says one thing they admire about the other.",
-    ],
-
-
-    # ======================================================
-    # KNOW YOUR PARTNER
-    # ======================================================
-
-    "know_your_partner": [
-
-        "What is your partner's favorite way to receive attention?",
-
-        "What is your partner's ideal date?",
-
-        "What is one thing your partner considers a hard boundary?",
-
-        "What makes your partner feel appreciated?",
-
-        "What is your partner's favorite way to relax?",
-
-        "What adventure would your partner most likely say yes to?",
-
-        "What is your partner's favorite way to flirt?",
-
-        "What is one thing your partner finds attractive?",
-
-        "What would your partner choose for a perfect night out?",
-
-        "What is something your partner has always wanted to try?",
-    ],
-
-
-    # ======================================================
-    # COUPLE'S WOULD YOU RATHER
-    # ======================================================
-
-    "couples_would_you_rather": [
-
-        "Would you rather plan a surprise date or receive one?",
-
-        "Would you rather travel together or have a stay-at-home adventure?",
-
-        "Would you rather try something new together or revisit a favorite experience?",
-
-        "Would you rather have a quiet romantic night or a social night out?",
-
-        "Would you rather have a weekend getaway or a surprise date night?",
-
-        "Would you rather cook together or go out for dinner?",
-
-        "Would you rather dance together or watch a movie together?",
-
-        "Would you rather plan everything or completely wing it?",
-    ],
-
-
-    # ======================================================
-    # MOST LIKELY TO
-    # ======================================================
-
-    "most_likely": [
-
-        "Who is most likely to make the first move?",
-
-        "Who is most likely to plan a spontaneous adventure?",
-
-        "Who is most likely to flirt first?",
-
-        "Who is most likely to talk to someone new?",
-
-        "Who is most likely to suggest a road trip?",
-
-        "Who is most likely to stay up all night talking?",
-
-        "Who is most likely to try something completely new?",
-
-        "Who is most likely to make everyone laugh?",
-
-        "Who is most likely to organize the next group event?",
-
-        "Who is most likely to disappear on an adventure and come back with a story?",
-    ],
-
-
-    # ======================================================
-    # TWO TRUTHS & A LIE
-    # ======================================================
-
-    "two_truths": [
-
-        "Post two truths and one lie about yourself. Let the group guess.",
-
-        "Share three facts about yourself. Make one of them a lie.",
-
-        "Tell the group three things you've done. One must be made up.",
-
-        "Share three unusual facts about yourself and let everyone vote on the lie.",
-
-        "Post three statements about yourself. Don't reveal the lie until everyone guesses.",
-    ],
-
-
-    # ======================================================
-    # PICK A PLAYER
-    # ======================================================
-
-    "pick_a_player": [
-
-        "Pick a player and give them a genuine compliment.",
-
-        "Pick a player and ask them a fun question.",
-
-        "Pick a player and tell them what caught your attention about their vibe.",
-
-        "Pick a player to choose the next game.",
-
-        "Pick a player and ask them what their perfect date looks like.",
-
-        "Pick a player and give them your best respectful pickup line.",
-
-        "Pick a player and ask them what their biggest green flag is.",
-
-        "Pick a player and tell them they have good energy.",
-    ],
-
-
-    # ======================================================
-    # FINISH THE SENTENCE
-    # ======================================================
-
-    "finish_sentence": [
-
-        "The quickest way to win me over is ______.",
-
-        "My perfect date starts with ______.",
-
-        "One thing I will always say yes to is ______.",
-
-        "A huge green flag is ______.",
-
-        "The best kind of chemistry is ______.",
-
-        "My ideal weekend would include ______.",
-
-        "The first thing I notice about someone is ______.",
-
-        "My favorite way to flirt is ______.",
-
-        "The best conversation starts with ______.",
-
-        "One adventure I want to experience is ______.",
-    ],
-
-
-    # ======================================================
-    # YES / MAYBE / NO
-    # ======================================================
-
-    "yes_maybe_no": [
-
-        "Spontaneous dates",
-
-        "Meeting another couple",
-
-        "Meeting a single",
-
-        "Flirty texting",
-
-        "Trying a new social event",
-
-        "Planning an adventure with friends",
-
-        "Discussing fantasies with a trusted partner",
-
-        "Trying something new with clear boundaries",
-
-        "Going to an adults-only social event",
-
-        "Meeting someone new through mutual friends",
-
-        "Taking a spontaneous weekend trip",
-
-        "Trying a new form of flirting",
-    ],
-
-
-    # ======================================================
-    # KINK QUIZ
-    # ======================================================
-
-    "kink_quiz": [
-
-        "How important is communication before trying something new?",
-
-        "How important is aftercare to you?",
-
-        "Do you prefer planning or spontaneity?",
-
-        "How comfortable are you discussing boundaries upfront?",
-
-        "How important is trust before exploring?",
-
-        "Do you prefer leading, following, switching, or simply observing?",
-
-        "How important is checking in during an experience?",
-
-        "Would you rather explore slowly or jump into something new?",
-
-        "How important is discussing expectations beforehand?",
-
-        "What makes an experience feel safe and comfortable to you?",
-    ],
-
-
-    # ======================================================
-    # LIFESTYLE WOULD YOU RATHER
-    # ======================================================
-
-    "lifestyle_would_you_rather": [
-
-        "Would you rather attend a private party or a social mixer?",
-
-        "Would you rather meet people through friends or at an event?",
-
-        "Would you rather have a planned experience or spontaneous chemistry?",
-
-        "Would you rather explore one new thing deeply or several things casually?",
-
-        "Would you rather attend a small intimate gathering or a large social event?",
-
-        "Would you rather meet someone through conversation or through shared activities?",
-
-        "Would you rather have a relaxed evening or an adventurous night out?",
-
-        "Would you rather know everyone's boundaries beforehand or discuss them naturally?",
-    ],
-
-
-    # ======================================================
-    # RANDOM QUESTION
-    # ======================================================
-
-    "random_question": [
-
-        "What is something people always notice about you?",
-
-        "What is your favorite way to spend a free evening?",
-
-        "What is one place you want to visit?",
-
-        "What is a hobby you could talk about for hours?",
-
-        "What is your biggest green flag?",
-
-        "What is something you are looking forward to?",
-
-        "What is something that always makes you laugh?",
-
-        "What is one thing you wish more people knew about you?",
-
-        "What is your favorite type of date?",
-
-        "What is one adventure you want to experience?",
-    ],
-
-
-    # ======================================================
-    # THIS OR THAT
-    # ======================================================
-
-    "this_or_that": [
-
-        "Beach or mountains?",
-
-        "Texting or phone calls?",
-
-        "Night out or night in?",
-
-        "Planned date or spontaneous date?",
-
-        "Flirting or being flirted with?",
-
-        "Road trip or flight?",
-
-        "Music or movies?",
-
-        "Morning person or night owl?",
-
-        "Dinner date or activity date?",
-
-        "Coffee date or drinks and conversation?",
-
-        "Big party or small gathering?",
-
-        "Slow burn or instant chemistry?",
-    ],
-
-
-    # ======================================================
-    # COMPLIMENT CHALLENGE
-    # ======================================================
-
-    "compliment_challenge": [
-
-        "Compliment someone's personality.",
-
-        "Compliment someone's energy.",
-
-        "Compliment someone's sense of humor.",
-
-        "Compliment someone who made you feel welcome.",
-
-        "Compliment your partner or a friend.",
-
-        "Give someone a respectful compliment without mentioning appearance.",
-
-        "Tell someone they have great energy.",
-
-        "Compliment someone's confidence.",
-
-        "Compliment someone's kindness.",
-
-        "Give someone a creative but respectful compliment.",
-    ],
-
-
-    # ======================================================
-    # RAPID FIRE
-    # ======================================================
-
-    "rapid_fire": [
-
-        "Coffee or tea?",
-
-        "Sweet or spicy?",
-
-        "Sunrise or sunset?",
-
-        "City or country?",
-
-        "Dancing or karaoke?",
-
-        "Stay in or go out?",
-
-        "Summer or winter?",
-
-        "Flirt first or wait?",
-
-        "Texting or calling?",
-
-        "Beach or pool?",
-
-        "Road trip or vacation flight?",
-
-        "Dinner or dessert?",
-    ],
-}
-
-
-# ==========================================================
-# TRUTH OR DARE
-#
-# Truth or Dare remains compatible with the existing
-# truth_dare.py system.
-#
-# These are used by the category-based Games system.
-# ==========================================================
-
-TRUTHS = {
-
-    "mild": [
-
-        "What is something people assume about you that is completely wrong?",
-
-        "What is your biggest green flag when meeting someone new?",
-
-        "What is your favorite way to flirt?",
-
-        "What instantly makes someone more attractive to you?",
-
-        "What is something adventurous you would like to try someday?",
-
-        "What is one boundary you always communicate upfront?",
-
-        "What kind of personality catches your attention first?",
-
-        "Would you rather meet another couple or a single for a first experience?",
-
-        "What makes you feel comfortable enough to explore with someone new?",
-
-        "What is your favorite type of date?",
-
-        "What is one thing that makes you feel desired?",
-
-        "Are you more of a tease or the one being teased?",
-    ],
-
 
     "spicy": [
 
-        "What is something that instantly turns up the chemistry for you?",
+        "Never have I ever sent a suggestive message to someone I was attracted to.",
 
-        "What is your biggest turn-on when meeting someone new?",
+        "Never have I ever flirted with someone knowing they were attracted to me.",
 
-        "What is something adventurous on your kink bucket list?",
+        "Never have I ever had a crush on someone I probably shouldn't have.",
 
-        "Have you ever developed unexpected chemistry with someone?",
+        "Never have I ever exchanged flirty pictures with someone.",
 
-        "What is your favorite kind of teasing?",
+        "Never have I ever kissed someone on the first date.",
 
-        "What is your favorite way someone can flirt with you?",
+        "Never have I ever had chemistry with someone I met unexpectedly.",
 
-        "Would you rather plan an experience or let the night unfold naturally?",
+        "Never have I ever stayed up late having a very spicy conversation.",
 
-        "What is one thing that instantly makes someone irresistible to you?",
+        "Never have I ever intentionally teased someone because I knew they liked it.",
 
-        "What kind of couple catches your attention?",
+        "Never have I ever had an adults-only date that turned into something more.",
 
-        "What is something you have always been curious about exploring?",
+        "Never have I ever fantasized about someone I was talking to.",
 
-        "What is your favorite type of adult date night?",
+        "Never have I ever been caught flirting.",
 
-        "What is your favorite way to build anticipation?",
+        "Never have I ever flirted with someone in a public place.",
+
+        "Never have I ever sent a message designed specifically to make someone blush.",
+
+        "Never have I ever had a fantasy involving someone I knew.",
+
+        "Never have I ever intentionally built anticipation before a date.",
+
+        "Never have I ever asked someone if they wanted to exchange pictures.",
+
+        "Never have I ever moved a conversation from a group into private chat because the chemistry was strong.",
+
+        "Never have I ever had a date that became much more adventurous than planned.",
+
+        "Never have I ever told someone exactly what I wanted.",
+
+        "Never have I ever been surprised by how strong my chemistry with someone became.",
     ],
-
 
     "extreme": [
 
-        "What is the boldest experience you would consider trying?",
+        "Never have I ever discussed a fantasy with a partner and seriously considered exploring it.",
 
-        "What is one kink you are curious about but have not explored?",
+        "Never have I ever tried something adventurous because someone I trusted suggested it.",
 
-        "What is one fantasy you have discussed with your partner but have not explored yet?",
+        "Never have I ever explored a kink with a consenting partner.",
 
-        "What would make you immediately say YES to an adventure?",
+        "Never have I ever had an adults-only experience that I never expected to happen.",
 
-        "What would make you immediately say HARD NO?",
+        "Never have I ever shared a fantasy with someone I was attracted to.",
 
-        "Would you rather explore with another couple, a single, or both?",
+        "Never have I ever intentionally pushed myself outside my comfort zone with a trusted partner.",
 
-        "What is something adventurous you would try with the right consenting people?",
+        "Never have I ever explored something new because the chemistry was too strong to ignore.",
 
-        "What is your biggest boundary when exploring?",
+        "Never have I ever had an adventurous experience with another consenting adult.",
 
-        "What is one thing you would love to experience with a partner?",
+        "Never have I ever had a fantasy that I was nervous to admit out loud.",
 
-        "What kind of situation creates the strongest chemistry for you?",
+        "Never have I ever discussed boundaries before an adventurous experience.",
 
-        "What is something you have always wanted to be asked?",
+        "Never have I ever changed my mind about something after discussing boundaries.",
 
-        "What is the most adventurous date you would actually agree to?",
+        "Never have I ever said NO to something even though I was curious about it.",
+
+        "Never have I ever said YES to something I had previously considered a MAYBE.",
+
+        "Never have I ever had a trusted partner help me explore something new.",
+
+        "Never have I ever had an experience that completely changed what I thought I liked.",
+
+        "Never have I ever had a fantasy that stayed on my bucket list for years.",
+
+        "Never have I ever had an adults-only adventure that became a favorite memory.",
+
+        "Never have I ever talked openly about my biggest boundaries before exploring.",
+
+        "Never have I ever surprised myself by enjoying something I was nervous about.",
+
+        "Never have I ever had an adventurous experience I would absolutely repeat.",
     ],
 }
 
 
-DARES = {
+# ==========================================================
+# THIS OR THAT
+# ==========================================================
+
+THIS_OR_THAT = {
 
     "mild": [
 
-        "Give someone in the chat a genuine compliment.",
+        ("Coffee date", "Dinner date"),
 
-        "Tell the group your favorite way to flirt.",
+        ("Beach day", "Mountain getaway"),
 
-        "Give someone your best pickup line.",
+        ("Text first", "Call first"),
 
-        "Tell the group whether you are more tease or temptation.",
+        ("Make the first move", "Be pursued"),
 
-        "Share your favorite song for setting the mood.",
+        ("Flirting", "Deep conversation"),
 
-        "Describe your ideal date in three words.",
+        ("Romantic dinner", "Fun adventure"),
 
-        "Tell someone what caught your attention about them.",
+        ("Dancing", "Movie night"),
 
-        "Give your partner a playful compliment.",
+        ("Sunrise", "Sunset"),
 
-        "Tell the group one of your biggest green flags.",
+        ("Staycation", "Road trip"),
 
-        "Send someone a 😉 and see if they respond.",
+        ("Planned date", "Spontaneous date"),
+
+        ("Compliments", "Playful teasing"),
+
+        ("Quiet night", "Night out"),
+
+        ("Sweet messages", "Funny messages"),
+
+        ("Long conversation", "Instant chemistry"),
+
+        ("Dress up", "Casual date"),
+
+        ("Group event", "One-on-one date"),
+
+        ("Live music", "Comedy show"),
+
+        ("Cook together", "Order takeout"),
+
+        ("Flirt in person", "Flirt by text"),
+
+        ("Weekend getaway", "One perfect night"),
     ],
-
 
     "spicy": [
 
-        "Send someone a flirty message that makes your intentions clear.",
+        ("Slow burn", "Instant chemistry"),
 
-        "Give someone your best seductive pickup line.",
+        ("Tease", "Be teased"),
 
-        "Tell someone in the group what caught your attention about them.",
+        ("Flirty texts", "Whispered flirting"),
 
-        "Invite someone you're interested in to chat privately — if they're interested too.",
+        ("Romantic night", "Mischievous night"),
 
-        "Send your partner a message designed to make them blush.",
+        ("Make the first move", "Get pursued"),
 
-        "Tell the group your ideal couple's night out.",
+        ("Private flirting", "Public flirting"),
 
-        "Tell someone what kind of chemistry you are looking for.",
+        ("Build anticipation", "Be spontaneous"),
 
-        "Send someone a 😉 and wait for their response.",
+        ("Confident flirt", "Shy flirt"),
 
-        "Tell someone one thing about their vibe that you find attractive.",
+        ("Exchange messages", "Exchange pictures"),
 
-        "Share one item from your adult bucket list.",
+        ("Plan everything", "Let someone surprise you"),
+
+        ("Adults-only dinner", "Adults-only adventure"),
+
+        ("Sweet talk", "Dirty talk"),
+
+        ("Long make-out", "Slow teasing"),
+
+        ("Stay in", "Go out"),
+
+        ("One-on-one chemistry", "Group chemistry"),
+
+        ("Romantic atmosphere", "Playful atmosphere"),
+
+        ("Lead", "Follow"),
+
+        ("Tell them what you want", "Make them guess"),
+
+        ("Flirt first", "Wait for the signal"),
+
+        ("Adventure together", "Try something new together"),
     ],
-
 
     "extreme": [
 
-        "Give someone your most creative seductive pickup line.",
+        ("Reveal a fantasy", "Reveal a secret"),
 
-        "Tell someone exactly what made you notice them.",
+        ("Lead the adventure", "Let someone else lead"),
 
-        "Tell the group about one adventure that is on your bucket list.",
+        ("Plan the experience", "Go completely spontaneous"),
 
-        "Tell the group your biggest YES, biggest MAYBE, and biggest NO.",
+        ("Explore a YES", "Explore a MAYBE"),
 
-        "Tell someone what kind of flirting gets your attention fastest.",
+        ("Slow anticipation", "Instant intensity"),
 
-        "Send your partner a message telling them what you find irresistible about them.",
+        ("Private adventure", "Group adventure"),
 
-        "Tell the group what makes a couple especially attractive to you.",
+        ("Known trusted partner", "New trusted connection"),
 
-        "Tell the group one adventurous experience you would consider with the right consenting people.",
+        ("Stay in control", "Surrender control"),
 
-        "Give someone permission to ask you one spicy question. You may still PASS.",
+        ("Discuss every detail", "Let the chemistry guide you"),
 
-        "Describe your perfect adults-only night out.",
+        ("Try something new", "Perfect something familiar"),
+
+        ("Bold question", "Bold answer"),
+
+        ("Flirt openly", "Flirt privately"),
+
+        ("Romantic adventure", "Kinky adventure"),
+
+        ("Choose the rules", "Create the rules together"),
+
+        ("One unforgettable night", "Adventurous weekend"),
+
+        ("Reveal your biggest YES", "Reveal your biggest NO"),
+
+        ("Take the lead", "Be surprised"),
+
+        ("Build anticipation for weeks", "Act on immediate chemistry"),
+
+        ("Explore a fantasy", "Create a new fantasy"),
+
+        ("Safe familiar adventure", "Carefully negotiated new adventure"),
     ],
 }
 
 
 # ==========================================================
-# VALIDATION HELPERS
+# GAME CONTENT LOOKUP
 # ==========================================================
 
-def get_categories():
+GAME_CONTENT = {
 
-    return GAME_CATEGORIES.copy()
+    "wouldyourather": WOULD_YOU_RATHER,
+
+    "neverhaveiever": NEVER_HAVE_I_EVER,
+
+    "thisorthat": THIS_OR_THAT,
+}
 
 
-def get_games(category):
+# ==========================================================
+# CONTENT HELPERS
+# ==========================================================
 
-    return GAMES.get(
-        category,
+def get_content(
+    game,
+    level,
+):
+    """
+    Return the content list for a game and level.
+
+    Returns an empty list if the game or level doesn't exist.
+    """
+
+    game_data = GAME_CONTENT.get(
+        game,
         {},
-    ).copy()
+    )
 
-
-def get_prompts(game_key):
-
-    return PROMPTS.get(
-        game_key,
-        [],
-    ).copy()
-
-
-def get_truths(level):
-
-    return TRUTHS.get(
+    return game_data.get(
         level,
         [],
-    ).copy()
+    )
 
 
-def get_dares(level):
+def get_content_count(
+    game,
+    level=None,
+):
+    """
+    Return the number of available prompts.
 
-    return DARES.get(
-        level,
-        [],
-    ).copy()
+    If level is None, return the total number of prompts
+    across all levels.
+    """
+
+    game_data = GAME_CONTENT.get(
+        game,
+        {},
+    )
+
+    if level is not None:
+
+        return len(
+            game_data.get(
+                level,
+                [],
+            )
+        )
+
+    return sum(
+        len(prompts)
+        for prompts in game_data.values()
+    )
+
+
+# ==========================================================
+# END game_data.py
+# ==========================================================
