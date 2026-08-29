@@ -2,21 +2,135 @@
 # Melanated AZ Bot
 # games/game_data.py
 #
-# GAME CONTENT DATABASE
+# Shared game content for the Games category
 #
-# Games:
-#   - Would You Rather
-#   - Never Have I Ever
-#   - This or That
-#
-# Levels:
-#   - Mild
-#   - Spicy
-#   - Extreme
-#
-# Content is adult-community oriented, but consent-focused.
-# PASS is always available through the game engine.
+# IMPORTANT:
+#   - This file contains GAME DATA ONLY.
+#   - It does not import from bot.py or admin.py.
+#   - It is safe to import from the individual game modules.
 # ==========================================================
+
+
+# ==========================================================
+# GAME DEFINITIONS
+# ==========================================================
+
+GAME_DEFINITIONS = {
+    "truth_dare": {
+        "name": "🔥 Truth or Dare",
+        "description": "Fun, flirty, spicy and adventurous Truth or Dare.",
+        "command": "truthdare",
+        "callback": "game_truthdare",
+    },
+
+    "would_you_rather": {
+        "name": "🤔 Would You Rather",
+        "description": "Choose between two fun, wild or spicy options.",
+        "command": "wouldyourather",
+        "callback": "game_wyr",
+    },
+
+    "never_have_i_ever": {
+        "name": "🙈 Never Have I Ever",
+        "description": "See who has done it and who hasn't.",
+        "command": "neverhaveiever",
+        "callback": "game_nhie",
+    },
+
+    "most_likely": {
+        "name": "👀 Most Likely To",
+        "description": "Vote on who is most likely to do it.",
+        "command": "mostlikely",
+        "callback": "game_mostlikely",
+    },
+
+    "this_or_that": {
+        "name": "⚡ This or That",
+        "description": "Pick one. No overthinking.",
+        "command": "thisorthat",
+        "callback": "game_thisorthat",
+    },
+
+    "hot_seat": {
+        "name": "🔥 Hot Seat",
+        "description": "One player gets the spotlight.",
+        "command": "hotseat",
+        "callback": "game_hotseat",
+    },
+
+    "confession": {
+        "name": "🤫 Confessions",
+        "description": "Share a confession. Keep it respectful.",
+        "command": "confession",
+        "callback": "game_confession",
+    },
+
+    "compliment_battle": {
+        "name": "💜 Compliment Battle",
+        "description": "Bring the good energy with compliments.",
+        "command": "complimentbattle",
+        "callback": "game_compliment",
+    },
+
+    "dice": {
+        "name": "🎲 Dice Game",
+        "description": "Roll the dice and see what happens.",
+        "command": "gamedice",
+        "callback": "game_dice",
+    },
+
+    "coin_flip": {
+        "name": "🪙 Coin Flip",
+        "description": "Heads or tails.",
+        "command": "coinflip",
+        "callback": "game_coinflip",
+    },
+}
+
+
+# ==========================================================
+# GENERAL GAME MESSAGES
+# ==========================================================
+
+GAME_MESSAGES = {
+    "welcome": (
+        "🎮 GAMES\n\n"
+        "Welcome to the Melanated AZ Game Room!\n\n"
+        "Choose a game below and have some fun. 😈\n\n"
+        "💜 Keep it consensual.\n"
+        "💜 Respect boundaries.\n"
+        "💜 Anyone can PASS.\n"
+        "💜 Keep the vibe fun."
+    ),
+
+    "disabled": (
+        "🎮 Games are currently disabled by an administrator."
+    ),
+
+    "game_disabled": (
+        "🎮 This game is currently disabled."
+    ),
+
+    "pass": (
+        "😈 PASS accepted.\n\n"
+        "No explanation required. Pick another option when you're ready."
+    ),
+
+    "back": "🎮 Back to Games",
+
+    "choose_game": (
+        "🎮 Choose a game:"
+    ),
+
+    "choose_level": (
+        "🔥 Choose your level:"
+    ),
+
+    "error": (
+        "⚠️ Something went wrong with that game.\n"
+        "Please try again."
+    ),
+}
 
 
 # ==========================================================
@@ -26,132 +140,162 @@
 WOULD_YOU_RATHER = {
 
     "mild": [
-
-        "Would you rather go on a romantic dinner date or a fun adventure date?",
-
-        "Would you rather make the first move or have someone approach you?",
-
-        "Would you rather flirt through texting or face-to-face?",
-
-        "Would you rather have amazing chemistry or amazing conversation?",
-
-        "Would you rather receive a surprise date or plan the entire date yourself?",
-
-        "Would you rather spend a night dancing or relaxing together?",
-
-        "Would you rather meet someone through friends or at an event?",
-
-        "Would you rather have a partner who is very affectionate or very playful?",
-
-        "Would you rather receive compliments or playful teasing?",
-
-        "Would you rather have a spontaneous weekend adventure or a perfectly planned getaway?",
-
-        "Would you rather be the one doing the flirting or the one being flirted with?",
-
-        "Would you rather have someone remember every little detail about you or surprise you constantly?",
-
-        "Would you rather have a great first date that lasts all night or several short dates?",
-
-        "Would you rather be attracted to someone's personality first or their appearance first?",
-
-        "Would you rather have deep conversations all night or laugh together all night?",
-
-        "Would you rather receive flowers or have someone cook dinner for you?",
-
-        "Would you rather have a beach date or a city-night date?",
-
-        "Would you rather travel with someone new or take a staycation together?",
-
-        "Would you rather be adventurous with food or adventurous with activities?",
-
-        "Would you rather have someone confidently make the first move or slowly build chemistry?",
+        (
+            "Would you rather have a romantic dinner or a fun night out?",
+            "🍷 Romantic dinner",
+            "🎉 Night out",
+        ),
+        (
+            "Would you rather make the first move or have someone approach you?",
+            "😈 Make the move",
+            "👀 Be approached",
+        ),
+        (
+            "Would you rather go on a beach date or a city date?",
+            "🏖️ Beach",
+            "🌆 City",
+        ),
+        (
+            "Would you rather receive flowers or your favorite snacks?",
+            "🌹 Flowers",
+            "🍫 Snacks",
+        ),
+        (
+            "Would you rather stay home for date night or go somewhere new?",
+            "🏠 Stay home",
+            "🌎 Go somewhere new",
+        ),
+        (
+            "Would you rather flirt through messages or face-to-face?",
+            "📱 Messages",
+            "👀 Face-to-face",
+        ),
+        (
+            "Would you rather have great chemistry or great conversation?",
+            "🔥 Chemistry",
+            "💬 Conversation",
+        ),
+        (
+            "Would you rather be the planner or the spontaneous one?",
+            "📅 Planner",
+            "🎲 Spontaneous",
+        ),
+        (
+            "Would you rather receive a surprise date or plan your own?",
+            "🎁 Surprise",
+            "📝 Plan it",
+        ),
+        (
+            "Would you rather dance together or cuddle during a movie?",
+            "💃 Dance",
+            "🎬 Cuddle",
+        ),
     ],
 
     "spicy": [
-
-        "Would you rather have a long make-out session or spend the night building anticipation?",
-
-        "Would you rather be the tease or be the one getting teased?",
-
-        "Would you rather receive a flirty text during the day or a surprise visit at night?",
-
-        "Would you rather have instant chemistry or slow-burn chemistry?",
-
-        "Would you rather plan an adults-only date or let someone else surprise you?",
-
-        "Would you rather flirt privately or openly in the group?",
-
-        "Would you rather have someone whisper something flirty to you or send it by text?",
-
-        "Would you rather be pursued confidently or seduced slowly?",
-
-        "Would you rather have a playful partner or a very confident partner?",
-
-        "Would you rather explore a new experience together or revisit something you already know you enjoy?",
-
-        "Would you rather have an intimate dinner or a late-night adventure?",
-
-        "Would you rather be surprised by someone's fantasy or tell them yours first?",
-
-        "Would you rather exchange flirty pictures or flirty messages?",
-
-        "Would you rather have someone tell you exactly what they want or make you guess?",
-
-        "Would you rather spend the evening teasing each other or being completely spontaneous?",
-
-        "Would you rather have chemistry with someone immediately or discover it over time?",
-
-        "Would you rather have a confident flirt or a shy flirt make the first move?",
-
-        "Would you rather have a romantic night or a mischievous night?",
-
-        "Would you rather explore a fantasy with someone you've known for years or someone you recently connected with?",
-
-        "Would you rather have an adventurous date at home or go somewhere exciting together?",
+        (
+            "Would you rather spend the night flirting or teasing?",
+            "😉 Flirting",
+            "😈 Teasing",
+        ),
+        (
+            "Would you rather make the first move or be chased?",
+            "🔥 Make the move",
+            "👀 Be chased",
+        ),
+        (
+            "Would you rather have a slow-burn connection or instant chemistry?",
+            "❤️ Slow burn",
+            "🔥 Instant chemistry",
+        ),
+        (
+            "Would you rather receive a seductive message or a whispered compliment?",
+            "📱 Message",
+            "😈 Whisper",
+        ),
+        (
+            "Would you rather plan an adventurous night or let someone surprise you?",
+            "🗓️ Plan it",
+            "🎁 Surprise me",
+        ),
+        (
+            "Would you rather flirt all night or build anticipation slowly?",
+            "😉 All night",
+            "🔥 Slowly",
+        ),
+        (
+            "Would you rather be the tease or the one being teased?",
+            "😈 Tease",
+            "👀 Be teased",
+        ),
+        (
+            "Would you rather have a private date or a group adventure?",
+            "💜 Private",
+            "🔥 Group",
+        ),
+        (
+            "Would you rather be pursued or do the pursuing?",
+            "👑 Pursued",
+            "😈 Pursue",
+        ),
+        (
+            "Would you rather have amazing conversation or undeniable chemistry?",
+            "💬 Conversation",
+            "🔥 Chemistry",
+        ),
     ],
 
     "extreme": [
-
-        "Would you rather reveal one fantasy or answer one extremely personal question?",
-
-        "Would you rather plan an adventurous experience or let trusted partners take the lead?",
-
-        "Would you rather explore a fantasy you've talked about for years or try something completely new?",
-
-        "Would you rather be the one setting the pace or surrender control to someone you trust?",
-
-        "Would you rather explore with another couple or with a single new connection?",
-
-        "Would you rather have a partner read your mind or have to tell them exactly what you want?",
-
-        "Would you rather have an unforgettable spontaneous night or a carefully planned adventure?",
-
-        "Would you rather be watched flirting or be the one doing the watching?",
-
-        "Would you rather reveal your biggest YES or your biggest MAYBE?",
-
-        "Would you rather have someone challenge you to step outside your comfort zone or let you decide everything?",
-
-        "Would you rather explore a fantasy with your partner or create a completely new fantasy together?",
-
-        "Would you rather have intense chemistry immediately or build anticipation for weeks?",
-
-        "Would you rather be surprised with an adventurous date or design the experience yourself?",
-
-        "Would you rather have a trusted partner choose the adventure or choose the adventure for everyone?",
-
-        "Would you rather discuss your wildest fantasy openly or keep one fantasy completely private?",
-
-        "Would you rather have a night focused entirely on teasing or one focused entirely on spontaneity?",
-
-        "Would you rather try something once out of curiosity or only explore things you already know you enjoy?",
-
-        "Would you rather have someone ask exactly what you want or figure it out through conversation?",
-
-        "Would you rather explore with people you already know well or meet new consenting adults?",
-
-        "Would you rather have an adventurous weekend getaway or one unforgettable night?",
+        (
+            "Would you rather explore a new fantasy or revisit a favorite one?",
+            "🔥 New fantasy",
+            "😈 Favorite",
+        ),
+        (
+            "Would you rather be completely spontaneous or plan every detail?",
+            "🎲 Spontaneous",
+            "📋 Planned",
+        ),
+        (
+            "Would you rather explore with a trusted couple or a trusted single?",
+            "👫 Couple",
+            "🔥 Single",
+        ),
+        (
+            "Would you rather be in control or give up control?",
+            "👑 Control",
+            "😈 Give it up",
+        ),
+        (
+            "Would you rather have an adventurous weekend away or one unforgettable night?",
+            "🌴 Weekend",
+            "🔥 One night",
+        ),
+        (
+            "Would you rather reveal a fantasy or hear someone else's fantasy?",
+            "🤫 Reveal mine",
+            "👀 Hear theirs",
+        ),
+        (
+            "Would you rather try something completely new or perfect something you already love?",
+            "🔥 New",
+            "😈 Perfect it",
+        ),
+        (
+            "Would you rather choose the adventure or let your partner choose?",
+            "👑 My choice",
+            "🎲 Their choice",
+        ),
+        (
+            "Would you rather have intense chemistry or intense anticipation?",
+            "🔥 Chemistry",
+            "😈 Anticipation",
+        ),
+        (
+            "Would you rather have one wild adventure or several smaller adventures?",
+            "🔥 One wild one",
+            "😈 Several",
+        ),
     ],
 }
 
@@ -163,132 +307,89 @@ WOULD_YOU_RATHER = {
 NEVER_HAVE_I_EVER = {
 
     "mild": [
-
+        "Never have I ever gone on a date just because I liked someone's smile.",
+        "Never have I ever had a crush on someone I met online.",
         "Never have I ever flirted with someone I just met.",
-
-        "Never have I ever had a crush on someone in this group.",
-
-        "Never have I ever stayed up all night talking to someone I liked.",
-
-        "Never have I ever sent a flirty message and immediately regretted it.",
-
-        "Never have I ever pretended not to notice someone checking me out.",
-
-        "Never have I ever had chemistry with someone completely unexpected.",
-
-        "Never have I ever planned an entire date in my head before asking someone out.",
-
-        "Never have I ever used a pickup line seriously.",
-
-        "Never have I ever gotten nervous around someone I found attractive.",
-
-        "Never have I ever flirted just for fun.",
-
+        "Never have I ever stayed up all night talking to someone.",
+        "Never have I ever sent a risky text and immediately regretted it.",
         "Never have I ever had a secret crush.",
-
-        "Never have I ever gone on a date without telling anyone where I was going.",
-
-        "Never have I ever danced with someone just because I liked their energy.",
-
-        "Never have I ever changed my outfit because I knew someone attractive would be there.",
-
-        "Never have I ever caught someone flirting with me and acted like I didn't notice.",
-
-        "Never have I ever made the first move.",
-
-        "Never have I ever fallen for someone's personality before their appearance.",
-
-        "Never have I ever had a spontaneous date.",
-
-        "Never have I ever received a compliment that I still remember.",
-
-        "Never have I ever had a crush on someone who had no idea.",
+        "Never have I ever gone on a spontaneous date.",
+        "Never have I ever pretended not to be interested when I actually was.",
+        "Never have I ever fallen for someone's personality first.",
+        "Never have I ever flirted with someone across the room.",
     ],
 
     "spicy": [
-
-        "Never have I ever sent a suggestive message to someone I was attracted to.",
-
-        "Never have I ever flirted with someone knowing they were attracted to me.",
-
+        "Never have I ever sent a flirty picture.",
+        "Never have I ever had chemistry with someone I wasn't expecting.",
+        "Never have I ever flirted with someone at a party.",
+        "Never have I ever had a secret fantasy about someone.",
+        "Never have I ever intentionally teased someone.",
+        "Never have I ever stayed up late having an extremely flirty conversation.",
+        "Never have I ever kissed someone I met that same night.",
+        "Never have I ever had a date turn much more interesting than expected.",
+        "Never have I ever flirted with someone just to see their reaction.",
         "Never have I ever had a crush on someone I probably shouldn't have.",
-
-        "Never have I ever exchanged flirty pictures with someone.",
-
-        "Never have I ever kissed someone on the first date.",
-
-        "Never have I ever had chemistry with someone I met unexpectedly.",
-
-        "Never have I ever stayed up late having a very spicy conversation.",
-
-        "Never have I ever intentionally teased someone because I knew they liked it.",
-
-        "Never have I ever had an adults-only date that turned into something more.",
-
-        "Never have I ever fantasized about someone I was talking to.",
-
-        "Never have I ever been caught flirting.",
-
-        "Never have I ever flirted with someone in a public place.",
-
-        "Never have I ever sent a message designed specifically to make someone blush.",
-
-        "Never have I ever had a fantasy involving someone I knew.",
-
-        "Never have I ever intentionally built anticipation before a date.",
-
-        "Never have I ever asked someone if they wanted to exchange pictures.",
-
-        "Never have I ever moved a conversation from a group into private chat because the chemistry was strong.",
-
-        "Never have I ever had a date that became much more adventurous than planned.",
-
-        "Never have I ever told someone exactly what I wanted.",
-
-        "Never have I ever been surprised by how strong my chemistry with someone became.",
     ],
 
     "extreme": [
-
-        "Never have I ever discussed a fantasy with a partner and seriously considered exploring it.",
-
-        "Never have I ever tried something adventurous because someone I trusted suggested it.",
-
         "Never have I ever explored a kink with a consenting partner.",
+        "Never have I ever tried something adventurous because my partner wanted to.",
+        "Never have I ever had a fantasy come true.",
+        "Never have I ever had an unexpected connection become something more.",
+        "Never have I ever discussed a fantasy with a partner that I was nervous to reveal.",
+        "Never have I ever tried something completely outside my comfort zone with trusted adults.",
+        "Never have I ever had a date turn into an unforgettable adventure.",
+        "Never have I ever explored something I once thought I would never try.",
+        "Never have I ever had chemistry with someone immediately.",
+        "Never have I ever kept an adventurous experience completely private.",
+    ],
+}
 
-        "Never have I ever had an adults-only experience that I never expected to happen.",
 
-        "Never have I ever shared a fantasy with someone I was attracted to.",
+# ==========================================================
+# MOST LIKELY TO
+# ==========================================================
 
-        "Never have I ever intentionally pushed myself outside my comfort zone with a trusted partner.",
+MOST_LIKELY = {
 
-        "Never have I ever explored something new because the chemistry was too strong to ignore.",
+    "mild": [
+        "Who is most likely to make the first move?",
+        "Who is most likely to plan the perfect date?",
+        "Who is most likely to flirt without realizing it?",
+        "Who is most likely to stay up all night talking?",
+        "Who is most likely to make everyone laugh?",
+        "Who is most likely to disappear on a spontaneous adventure?",
+        "Who is most likely to have the best pickup line?",
+        "Who is most likely to make a new friend tonight?",
+        "Who is most likely to fall for someone's personality?",
+        "Who is most likely to organize the next group outing?",
+    ],
 
-        "Never have I ever had an adventurous experience with another consenting adult.",
+    "spicy": [
+        "Who is most likely to make the first flirty move?",
+        "Who is most likely to make someone blush?",
+        "Who is most likely to send a risky text?",
+        "Who is most likely to plan a spicy date?",
+        "Who is most likely to be the biggest tease?",
+        "Who is most likely to flirt with someone across the room?",
+        "Who is most likely to have the wildest dating story?",
+        "Who is most likely to turn a normal date into an adventure?",
+        "Who is most likely to have someone crushing on them secretly?",
+        "Who is most likely to make the first move at a party?",
+    ],
 
-        "Never have I ever had a fantasy that I was nervous to admit out loud.",
-
-        "Never have I ever discussed boundaries before an adventurous experience.",
-
-        "Never have I ever changed my mind about something after discussing boundaries.",
-
-        "Never have I ever said NO to something even though I was curious about it.",
-
-        "Never have I ever said YES to something I had previously considered a MAYBE.",
-
-        "Never have I ever had a trusted partner help me explore something new.",
-
-        "Never have I ever had an experience that completely changed what I thought I liked.",
-
-        "Never have I ever had a fantasy that stayed on my bucket list for years.",
-
-        "Never have I ever had an adults-only adventure that became a favorite memory.",
-
-        "Never have I ever talked openly about my biggest boundaries before exploring.",
-
-        "Never have I ever surprised myself by enjoying something I was nervous about.",
-
-        "Never have I ever had an adventurous experience I would absolutely repeat.",
+    "extreme": [
+        "Who is most likely to suggest a completely spontaneous adventure?",
+        "Who is most likely to have the wildest bucket list?",
+        "Who is most likely to try something new with a trusted partner?",
+        "Who is most likely to plan an unforgettable adults-only night?",
+        "Who is most likely to reveal a surprising fantasy?",
+        "Who is most likely to say YES to an adventure?",
+        "Who is most likely to have the most interesting dating story?",
+        "Who is most likely to surprise everyone with their hidden adventurous side?",
+        "Who is most likely to organize a group adventure?",
+        "Who is most likely to turn a quiet night into an unforgettable one?",
     ],
 }
 
@@ -300,203 +401,312 @@ NEVER_HAVE_I_EVER = {
 THIS_OR_THAT = {
 
     "mild": [
-
-        ("Coffee date", "Dinner date"),
-
-        ("Beach day", "Mountain getaway"),
-
-        ("Text first", "Call first"),
-
-        ("Make the first move", "Be pursued"),
-
-        ("Flirting", "Deep conversation"),
-
-        ("Romantic dinner", "Fun adventure"),
-
-        ("Dancing", "Movie night"),
-
-        ("Sunrise", "Sunset"),
-
-        ("Staycation", "Road trip"),
-
-        ("Planned date", "Spontaneous date"),
-
-        ("Compliments", "Playful teasing"),
-
-        ("Quiet night", "Night out"),
-
-        ("Sweet messages", "Funny messages"),
-
-        ("Long conversation", "Instant chemistry"),
-
-        ("Dress up", "Casual date"),
-
-        ("Group event", "One-on-one date"),
-
-        ("Live music", "Comedy show"),
-
-        ("Cook together", "Order takeout"),
-
-        ("Flirt in person", "Flirt by text"),
-
-        ("Weekend getaway", "One perfect night"),
+        ("Beach date", "🏖️", "City date", "🌆"),
+        ("Dinner", "🍽️", "Drinks", "🥂"),
+        ("Texting", "📱", "Calling", "📞"),
+        ("Morning date", "☀️", "Night date", "🌙"),
+        ("Netflix", "🎬", "Game night", "🎮"),
+        ("Flirting", "😉", "Compliments", "💜"),
+        ("Stay home", "🏠", "Go out", "🎉"),
+        ("Plan everything", "📋", "Go with the flow", "🎲"),
+        ("Sweet", "🍫", "Savory", "🍿"),
+        ("Romantic", "❤️", "Playful", "😈"),
     ],
 
     "spicy": [
-
-        ("Slow burn", "Instant chemistry"),
-
-        ("Tease", "Be teased"),
-
-        ("Flirty texts", "Whispered flirting"),
-
-        ("Romantic night", "Mischievous night"),
-
-        ("Make the first move", "Get pursued"),
-
-        ("Private flirting", "Public flirting"),
-
-        ("Build anticipation", "Be spontaneous"),
-
-        ("Confident flirt", "Shy flirt"),
-
-        ("Exchange messages", "Exchange pictures"),
-
-        ("Plan everything", "Let someone surprise you"),
-
-        ("Adults-only dinner", "Adults-only adventure"),
-
-        ("Sweet talk", "Dirty talk"),
-
-        ("Long make-out", "Slow teasing"),
-
-        ("Stay in", "Go out"),
-
-        ("One-on-one chemistry", "Group chemistry"),
-
-        ("Romantic atmosphere", "Playful atmosphere"),
-
-        ("Lead", "Follow"),
-
-        ("Tell them what you want", "Make them guess"),
-
-        ("Flirt first", "Wait for the signal"),
-
-        ("Adventure together", "Try something new together"),
+        ("Slow burn", "🔥", "Instant chemistry", "⚡"),
+        ("Flirting", "😉", "Teasing", "😈"),
+        ("Private date", "💜", "Group date", "🔥"),
+        ("Pursue", "😈", "Be pursued", "👑"),
+        ("Messages", "📱", "Whispers", "🤫"),
+        ("Anticipation", "🔥", "Spontaneity", "🎲"),
+        ("Romance", "❤️", "Adventure", "🌶️"),
+        ("Tease", "😈", "Be teased", "👀"),
+        ("Plan it", "📋", "Surprise me", "🎁"),
+        ("Chemistry", "🔥", "Connection", "💜"),
     ],
 
     "extreme": [
-
-        ("Reveal a fantasy", "Reveal a secret"),
-
-        ("Lead the adventure", "Let someone else lead"),
-
-        ("Plan the experience", "Go completely spontaneous"),
-
-        ("Explore a YES", "Explore a MAYBE"),
-
-        ("Slow anticipation", "Instant intensity"),
-
-        ("Private adventure", "Group adventure"),
-
-        ("Known trusted partner", "New trusted connection"),
-
-        ("Stay in control", "Surrender control"),
-
-        ("Discuss every detail", "Let the chemistry guide you"),
-
-        ("Try something new", "Perfect something familiar"),
-
-        ("Bold question", "Bold answer"),
-
-        ("Flirt openly", "Flirt privately"),
-
-        ("Romantic adventure", "Kinky adventure"),
-
-        ("Choose the rules", "Create the rules together"),
-
-        ("One unforgettable night", "Adventurous weekend"),
-
-        ("Reveal your biggest YES", "Reveal your biggest NO"),
-
-        ("Take the lead", "Be surprised"),
-
-        ("Build anticipation for weeks", "Act on immediate chemistry"),
-
-        ("Explore a fantasy", "Create a new fantasy"),
-
-        ("Safe familiar adventure", "Carefully negotiated new adventure"),
+        ("New fantasy", "🔥", "Favorite fantasy", "😈"),
+        ("Control", "👑", "Give up control", "😈"),
+        ("Plan it", "📋", "Go spontaneous", "🎲"),
+        ("Private adventure", "💜", "Group adventure", "🔥"),
+        ("One wild night", "🔥", "Wild weekend", "🌴"),
+        ("Reveal a fantasy", "🤫", "Hear one", "👀"),
+        ("Lead", "👑", "Follow", "😈"),
+        ("Slow anticipation", "🔥", "Immediate chemistry", "⚡"),
+        ("Try something new", "🌶️", "Perfect a favorite", "😈"),
+        ("Adventure", "🔥", "Intimacy", "💜"),
     ],
 }
 
 
 # ==========================================================
-# GAME CONTENT LOOKUP
+# HOT SEAT
 # ==========================================================
 
-GAME_CONTENT = {
+HOT_SEAT = {
 
-    "wouldyourather": WOULD_YOU_RATHER,
+    "mild": [
+        "What is one thing people notice about you first?",
+        "What is your biggest green flag?",
+        "What is your favorite way to flirt?",
+        "What is your ideal date?",
+        "What makes you laugh every time?",
+        "What is one thing you are really good at?",
+        "What is something people always get wrong about you?",
+        "What is your favorite quality in another person?",
+        "What is something adventurous you want to try?",
+        "What is your biggest dating pet peeve?",
+    ],
 
-    "neverhaveiever": NEVER_HAVE_I_EVER,
+    "spicy": [
+        "What is your biggest turn-on?",
+        "What kind of flirting gets your attention?",
+        "What makes someone irresistible to you?",
+        "What is your favorite kind of teasing?",
+        "What is your biggest dating green flag?",
+        "What is one fantasy you might explore with the right person?",
+        "What makes chemistry happen for you?",
+        "What kind of confidence attracts you?",
+        "What is the boldest date you would actually agree to?",
+        "What instantly makes someone more attractive?",
+    ],
 
-    "thisorthat": THIS_OR_THAT,
+    "extreme": [
+        "What is one fantasy you have not explored yet?",
+        "What is your biggest YES?",
+        "What is your biggest NO?",
+        "What is something adventurous you would try with trusted consenting adults?",
+        "What is one experience on your bucket list?",
+        "What kind of chemistry makes you want more?",
+        "What is something you would only explore with someone you deeply trust?",
+        "What is your wildest acceptable date idea?",
+        "What is one thing you have always wanted to be asked?",
+        "What is something that instantly makes you curious about someone?",
+    ],
 }
 
 
 # ==========================================================
-# CONTENT HELPERS
+# CONFESSIONS
 # ==========================================================
 
-def get_content(
-    game,
-    level,
-):
+CONFESSIONS = {
+
+    "mild": [
+        "Confess something silly you have done on a date.",
+        "Confess your biggest dating pet peeve.",
+        "Confess your most embarrassing flirting moment.",
+        "Confess a harmless secret talent.",
+        "Confess the weirdest thing you find attractive.",
+        "Confess whether you usually make the first move.",
+        "Confess your biggest green flag.",
+        "Confess something you are secretly proud of.",
+        "Confess your worst pickup line experience.",
+        "Confess one thing people misunderstand about you.",
+    ],
+
+    "spicy": [
+        "Confess something that instantly gets your attention.",
+        "Confess your biggest turn-on.",
+        "Confess your favorite way to flirt.",
+        "Confess your favorite type of teasing.",
+        "Confess a fantasy you might explore with the right consenting adults.",
+        "Confess your boldest dating move.",
+        "Confess something that makes you immediately curious about someone.",
+        "Confess your favorite kind of chemistry.",
+        "Confess whether you prefer pursuing or being pursued.",
+        "Confess something you find unexpectedly attractive.",
+    ],
+
+    "extreme": [
+        "Confess one fantasy that is still on your bucket list.",
+        "Confess your biggest YES.",
+        "Confess your biggest MAYBE.",
+        "Confess one thing that is completely off limits.",
+        "Confess something adventurous you would try with someone you trust.",
+        "Confess the boldest experience you would consider.",
+        "Confess a fantasy you have discussed with a partner.",
+        "Confess something that would instantly make you curious about someone.",
+        "Confess the most adventurous date you would agree to.",
+        "Confess something you would only explore with explicit mutual consent.",
+    ],
+}
+
+
+# ==========================================================
+# COMPLIMENT BATTLE
+# ==========================================================
+
+COMPLIMENT_BATTLE = [
+    "Give someone a genuine compliment about their personality.",
+    "Compliment someone's energy.",
+    "Tell someone what makes them stand out.",
+    "Give someone a creative compliment.",
+    "Compliment someone's sense of humor.",
+    "Tell someone what you appreciate about their vibe.",
+    "Give someone a respectful flirty compliment.",
+    "Tell someone why they seem fun to be around.",
+    "Compliment someone's confidence.",
+    "Give someone a compliment that would make them smile.",
+    "Tell someone something positive you noticed about them.",
+    "Give someone your best wholesome pickup-line compliment.",
+]
+
+
+# ==========================================================
+# DICE RESULTS
+# ==========================================================
+
+DICE_RESULTS = [
+    "🎲 You rolled a 1 — Keep it simple.",
+    "🎲 You rolled a 2 — Pick someone to answer a question.",
+    "🎲 You rolled a 3 — Give someone a compliment.",
+    "🎲 You rolled a 4 — Choose Truth or Dare.",
+    "🎲 You rolled a 5 — Ask the group a question.",
+    "🎲 You rolled a 6 — You're feeling lucky! 🔥",
+]
+
+
+# ==========================================================
+# COIN FLIP
+# ==========================================================
+
+COIN_RESULTS = [
+    "🪙 HEADS!",
+    "🪙 TAILS!",
+]
+
+
+# ==========================================================
+# RANDOM HELPERS
+# ==========================================================
+
+def random_truth(level="mild"):
     """
-    Return the content list for a game and level.
-
-    Returns an empty list if the game or level doesn't exist.
+    Return a random Truth question.
     """
 
-    game_data = GAME_CONTENT.get(
-        game,
-        {},
-    )
-
-    return game_data.get(
+    questions = HOT_SEAT.get(
         level,
-        [],
+        HOT_SEAT["mild"],
+    )
+
+    return random.choice(questions)
+
+
+def random_would_you_rather(level="mild"):
+    """
+    Return a random Would You Rather entry.
+
+    Returns:
+        tuple(question, option_a, option_b)
+    """
+
+    questions = WOULD_YOU_RATHER.get(
+        level,
+        WOULD_YOU_RATHER["mild"],
+    )
+
+    return random.choice(questions)
+
+
+def random_never_have_i_ever(level="mild"):
+    """
+    Return a random Never Have I Ever statement.
+    """
+
+    questions = NEVER_HAVE_I_EVER.get(
+        level,
+        NEVER_HAVE_I_EVER["mild"],
+    )
+
+    return random.choice(questions)
+
+
+def random_most_likely(level="mild"):
+    """
+    Return a random Most Likely To question.
+    """
+
+    questions = MOST_LIKELY.get(
+        level,
+        MOST_LIKELY["mild"],
+    )
+
+    return random.choice(questions)
+
+
+def random_this_or_that(level="mild"):
+    """
+    Return a random This or That entry.
+
+    Returns:
+        tuple(option_a, emoji_a, option_b, emoji_b)
+    """
+
+    choices = THIS_OR_THAT.get(
+        level,
+        THIS_OR_THAT["mild"],
+    )
+
+    return random.choice(choices)
+
+
+def random_hot_seat(level="mild"):
+    """
+    Return a random Hot Seat question.
+    """
+
+    questions = HOT_SEAT.get(
+        level,
+        HOT_SEAT["mild"],
+    )
+
+    return random.choice(questions)
+
+
+def random_confession(level="mild"):
+    """
+    Return a random confession prompt.
+    """
+
+    questions = CONFESSIONS.get(
+        level,
+        CONFESSIONS["mild"],
+    )
+
+    return random.choice(questions)
+
+
+def random_compliment():
+    """
+    Return a random compliment challenge.
+    """
+
+    return random.choice(
+        COMPLIMENT_BATTLE
     )
 
 
-def get_content_count(
-    game,
-    level=None,
-):
+def random_dice_result():
     """
-    Return the number of available prompts.
-
-    If level is None, return the total number of prompts
-    across all levels.
+    Return a random dice result.
     """
 
-    game_data = GAME_CONTENT.get(
-        game,
-        {},
+    return random.choice(
+        DICE_RESULTS
     )
 
-    if level is not None:
 
-        return len(
-            game_data.get(
-                level,
-                [],
-            )
-        )
+def random_coin_result():
+    """
+    Return Heads or Tails.
+    """
 
-    return sum(
-        len(prompts)
-        for prompts in game_data.values()
+    return random.choice(
+        COIN_RESULTS
     )
 
 
