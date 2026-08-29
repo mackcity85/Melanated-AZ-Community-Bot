@@ -10,30 +10,13 @@
 
 #
 
-# Handles:
-
-# - Main Game Center menu
-
-# - Game categories
-
-# - Player profile
-
-# - Leaderboards
-
-# - Game launching
-
-# - Routing gameplay callbacks to games.py
-
-#
-
-# Works with:
-
-# games/games.py
+# Connects the Game Center menus to games/games.py
 
 # ==========================================================
 
 import logging
-import sqlite3
+from datetime import datetime
+from html import escape
 
 from telegram import (
 Update,
@@ -48,7 +31,7 @@ from raffle_database import get_connection
 
 from games.games import (
 GAME_NAMES,
-games_callback_router,
+games_callback_router as gameplay_callback_router,
 )
 
 # ==========================================================
@@ -58,7 +41,7 @@ games_callback_router,
 # ==========================================================
 
 logger = logging.getLogger(
-"melanated_az_bot.game_center"
+"melanated_az_bot.games"
 )
 
 # ==========================================================
@@ -177,7 +160,7 @@ GAME_CATEGORIES = {
 
 # ==========================================================
 
-# GAME CENTER MAIN MENU
+# MAIN GAME CENTER KEYBOARD
 
 # ==========================================================
 
@@ -192,7 +175,9 @@ for category_id, category in GAME_CATEGORIES.items():
         [
             InlineKeyboardButton(
                 category["name"],
-                callback_data=f"games_category_{category_id}",
+                callback_data=(
+                    f"games_category_{category_id}"
+                ),
             )
         ]
     )
@@ -215,14 +200,16 @@ return InlineKeyboardMarkup(buttons)
 
 # ==========================================================
 
-# CATEGORY MENU
+# CATEGORY KEYBOARD
 
 # ==========================================================
 
 def category_keyboard(category_id):
 
 ```
-category = GAME_CATEGORIES.get(category_id)
+category = GAME_CATEGORIES.get(
+    category_id
+)
 
 if not category:
     return game_center_keyboard()
@@ -240,7 +227,9 @@ for game_id in category["games"]:
         [
             InlineKeyboardButton(
                 game_name,
-                callback_data=f"games_play_{game_id}",
+                callback_data=(
+                    f"games_play_{game_id}"
+                ),
             )
         ]
     )
@@ -277,32 +266,20 @@ if not message:
 
 if user:
 
-    try:
+    ensure_game_player(
+        user.id,
+        user.username,
+        user.full_name,
+    )
 
-        ensure_game_player(
-            user.id,
-            user.username,
-            user.full_name,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Could not initialize game player."
-        )
-
-text = (
+await message.reply_text(
     "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
     "Welcome to the Game Center!\n\n"
     "Choose a category below and start playing.\n\n"
     "🎯 Earn XP\n"
     "🪙 Earn AZ Coins\n"
     "🏆 Track your wins\n"
-    "📊 Build your game profile"
-)
-
-await message.reply_text(
-    text,
+    "📊 Build your game profile",
     reply_markup=game_center_keyboard(),
     parse_mode=ParseMode.HTML,
 )
@@ -310,7 +287,7 @@ await message.reply_text(
 
 # ==========================================================
 
-# GAME CENTER HOME CALLBACK
+# HOME
 
 # ==========================================================
 
@@ -329,31 +306,19 @@ await query.answer()
 
 user = query.from_user
 
-try:
+ensure_game_player(
+    user.id,
+    user.username,
+    user.full_name,
+)
 
-    ensure_game_player(
-        user.id,
-        user.username,
-        user.full_name,
-    )
-
-except Exception:
-
-    logger.exception(
-        "Could not initialize player."
-    )
-
-text = (
+await query.edit_message_text(
     "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
     "Choose a category below.\n\n"
     "🎯 Play games\n"
     "⭐ Earn XP\n"
     "🪙 Earn AZ Coins\n"
-    "🏆 Climb the leaderboards"
-)
-
-await query.edit_message_text(
-    text,
+    "🏆 Climb the leaderboards",
     reply_markup=game_center_keyboard(),
     parse_mode=ParseMode.HTML,
 )
@@ -361,7 +326,7 @@ await query.edit_message_text(
 
 # ==========================================================
 
-# CATEGORY CALLBACK
+# CATEGORY
 
 # ==========================================================
 
@@ -378,9 +343,9 @@ if not query:
 
 data = query.data or ""
 
-prefix = "games_category_"
-
-if not data.startswith(prefix):
+if not data.startswith(
+    "games_category_"
+):
 
     await query.answer(
         "Invalid game category.",
@@ -389,7 +354,9 @@ if not data.startswith(prefix):
 
     return
 
-category_id = data[len(prefix):]
+category_id = data[
+    len("games_category_"):
+]
 
 category = GAME_CATEGORIES.get(
     category_id
@@ -406,13 +373,9 @@ if not category:
 
 await query.answer()
 
-text = (
-    f"<b>{category['name']}</b>\n\n"
-    "Choose a game:"
-)
-
 await query.edit_message_text(
-    text,
+    f"<b>{category['name']}</b>\n\n"
+    "Choose a game:",
     reply_markup=category_keyboard(
         category_id
     ),
@@ -469,39 +432,19 @@ if not player:
 
     return
 
+level = player.get("level", 1)
+xp = player.get("xp", 0)
+coins = player.get("coins", 0)
 games_played = player.get(
     "games_played",
     0,
 )
-
-wins = player.get(
-    "wins",
-    0,
-)
-
-losses = player.get(
-    "losses",
-    0,
-)
-
-xp = player.get(
-    "xp",
-    0,
-)
-
-coins = player.get(
-    "coins",
-    0,
-)
-
-level = player.get(
-    "level",
-    1,
-)
+wins = player.get("wins", 0)
+losses = player.get("losses", 0)
 
 text = (
     "👤 <b>MY GAME PROFILE</b>\n\n"
-    f"👤 <b>{escape_html(user.full_name)}</b>\n\n"
+    f"👤 <b>{escape(user.full_name)}</b>\n\n"
     f"🏆 Level: <b>{level}</b>\n"
     f"⭐ XP: <b>{xp}</b>\n"
     f"🪙 AZ Coins: <b>{coins}</b>\n\n"
@@ -559,8 +502,7 @@ if not players:
 
     text = (
         "🏆 <b>LEADERBOARDS</b>\n\n"
-        "No games have been played yet.\n\n"
-        "Be the first to make the leaderboard!"
+        "No games have been played yet."
     )
 
 else:
@@ -576,15 +518,14 @@ else:
         "🥉",
     ]
 
-    for index, player in enumerate(players):
+    for index, player in enumerate(
+        players
+    ):
 
         if index < 3:
-
-            medal = medals[index]
-
+            position = medals[index]
         else:
-
-            medal = f"{index + 1}."
+            position = f"{index + 1}."
 
         name = (
             player.get("display_name")
@@ -603,7 +544,8 @@ else:
         )
 
         lines.append(
-            f"{medal} <b>{escape_html(str(name))}</b> "
+            f"{position} "
+            f"<b>{escape(str(name))}</b> "
             f"— 🥇 {wins} wins | ⭐ {xp} XP"
         )
 
@@ -635,31 +577,53 @@ await query.edit_message_text(
 
 # ==========================================================
 
-# CENTRAL GAME CALLBACK ROUTER
+# GAME CALLBACK BRIDGE
 
 #
 
-# THIS IS THE IMPORTANT FIX.
+# IMPORTANT:
 
 #
 
-# Game Center buttons use:
+# Menu callbacks:
 
 #
 
-# games_play_<game>
+# games_play_reaction
+
+# games_play_number_guess
+
+# games_play_high_low
+
+# etc.
 
 #
 
-# The actual gameplay lives in games/games.py.
+# Gameplay callbacks:
 
 #
 
-# We forward those callbacks there.
+# game_reaction_tap
+
+# game_guess_5
+
+# game_high
+
+# game_low
+
+# game_td_truth
+
+# game_td_dare
+
+# game_trivia_...
+
+#
+
+# ALL OF THESE ARE SENT TO games/games.py
 
 # ==========================================================
 
-async def games_callback_router(
+async def games_gameplay_callback(
 update: Update,
 context: ContextTypes.DEFAULT_TYPE,
 ):
@@ -673,44 +637,33 @@ if not query:
 data = query.data or ""
 
 logger.info(
-    "Game Center callback: %s",
+    "Forwarding gameplay callback: %s",
     data,
 )
 
-# ------------------------------------------------------
-# GAMEPLAY CALLBACKS
-# ------------------------------------------------------
+try:
 
-if (
-    data.startswith("games_play_")
-    or data.startswith("game_")
-):
+    await gameplay_callback_router(
+        update,
+        context,
+    )
+
+except Exception:
+
+    logger.exception(
+        "Gameplay callback failed: %s",
+        data,
+    )
 
     try:
 
-        await games_callback_router(
-            update,
-            context,
+        await query.answer(
+            "⚠️ Game action failed.",
+            show_alert=True,
         )
 
     except Exception:
-
-        logger.exception(
-            "Gameplay callback failed: %s",
-            data,
-        )
-
-        try:
-
-            await query.answer(
-                "⚠️ Game action failed.",
-                show_alert=True,
-            )
-
-        except Exception:
-            pass
-
-    return
+        pass
 ```
 
 # ==========================================================
@@ -726,7 +679,7 @@ display_name=None,
 ):
 
 ```
-now = datetime_now()
+now = datetime.utcnow().isoformat()
 
 conn = get_connection()
 
@@ -822,7 +775,7 @@ finally:
 
 # ==========================================================
 
-# LEADERBOARD
+# LEADERBOARD DATABASE QUERY
 
 # ==========================================================
 
@@ -948,43 +901,6 @@ try:
 finally:
 
     conn.close()
-```
-
-# ==========================================================
-
-# DATETIME HELPER
-
-# ==========================================================
-
-def datetime_now():
-
-```
-from datetime import datetime
-
-return datetime.utcnow().isoformat()
-```
-
-# ==========================================================
-
-# HTML HELPER
-
-# ==========================================================
-
-def escape_html(
-value,
-):
-
-```
-if value is None:
-    return ""
-
-return (
-    str(value)
-    .replace("&", "&amp;")
-    .replace("<", "&lt;")
-    .replace(">", "&gt;")
-    .replace('"', "&quot;")
-)
 ```
 
 # ==========================================================
