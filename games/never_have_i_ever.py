@@ -9,10 +9,10 @@
 #   - Mild / Spicy / Extreme
 #   - Random statements
 #   - "I Have" / "Never" buttons
-#   - PASS always allowed
+#   - PASS allowed
 #   - Next statement
 #   - Change level
-#   - Personal player score
+#   - Player statistics
 #
 # This file does NOT import from games.py.
 # This prevents circular imports.
@@ -59,25 +59,30 @@ STATEMENTS = {
     "mild": [
 
         "Never have I ever stayed up all night talking to someone.",
-        "Never have I ever had a crush on someone I couldn't have.",
-        "Never have I ever flirted with someone just for fun.",
+        "Never have I ever had a crush on someone I just met.",
         "Never have I ever sent a message and immediately regretted it.",
-        "Never have I ever pretended not to notice someone checking me out.",
-        "Never have I ever had a crush on a friend.",
+        "Never have I ever flirted with someone just for fun.",
         "Never have I ever gone on a spontaneous date.",
-        "Never have I ever used a pickup line.",
-        "Never have I ever flirted with someone I just met.",
+        "Never have I ever had a crush on a friend.",
+        "Never have I ever pretended not to notice someone flirting with me.",
+        "Never have I ever fallen for someone's personality before their looks.",
+        "Never have I ever given someone a fake excuse to avoid a date.",
         "Never have I ever had chemistry with someone completely unexpected.",
-        "Never have I ever gotten butterflies from a text message.",
-        "Never have I ever gone somewhere just because someone I liked was there.",
-        "Never have I ever had a secret crush.",
-        "Never have I ever caught someone flirting with me.",
         "Never have I ever made the first move.",
-        "Never have I ever changed my outfit because I knew someone attractive would be there.",
+        "Never have I ever received a pickup line that actually worked.",
+        "Never have I ever sent a flirty emoji hoping someone would get the hint.",
+        "Never have I ever had a secret crush.",
+        "Never have I ever matched with someone online and actually met them.",
+        "Never have I ever gone on a date without knowing what to expect.",
+        "Never have I ever flirted with someone at a party.",
+        "Never have I ever been attracted to someone's voice.",
+        "Never have I ever been attracted to someone's confidence.",
+        "Never have I ever changed my plans because someone interesting invited me out.",
+        "Never have I ever had an instant connection with someone.",
+        "Never have I ever gotten nervous around someone I liked.",
+        "Never have I ever stayed up late because I didn't want a conversation to end.",
         "Never have I ever complimented someone hoping they would flirt back.",
-        "Never have I ever stayed up way too late talking to someone new.",
-        "Never have I ever exchanged numbers with someone I met that night.",
-        "Never have I ever been attracted to someone's personality before their appearance.",
+        "Never have I ever had a date turn out much better than expected.",
     ],
 
     # ======================================================
@@ -86,31 +91,36 @@ STATEMENTS = {
 
     "spicy": [
 
+        "Never have I ever flirted with someone I knew was attracted to me.",
         "Never have I ever kissed someone on a first date.",
-        "Never have I ever had chemistry with someone I wasn't expecting.",
-        "Never have I ever sent a flirty picture.",
-        "Never have I ever had a crush on someone in this type of community.",
+        "Never have I ever had a crush on someone I probably shouldn't have.",
+        "Never have I ever sent a spicy message.",
+        "Never have I ever had chemistry with someone I met online.",
         "Never have I ever flirted with someone while my partner knew about it.",
-        "Never have I ever gone on a date that turned much more interesting than expected.",
-        "Never have I ever kissed someone I had just met.",
+        "Never have I ever been attracted to someone simply because of their energy.",
+        "Never have I ever had a date become much more exciting than planned.",
+        "Never have I ever intentionally teased someone I was attracted to.",
         "Never have I ever had a fantasy about someone I knew.",
-        "Never have I ever intentionally teased someone because I knew they liked it.",
-        "Never have I ever had a conversation that became unexpectedly seductive.",
-        "Never have I ever exchanged spicy messages with someone.",
-        "Never have I ever had a secret fantasy I hadn't told anyone.",
-        "Never have I ever been attracted to someone because of their confidence.",
-        "Never have I ever had an attraction that I tried to ignore.",
-        "Never have I ever gone somewhere knowing there was a chance I would meet someone attractive.",
-        "Never have I ever intentionally built anticipation with someone.",
-        "Never have I ever flirted with more than one person at the same time.",
-        "Never have I ever been tempted to make the first move but waited for them.",
-        "Never have I ever had a fantasy involving a couple.",
-        "Never have I ever considered exploring something outside my normal comfort zone.",
-        "Never have I ever had a conversation that made me blush.",
-        "Never have I ever told someone exactly what I wanted.",
-        "Never have I ever been attracted to someone's voice.",
-        "Never have I ever been attracted to someone's energy before seeing them in person.",
-        "Never have I ever intentionally dressed to get someone's attention.",
+        "Never have I ever kissed someone unexpectedly.",
+        "Never have I ever had a secret crush that lasted a long time.",
+        "Never have I ever flirted with someone through messages for hours.",
+        "Never have I ever exchanged flirty pictures with someone.",
+        "Never have I ever had a conversation turn unexpectedly spicy.",
+        "Never have I ever been attracted to someone else's partner after getting consent to explore.",
+        "Never have I ever gone somewhere specifically because I knew an attractive person would be there.",
+        "Never have I ever used flirting to get someone's attention.",
+        "Never have I ever deliberately made someone blush.",
+        "Never have I ever been caught flirting.",
+        "Never have I ever had an attraction that surprised me.",
+        "Never have I ever imagined what it would be like to kiss someone I was talking to.",
+        "Never have I ever had a crush on someone from an adult community.",
+        "Never have I ever considered exploring something outside my usual type.",
+        "Never have I ever had chemistry with more than one person at the same time.",
+        "Never have I ever planned a date specifically around creating chemistry.",
+        "Never have I ever used a compliment as an excuse to start flirting.",
+        "Never have I ever had someone completely change my type.",
+        "Never have I ever been tempted to make a bold first move.",
+        "Never have I ever had a conversation that became much more intimate than expected.",
     ],
 
     # ======================================================
@@ -119,41 +129,56 @@ STATEMENTS = {
 
     "extreme": [
 
-        "Never have I ever explored a fantasy with another consenting adult.",
-        "Never have I ever had a fantasy involving more than two people.",
-        "Never have I ever discussed a kink with a potential partner.",
-        "Never have I ever tried something specifically because a partner wanted to explore it.",
-        "Never have I ever attended an adults-only event.",
-        "Never have I ever had an adventurous experience I couldn't believe I actually tried.",
-        "Never have I ever explored something completely outside my usual type.",
-        "Never have I ever had a fantasy that I was nervous to admit.",
+        "Never have I ever explored a kink with a consenting partner.",
+        "Never have I ever had a fantasy about someone I knew.",
+        "Never have I ever had a consensual experience with more than one partner.",
+        "Never have I ever discussed a fantasy with my partner that I wanted to explore.",
+        "Never have I ever had a spontaneous adult adventure.",
+        "Never have I ever gone somewhere specifically for an adults-only experience.",
+        "Never have I ever flirted with someone while my partner was present and knew about it.",
+        "Never have I ever explored outside my usual type with consenting adults.",
+        "Never have I ever had a fantasy involving another couple.",
         "Never have I ever discussed boundaries before an intimate experience.",
-        "Never have I ever negotiated limits before trying something new.",
-        "Never have I ever explored a fantasy with a couple.",
+        "Never have I ever changed my mind during an intimate experience and used my right to stop.",
+        "Never have I ever had an experience that started as flirting and became much more.",
+        "Never have I ever had a fantasy that I have never told anyone.",
+        "Never have I ever tried something specifically because my partner was curious about it.",
+        "Never have I ever attended an adults-only event.",
+        "Never have I ever explored a new kink after researching it first.",
+        "Never have I ever had an experience with someone I met through an adult community.",
+        "Never have I ever considered a fantasy involving another consenting couple.",
+        "Never have I ever had a partner ask me to try something completely new.",
+        "Never have I ever created a safe word or other boundary system for an intimate experience.",
+        "Never have I ever talked about limits before agreeing to an adventure.",
+        "Never have I ever had an experience where communication made everything better.",
+        "Never have I ever explored something I once thought I would never try.",
+        "Never have I ever had a fantasy that became reality.",
+        "Never have I ever had a consensual experience that surprised me in a good way.",
         "Never have I ever considered inviting another consenting adult into an experience.",
-        "Never have I ever had a fantasy involving someone I met unexpectedly.",
-        "Never have I ever tried something adventurous and wanted to do it again.",
-        "Never have I ever had a fantasy that stayed on my bucket list.",
-        "Never have I ever told a partner about a fantasy I had been keeping secret.",
-        "Never have I ever explored a new dynamic with someone I trusted.",
-        "Never have I ever changed my mind about something after discussing boundaries.",
-        "Never have I ever said YES to an experience that initially made me nervous.",
-        "Never have I ever said HARD NO to something someone suggested.",
-        "Never have I ever had an adults-only adventure that became a great story.",
-        "Never have I ever had chemistry with someone I absolutely did not expect.",
-        "Never have I ever discussed a fantasy with someone I had just met.",
-        "Never have I ever intentionally pushed myself outside my normal dating comfort zone.",
-        "Never have I ever had an experience that changed what I thought I was interested in.",
+        "Never have I ever explored a fantasy with my partner without actually acting on it.",
+        "Never have I ever had to establish a hard NO before an experience.",
+        "Never have I ever discovered a new turn-on through consensual exploration.",
+        "Never have I ever had an adventure that I would absolutely do again.",
     ],
 }
 
 
 # ==========================================================
-# ENABLED STATUS
+# LEVEL NAMES
+# ==========================================================
+
+LEVEL_NAMES = {
+    "mild": "🟢 Mild",
+    "spicy": "🌶️ Spicy",
+    "extreme": "🔥 Extreme",
+}
+
+
+# ==========================================================
+# ENABLED
 # ==========================================================
 
 def is_enabled():
-
     return NEVER_HAVE_I_EVER_ENABLED
 
 
@@ -169,7 +194,6 @@ def get_level(context):
     )
 
     if level not in VALID_LEVELS:
-
         level = "mild"
 
     return level
@@ -192,9 +216,17 @@ def level_keyboard():
                     "🌶️ Spicy",
                     callback_data="nhie_level_spicy",
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     "🔥 Extreme",
                     callback_data="nhie_level_extreme",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔙 Games",
+                    callback_data="games_menu",
                 ),
             ],
         ]
@@ -230,9 +262,15 @@ def game_keyboard():
                     "➡️ Next",
                     callback_data="nhie_next",
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     "🔄 Change Level",
                     callback_data="nhie_menu",
+                ),
+                InlineKeyboardButton(
+                    "🎮 Games",
+                    callback_data="games_menu",
                 ),
             ],
         ]
@@ -240,10 +278,10 @@ def game_keyboard():
 
 
 # ==========================================================
-# SCORE
+# STATS
 # ==========================================================
 
-def initialize_score(context):
+def initialize_stats(context):
 
     if "nhie_have" not in context.user_data:
         context.user_data["nhie_have"] = 0
@@ -251,22 +289,22 @@ def initialize_score(context):
     if "nhie_never" not in context.user_data:
         context.user_data["nhie_never"] = 0
 
-    if "nhie_pass" not in context.user_data:
-        context.user_data["nhie_pass"] = 0
+    if "nhie_passes" not in context.user_data:
+        context.user_data["nhie_passes"] = 0
 
-    if "nhie_total" not in context.user_data:
-        context.user_data["nhie_total"] = 0
+    if "nhie_rounds" not in context.user_data:
+        context.user_data["nhie_rounds"] = 0
 
 
-def score_text(context):
+def stats_text(context):
 
-    initialize_score(context)
+    initialize_stats(context)
 
     return (
         f"🙋 I Have: {context.user_data['nhie_have']}\n"
         f"😇 Never: {context.user_data['nhie_never']}\n"
-        f"😈 Passes: {context.user_data['nhie_pass']}\n"
-        f"🎮 Played: {context.user_data['nhie_total']}"
+        f"😈 Passes: {context.user_data['nhie_passes']}\n"
+        f"🎯 Rounds: {context.user_data['nhie_rounds']}"
     )
 
 
@@ -278,9 +316,12 @@ def get_statement(context):
 
     level = get_level(context)
 
-    statement = random.choice(
-        STATEMENTS[level]
+    statements = STATEMENTS.get(
+        level,
+        STATEMENTS["mild"],
     )
+
+    statement = random.choice(statements)
 
     context.user_data[
         "nhie_current_statement"
@@ -305,19 +346,19 @@ def format_statement(
     level = get_level(context)
 
     return (
-        "🙋 NEVER HAVE I EVER\n\n"
-        f"🎯 Level: {level.upper()}\n\n"
-        f"{statement}\n\n"
-        f"{score_text(context)}\n\n"
-        "Choose your answer."
+        "🙈 NEVER HAVE I EVER\n\n"
+        f"🎯 Level: {LEVEL_NAMES.get(level, level)}\n\n"
+        f"👉 {statement}\n\n"
+        f"{stats_text(context)}\n\n"
+        "Be honest — or PASS. 😈"
     )
 
 
 # ==========================================================
-# START GAME
+# START ROUND
 # ==========================================================
 
-async def start_game(
+async def start_round(
     query,
     context,
 ):
@@ -350,15 +391,15 @@ async def never_have_i_ever(
     if not NEVER_HAVE_I_EVER_ENABLED:
 
         await message.reply_text(
-            "🙋 Never Have I Ever is currently disabled."
+            "🙈 Never Have I Ever is currently disabled."
         )
 
         return
 
-    initialize_score(context)
+    initialize_stats(context)
 
     await message.reply_text(
-        "🙋 NEVER HAVE I EVER\n\n"
+        "🙈 NEVER HAVE I EVER\n\n"
         "Choose your level:\n\n"
         "🟢 Mild — fun & flirty\n"
         "🌶️ Spicy — adult-community vibes\n"
@@ -391,38 +432,34 @@ async def callback(
 
     if not NEVER_HAVE_I_EVER_ENABLED:
 
-        try:
-            await query.answer(
-                "Never Have I Ever is disabled.",
-                show_alert=True,
-            )
-        except Exception:
-            pass
+        await query.answer(
+            "Never Have I Ever is disabled.",
+            show_alert=True,
+        )
 
         return
 
-    initialize_score(context)
+    initialize_stats(context)
 
     # ======================================================
-    # MENU
+    # LEVEL MENU
     # ======================================================
 
     if data == "nhie_menu":
 
         await query.edit_message_text(
-            "🙋 NEVER HAVE I EVER\n\n"
+            "🙈 NEVER HAVE I EVER\n\n"
             "Choose your level:\n\n"
             "🟢 Mild — fun & flirty\n"
             "🌶️ Spicy — adult-community vibes\n"
-            "🔥 Extreme — bold & adventurous\n\n"
-            "😈 PASS is always allowed.",
+            "🔥 Extreme — bold & adventurous",
             reply_markup=level_keyboard(),
         )
 
         return
 
     # ======================================================
-    # LEVEL
+    # LEVEL SELECTION
     # ======================================================
 
     if data.startswith("nhie_level_"):
@@ -434,14 +471,13 @@ async def callback(
         )
 
         if level not in VALID_LEVELS:
-
             level = "mild"
 
         context.user_data[
             "never_have_i_ever_level"
         ] = level
 
-        await start_game(
+        await start_round(
             query,
             context,
         )
@@ -460,7 +496,7 @@ async def callback(
         ):
 
             await query.answer(
-                "You already answered this one.",
+                "You've already answered this round.",
                 show_alert=True,
             )
 
@@ -475,7 +511,7 @@ async def callback(
         ] += 1
 
         context.user_data[
-            "nhie_total"
+            "nhie_rounds"
         ] += 1
 
         await query.answer(
@@ -483,32 +519,31 @@ async def callback(
             show_alert=True,
         )
 
-        text = (
-            "🙋 I HAVE!\n\n"
-            "No judgment. 😈\n\n"
-            f"{score_text(context)}"
-        )
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "➡️ Next",
-                        callback_data="nhie_next",
-                    ),
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🔄 Change Level",
-                        callback_data="nhie_menu",
-                    ),
-                ],
-            ]
-        )
-
         await query.edit_message_text(
-            text,
-            reply_markup=keyboard,
+            "🙈 NEVER HAVE I EVER\n\n"
+            "🙋 You HAVE!\n\n"
+            f"{stats_text(context)}\n\n"
+            "Ready for another one?",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "➡️ Next",
+                            callback_data="nhie_next",
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "🔄 Change Level",
+                            callback_data="nhie_menu",
+                        ),
+                        InlineKeyboardButton(
+                            "🎮 Games",
+                            callback_data="games_menu",
+                        ),
+                    ],
+                ]
+            ),
         )
 
         return
@@ -525,7 +560,7 @@ async def callback(
         ):
 
             await query.answer(
-                "You already answered this one.",
+                "You've already answered this round.",
                 show_alert=True,
             )
 
@@ -540,7 +575,7 @@ async def callback(
         ] += 1
 
         context.user_data[
-            "nhie_total"
+            "nhie_rounds"
         ] += 1
 
         await query.answer(
@@ -548,32 +583,31 @@ async def callback(
             show_alert=True,
         )
 
-        text = (
-            "😇 NEVER!\n\n"
-            "Respect the boundaries. 💜\n\n"
-            f"{score_text(context)}"
-        )
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "➡️ Next",
-                        callback_data="nhie_next",
-                    ),
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🔄 Change Level",
-                        callback_data="nhie_menu",
-                    ),
-                ],
-            ]
-        )
-
         await query.edit_message_text(
-            text,
-            reply_markup=keyboard,
+            "🙈 NEVER HAVE I EVER\n\n"
+            "😇 You said NEVER!\n\n"
+            f"{stats_text(context)}\n\n"
+            "Ready for another one?",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "➡️ Next",
+                            callback_data="nhie_next",
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "🔄 Change Level",
+                            callback_data="nhie_menu",
+                        ),
+                        InlineKeyboardButton(
+                            "🎮 Games",
+                            callback_data="games_menu",
+                        ),
+                    ],
+                ]
+            ),
         )
 
         return
@@ -590,7 +624,7 @@ async def callback(
         ):
 
             await query.answer(
-                "This one is already finished.",
+                "You've already answered this round.",
                 show_alert=True,
             )
 
@@ -601,44 +635,43 @@ async def callback(
         ] = True
 
         context.user_data[
-            "nhie_pass"
+            "nhie_passes"
         ] += 1
 
         context.user_data[
-            "nhie_total"
+            "nhie_rounds"
         ] += 1
 
         await query.answer(
-            "😈 PASS accepted!",
+            "😈 PASS accepted.",
             show_alert=True,
         )
 
-        text = (
-            "😈 PASS ACCEPTED\n\n"
-            "No explanation needed. 💜\n\n"
-            f"{score_text(context)}"
-        )
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "➡️ Next",
-                        callback_data="nhie_next",
-                    ),
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🔄 Change Level",
-                        callback_data="nhie_menu",
-                    ),
-                ],
-            ]
-        )
-
         await query.edit_message_text(
-            text,
-            reply_markup=keyboard,
+            "🙈 NEVER HAVE I EVER\n\n"
+            "😈 PASS ACCEPTED.\n\n"
+            f"{stats_text(context)}\n\n"
+            "No pressure. Ready for another?",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "➡️ Next",
+                            callback_data="nhie_next",
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "🔄 Change Level",
+                            callback_data="nhie_menu",
+                        ),
+                        InlineKeyboardButton(
+                            "🎮 Games",
+                            callback_data="games_menu",
+                        ),
+                    ],
+                ]
+            ),
         )
 
         return
@@ -649,7 +682,7 @@ async def callback(
 
     if data == "nhie_next":
 
-        await start_game(
+        await start_round(
             query,
             context,
         )
@@ -658,10 +691,10 @@ async def callback(
 
 
 # ==========================================================
-# RESET SCORE
+# RESET STATS
 # ==========================================================
 
-def reset_score(context):
+def reset_stats(context):
 
     context.user_data[
         "nhie_have"
@@ -672,11 +705,11 @@ def reset_score(context):
     ] = 0
 
     context.user_data[
-        "nhie_pass"
+        "nhie_passes"
     ] = 0
 
     context.user_data[
-        "nhie_total"
+        "nhie_rounds"
     ] = 0
 
     context.user_data[
