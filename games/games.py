@@ -21,7 +21,6 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
@@ -53,7 +52,6 @@ WIN_COINS = 15
 # ==========================================================
 
 GAME_NAMES = {
-
     # ARCADE
     "reaction": "⚡ Reaction Test",
     "number_guess": "🔢 Number Guess",
@@ -123,7 +121,6 @@ GAME_NAMES = {
 # ==========================================================
 
 def game_back_keyboard():
-
     return InlineKeyboardMarkup(
         [
             [
@@ -137,7 +134,6 @@ def game_back_keyboard():
 
 
 def replay_keyboard(game_id):
-
     return InlineKeyboardMarkup(
         [
             [
@@ -165,7 +161,6 @@ def ensure_player(
     username=None,
     display_name=None,
 ):
-
     now = datetime.now(
         timezone.utc
     ).isoformat()
@@ -173,7 +168,6 @@ def ensure_player(
     conn = get_connection()
 
     try:
-
         conn.execute(
             """
             INSERT INTO game_players (
@@ -203,7 +197,6 @@ def ensure_player(
         conn.commit()
 
     except Exception:
-
         conn.rollback()
 
         logger.exception(
@@ -213,7 +206,6 @@ def ensure_player(
         raise
 
     finally:
-
         conn.close()
 
 
@@ -227,7 +219,6 @@ def record_game_result(
     score=0,
     won=False,
 ):
-
     now = datetime.now(
         timezone.utc
     ).isoformat()
@@ -249,7 +240,6 @@ def record_game_result(
     conn = get_connection()
 
     try:
-
         conn.execute(
             """
             UPDATE game_players
@@ -306,7 +296,6 @@ def record_game_result(
 
             ON CONFLICT(user_id, game_id)
             DO UPDATE SET
-
                 games_played =
                     games_played + 1,
 
@@ -335,7 +324,6 @@ def record_game_result(
         conn.commit()
 
     except Exception:
-
         conn.rollback()
 
         logger.exception(
@@ -345,7 +333,6 @@ def record_game_result(
         raise
 
     finally:
-
         conn.close()
 
 
@@ -361,7 +348,6 @@ async def show_result(
     score,
     won,
 ):
-
     user = query.from_user
 
     record_game_result(
@@ -406,7 +392,6 @@ async def reaction_game(
     query,
     context,
 ):
-
     context.user_data[
         "reaction_start"
     ] = time.monotonic()
@@ -441,19 +426,16 @@ async def reaction_tap(
     query,
     context,
 ):
-
     start = context.user_data.pop(
         "reaction_start",
         None,
     )
 
     if start is None:
-
         await query.answer(
             "Start a new reaction test.",
             show_alert=True,
         )
-
         return
 
     elapsed = (
@@ -500,7 +482,6 @@ async def number_guess_game(
     query,
     context,
 ):
-
     target = random.randint(1, 10)
 
     context.user_data[
@@ -510,7 +491,6 @@ async def number_guess_game(
     buttons = []
 
     for value in range(1, 11):
-
         buttons.append(
             InlineKeyboardButton(
                 str(value),
@@ -546,30 +526,25 @@ async def number_guess_answer(
     context,
     guess,
 ):
-
     target = context.user_data.pop(
         "number_guess",
         None,
     )
 
     if target is None:
-
         await query.answer(
             "That game has already ended.",
             show_alert=True,
         )
-
         return
 
     try:
         guess = int(guess)
     except (ValueError, TypeError):
-
         await query.answer(
             "Invalid guess.",
             show_alert=True,
         )
-
         return
 
     correct = guess == target
@@ -611,7 +586,6 @@ async def high_low_game(
     query,
     context,
 ):
-
     first = random.randint(1, 13)
     second = random.randint(1, 13)
 
@@ -658,34 +632,26 @@ async def high_low_answer(
     context,
     choice,
 ):
-
     data = context.user_data.pop(
         "high_low",
         None,
     )
 
     if not data:
-
         await query.answer(
             "That game has already ended.",
             show_alert=True,
         )
-
         return
 
     first = data["first"]
     second = data["second"]
 
     if second == first:
-
         won = False
-
     elif choice == "high":
-
         won = second > first
-
     else:
-
         won = second < first
 
     await show_result(
@@ -716,7 +682,6 @@ async def coin_flip_game(
     query,
     context,
 ):
-
     result = random.choice(
         [
             "HEADS",
@@ -742,7 +707,6 @@ async def dice_roll_game(
     query,
     context,
 ):
-
     roll = random.randint(1, 6)
 
     won = roll >= 4
@@ -772,7 +736,6 @@ async def dice_roll_game(
 # ==========================================================
 
 CHALLENGES = {
-
     "fishing": [
         ("🐟 You caught a huge bass!", True),
         ("🐠 You caught a colorful fish!", True),
@@ -986,7 +949,6 @@ async def random_challenge_game(
     query,
     game_id,
 ):
-
     outcomes = CHALLENGES.get(
         game_id,
         [
@@ -1047,7 +1009,6 @@ DARES = [
 async def truth_dare_game(
     query,
 ):
-
     keyboard = InlineKeyboardMarkup(
         [
             [
@@ -1081,14 +1042,10 @@ async def truth_dare_answer(
     query,
     choice,
 ):
-
     if choice == "truth":
-
         prompt = random.choice(TRUTHS)
         title = "🔥 TRUTH"
-
     else:
-
         prompt = random.choice(DARES)
         title = "😈 DARE"
 
@@ -1123,7 +1080,6 @@ async def truth_dare_answer(
 # ==========================================================
 
 TRIVIA = {
-
     "general_trivia": [
         (
             "What is the largest planet?",
@@ -1296,19 +1252,16 @@ async def trivia_game(
     context,
     game_id,
 ):
-
     questions = TRIVIA.get(
         game_id,
         [],
     )
 
     if not questions:
-
         await query.answer(
             "Trivia is not available yet.",
             show_alert=True,
         )
-
         return
 
     question, answers, correct = random.choice(
@@ -1316,7 +1269,6 @@ async def trivia_game(
     )
 
     shuffled = list(answers)
-
     random.shuffle(shuffled)
 
     context.user_data[
@@ -1333,7 +1285,6 @@ async def trivia_game(
     buttons = []
 
     for index, answer in enumerate(shuffled):
-
         buttons.append(
             [
                 InlineKeyboardButton(
@@ -1365,7 +1316,6 @@ async def trivia_answer(
     context,
     answer_index,
 ):
-
     data = context.user_data.pop(
         "trivia",
         None,
@@ -1377,16 +1327,13 @@ async def trivia_answer(
     )
 
     if not data or not answers:
-
         await query.answer(
             "That trivia game has already ended.",
             show_alert=True,
         )
-
         return
 
     try:
-
         index = int(answer_index)
         answer = answers[index]
 
@@ -1395,12 +1342,10 @@ async def trivia_answer(
         IndexError,
         TypeError,
     ):
-
         await query.answer(
             "Invalid answer.",
             show_alert=True,
         )
-
         return
 
     correct = data["correct"]
@@ -1438,7 +1383,6 @@ async def code_breaker_game(
     query,
     context,
 ):
-
     code = random.randint(
         100,
         999,
@@ -1455,7 +1399,6 @@ async def code_breaker_game(
         1000,
         100,
     ):
-
         keyboard.append(
             [
                 InlineKeyboardButton(
@@ -1490,30 +1433,25 @@ async def code_breaker_answer(
     context,
     guess,
 ):
-
     code = context.user_data.pop(
         "code_breaker",
         None,
     )
 
     if code is None:
-
         await query.answer(
             "That game has already ended.",
             show_alert=True,
         )
-
         return
 
     try:
         guess = int(guess)
     except (ValueError, TypeError):
-
         await query.answer(
             "Invalid code.",
             show_alert=True,
         )
-
         return
 
     won = guess == code
@@ -1523,7 +1461,6 @@ async def code_breaker_answer(
     )
 
     if won:
-
         score = 100
 
         message = (
@@ -1532,7 +1469,6 @@ async def code_breaker_answer(
         )
 
     else:
-
         score = max(
             10,
             100 - difference // 5,
@@ -1576,7 +1512,6 @@ async def escape_game(
     query,
     context,
 ):
-
     correct = random.choice(
         [
             "red",
@@ -1622,25 +1557,21 @@ async def escape_answer(
     context,
     choice,
 ):
-
     correct = context.user_data.pop(
         "escape",
         None,
     )
 
     if correct is None:
-
         await query.answer(
             "That escape room has ended.",
             show_alert=True,
         )
-
         return
 
     won = choice == correct
 
     if won:
-
         message = (
             "🎉 <b>YOU ESCAPED!</b>\n\n"
             "You found the correct way out!"
@@ -1649,7 +1580,6 @@ async def escape_answer(
         score = 100
 
     else:
-
         message = (
             "⛓️ <b>STILL TRAPPED!</b>\n\n"
             "That wasn't the right way out."
@@ -1675,7 +1605,6 @@ async def detective_game(
     query,
     context,
 ):
-
     suspects = [
         "🕵🏾 Alex",
         "🕵🏾 Jordan",
@@ -1727,7 +1656,6 @@ async def detective_answer(
     context,
     index,
 ):
-
     culprit = context.user_data.pop(
         "detective",
         None,
@@ -1739,16 +1667,13 @@ async def detective_answer(
     )
 
     if culprit is None or suspects is None:
-
         await query.answer(
             "That case has already been closed.",
             show_alert=True,
         )
-
         return
 
     try:
-
         selected = suspects[int(index)]
 
     except (
@@ -1756,12 +1681,10 @@ async def detective_answer(
         IndexError,
         TypeError,
     ):
-
         await query.answer(
             "Invalid suspect.",
             show_alert=True,
         )
-
         return
 
     won = selected == culprit
@@ -1795,7 +1718,6 @@ async def play_game(
     context: ContextTypes.DEFAULT_TYPE,
     game_id,
 ):
-
     query = update.callback_query
 
     if not query:
@@ -1807,12 +1729,10 @@ async def play_game(
         return
 
     if game_id not in GAME_NAMES:
-
         await query.answer(
             "Game not found.",
             show_alert=True,
         )
-
         return
 
     ensure_player(
@@ -1822,95 +1742,74 @@ async def play_game(
     )
 
     try:
-
         if game_id == "reaction":
-
             await reaction_game(
                 query,
                 context,
             )
-
             return
 
         if game_id == "number_guess":
-
             await number_guess_game(
                 query,
                 context,
             )
-
             return
 
         if game_id == "high_low":
-
             await high_low_game(
                 query,
                 context,
             )
-
             return
 
         if game_id == "coin_flip":
-
             await coin_flip_game(
                 query,
                 context,
             )
-
             return
 
         if game_id == "dice_roll":
-
             await dice_roll_game(
                 query,
                 context,
             )
-
             return
 
         if game_id == "truth_dare":
-
             await truth_dare_game(
                 query,
             )
-
             return
 
         if game_id in TRIVIA:
-
             await trivia_game(
                 query,
                 context,
                 game_id,
             )
-
             return
 
         if game_id == "code_breaker":
-
             await code_breaker_game(
                 query,
                 context,
             )
-
             return
 
         if game_id == "escape":
-
             await escape_game(
                 query,
                 context,
             )
-
             return
 
         if game_id == "detective":
-
             await detective_game(
                 query,
                 context,
             )
-
             return
 
         await random_challenge_game(
@@ -1919,14 +1818,12 @@ async def play_game(
         )
 
     except Exception:
-
         logger.exception(
             "Game failed: %s",
             game_id,
         )
 
         try:
-
             await query.edit_message_text(
                 "⚠️ <b>Game Error</b>\n\n"
                 "Something went wrong starting "
@@ -1937,7 +1834,6 @@ async def play_game(
             )
 
         except Exception:
-
             logger.exception(
                 "Could not display game error."
             )
@@ -1945,13 +1841,21 @@ async def play_game(
 
 # ==========================================================
 # CENTRAL GAME CALLBACK ROUTER
+#
+# IMPORTANT:
+# This router handles GAME ACTIONS only.
+#
+# game_center.py handles:
+#   games_home
+#   games_category_*
+#   games_play_*
+#
 # ==========================================================
 
 async def games_callback_router(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     query = update.callback_query
 
     if not query:
@@ -1960,60 +1864,17 @@ async def games_callback_router(
     data = query.data or ""
 
     logger.info(
-        "Game callback received: %s",
+        "Game engine callback received: %s",
         data,
     )
 
     try:
 
         # --------------------------------------------------
-        # LEGACY REACTION BUTTON
-        #
-        # Existing Game Center uses:
-        #
-        #     games_react
-        #
-        # Route it directly to the reaction game.
-        # --------------------------------------------------
-
-        if data == "games_react":
-
-            await query.answer()
-
-            await play_game(
-                update,
-                context,
-                "reaction",
-            )
-
-            return
-
-        # --------------------------------------------------
-        # STANDARD REACTION PLAY CALLBACK
-        #
-        # Also supports:
-        #
-        #     games_play_reaction
-        # --------------------------------------------------
-
-        if data == "games_play_reaction":
-
-            await query.answer()
-
-            await play_game(
-                update,
-                context,
-                "reaction",
-            )
-
-            return
-
-        # --------------------------------------------------
         # REACTION TAP
         # --------------------------------------------------
 
         if data == "game_reaction_tap":
-
             await query.answer()
 
             await reaction_tap(
@@ -2028,7 +1889,6 @@ async def games_callback_router(
         # --------------------------------------------------
 
         if data.startswith("game_guess_"):
-
             await query.answer()
 
             guess = data[
@@ -2048,7 +1908,6 @@ async def games_callback_router(
         # --------------------------------------------------
 
         if data == "game_high":
-
             await query.answer()
 
             await high_low_answer(
@@ -2060,7 +1919,6 @@ async def games_callback_router(
             return
 
         if data == "game_low":
-
             await query.answer()
 
             await high_low_answer(
@@ -2076,7 +1934,6 @@ async def games_callback_router(
         # --------------------------------------------------
 
         if data == "game_td_truth":
-
             await query.answer()
 
             await truth_dare_answer(
@@ -2087,7 +1944,6 @@ async def games_callback_router(
             return
 
         if data == "game_td_dare":
-
             await query.answer()
 
             await truth_dare_answer(
@@ -2102,7 +1958,6 @@ async def games_callback_router(
         # --------------------------------------------------
 
         if data.startswith("game_trivia_"):
-
             await query.answer()
 
             answer_index = data[
@@ -2122,7 +1977,6 @@ async def games_callback_router(
         # --------------------------------------------------
 
         if data.startswith("game_code_"):
-
             await query.answer()
 
             guess = data[
@@ -2142,7 +1996,6 @@ async def games_callback_router(
         # --------------------------------------------------
 
         if data.startswith("game_escape_"):
-
             await query.answer()
 
             choice = data[
@@ -2162,7 +2015,6 @@ async def games_callback_router(
         # --------------------------------------------------
 
         if data.startswith("game_detective_"):
-
             await query.answer()
 
             index = data[
@@ -2178,76 +2030,32 @@ async def games_callback_router(
             return
 
         # --------------------------------------------------
-        # GAME PLAY
-        # --------------------------------------------------
-
-        if data.startswith("games_play_"):
-
-            await query.answer()
-
-            game_id = data[
-                len("games_play_"):
-            ]
-
-            await play_game(
-                update,
-                context,
-                game_id,
-            )
-
-            return
-
-        # --------------------------------------------------
-        # GAME CENTER HOME
-        #
-        # Do not consume this here if game_center.py
-        # owns the games_home callback.
-        # --------------------------------------------------
-
-        if data == "games_home":
-
-            logger.info(
-                "games_home callback left for Game Center handler."
-            )
-
-            return
-
-        # --------------------------------------------------
-        # UNKNOWN
+        # UNKNOWN GAME ACTION
         # --------------------------------------------------
 
         logger.warning(
-            "Unknown game callback: %s",
+            "Unknown game engine callback: %s",
             data,
         )
 
-        try:
-
-            await query.answer(
-                "⚠️ Game action not recognized.",
-                show_alert=True,
-            )
-
-        except Exception:
-
-            pass
+        await query.answer(
+            "⚠️ Game action not recognized.",
+            show_alert=True,
+        )
 
     except Exception:
-
         logger.exception(
             "Game callback failed: %s",
             data,
         )
 
         try:
-
             await query.answer(
                 "⚠️ Game action failed.",
                 show_alert=True,
             )
 
         except Exception:
-
             pass
 
 
