@@ -2,30 +2,17 @@
 # Melanated AZ Bot
 # games/__init__.py
 #
-# Games package initializer
-#
-# This file allows the games folder to be imported as a
-# Python package.
+# Games package
 # ==========================================================
 
-# ----------------------------------------------------------
-# Package version
-# ----------------------------------------------------------
-
-__version__ = "1.0.0"
-
-
-# ----------------------------------------------------------
-# Available game modules
-# ----------------------------------------------------------
+from .games import (
+    games_menu,
+    games_button,
+    games_command,
+)
 
 __all__ = [
-    "game_data",
-    "trivia",
-    "would_you_rather",
+    "games_menu",
+    "games_button",
+    "games_command",
 ]
-
-
-# ----------------------------------------------------------
-# End games/__init__.py
-# ----------------------------------------------------------
