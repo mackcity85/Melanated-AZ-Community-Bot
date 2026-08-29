@@ -8,15 +8,12 @@
 #   - Raffle management
 #   - Birthday management
 #   - Truth or Dare
-#   - Games category
+#   - Games
 #   - Persistent birthday storage
 #
 # IMPORTANT:
-#   Games are managed through games/games.py.
-#   Individual games should NOT be imported here.
-#
-#   Truth or Dare is imported lazily to prevent circular
-#   imports.
+#   Truth or Dare and Games are imported lazily inside
+#   their button handlers to prevent circular imports.
 # ==========================================================
 
 import logging
@@ -70,16 +67,13 @@ def is_admin(user_id):
 
 
 # ==========================================================
-# MAIN ADMIN KEYBOARD
+# MAIN KEYBOARD
 # ==========================================================
 
 def admin_main_keyboard():
 
     return InlineKeyboardMarkup(
         [
-            # ------------------------------------------------
-            # RAFFLE
-            # ------------------------------------------------
             [
                 InlineKeyboardButton(
                     "🎟️ Start Raffle",
@@ -90,7 +84,6 @@ def admin_main_keyboard():
                     callback_data="admin_status",
                 ),
             ],
-
             [
                 InlineKeyboardButton(
                     "👥 Raffle Entries",
@@ -101,7 +94,6 @@ def admin_main_keyboard():
                     callback_data="admin_pending",
                 ),
             ],
-
             [
                 InlineKeyboardButton(
                     "✅ Completed Payments",
@@ -112,17 +104,12 @@ def admin_main_keyboard():
                     callback_data="admin_draw",
                 ),
             ],
-
             [
                 InlineKeyboardButton(
                     "❌ Cancel Raffle",
                     callback_data="admin_cancel",
                 ),
             ],
-
-            # ------------------------------------------------
-            # BIRTHDAYS
-            # ------------------------------------------------
             [
                 InlineKeyboardButton(
                     "🎂 Add Birthday",
@@ -133,37 +120,24 @@ def admin_main_keyboard():
                     callback_data="admin_birthdays",
                 ),
             ],
-
             [
                 InlineKeyboardButton(
                     "🗑️ Remove Birthday",
                     callback_data="admin_birthday_remove",
                 ),
             ],
-
-            # ------------------------------------------------
-            # TRUTH OR DARE
-            # ------------------------------------------------
             [
                 InlineKeyboardButton(
                     "🔥 Truth or Dare",
                     callback_data="admin_truthdare",
                 ),
             ],
-
-            # ------------------------------------------------
-            # GAMES
-            # ------------------------------------------------
             [
                 InlineKeyboardButton(
                     "🎮 Games",
                     callback_data="admin_games",
                 ),
             ],
-
-            # ------------------------------------------------
-            # REFRESH
-            # ------------------------------------------------
             [
                 InlineKeyboardButton(
                     "🔄 Refresh",
@@ -175,7 +149,7 @@ def admin_main_keyboard():
 
 
 # ==========================================================
-# ADMIN MENU TEXT
+# MENU TEXT
 # ==========================================================
 
 def admin_menu_text():
@@ -183,18 +157,14 @@ def admin_menu_text():
     return (
         "👑 **Melanated AZ Admin Panel**\n\n"
         "Select an option below.\n\n"
-
         "🎟️ **RAFFLE**\n"
         "Start, review, monitor, and draw raffles.\n\n"
-
         "🎂 **BIRTHDAYS**\n"
         "Add, view, and remove member birthdays.\n\n"
-
         "🔥 **TRUTH OR DARE**\n"
         "Manage the community Truth or Dare game.\n\n"
-
         "🎮 **GAMES**\n"
-        "Open the community games category."
+        "Open and manage the community games."
     )
 
 
@@ -292,10 +262,7 @@ async def run_raffle_handler(
 # RAFFLE ACTIONS
 # ==========================================================
 
-async def admin_start_raffle(
-    update,
-    context,
-):
+async def admin_start_raffle(update, context):
 
     query = update.callback_query
 
@@ -313,15 +280,11 @@ async def admin_start_raffle(
     )
 
 
-async def admin_status(
-    update,
-    context,
-):
+async def admin_status(update, context):
 
     query = update.callback_query
 
     if query:
-
         await query.answer()
 
     await run_raffle_handler(
@@ -332,15 +295,11 @@ async def admin_status(
     )
 
 
-async def admin_entries(
-    update,
-    context,
-):
+async def admin_entries(update, context):
 
     query = update.callback_query
 
     if query:
-
         await query.answer()
 
     await run_raffle_handler(
@@ -351,15 +310,11 @@ async def admin_entries(
     )
 
 
-async def admin_pending(
-    update,
-    context,
-):
+async def admin_pending(update, context):
 
     query = update.callback_query
 
     if query:
-
         await query.answer()
 
     await run_raffle_handler(
@@ -370,15 +325,11 @@ async def admin_pending(
     )
 
 
-async def admin_completed(
-    update,
-    context,
-):
+async def admin_completed(update, context):
 
     query = update.callback_query
 
     if query:
-
         await query.answer()
 
     await run_raffle_handler(
@@ -389,15 +340,11 @@ async def admin_completed(
     )
 
 
-async def admin_draw(
-    update,
-    context,
-):
+async def admin_draw(update, context):
 
     query = update.callback_query
 
     if query:
-
         await query.answer()
 
     await run_raffle_handler(
@@ -412,10 +359,7 @@ async def admin_draw(
 # CANCEL RAFFLE
 # ==========================================================
 
-async def admin_cancel(
-    update,
-    context,
-):
+async def admin_cancel(update, context):
 
     query = update.callback_query
 
@@ -450,10 +394,7 @@ async def admin_cancel(
     )
 
 
-async def admin_confirm_cancel(
-    update,
-    context,
-):
+async def admin_confirm_cancel(update, context):
 
     query = update.callback_query
 
@@ -509,10 +450,7 @@ def normalize_admin_birthday(value):
 # ADD BIRTHDAY
 # ==========================================================
 
-async def admin_birthday_add(
-    update,
-    context,
-):
+async def admin_birthday_add(update, context):
 
     query = update.callback_query
 
@@ -728,10 +666,7 @@ async def admin_birthday_text_handler(
 # VIEW BIRTHDAYS
 # ==========================================================
 
-async def admin_birthdays(
-    update,
-    context,
-):
+async def admin_birthdays(update, context):
 
     query = update.callback_query
 
@@ -860,10 +795,7 @@ def birthday_list_keyboard():
 # REMOVE BIRTHDAY
 # ==========================================================
 
-async def admin_birthday_remove(
-    update,
-    context,
-):
+async def admin_birthday_remove(update, context):
 
     query = update.callback_query
 
@@ -951,19 +883,16 @@ async def admin_remove_birthday(
 
 
 # ==========================================================
-# GAMES CATEGORY
+# GAMES
 #
-# IMPORTANT:
-# We import games lazily here.
+# The existing games.py is loaded only when the admin
+# presses the Games button.
 #
 # This keeps admin.py independent from the individual
-# games and prevents circular imports.
+# game files.
 # ==========================================================
 
-async def admin_games(
-    update,
-    context,
-):
+async def admin_games(update, context):
 
     query = update.callback_query
 
@@ -981,66 +910,71 @@ async def admin_games(
 
         return
 
-    await query.answer()
+    try:
+
+        await query.answer()
+
+    except Exception:
+
+        pass
 
     try:
 
-        from games.games import (
-            games_admin_menu,
-        )
-
-        await games_admin_menu(
-            update,
-            context,
-        )
+        from games import games_menu
 
     except ImportError:
 
         logger.exception(
-            "Could not import games.games"
-        )
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "⬅️ Back",
-                        callback_data="admin_back",
-                    )
-                ]
-            ]
+            "Could not import games_menu from games.py"
         )
 
         await query.edit_message_text(
-            "⚠️ **Games system not found.**\n\n"
-            "Make sure the following file exists:\n\n"
-            "`games/games.py`\n\n"
-            "Then redeploy the bot.",
-            reply_markup=keyboard,
+            "❌ **Games System Error**\n\n"
+            "The Games system could not be loaded.\n\n"
+            "Please check `games.py` and make sure it "
+            "contains the `games_menu` function.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back to Admin",
+                            callback_data="admin_back",
+                        )
+                    ]
+                ]
+            ),
             parse_mode="Markdown",
+        )
+
+        return
+
+    try:
+
+        await games_menu(
+            update,
+            context,
         )
 
     except Exception:
 
         logger.exception(
-            "Error opening Games admin menu."
-        )
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "⬅️ Back",
-                        callback_data="admin_back",
-                    )
-                ]
-            ]
+            "Error opening Games from admin panel."
         )
 
         await query.edit_message_text(
-            "⚠️ **Unable to open Games.**\n\n"
-            "Check the Render logs for the exact error.",
-            reply_markup=keyboard,
+            "❌ **Games Error**\n\n"
+            "I couldn't open the Games menu.\n\n"
+            "Please check the Render logs.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back to Admin",
+                            callback_data="admin_back",
+                        )
+                    ]
+                ]
+            ),
             parse_mode="Markdown",
         )
 
@@ -1049,10 +983,7 @@ async def admin_games(
 # REFRESH
 # ==========================================================
 
-async def admin_refresh(
-    update,
-    context,
-):
+async def admin_refresh(update, context):
 
     query = update.callback_query
 
@@ -1074,10 +1005,7 @@ async def admin_refresh(
 # BACK
 # ==========================================================
 
-async def admin_back(
-    update,
-    context,
-):
+async def admin_back(update, context):
 
     query = update.callback_query
 
@@ -1136,9 +1064,9 @@ async def admin_button(
         user.id,
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # NAVIGATION
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "admin_back":
 
@@ -1158,9 +1086,9 @@ async def admin_button(
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # GAMES
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "admin_games":
 
@@ -1171,17 +1099,15 @@ async def admin_button(
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # TRUTH OR DARE
     #
-    # Lazy imports prevent circular imports.
-    # ======================================================
+    # Imported lazily to prevent circular imports.
+    # ------------------------------------------------------
 
     if data == "admin_truthdare":
 
-        from truth_dare import (
-            truth_dare_admin_menu,
-        )
+        from truth_dare import truth_dare_admin_menu
 
         await truth_dare_admin_menu(
             update,
@@ -1192,9 +1118,7 @@ async def admin_button(
 
     if data == "admin_truthdare_toggle":
 
-        from truth_dare import (
-            toggle_truth_dare,
-        )
+        from truth_dare import toggle_truth_dare
 
         await toggle_truth_dare(
             update,
@@ -1205,9 +1129,7 @@ async def admin_button(
 
     if data == "admin_truthdare_help":
 
-        from truth_dare import (
-            truth_dare_help,
-        )
+        from truth_dare import truth_dare_help
 
         await truth_dare_help(
             update,
@@ -1216,9 +1138,9 @@ async def admin_button(
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # RAFFLE
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "admin_start_raffle":
 
@@ -1292,9 +1214,9 @@ async def admin_button(
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # BIRTHDAYS
-    # ======================================================
+    # ------------------------------------------------------
 
     if data == "admin_birthday_add":
 
@@ -1337,9 +1259,9 @@ async def admin_button(
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # UNKNOWN
-    # ======================================================
+    # ------------------------------------------------------
 
     logger.warning(
         "Unknown admin callback: %s",
