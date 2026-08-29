@@ -8,9 +8,9 @@
 #   games_home
 #   games_category_<category>
 #   games_play_<game>
-#   games_react
 #
 # Routes actual gameplay callbacks to games.py
+#
 # ==========================================================
 
 import logging
@@ -29,7 +29,9 @@ from .games import (
     games_callback_router,
 )
 
-logger = logging.getLogger("melanated_az_bot.games")
+logger = logging.getLogger(
+    "melanated_az_bot.games"
+)
 
 
 # ==========================================================
@@ -186,8 +188,11 @@ def games_home_keyboard():
 
     rows = []
 
-    for index in range(0, len(CATEGORY_ORDER), 2):
-
+    for index in range(
+        0,
+        len(CATEGORY_ORDER),
+        2,
+    ):
         row = []
 
         first = CATEGORY_ORDER[index]
@@ -200,7 +205,6 @@ def games_home_keyboard():
         )
 
         if index + 1 < len(CATEGORY_ORDER):
-
             second = CATEGORY_ORDER[index + 1]
 
             row.append(
@@ -222,7 +226,9 @@ def games_home_keyboard():
 def category_keyboard(category):
     """Return keyboard containing games in a category."""
 
-    category_data = GAME_CATEGORIES.get(category)
+    category_data = GAME_CATEGORIES.get(
+        category
+    )
 
     if not category_data:
         return games_home_keyboard()
@@ -231,8 +237,11 @@ def category_keyboard(category):
 
     rows = []
 
-    for index in range(0, len(game_ids), 2):
-
+    for index in range(
+        0,
+        len(game_ids),
+        2,
+    ):
         row = []
 
         first_game = game_ids[index]
@@ -248,7 +257,6 @@ def category_keyboard(category):
         )
 
         if index + 1 < len(game_ids):
-
             second_game = game_ids[index + 1]
 
             row.append(
@@ -327,12 +335,10 @@ async def games_category_callback(
         return
 
     if category not in GAME_CATEGORIES:
-
         await query.answer(
             "Category not found.",
             show_alert=True,
         )
-
         return
 
     try:
@@ -375,7 +381,6 @@ async def games_play_callback(
         return
 
     if game_id not in GAME_NAMES:
-
         await query.answer(
             "Game not found.",
             show_alert=True,
@@ -412,63 +417,6 @@ async def games_play_callback(
 
 
 # ==========================================================
-# REACTION BUTTON
-# ==========================================================
-
-async def games_reaction_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """
-    Handle the legacy Game Center Reaction callback.
-
-    Legacy callback:
-        games_react
-
-    Actual game callback:
-        game_reaction_tap
-    """
-
-    query = update.callback_query
-
-    if not query:
-        return
-
-    logger.info(
-        "Reaction Game Center callback received | user=%s",
-        update.effective_user.id
-        if update.effective_user
-        else "unknown",
-    )
-
-    try:
-        await query.answer()
-    except Exception:
-        logger.debug(
-            "Reaction callback answer failed.",
-            exc_info=True,
-        )
-
-    # Translate the legacy callback into the actual
-    # reaction-game callback understood by games.py.
-
-    original_data = query.data
-
-    try:
-
-        query.data = "games_play_reaction"
-
-        await games_callback_router(
-            update,
-            context,
-        )
-
-    finally:
-
-        query.data = original_data
-
-
-# ==========================================================
 # CENTRAL GAME CENTER ROUTER
 # ==========================================================
 
@@ -480,6 +428,18 @@ async def game_center_callback_router(
     Central router for ALL Game Center callbacks.
 
     bot.py should send Game Center callbacks here.
+
+    Routing:
+
+        games_home
+            ↓
+        games_category_<category>
+            ↓
+        games_play_<game>
+            ↓
+        games_callback_router()
+            ↓
+        actual game action
     """
 
     query = update.callback_query
@@ -494,79 +454,80 @@ async def game_center_callback_router(
         data,
     )
 
-    # ------------------------------------------------------
-    # HOME
-    # ------------------------------------------------------
+    try:
 
-    if data == "games_home":
+        # --------------------------------------------------
+        # HOME
+        # --------------------------------------------------
 
-        await games_home_callback(
-            update,
-            context,
-        )
+        if data == "games_home":
 
-        return
+            await games_home_callback(
+                update,
+                context,
+            )
 
-    # ------------------------------------------------------
-    # CATEGORY
-    # ------------------------------------------------------
+            return
 
-    if data.startswith("games_category_"):
+        # --------------------------------------------------
+        # CATEGORY
+        # --------------------------------------------------
 
-        category = data[
-            len("games_category_"):
-        ]
+        if data.startswith(
+            "games_category_"
+        ):
 
-        await games_category_callback(
-            update,
-            context,
-            category,
-        )
+            category = data[
+                len("games_category_"):
+            ]
 
-        return
+            await games_category_callback(
+                update,
+                context,
+                category,
+            )
 
-    # ------------------------------------------------------
-    # LEGACY REACTION BUTTON
-    # ------------------------------------------------------
+            return
 
-    if data == "games_react":
+        # --------------------------------------------------
+        # START GAME
+        # --------------------------------------------------
 
-        await games_reaction_callback(
-            update,
-            context,
-        )
+        if data.startswith(
+            "games_play_"
+        ):
 
-        return
+            game_id = data[
+                len("games_play_"):
+            ]
 
-    # ------------------------------------------------------
-    # GAME PLAY
-    # ------------------------------------------------------
+            await games_play_callback(
+                update,
+                context,
+                game_id,
+            )
 
-    if data.startswith("games_play_"):
+            return
 
-        game_id = data[
-            len("games_play_"):
-        ]
+        # --------------------------------------------------
+        # ACTUAL GAME ACTION
+        #
+        # Examples:
+        #
+        # game_reaction_tap
+        # game_guess_5
+        # game_high
+        # game_low
+        # game_td_truth
+        # game_td_dare
+        # game_trivia_1
+        # game_code_500
+        # game_escape_red
+        # game_detective_2
+        #
+        # --------------------------------------------------
 
-        await games_play_callback(
-            update,
-            context,
-            game_id,
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # ACTUAL GAME ACTIONS
-    #
-    # IMPORTANT:
-    # Do NOT send games_react here.
-    # It has already been handled above.
-    # ------------------------------------------------------
-
-    if data.startswith("game_"):
-
-        try:
+        if data.startswith("game_"):
 
             await games_callback_router(
                 update,
@@ -575,45 +536,64 @@ async def game_center_callback_router(
 
             return
 
-        except Exception:
+        # --------------------------------------------------
+        # LEGACY CALLBACK
+        #
+        # Kept only for compatibility with an older
+        # Game Center button.
+        #
+        # --------------------------------------------------
 
-            logger.exception(
-                "Game engine callback failed: %s",
-                data,
+        if data == "games_react":
+
+            logger.info(
+                "Legacy games_react callback received."
             )
 
-            try:
-                await query.answer(
-                    "⚠️ Game action failed.",
-                    show_alert=True,
-                )
-            except Exception:
-                pass
+            # Start the reaction game directly.
+            await games_play_callback(
+                update,
+                context,
+                "reaction",
+            )
 
             return
 
-    # ------------------------------------------------------
-    # UNKNOWN
-    # ------------------------------------------------------
+        # --------------------------------------------------
+        # UNKNOWN
+        # --------------------------------------------------
 
-    logger.warning(
-        "Unknown Game Center callback: %s",
-        data,
-    )
-
-    try:
-
-        await query.answer(
-            "Game action not recognized.",
-            show_alert=True,
+        logger.warning(
+            "Unknown Game Center callback: %s",
+            data,
         )
+
+        try:
+            await query.answer(
+                "⚠️ Game action not recognized.",
+                show_alert=True,
+            )
+
+        except Exception:
+            logger.debug(
+                "Could not answer unknown callback.",
+                exc_info=True,
+            )
 
     except Exception:
-
-        logger.debug(
-            "Could not answer unknown callback.",
-            exc_info=True,
+        logger.exception(
+            "Game Center callback failed: %s",
+            data,
         )
+
+        try:
+            await query.answer(
+                "⚠️ Game action failed.",
+                show_alert=True,
+            )
+
+        except Exception:
+            pass
 
 
 # ==========================================================
