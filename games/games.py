@@ -1,797 +1,1752 @@
 # ==========================================================
+
 # Melanated AZ Bot
+
 # games/games.py
+
 #
-# COMPLETE GAMES SYSTEM
+
+# GAME ENGINE / GAME ROUTER
+
+#
+
+# Handles actual gameplay for the Game Center.
+
+#
+
+# Games currently implemented:
+
+#
+
+# Arcade
+
+# - Reaction Test
+
+# - Number Guess
+
+# - High or Low
+
+# - Coin Flip
+
+# - Dice Roll
+
+#
+
+# Outdoor
+
+# - Fishing
+
+# - Camping
+
+# - Hiking Challenge
+
+# - Hunting Challenge
+
+# - Survival
+
+#
+
+# Shooting
+
+# - Target Practice
+
+# - Quick Shot
+
+# - Bullseye
+
+# - Accuracy
+
+# - Sniper Challenge
+
+#
+
+# Board
+
+# - Strategy
+
+# - Dice Duel
+
+#
+
+# Party
+
+# - Truth or Dare
+
+#
+
+# Trivia
+
+# - General Trivia
+
+# - Music Trivia
+
+# - Sports Trivia
+
+# - Movie Trivia
+
+# - Word Challenge
+
+#
+
+# Sports
+
+# - Football Challenge
+
+# - Basketball Challenge
+
+# - Baseball Challenge
+
+# - Boxing
+
+# - Soccer
+
+#
+
+# Racing
+
+# - Car Race
+
+# - Bike Race
+
+# - Boat Race
+
+# - Drag Race
+
+# - Street Race
+
+#
+
+# Mystery
+
+# - Detective
+
+# - Mystery Case
+
+# - Code Breaker
+
+# - Escape Room
+
+# - Investigation
+
+#
+
+# Fighting
+
+# - MMA
+
+# - Karate
+
+# - Street Fight
+
+# - Arena Battle
+
+#
+
 # ==========================================================
 
 import logging
 import random
+import time
+from datetime import datetime
 
 from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
+Update,
+InlineKeyboardButton,
+InlineKeyboardMarkup,
 )
 
+from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from .game_data import (
-    GAME_CATEGORIES,
-    GAMES,
-    get_games_by_category,
-    get_game,
+from raffle_database import get_connection
+
+# ==========================================================
+
+# LOGGING
+
+# ==========================================================
+
+logger = logging.getLogger(
+"melanated_az_bot.games.engine"
 )
 
-logger = logging.getLogger(__name__)
-
-
-# ==========================================================
-# MAIN GAMES MENU
 # ==========================================================
 
-def games_menu_keyboard():
+# REWARDS
 
-    return InlineKeyboardMarkup(
+# ==========================================================
+
+BASE_XP = 10
+WIN_XP = 25
+BASE_COINS = 5
+WIN_COINS = 15
+
+# ==========================================================
+
+# GAME NAMES
+
+# ==========================================================
+
+GAME_NAMES = {
+
+```
+"reaction": "⚡ Reaction Test",
+"number_guess": "🔢 Number Guess",
+"high_low": "📈 High or Low",
+"coin_flip": "🪙 Coin Flip",
+"dice_roll": "🎲 Dice Roll",
+
+"fishing": "🎣 Fishing",
+"camping": "🏕️ Camping",
+"hiking": "🥾 Hiking Challenge",
+"hunting": "🏹 Hunting Challenge",
+"survival": "🔥 Survival",
+
+"target": "🎯 Target Practice",
+"quick_shot": "🔫 Quick Shot",
+"bullseye": "🎯 Bullseye",
+"accuracy": "🏹 Accuracy",
+"sniper": "🔭 Sniper Challenge",
+
+"strategy": "♟️ Strategy",
+"dice_duel": "🎲 Dice Duel",
+
+"truth_dare": "🔥 Truth or Dare",
+
+"general_trivia": "🧠 General Trivia",
+"music_trivia": "🎵 Music Trivia",
+"sports_trivia": "🏆 Sports Trivia",
+"movie_trivia": "🎬 Movie Trivia",
+"word_challenge": "🔤 Word Challenge",
+
+"football": "🏈 Football Challenge",
+"basketball": "🏀 Basketball Challenge",
+"baseball": "⚾ Baseball Challenge",
+"boxing": "🥊 Boxing",
+"soccer": "⚽ Soccer",
+
+"car_race": "🏎️ Car Race",
+"bike_race": "🏍️ Bike Race",
+"boat_race": "🚤 Boat Race",
+"drag_race": "🏁 Drag Race",
+"street_race": "🏎️ Street Race",
+
+"detective": "🕵🏾 Detective",
+"murder_mystery": "🔎 Mystery Case",
+"code_breaker": "🔐 Code Breaker",
+"escape": "🚪 Escape Room",
+"investigation": "🔍 Investigation",
+
+"mma": "🥋 MMA",
+"karate": "🥋 Karate",
+"street_fight": "👊 Street Fight",
+"arena": "⚔️ Arena Battle",
+```
+
+}
+
+# ==========================================================
+
+# GENERIC BUTTONS
+
+# ==========================================================
+
+def game_back_keyboard():
+
+```
+return InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton(
+                "⬅️ Game Center",
+                callback_data="games_home",
+            )
+        ]
+    ]
+)
+```
+
+def replay_keyboard(game_id):
+
+```
+return InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton(
+                "🔄 Play Again",
+                callback_data=f"games_play_{game_id}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Game Center",
+                callback_data="games_home",
+            )
+        ],
+    ]
+)
+```
+
+# ==========================================================
+
+# PLAYER
+
+# ==========================================================
+
+def ensure_player(
+user_id,
+username=None,
+display_name=None,
+):
+
+```
+now = datetime.utcnow().isoformat()
+
+conn = get_connection()
+
+try:
+
+    conn.execute(
+        """
+        INSERT INTO game_players (
+            user_id,
+            username,
+            display_name,
+            created_at,
+            updated_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+
+        ON CONFLICT(user_id)
+        DO UPDATE SET
+            username = excluded.username,
+            display_name = excluded.display_name,
+            updated_at = excluded.updated_at
+        """,
+        (
+            user_id,
+            username,
+            display_name,
+            now,
+            now,
+        ),
+    )
+
+    conn.commit()
+
+finally:
+
+    conn.close()
+```
+
+# ==========================================================
+
+# RECORD GAME RESULT
+
+# ==========================================================
+
+def record_game_result(
+user_id,
+game_id,
+score=0,
+won=False,
+):
+
+```
+now = datetime.utcnow().isoformat()
+
+xp_gain = (
+    WIN_XP
+    if won
+    else BASE_XP
+)
+
+coin_gain = (
+    WIN_COINS
+    if won
+    else BASE_COINS
+)
+
+conn = get_connection()
+
+try:
+
+    conn.execute(
+        """
+        UPDATE game_players
+        SET
+            games_played = games_played + 1,
+            wins = wins + ?,
+            losses = losses + ?,
+            xp = xp + ?,
+            coins = coins + ?,
+            level = 1 + ((xp + ?) / 100),
+            updated_at = ?
+        WHERE user_id = ?
+        """,
+        (
+            1 if won else 0,
+            0 if won else 1,
+            xp_gain,
+            coin_gain,
+            xp_gain,
+            now,
+            user_id,
+        ),
+    )
+
+    conn.execute(
+        """
+        INSERT INTO game_scores (
+            user_id,
+            game_id,
+            score,
+            created_at
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            game_id,
+            score,
+            now,
+        ),
+    )
+
+    conn.execute(
+        """
+        INSERT INTO game_stats (
+            user_id,
+            game_id,
+            games_played,
+            wins,
+            losses,
+            high_score
+        )
+        VALUES (?, ?, 1, ?, ?, ?)
+
+        ON CONFLICT(user_id, game_id)
+        DO UPDATE SET
+            games_played =
+                games_played + 1,
+
+            wins =
+                wins + excluded.wins,
+
+            losses =
+                losses + excluded.losses,
+
+            high_score =
+                CASE
+                    WHEN excluded.high_score >
+                         high_score
+                    THEN excluded.high_score
+                    ELSE high_score
+                END
+        """,
+        (
+            user_id,
+            game_id,
+            1 if won else 0,
+            0 if won else 1,
+            score,
+        ),
+    )
+
+    conn.commit()
+
+except Exception:
+
+    conn.rollback()
+
+    logger.exception(
+        "Could not record game result."
+    )
+
+finally:
+
+    conn.close()
+```
+
+# ==========================================================
+
+# RESULT SCREEN
+
+# ==========================================================
+
+async def show_result(
+query,
+game_id,
+title,
+body,
+score,
+won,
+):
+
+```
+user = query.from_user
+
+record_game_result(
+    user_id=user.id,
+    game_id=game_id,
+    score=score,
+    won=won,
+)
+
+reward_text = (
+    f"⭐ +{WIN_XP if won else BASE_XP} XP\n"
+    f"🪙 +{WIN_COINS if won else BASE_COINS} AZ Coins"
+)
+
+result = (
+    f"{title}\n\n"
+    f"{body}\n\n"
+    f"📊 Score: <b>{score}</b>\n\n"
+    f"{reward_text}"
+)
+
+await query.edit_message_text(
+    result,
+    reply_markup=replay_keyboard(game_id),
+    parse_mode=ParseMode.HTML,
+)
+```
+
+# ==========================================================
+
+# REACTION TEST
+
+# ==========================================================
+
+async def reaction_game(
+query,
+context,
+):
+
+```
+game_id = "reaction"
+
+context.user_data[
+    "reaction_start"
+] = time.time()
+
+keyboard = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton(
+                "⚡ TAP NOW!",
+                callback_data="game_reaction_tap",
+            )
+        ]
+    ]
+)
+
+await query.edit_message_text(
+    "⚡ <b>REACTION TEST</b>\n\n"
+    "When you're ready, hit the button!\n\n"
+    "How fast can you react?",
+    reply_markup=keyboard,
+    parse_mode=ParseMode.HTML,
+)
+```
+
+async def reaction_tap(
+query,
+context,
+):
+
+```
+start = context.user_data.pop(
+    "reaction_start",
+    None,
+)
+
+if not start:
+
+    await query.answer(
+        "Start the game first.",
+        show_alert=True,
+    )
+
+    return
+
+elapsed = time.time() - start
+
+milliseconds = int(
+    elapsed * 1000
+)
+
+score = max(
+    1,
+    1000 - milliseconds,
+)
+
+won = milliseconds < 600
+
+await show_result(
+    query,
+    "reaction",
+    "⚡ <b>REACTION TEST</b>",
+    (
+        f"⏱️ Reaction time: "
+        f"<b>{milliseconds} ms</b>\n\n"
+        + (
+            "🔥 Lightning fast!"
+            if won
+            else "😅 Try to beat your time!"
+        )
+    ),
+    score,
+    won,
+)
+```
+
+# ==========================================================
+
+# NUMBER GUESS
+
+# ==========================================================
+
+async def number_guess_game(
+query,
+context,
+):
+
+```
+number = random.randint(
+    1,
+    10,
+)
+
+context.user_data[
+    "number_guess"
+] = number
+
+buttons = []
+
+for number_value in range(
+    1,
+    11,
+):
+
+    buttons.append(
+        InlineKeyboardButton(
+            str(number_value),
+            callback_data=(
+                f"game_guess_{number_value}"
+            ),
+        )
+    )
+
+keyboard = [
+    buttons[0:5],
+    buttons[5:10],
+]
+
+await query.edit_message_text(
+    "🔢 <b>NUMBER GUESS</b>\n\n"
+    "I'm thinking of a number from "
+    "<b>1 to 10</b>.\n\n"
+    "Can you guess it?",
+    reply_markup=InlineKeyboardMarkup(
+        keyboard
+    ),
+    parse_mode=ParseMode.HTML,
+)
+```
+
+async def number_guess_answer(
+query,
+context,
+guess,
+):
+
+```
+target = context.user_data.pop(
+    "number_guess",
+    None,
+)
+
+if target is None:
+
+    await query.answer(
+        "Start a new game.",
+        show_alert=True,
+    )
+
+    return
+
+correct = (
+    int(guess) == target
+)
+
+score = (
+    100
+    if correct
+    else max(
+        10,
+        50 - abs(
+            int(guess) - target
+        ) * 5,
+    )
+)
+
+await show_result(
+    query,
+    "number_guess",
+    "🔢 <b>NUMBER GUESS</b>",
+    (
+        f"🎯 My number was "
+        f"<b>{target}</b>.\n\n"
+        + (
+            "🎉 You got it!"
+            if correct
+            else "❌ Not this time!"
+        )
+    ),
+    score,
+    correct,
+)
+```
+
+# ==========================================================
+
+# HIGH / LOW
+
+# ==========================================================
+
+async def high_low_game(
+query,
+context,
+):
+
+```
+first = random.randint(
+    1,
+    13,
+)
+
+second = random.randint(
+    1,
+    13,
+)
+
+context.user_data[
+    "high_low"
+] = {
+    "first": first,
+    "second": second,
+}
+
+keyboard = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton(
+                "📈 HIGHER",
+                callback_data="game_high",
+            ),
+            InlineKeyboardButton(
+                "📉 LOWER",
+                callback_data="game_low",
+            ),
+        ]
+    ]
+)
+
+await query.edit_message_text(
+    "📈 <b>HIGH OR LOW</b>\n\n"
+    f"First card: <b>{first}</b>\n\n"
+    "Will the next card be higher "
+    "or lower?",
+    reply_markup=keyboard,
+    parse_mode=ParseMode.HTML,
+)
+```
+
+async def high_low_answer(
+query,
+context,
+choice,
+):
+
+```
+data = context.user_data.pop(
+    "high_low",
+    None,
+)
+
+if not data:
+
+    await query.answer(
+        "Start a new game.",
+        show_alert=True,
+    )
+
+    return
+
+first = data["first"]
+second = data["second"]
+
+if second == first:
+
+    won = False
+
+elif choice == "high":
+
+    won = second > first
+
+else:
+
+    won = second < first
+
+await show_result(
+    query,
+    "high_low",
+    "📈 <b>HIGH OR LOW</b>",
+    (
+        f"First card: <b>{first}</b>\n"
+        f"Next card: <b>{second}</b>\n\n"
+        + (
+            "🎉 Correct!"
+            if won
+            else "❌ Wrong guess!"
+        )
+    ),
+    100 if won else 25,
+    won,
+)
+```
+
+# ==========================================================
+
+# COIN FLIP
+
+# ==========================================================
+
+async def coin_flip_game(
+query,
+context,
+):
+
+```
+result = random.choice(
+    [
+        "HEADS",
+        "TAILS",
+    ]
+)
+
+await show_result(
+    query,
+    "coin_flip",
+    "🪙 <b>COIN FLIP</b>",
+    f"The coin landed on <b>{result}</b>!",
+    50,
+    True,
+)
+```
+
+# ==========================================================
+
+# DICE ROLL
+
+# ==========================================================
+
+async def dice_roll_game(
+query,
+context,
+):
+
+```
+roll = random.randint(
+    1,
+    6,
+)
+
+won = roll >= 4
+
+await show_result(
+    query,
+    "dice_roll",
+    "🎲 <b>DICE ROLL</b>",
+    (
+        f"You rolled a <b>{roll}</b>!\n\n"
+        + (
+            "🔥 Nice roll!"
+            if won
+            else "🎲 Better luck next roll!"
+        )
+    ),
+    roll * 10,
+    won,
+)
+```
+
+# ==========================================================
+
+# RANDOM CHALLENGE GAMES
+
+# ==========================================================
+
+CHALLENGES = {
+
+```
+"fishing": [
+    "🐟 You caught a huge bass!",
+    "🐠 You caught a colorful fish!",
+    "🎣 The fish got away!",
+    "🐟 You landed a trophy fish!",
+],
+
+"camping": [
+    "🔥 You built the perfect campfire!",
+    "🏕️ You found an amazing campsite!",
+    "🌧️ Rain ruined the campsite!",
+    "🦌 You spotted wildlife nearby!",
+],
+
+"hiking": [
+    "🥾 You reached the summit!",
+    "🏔️ Amazing trail completed!",
+    "🌲 You discovered a hidden trail!",
+    "😅 You took the wrong trail!",
+],
+
+"hunting": [
+    "🏹 Perfect shot!",
+    "🦌 You tracked your target!",
+    "🌲 The target escaped!",
+    "🎯 Bullseye!",
+],
+
+"survival": [
+    "🔥 You survived the night!",
+    "💧 You found clean water!",
+    "🏕️ You built shelter!",
+    "🌧️ The storm almost got you!",
+],
+
+"target": [
+    "🎯 Bullseye!",
+    "🎯 Excellent shot!",
+    "💥 Direct hit!",
+    "😅 You missed!",
+],
+
+"quick_shot": [
+    "⚡ Lightning-fast shot!",
+    "🎯 Fast and accurate!",
+    "💥 Perfect hit!",
+    "😅 Too slow!",
+],
+
+"bullseye": [
+    "🎯 PERFECT BULLSEYE!",
+    "🔥 Dead center!",
+    "🎯 Almost perfect!",
+    "😅 Off target!",
+],
+
+"accuracy": [
+    "🏹 Incredible accuracy!",
+    "🎯 Excellent aim!",
+    "💥 Great shot!",
+    "😅 Needs practice!",
+],
+
+"sniper": [
+    "🔭 Perfect long-range shot!",
+    "🎯 Target eliminated!",
+    "🔥 Incredible accuracy!",
+    "😅 Target escaped!",
+],
+
+"strategy": [
+    "♟️ Brilliant strategy!",
+    "🧠 You outsmarted the opponent!",
+    "♟️ Excellent move!",
+    "😅 Your opponent saw it coming!",
+],
+
+"dice_duel": [
+    "🎲 You won the dice duel!",
+    "🎲 Huge roll!",
+    "😈 Your opponent got crushed!",
+    "💀 Your opponent rolled higher!",
+],
+
+"football": [
+    "🏈 TOUCHDOWN!",
+    "🏈 Huge gain!",
+    "🏈 Perfect pass!",
+    "🏈 Fumble!",
+],
+
+"basketball": [
+    "🏀 THREE POINTER!",
+    "🏀 Nothing but net!",
+    "🔥 Clutch shot!",
+    "😅 Air ball!",
+],
+
+"baseball": [
+    "⚾ HOME RUN!",
+    "⚾ Perfect hit!",
+    "🔥 Extra-base hit!",
+    "😅 Strikeout!",
+],
+
+"boxing": [
+    "🥊 Knockout!",
+    "🥊 Perfect combination!",
+    "🔥 Huge punch!",
+    "😵 You got rocked!",
+],
+
+"soccer": [
+    "⚽ GOAL!",
+    "⚽ Beautiful finish!",
+    "🔥 Top corner!",
+    "😅 Missed the shot!",
+],
+
+"car_race": [
+    "🏎️ You crossed the finish line first!",
+    "🏁 Perfect launch!",
+    "🔥 Fastest lap!",
+    "💥 You spun out!",
+],
+
+"bike_race": [
+    "🏍️ First across the line!",
+    "🏁 Amazing cornering!",
+    "🔥 Fastest lap!",
+    "😅 You wiped out!",
+],
+
+"boat_race": [
+    "🚤 You dominated the race!",
+    "🌊 Perfect turn!",
+    "🏁 First place!",
+    "🌊 You hit a huge wave!",
+],
+
+"drag_race": [
+    "🏁 LIGHTS OUT!",
+    "🏎️ Perfect launch!",
+    "🔥 You won by a nose!",
+    "😅 Bad reaction!",
+],
+
+"street_race": [
+    "🏎️ You took the win!",
+    "🔥 Fastest car on the street!",
+    "🏁 Perfect corner!",
+    "💥 You lost control!",
+],
+
+"mma": [
+    "🥊 Submission victory!",
+    "🔥 Technical knockout!",
+    "💪 Dominant performance!",
+    "😵 You got submitted!",
+],
+
+"karate": [
+    "🥋 Perfect strike!",
+    "🔥 Tournament victory!",
+    "🥋 Excellent technique!",
+    "😵 Countered!",
+],
+
+"street_fight": [
+    "👊 You won the fight!",
+    "🔥 Knockout!",
+    "💪 Powerful combination!",
+    "😵 You got dropped!",
+],
+
+"arena": [
+    "⚔️ ARENA VICTORY!",
+    "🔥 You defeated your opponent!",
+    "⚔️ Critical hit!",
+    "💀 You were defeated!",
+],
+
+"detective": [
+    "🕵🏾 Case solved!",
+    "🔍 You found the clue!",
+    "🧠 Brilliant deduction!",
+    "😅 Wrong suspect!",
+],
+
+"murder_mystery": [
+    "🔎 Mystery solved!",
+    "🕵🏾 You found the killer!",
+    "🔍 Critical clue discovered!",
+    "😅 Wrong suspect!",
+],
+
+"escape": [
+    "🚪 You escaped!",
+    "🔐 Door unlocked!",
+    "🧠 Puzzle solved!",
+    "⛓️ You're still trapped!",
+],
+
+"investigation": [
+    "🔍 Evidence discovered!",
+    "🕵🏾 Investigation successful!",
+    "🧠 Case breakthrough!",
+    "😅 Dead end!",
+],
+```
+
+}
+
+# ==========================================================
+
+# RANDOM CHALLENGE ENGINE
+
+# ==========================================================
+
+async def random_challenge_game(
+query,
+game_id,
+):
+
+```
+outcomes = CHALLENGES.get(
+    game_id,
+    [
+        "🎮 Challenge completed!",
+        "🔥 Great job!",
+        "🏆 Excellent!",
+        "😅 Try again!",
+    ],
+)
+
+outcome = random.choice(
+    outcomes
+)
+
+positive = not (
+    "missed" in outcome.lower()
+    or "escaped" in outcome.lower()
+    or "wiped" in outcome.lower()
+    or "fumble" in outcome.lower()
+    or "air ball" in outcome.lower()
+    or "strikeout" in outcome.lower()
+    or "rocked" in outcome.lower()
+    or "submitted" in outcome.lower()
+    or "dropped" in outcome.lower()
+    or "defeated" in outcome.lower()
+    or "trapped" in outcome.lower()
+    or "wrong" in outcome.lower()
+    or "dead end" in outcome.lower()
+    or "control" in outcome.lower()
+    or "countered" in outcome.lower()
+    or "bad reaction" in outcome.lower()
+    or "hit a huge wave" in outcome.lower()
+    or "spun out" in outcome.lower()
+)
+
+score = random.randint(
+    40,
+    100,
+)
+
+await show_result(
+    query,
+    game_id,
+    f"<b>{GAME_NAMES.get(game_id, '🎮 Game')}</b>",
+    outcome,
+    score,
+    positive,
+)
+```
+
+# ==========================================================
+
+# TRUTH OR DARE
+
+# ==========================================================
+
+TRUTHS = [
+"What is something you've never told the group?",
+"Who in the group has the best personality?",
+"What's your biggest guilty pleasure?",
+"What's the wildest thing you've ever done?",
+"What is one thing you want to try someday?",
+]
+
+DARES = [
+"Send the funniest GIF you can find.",
+"Give someone in the group a genuine compliment.",
+"Change your profile picture for 10 minutes.",
+"Send your best pickup line.",
+"Tell the group your most embarrassing story.",
+]
+
+async def truth_dare_game(
+query,
+):
+
+```
+keyboard = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton(
+                "🔥 TRUTH",
+                callback_data="game_td_truth",
+            ),
+            InlineKeyboardButton(
+                "😈 DARE",
+                callback_data="game_td_dare",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Game Center",
+                callback_data="games_home",
+            )
+        ],
+    ]
+)
+
+await query.edit_message_text(
+    "🔥 <b>TRUTH OR DARE</b>\n\n"
+    "Choose your challenge!",
+    reply_markup=keyboard,
+    parse_mode=ParseMode.HTML,
+)
+```
+
+async def truth_dare_answer(
+query,
+choice,
+):
+
+```
+if choice == "truth":
+
+    prompt = random.choice(
+        TRUTHS
+    )
+
+    title = "🔥 TRUTH"
+
+else:
+
+    prompt = random.choice(
+        DARES
+    )
+
+    title = "😈 DARE"
+
+await query.edit_message_text(
+    f"<b>{title}</b>\n\n"
+    f"{prompt}\n\n"
+    "🔥 Good luck!",
+    reply_markup=InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    "🎲 Board & Classic",
-                    callback_data="games_category_board",
-                ),
+                    "🔄 Another",
+                    callback_data="games_play_truth_dare",
+                )
             ],
             [
                 InlineKeyboardButton(
-                    "🏆 Sports",
-                    callback_data="games_category_sports",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🦆 Arcade & Shooting",
-                    callback_data="games_category_arcade",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🎣 Adventure & Outdoors",
-                    callback_data="games_category_outdoors",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🧠 Trivia & Knowledge",
-                    callback_data="games_category_trivia",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "😂 Party & Social",
-                    callback_data="games_category_party",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔥 Spicy / Adult",
-                    callback_data="games_category_spicy",
-                ),
+                    "⬅️ Game Center",
+                    callback_data="games_home",
+                )
             ],
         ]
-    )
-
+    ),
+    parse_mode=ParseMode.HTML,
+)
+```
 
 # ==========================================================
-# GAMES MENU
+
+# TRIVIA QUESTIONS
+
 # ==========================================================
 
-async def games_menu(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+TRIVIA = {
+
+```
+"general_trivia": [
+    (
+        "What is the largest planet?",
+        ["Earth", "Mars", "Jupiter", "Venus"],
+        "Jupiter",
+    ),
+    (
+        "How many continents are there?",
+        ["5", "6", "7", "8"],
+        "7",
+    ),
+    (
+        "What is the fastest land animal?",
+        ["Lion", "Cheetah", "Horse", "Tiger"],
+        "Cheetah",
+    ),
+],
+
+"music_trivia": [
+    (
+        "Which instrument has 88 keys?",
+        ["Guitar", "Piano", "Drums", "Violin"],
+        "Piano",
+    ),
+    (
+        "How many strings does a standard guitar have?",
+        ["4", "5", "6", "7"],
+        "6",
+    ),
+    (
+        "Which musical symbol indicates silence?",
+        ["Rest", "Sharp", "Flat", "Clef"],
+        "Rest",
+    ),
+],
+
+"sports_trivia": [
+    (
+        "How many players are on a basketball team on the court?",
+        ["4", "5", "6", "7"],
+        "5",
+    ),
+    (
+        "How many bases are on a baseball field?",
+        ["3", "4", "5", "6"],
+        "4",
+    ),
+    (
+        "How many points is a touchdown worth before the extra point?",
+        ["3", "6", "7", "8"],
+        "6",
+    ),
+],
+
+"movie_trivia": [
+    (
+        "Which superhero carries a shield?",
+        ["Batman", "Spider-Man", "Captain America", "Thor"],
+        "Captain America",
+    ),
+    (
+        "Which movie features the character Jack Sparrow?",
+        ["Avatar", "Pirates of the Caribbean", "Titanic", "Rocky"],
+        "Pirates of the Caribbean",
+    ),
+    (
+        "Who is Shrek's best friend?",
+        ["Donkey", "Fiona", "Puss", "Dragon"],
+        "Donkey",
+    ),
+],
+
+"word_challenge": [
+    (
+        "Which word is spelled correctly?",
+        ["Necessary", "Necesary", "Neccessary", "Necassary"],
+        "Necessary",
+    ),
+    (
+        "What is the opposite of 'ancient'?",
+        ["Old", "Modern", "Historic", "Past"],
+        "Modern",
+    ),
+    (
+        "Which word means very happy?",
+        ["Sad", "Angry", "Ecstatic", "Tired"],
+        "Ecstatic",
+    ),
+],
+```
+
+}
+
+async def trivia_game(
+query,
+context,
+game_id,
 ):
 
-    message = update.effective_message
+```
+questions = TRIVIA.get(
+    game_id,
+    [],
+)
 
-    if not message:
-        return
+if not questions:
 
-    await message.reply_text(
-        "🎮 **MELANATED AZ GAMES**\n\n"
-        "Choose a category below.\n\n"
-        "There are games for solo play, group play, "
-        "competition, trivia, arcade challenges, "
-        "sports, fishing, and more.",
-        reply_markup=games_menu_keyboard(),
-        parse_mode="Markdown",
+    await query.answer(
+        "Trivia is not available yet.",
+        show_alert=True,
     )
 
+    return
 
-# ==========================================================
-# COMMAND
-# ==========================================================
+question, answers, correct = random.choice(
+    questions
+)
 
-async def games_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+context.user_data[
+    "trivia"
+] = {
+    "game_id": game_id,
+    "correct": correct,
+}
 
-    await games_menu(
-        update,
-        context,
-    )
+buttons = []
 
-
-# ==========================================================
-# CATEGORY KEYBOARD
-# ==========================================================
-
-def category_keyboard(category):
-
-    games = get_games_by_category(category)
-
-    buttons = []
-
-    for game_id, game in games.items():
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    game["name"],
-                    callback_data=f"game_start_{game_id}",
-                )
-            ]
-        )
+for answer in answers:
 
     buttons.append(
         [
             InlineKeyboardButton(
-                "⬅️ Games",
-                callback_data="games_main",
+                answer,
+                callback_data=(
+                    "game_trivia_"
+                    + answer
+                ),
             )
         ]
     )
 
-    return InlineKeyboardMarkup(buttons)
+await query.edit_message_text(
+    f"<b>{GAME_NAMES[game_id]}</b>\n\n"
+    f"{question}",
+    reply_markup=InlineKeyboardMarkup(
+        buttons
+    ),
+    parse_mode=ParseMode.HTML,
+)
+```
 
-
-# ==========================================================
-# CATEGORY MENU
-# ==========================================================
-
-async def show_category(
-    query,
-    category,
+async def trivia_answer(
+query,
+context,
+answer,
 ):
 
-    category_data = GAME_CATEGORIES.get(category)
+```
+data = context.user_data.pop(
+    "trivia",
+    None,
+)
 
-    if not category_data:
+if not data:
 
-        await query.edit_message_text(
-            "⚠️ Unknown game category."
-        )
-
-        return
-
-    games = get_games_by_category(category)
-
-    text = (
-        f"{category_data['name']}\n\n"
-        f"{category_data['description']}\n\n"
-        f"🎮 Games available: {len(games)}\n\n"
-        "Choose a game:"
+    await query.answer(
+        "Start a new trivia game.",
+        show_alert=True,
     )
 
-    await query.edit_message_text(
-        text,
-        reply_markup=category_keyboard(category),
-    )
+    return
 
+correct = data["correct"]
+game_id = data["game_id"]
 
-# ==========================================================
-# GAME DESCRIPTION
-# ==========================================================
+won = (
+    answer == correct
+)
 
-def game_description(game):
-
-    return (
-        f"{game['name']}\n\n"
-        f"{game['description']}\n\n"
-        "Press START to play."
-    )
-
-
-# ==========================================================
-# GAME START KEYBOARD
-# ==========================================================
-
-def start_game_keyboard(game_id):
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "▶️ START GAME",
-                    callback_data=f"game_play_{game_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "⬅️ Back to Category",
-                    callback_data="game_back_category",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🎮 Games",
-                    callback_data="games_main",
-                )
-            ],
-        ]
-    )
-
-
-# ==========================================================
-# GAME START SCREEN
-# ==========================================================
-
-async def show_game_start(
+await show_result(
     query,
-    context,
     game_id,
-):
-
-    game = get_game(game_id)
-
-    if not game:
-
-        await query.edit_message_text(
-            "⚠️ Game not found."
+    f"<b>{GAME_NAMES[game_id]}</b>",
+    (
+        f"Your answer: <b>{answer}</b>\n"
+        f"Correct answer: <b>{correct}</b>\n\n"
+        + (
+            "🎉 Correct!"
+            if won
+            else "❌ Incorrect!"
         )
-
-        return
-
-    context.user_data[
-        "selected_game"
-    ] = game_id
-
-    context.user_data[
-        "selected_game_category"
-    ] = game["category"]
-
-    await query.edit_message_text(
-        game_description(game),
-        reply_markup=start_game_keyboard(game_id),
-    )
-
-
-# ==========================================================
-# GAME BUTTONS
-# ==========================================================
-
-def generic_game_keyboard(game_id):
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🎮 Play Again",
-                    callback_data=f"game_play_{game_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "⬅️ Category",
-                    callback_data="game_back_category",
-                ),
-                InlineKeyboardButton(
-                    "🎮 Games",
-                    callback_data="games_main",
-                ),
-            ],
-        ]
-    )
-
-
-# ==========================================================
-# GENERIC GAME
-# ==========================================================
-
-async def play_generic_game(
-    query,
-    context,
-    game_id,
-):
-
-    game = get_game(game_id)
-
-    if not game:
-        return
-
-    outcomes = [
-        "🔥 Great choice!",
-        "🎯 Nice move!",
-        "⭐ You scored a point!",
-        "💥 Excellent!",
-        "🏆 That's a strong play!",
-        "😎 Smooth move!",
-        "🎉 You got it!",
-    ]
-
-    outcome = random.choice(outcomes)
-
-    score = context.user_data.get(
-        "games_score",
-        0,
-    )
-
-    score += 1
-
-    context.user_data[
-        "games_score"
-    ] = score
-
-    await query.edit_message_text(
-        f"{game['name']}\n\n"
-        f"{outcome}\n\n"
-        f"🏆 Your Games Score: {score}\n\n"
-        "Ready for another round?",
-        reply_markup=generic_game_keyboard(
-            game_id
-        ),
-    )
-
-
-# ==========================================================
-# DUCK HUNT
-# ==========================================================
-
-async def play_duck_hunt(
-    query,
-    context,
-):
-
-    ducks = random.randint(
-        1,
-        5,
-    )
-
-    hits = random.randint(
-        0,
-        ducks,
-    )
-
-    points = hits * 10
-
-    score = context.user_data.get(
-        "duck_hunt_score",
-        0,
-    )
-
-    score += points
-
-    context.user_data[
-        "duck_hunt_score"
-    ] = score
-
-    duck_text = "🦆 " * ducks
-
-    await query.edit_message_text(
-        "🦆 **DUCK HUNT**\n\n"
-        f"{duck_text}\n\n"
-        f"🎯 Ducks: {ducks}\n"
-        f"💥 Hits: {hits}\n"
-        f"⭐ Points: +{points}\n\n"
-        f"🏆 High Score: {score}",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🦆 HUNT!",
-                        callback_data="game_play_duck_hunt",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🎮 Games",
-                        callback_data="games_main",
-                    )
-                ],
-            ]
-        ),
-        parse_mode="Markdown",
-    )
-
-
-# ==========================================================
-# FISHING
-# ==========================================================
-
-FISH = [
-    (
-        "🐟 Bluegill",
-        5,
-        "Common",
     ),
-    (
-        "🐠 Bass",
-        15,
-        "Common",
-    ),
-    (
-        "🐟 Trout",
-        25,
-        "Uncommon",
-    ),
-    (
-        "🐡 Catfish",
-        35,
-        "Uncommon",
-    ),
-    (
-        "🐟 Salmon",
-        50,
-        "Rare",
-    ),
-    (
-        "🦈 Shark",
-        100,
-        "Very Rare",
-    ),
-    (
-        "🐉 Legendary Fish",
-        250,
-        "LEGENDARY",
-    ),
-]
-
-
-async def play_fishing(
-    query,
-    context,
-):
-
-    fish, value, rarity = random.choice(
-        FISH
-    )
-
-    total = context.user_data.get(
-        "fishing_value",
-        0,
-    )
-
-    total += value
-
-    context.user_data[
-        "fishing_value"
-    ] = total
-
-    catches = context.user_data.get(
-        "fishing_catches",
-        0,
-    )
-
-    catches += 1
-
-    context.user_data[
-        "fishing_catches"
-    ] = catches
-
-    await query.edit_message_text(
-        "🎣 **FISHING**\n\n"
-        "🌊 You cast your line...\n\n"
-        "⏳ Waiting...\n\n"
-        f"🎣 **YOU CAUGHT A FISH!**\n\n"
-        f"{fish}\n"
-        f"⭐ Rarity: {rarity}\n"
-        f"💰 Value: ${value}\n\n"
-        f"🐟 Total Catches: {catches}\n"
-        f"💰 Total Value: ${total}",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🎣 Fish Again",
-                        callback_data="game_play_fishing",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🎮 Games",
-                        callback_data="games_main",
-                    )
-                ],
-            ]
-        ),
-        parse_mode="Markdown",
-    )
-
+    100 if won else 20,
+    won,
+)
+```
 
 # ==========================================================
-# MONOPOLY
-# ==========================================================
 
-MONOPOLY_PROPERTIES = [
-    "Mediterranean Avenue",
-    "Baltic Avenue",
-    "Oriental Avenue",
-    "Vermont Avenue",
-    "Connecticut Avenue",
-    "St. Charles Place",
-    "States Avenue",
-    "Virginia Avenue",
-    "St. James Place",
-    "Tennessee Avenue",
-    "New York Avenue",
-    "Kentucky Avenue",
-    "Indiana Avenue",
-    "Illinois Avenue",
-    "Atlantic Avenue",
-    "Ventnor Avenue",
-    "Marvin Gardens",
-    "Pacific Avenue",
-    "North Carolina Avenue",
-    "Pennsylvania Avenue",
-    "Park Place",
-    "Boardwalk",
-]
+# GAME ROUTER
 
-
-async def play_monopoly(
-    query,
-    context,
-):
-
-    position = random.randint(
-        1,
-        12,
-    )
-
-    roll = random.randint(
-        1,
-        6,
-    ) + random.randint(
-        1,
-        6,
-    )
-
-    property_name = random.choice(
-        MONOPOLY_PROPERTIES
-    )
-
-    cash = context.user_data.get(
-        "monopoly_cash",
-        1500,
-    )
-
-    event = random.choice(
-        [
-            f"🎲 You rolled **{roll}**.",
-            f"🏠 You landed near **{property_name}**.",
-            "💰 You collected $200.",
-            "💸 You paid $100.",
-            "🎁 You received a Community Chest bonus.",
-            "🚔 Uh oh... Jail!",
-        ]
-    )
-
-    if "collected" in event or "received" in event:
-
-        cash += 200
-
-    if "paid" in event:
-
-        cash = max(
-            0,
-            cash - 100,
-        )
-
-    context.user_data[
-        "monopoly_cash"
-    ] = cash
-
-    await query.edit_message_text(
-        "🎲 **MONOPOLY**\n\n"
-        f"{event}\n\n"
-        f"💵 Cash: ${cash}\n\n"
-        "Keep playing to build your fortune.",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🎲 Roll Dice",
-                        callback_data="game_play_monopoly",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🎮 Games",
-                        callback_data="games_main",
-                    )
-                ],
-            ]
-        ),
-        parse_mode="Markdown",
-    )
-
-
-# ==========================================================
-# GAME PLAY ROUTER
 # ==========================================================
 
 async def play_game(
-    query,
-    context,
-    game_id,
+update: Update,
+context: ContextTypes.DEFAULT_TYPE,
+game_id,
 ):
 
-    game = get_game(game_id)
+```
+query = update.callback_query
 
-    if not game:
+if not query:
+    return
 
-        await query.edit_message_text(
-            "⚠️ Game not found."
+user = update.effective_user
+
+if not user:
+    return
+
+ensure_player(
+    user_id=user.id,
+    username=user.username,
+    display_name=user.full_name,
+)
+
+try:
+
+    if game_id == "reaction":
+
+        await reaction_game(
+            query,
+            context,
         )
 
         return
 
-    game_type = game.get(
-        "type"
+    if game_id == "number_guess":
+
+        await number_guess_game(
+            query,
+            context,
+        )
+
+        return
+
+    if game_id == "high_low":
+
+        await high_low_game(
+            query,
+            context,
+        )
+
+        return
+
+    if game_id == "coin_flip":
+
+        await coin_flip_game(
+            query,
+            context,
+        )
+
+        return
+
+    if game_id == "dice_roll":
+
+        await dice_roll_game(
+            query,
+            context,
+        )
+
+        return
+
+    if game_id == "truth_dare":
+
+        await truth_dare_game(
+            query,
+        )
+
+        return
+
+    if game_id in TRIVIA:
+
+        await trivia_game(
+            query,
+            context,
+            game_id,
+        )
+
+        return
+
+    await random_challenge_game(
+        query,
+        game_id,
     )
 
-    if game_type == "duck_hunt":
+except Exception:
 
-        await play_duck_hunt(
-            query,
-            context,
-        )
+    logger.exception(
+        "Game failed: %s",
+        game_id,
+    )
 
-        return
+    await query.edit_message_text(
+        "⚠️ <b>Game Error</b>\n\n"
+        "Something went wrong starting "
+        "this game.\n\n"
+        "Please try again.",
+        reply_markup=game_back_keyboard(),
+        parse_mode=ParseMode.HTML,
+    )
+```
 
-    if game_type == "fishing":
+# ==========================================================
 
-        await play_fishing(
-            query,
-            context,
-        )
+# CENTRAL CALLBACK ROUTER
 
-        return
+# ==========================================================
 
-    if game_type == "monopoly":
+async def games_callback_router(
+update: Update,
+context: ContextTypes.DEFAULT_TYPE,
+):
 
-        await play_monopoly(
-            query,
-            context,
-        )
+```
+query = update.callback_query
 
-        return
+if not query:
+    return
 
-    await play_generic_game(
+data = query.data or ""
+
+# ------------------------------------------------------
+# REACTION TAP
+# ------------------------------------------------------
+
+if data == "game_reaction_tap":
+
+    await query.answer()
+
+    await reaction_tap(
         query,
+        context,
+    )
+
+    return
+
+# ------------------------------------------------------
+# NUMBER GUESS
+# ------------------------------------------------------
+
+if data.startswith(
+    "game_guess_"
+):
+
+    await query.answer()
+
+    guess = data[
+        len("game_guess_"):
+    ]
+
+    await number_guess_answer(
+        query,
+        context,
+        guess,
+    )
+
+    return
+
+# ------------------------------------------------------
+# HIGH / LOW
+# ------------------------------------------------------
+
+if data == "game_high":
+
+    await query.answer()
+
+    await high_low_answer(
+        query,
+        context,
+        "high",
+    )
+
+    return
+
+if data == "game_low":
+
+    await query.answer()
+
+    await high_low_answer(
+        query,
+        context,
+        "low",
+    )
+
+    return
+
+# ------------------------------------------------------
+# TRUTH / DARE
+# ------------------------------------------------------
+
+if data == "game_td_truth":
+
+    await query.answer()
+
+    await truth_dare_answer(
+        query,
+        "truth",
+    )
+
+    return
+
+if data == "game_td_dare":
+
+    await query.answer()
+
+    await truth_dare_answer(
+        query,
+        "dare",
+    )
+
+    return
+
+# ------------------------------------------------------
+# TRIVIA
+# ------------------------------------------------------
+
+if data.startswith(
+    "game_trivia_"
+):
+
+    await query.answer()
+
+    answer = data[
+        len("game_trivia_"):
+    ]
+
+    await trivia_answer(
+        query,
+        context,
+        answer,
+    )
+
+    return
+
+# ------------------------------------------------------
+# GAME PLAY
+# ------------------------------------------------------
+
+if data.startswith(
+    "games_play_"
+):
+
+    await query.answer()
+
+    game_id = data[
+        len("games_play_"):
+    ]
+
+    await play_game(
+        update,
         context,
         game_id,
     )
 
+    return
+```
 
 # ==========================================================
-# CALLBACK ROUTER
+
+# END games.py
+
 # ==========================================================
-
-async def games_button(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    if not query:
-        return
-
-    try:
-        await query.answer()
-    except Exception:
-        pass
-
-    data = query.data or ""
-
-    # ------------------------------------------------------
-    # MAIN MENU
-    # ------------------------------------------------------
-
-    if data == "games_main":
-
-        await query.edit_message_text(
-            "🎮 **MELANATED AZ GAMES**\n\n"
-            "Choose a category:",
-            reply_markup=games_menu_keyboard(),
-            parse_mode="Markdown",
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # CATEGORY
-    # ------------------------------------------------------
-
-    if data.startswith(
-        "games_category_"
-    ):
-
-        category = data.replace(
-            "games_category_",
-            "",
-            1,
-        )
-
-        await show_category(
-            query,
-            category,
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # GAME DESCRIPTION
-    # ------------------------------------------------------
-
-    if data.startswith(
-        "game_start_"
-    ):
-
-        game_id = data.replace(
-            "game_start_",
-            "",
-            1,
-        )
-
-        await show_game_start(
-            query,
-            context,
-            game_id,
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # PLAY
-    # ------------------------------------------------------
-
-    if data.startswith(
-        "game_play_"
-    ):
-
-        game_id = data.replace(
-            "game_play_",
-            "",
-            1,
-        )
-
-        await play_game(
-            query,
-            context,
-            game_id,
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # BACK
-    # ------------------------------------------------------
-
-    if data == "game_back_category":
-
-        category = context.user_data.get(
-            "selected_game_category",
-            "board",
-        )
-
-        await show_category(
-            query,
-            category,
-        )
-
-        return
-
-    logger.warning(
-        "Unknown games callback: %s",
-        data,
-    )
