@@ -561,7 +561,16 @@ async def number_guess_answer(
 
         return
 
-    guess = int(guess)
+    try:
+        guess = int(guess)
+    except (ValueError, TypeError):
+
+        await query.answer(
+            "Invalid guess.",
+            show_alert=True,
+        )
+
+        return
 
     correct = guess == target
 
@@ -1496,7 +1505,16 @@ async def code_breaker_answer(
 
         return
 
-    guess = int(guess)
+    try:
+        guess = int(guess)
+    except (ValueError, TypeError):
+
+        await query.answer(
+            "Invalid code.",
+            show_alert=True,
+        )
+
+        return
 
     won = guess == code
 
@@ -1949,18 +1967,36 @@ async def games_callback_router(
     try:
 
         # --------------------------------------------------
-        # LEGACY REACTION CALLBACK
+        # LEGACY REACTION BUTTON
         #
-        # This is the important fix.
+        # Existing Game Center uses:
         #
-        # Older Game Center buttons use:
         #     games_react
         #
-        # Treat it exactly like:
-        #     games_play_reaction
+        # Route it directly to the reaction game.
         # --------------------------------------------------
 
         if data == "games_react":
+
+            await query.answer()
+
+            await play_game(
+                update,
+                context,
+                "reaction",
+            )
+
+            return
+
+        # --------------------------------------------------
+        # STANDARD REACTION PLAY CALLBACK
+        #
+        # Also supports:
+        #
+        #     games_play_reaction
+        # --------------------------------------------------
+
+        if data == "games_play_reaction":
 
             await query.answer()
 
@@ -2157,6 +2193,21 @@ async def games_callback_router(
                 update,
                 context,
                 game_id,
+            )
+
+            return
+
+        # --------------------------------------------------
+        # GAME CENTER HOME
+        #
+        # Do not consume this here if game_center.py
+        # owns the games_home callback.
+        # --------------------------------------------------
+
+        if data == "games_home":
+
+            logger.info(
+                "games_home callback left for Game Center handler."
             )
 
             return
