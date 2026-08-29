@@ -4,18 +4,26 @@
 #
 # Games package
 #
-# This file marks the games directory as a Python package.
+# This file makes the games folder a Python package and
+# provides a clean central import point for the game system.
 # ==========================================================
 
 """
-Melanated AZ Bot - Games Package
+Melanated AZ Bot Games Package.
 
-Available games:
+All games and game-category functionality should live inside
+this package.
 
-    - Truth or Dare
-    - Would You Rather
-    - Never Have I Ever
-    - This or That
-
-The main Games category is handled by games.py.
+The main entry point is games.py.
 """
+
+from .games import (
+    games_menu,
+    games_callback,
+)
+
+
+__all__ = [
+    "games_menu",
+    "games_callback",
+]
