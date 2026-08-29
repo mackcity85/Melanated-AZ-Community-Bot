@@ -54,93 +54,63 @@ WIN_COINS = 15
 
 GAME_NAMES = {
 
-    # ------------------------------------------------------
     # ARCADE
-    # ------------------------------------------------------
-
     "reaction": "⚡ Reaction Test",
     "number_guess": "🔢 Number Guess",
     "high_low": "📈 High or Low",
     "coin_flip": "🪙 Coin Flip",
     "dice_roll": "🎲 Dice Roll",
 
-    # ------------------------------------------------------
     # OUTDOOR
-    # ------------------------------------------------------
-
     "fishing": "🎣 Fishing",
     "camping": "🏕️ Camping",
     "hiking": "🥾 Hiking Challenge",
     "hunting": "🏹 Hunting Challenge",
     "survival": "🔥 Survival",
 
-    # ------------------------------------------------------
     # SHOOTING
-    # ------------------------------------------------------
-
     "target": "🎯 Target Practice",
     "quick_shot": "🔫 Quick Shot",
     "bullseye": "🎯 Bullseye",
     "accuracy": "🏹 Accuracy",
     "sniper": "🔭 Sniper Challenge",
 
-    # ------------------------------------------------------
     # BOARD
-    # ------------------------------------------------------
-
     "strategy": "♟️ Strategy",
     "dice_duel": "🎲 Dice Duel",
 
-    # ------------------------------------------------------
     # PARTY
-    # ------------------------------------------------------
-
     "truth_dare": "🔥 Truth or Dare",
 
-    # ------------------------------------------------------
     # TRIVIA
-    # ------------------------------------------------------
-
     "general_trivia": "🧠 General Trivia",
     "music_trivia": "🎵 Music Trivia",
     "sports_trivia": "🏆 Sports Trivia",
     "movie_trivia": "🎬 Movie Trivia",
     "word_challenge": "🔤 Word Challenge",
 
-    # ------------------------------------------------------
     # SPORTS
-    # ------------------------------------------------------
-
     "football": "🏈 Football Challenge",
     "basketball": "🏀 Basketball Challenge",
     "baseball": "⚾ Baseball Challenge",
     "boxing": "🥊 Boxing",
     "soccer": "⚽ Soccer",
 
-    # ------------------------------------------------------
     # RACING
-    # ------------------------------------------------------
-
     "car_race": "🏎️ Car Race",
     "bike_race": "🏍️ Bike Race",
     "boat_race": "🚤 Boat Race",
     "drag_race": "🏁 Drag Race",
     "street_race": "🏎️ Street Race",
 
-    # ------------------------------------------------------
     # MYSTERY
-    # ------------------------------------------------------
-
     "detective": "🕵🏾 Detective",
     "murder_mystery": "🔎 Mystery Case",
     "code_breaker": "🔐 Code Breaker",
     "escape": "🚪 Escape Room",
     "investigation": "🔍 Investigation",
 
-    # ------------------------------------------------------
     # FIGHTING
-    # ------------------------------------------------------
-
     "mma": "🥋 MMA",
     "karate": "🥋 Karate",
     "street_fight": "👊 Street Fight",
@@ -153,9 +123,6 @@ GAME_NAMES = {
 # ==========================================================
 
 def game_back_keyboard():
-    """
-    Return button to Game Center.
-    """
 
     return InlineKeyboardMarkup(
         [
@@ -170,9 +137,6 @@ def game_back_keyboard():
 
 
 def replay_keyboard(game_id):
-    """
-    Return replay + Game Center buttons.
-    """
 
     return InlineKeyboardMarkup(
         [
@@ -201,9 +165,6 @@ def ensure_player(
     username=None,
     display_name=None,
 ):
-    """
-    Create or update a Game Center player.
-    """
 
     now = datetime.now(
         timezone.utc
@@ -266,9 +227,6 @@ def record_game_result(
     score=0,
     won=False,
 ):
-    """
-    Record game result, XP, coins and statistics.
-    """
 
     now = datetime.now(
         timezone.utc
@@ -291,10 +249,6 @@ def record_game_result(
     conn = get_connection()
 
     try:
-
-        # --------------------------------------------------
-        # PLAYER
-        # --------------------------------------------------
 
         conn.execute(
             """
@@ -320,10 +274,6 @@ def record_game_result(
             ),
         )
 
-        # --------------------------------------------------
-        # SCORE HISTORY
-        # --------------------------------------------------
-
         conn.execute(
             """
             INSERT INTO game_scores (
@@ -341,10 +291,6 @@ def record_game_result(
                 now,
             ),
         )
-
-        # --------------------------------------------------
-        # GAME STATISTICS
-        # --------------------------------------------------
 
         conn.execute(
             """
@@ -415,9 +361,6 @@ async def show_result(
     score,
     won,
 ):
-    """
-    Record and display the result.
-    """
 
     user = query.from_user
 
@@ -558,10 +501,7 @@ async def number_guess_game(
     context,
 ):
 
-    target = random.randint(
-        1,
-        10,
-    )
+    target = random.randint(1, 10)
 
     context.user_data[
         "number_guess"
@@ -581,16 +521,13 @@ async def number_guess_game(
     keyboard = [
         buttons[0:5],
         buttons[5:10],
-    ]
-
-    keyboard.append(
         [
             InlineKeyboardButton(
                 "⬅️ Game Center",
                 callback_data="games_home",
             )
-        ]
-    )
+        ],
+    ]
 
     await query.edit_message_text(
         "🔢 <b>NUMBER GUESS</b>\n\n"
@@ -626,9 +563,7 @@ async def number_guess_answer(
 
     guess = int(guess)
 
-    correct = (
-        guess == target
-    )
+    correct = guess == target
 
     score = (
         100
@@ -668,15 +603,8 @@ async def high_low_game(
     context,
 ):
 
-    first = random.randint(
-        1,
-        13,
-    )
-
-    second = random.randint(
-        1,
-        13,
-    )
+    first = random.randint(1, 13)
+    second = random.randint(1, 13)
 
     context.user_data[
         "high_low"
@@ -791,10 +719,7 @@ async def coin_flip_game(
         query,
         "coin_flip",
         "🪙 <b>COIN FLIP</b>",
-        (
-            f"The coin landed on "
-            f"<b>{result}</b>!"
-        ),
+        f"The coin landed on <b>{result}</b>!",
         50,
         True,
     )
@@ -809,10 +734,7 @@ async def dice_roll_game(
     context,
 ):
 
-    roll = random.randint(
-        1,
-        6,
-    )
+    roll = random.randint(1, 6)
 
     won = roll >= 4
 
@@ -837,14 +759,10 @@ async def dice_roll_game(
 
 
 # ==========================================================
-# RANDOM CHALLENGE GAMES
+# RANDOM CHALLENGES
 # ==========================================================
 
 CHALLENGES = {
-
-    # ------------------------------------------------------
-    # OUTDOOR
-    # ------------------------------------------------------
 
     "fishing": [
         ("🐟 You caught a huge bass!", True),
@@ -881,10 +799,6 @@ CHALLENGES = {
         ("🌧️ The storm almost got you!", False),
     ],
 
-    # ------------------------------------------------------
-    # SHOOTING
-    # ------------------------------------------------------
-
     "target": [
         ("🎯 Bullseye!", True),
         ("🎯 Excellent shot!", True),
@@ -920,10 +834,6 @@ CHALLENGES = {
         ("😅 Target escaped!", False),
     ],
 
-    # ------------------------------------------------------
-    # BOARD
-    # ------------------------------------------------------
-
     "strategy": [
         ("♟️ Brilliant strategy!", True),
         ("🧠 You outsmarted the opponent!", True),
@@ -937,10 +847,6 @@ CHALLENGES = {
         ("😈 Your opponent got crushed!", True),
         ("💀 Your opponent rolled higher!", False),
     ],
-
-    # ------------------------------------------------------
-    # SPORTS
-    # ------------------------------------------------------
 
     "football": [
         ("🏈 TOUCHDOWN!", True),
@@ -977,10 +883,6 @@ CHALLENGES = {
         ("😅 Missed the shot!", False),
     ],
 
-    # ------------------------------------------------------
-    # RACING
-    # ------------------------------------------------------
-
     "car_race": [
         ("🏎️ You crossed the finish line first!", True),
         ("🏁 Perfect launch!", True),
@@ -1016,10 +918,6 @@ CHALLENGES = {
         ("💥 You lost control!", False),
     ],
 
-    # ------------------------------------------------------
-    # FIGHTING
-    # ------------------------------------------------------
-
     "mma": [
         ("🥊 Submission victory!", True),
         ("🔥 Technical knockout!", True),
@@ -1047,10 +945,6 @@ CHALLENGES = {
         ("⚔️ Critical hit!", True),
         ("💀 You were defeated!", False),
     ],
-
-    # ------------------------------------------------------
-    # MYSTERY
-    # ------------------------------------------------------
 
     "detective": [
         ("🕵🏾 Case solved!", True),
@@ -1106,11 +1000,7 @@ async def random_challenge_game(
     await show_result(
         query,
         game_id,
-        (
-            f"<b>"
-            f"{GAME_NAMES.get(game_id, '🎮 Game')}"
-            f"</b>"
-        ),
+        f"<b>{GAME_NAMES.get(game_id, '🎮 Game')}</b>",
         outcome,
         score,
         won,
@@ -1131,6 +1021,7 @@ TRUTHS = [
     "What's your biggest pet peeve?",
     "What's one thing people misunderstand about you?",
 ]
+
 
 DARES = [
     "Send the funniest GIF you can find.",
@@ -1184,18 +1075,12 @@ async def truth_dare_answer(
 
     if choice == "truth":
 
-        prompt = random.choice(
-            TRUTHS
-        )
-
+        prompt = random.choice(TRUTHS)
         title = "🔥 TRUTH"
 
     else:
 
-        prompt = random.choice(
-            DARES
-        )
-
+        prompt = random.choice(DARES)
         title = "😈 DARE"
 
     keyboard = InlineKeyboardMarkup(
@@ -1421,15 +1306,9 @@ async def trivia_game(
         questions
     )
 
-    # ------------------------------------------------------
-    # Shuffle answers while preserving correct answer.
-    # ------------------------------------------------------
-
     shuffled = list(answers)
 
-    random.shuffle(
-        shuffled
-    )
+    random.shuffle(shuffled)
 
     context.user_data[
         "trivia"
@@ -1438,19 +1317,19 @@ async def trivia_game(
         "correct": correct,
     }
 
+    context.user_data[
+        "trivia_answers"
+    ] = shuffled
+
     buttons = []
 
-    for index, answer in enumerate(
-        shuffled
-    ):
+    for index, answer in enumerate(shuffled):
 
         buttons.append(
             [
                 InlineKeyboardButton(
                     answer,
-                    callback_data=(
-                        f"game_trivia_{index}"
-                    ),
+                    callback_data=f"game_trivia_{index}",
                 )
             ]
         )
@@ -1464,16 +1343,10 @@ async def trivia_game(
         ]
     )
 
-    context.user_data[
-        "trivia_answers"
-    ] = shuffled
-
     await query.edit_message_text(
         f"<b>{GAME_NAMES[game_id]}</b>\n\n"
         f"{question}",
-        reply_markup=InlineKeyboardMarkup(
-            buttons
-        ),
+        reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode=ParseMode.HTML,
     )
 
@@ -1505,10 +1378,7 @@ async def trivia_answer(
 
     try:
 
-        index = int(
-            answer_index
-        )
-
+        index = int(answer_index)
         answer = answers[index]
 
     except (
@@ -1527,9 +1397,7 @@ async def trivia_answer(
     correct = data["correct"]
     game_id = data["game_id"]
 
-    won = (
-        answer == correct
-    )
+    won = answer == correct
 
     await show_result(
         query,
@@ -1603,9 +1471,7 @@ async def code_breaker_game(
         "The code is between "
         "<b>100 and 999</b>.\n\n"
         "Choose your guess:",
-        reply_markup=InlineKeyboardMarkup(
-            keyboard
-        ),
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode=ParseMode.HTML,
     )
 
@@ -1630,13 +1496,9 @@ async def code_breaker_answer(
 
         return
 
-    guess = int(
-        guess
-    )
+    guess = int(guess)
 
-    won = (
-        guess == code
-    )
+    won = guess == code
 
     difference = abs(
         guess - code
@@ -1658,13 +1520,12 @@ async def code_breaker_answer(
             100 - difference // 5,
         )
 
-        if guess < code:
-
-            hint = "📈 The code is HIGHER."
-
-        else:
-
-            hint = "📉 The code is LOWER."
+        hint = (
+            "📈 The code is HIGHER."
+            if guess < code
+            else
+            "📉 The code is LOWER."
+        )
 
         message = (
             f"❌ <b>Incorrect.</b>\n\n"
@@ -1733,9 +1594,7 @@ async def escape_game(
         "🚪 <b>ESCAPE ROOM</b>\n\n"
         "You're locked inside a mysterious room.\n\n"
         "Find the correct way out!",
-        reply_markup=InlineKeyboardMarkup(
-            keyboard
-        ),
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode=ParseMode.HTML,
     )
 
@@ -1760,9 +1619,7 @@ async def escape_answer(
 
         return
 
-    won = (
-        choice == correct
-    )
+    won = choice == correct
 
     if won:
 
@@ -1808,32 +1665,25 @@ async def detective_game(
         "🕵🏾 Morgan",
     ]
 
-    culprit = random.choice(
-        suspects
-    )
+    culprit = random.choice(suspects)
 
     context.user_data[
         "detective"
     ] = culprit
 
+    context.user_data[
+        "detective_suspects"
+    ] = suspects
+
     keyboard = [
         [
             InlineKeyboardButton(
                 suspect,
-                callback_data=(
-                    "game_detective_"
-                    + str(index)
-                ),
+                callback_data=f"game_detective_{index}",
             )
         ]
-        for index, suspect in enumerate(
-            suspects
-        )
+        for index, suspect in enumerate(suspects)
     ]
-
-    context.user_data[
-        "detective_suspects"
-    ] = suspects
 
     keyboard.append(
         [
@@ -1849,9 +1699,7 @@ async def detective_game(
         "A crime has been committed.\n\n"
         "Study the suspects and identify "
         "the culprit!",
-        reply_markup=InlineKeyboardMarkup(
-            keyboard
-        ),
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode=ParseMode.HTML,
     )
 
@@ -1883,9 +1731,7 @@ async def detective_answer(
 
     try:
 
-        selected = suspects[
-            int(index)
-        ]
+        selected = suspects[int(index)]
 
     except (
         ValueError,
@@ -1900,9 +1746,7 @@ async def detective_answer(
 
         return
 
-    won = (
-        selected == culprit
-    )
+    won = selected == culprit
 
     await show_result(
         query,
@@ -1925,7 +1769,7 @@ async def detective_answer(
 
 
 # ==========================================================
-# GAME ROUTER
+# PLAY GAME
 # ==========================================================
 
 async def play_game(
@@ -1937,18 +1781,12 @@ async def play_game(
     query = update.callback_query
 
     if not query:
-
         return
 
     user = update.effective_user
 
     if not user:
-
         return
-
-    # ------------------------------------------------------
-    # Validate game.
-    # ------------------------------------------------------
 
     if game_id not in GAME_NAMES:
 
@@ -1959,10 +1797,6 @@ async def play_game(
 
         return
 
-    # ------------------------------------------------------
-    # Make sure player exists.
-    # ------------------------------------------------------
-
     ensure_player(
         user_id=user.id,
         username=user.username,
@@ -1970,10 +1804,6 @@ async def play_game(
     )
 
     try:
-
-        # --------------------------------------------------
-        # ARCADE
-        # --------------------------------------------------
 
         if game_id == "reaction":
 
@@ -2020,10 +1850,6 @@ async def play_game(
 
             return
 
-        # --------------------------------------------------
-        # TRUTH OR DARE
-        # --------------------------------------------------
-
         if game_id == "truth_dare":
 
             await truth_dare_game(
@@ -2031,10 +1857,6 @@ async def play_game(
             )
 
             return
-
-        # --------------------------------------------------
-        # TRIVIA
-        # --------------------------------------------------
 
         if game_id in TRIVIA:
 
@@ -2046,10 +1868,6 @@ async def play_game(
 
             return
 
-        # --------------------------------------------------
-        # CODE BREAKER
-        # --------------------------------------------------
-
         if game_id == "code_breaker":
 
             await code_breaker_game(
@@ -2058,10 +1876,6 @@ async def play_game(
             )
 
             return
-
-        # --------------------------------------------------
-        # ESCAPE ROOM
-        # --------------------------------------------------
 
         if game_id == "escape":
 
@@ -2072,10 +1886,6 @@ async def play_game(
 
             return
 
-        # --------------------------------------------------
-        # DETECTIVE
-        # --------------------------------------------------
-
         if game_id == "detective":
 
             await detective_game(
@@ -2084,10 +1894,6 @@ async def play_game(
             )
 
             return
-
-        # --------------------------------------------------
-        # RANDOM CHALLENGES
-        # --------------------------------------------------
 
         await random_challenge_game(
             query,
@@ -2131,7 +1937,6 @@ async def games_callback_router(
     query = update.callback_query
 
     if not query:
-
         return
 
     data = query.data or ""
@@ -2142,6 +1947,30 @@ async def games_callback_router(
     )
 
     try:
+
+        # --------------------------------------------------
+        # LEGACY REACTION CALLBACK
+        #
+        # This is the important fix.
+        #
+        # Older Game Center buttons use:
+        #     games_react
+        #
+        # Treat it exactly like:
+        #     games_play_reaction
+        # --------------------------------------------------
+
+        if data == "games_react":
+
+            await query.answer()
+
+            await play_game(
+                update,
+                context,
+                "reaction",
+            )
+
+            return
 
         # --------------------------------------------------
         # REACTION TAP
@@ -2162,9 +1991,7 @@ async def games_callback_router(
         # NUMBER GUESS
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_guess_"
-        ):
+        if data.startswith("game_guess_"):
 
             await query.answer()
 
@@ -2238,9 +2065,7 @@ async def games_callback_router(
         # TRIVIA
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_trivia_"
-        ):
+        if data.startswith("game_trivia_"):
 
             await query.answer()
 
@@ -2260,9 +2085,7 @@ async def games_callback_router(
         # CODE BREAKER
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_code_"
-        ):
+        if data.startswith("game_code_"):
 
             await query.answer()
 
@@ -2282,9 +2105,7 @@ async def games_callback_router(
         # ESCAPE ROOM
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_escape_"
-        ):
+        if data.startswith("game_escape_"):
 
             await query.answer()
 
@@ -2304,9 +2125,7 @@ async def games_callback_router(
         # DETECTIVE
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_detective_"
-        ):
+        if data.startswith("game_detective_"):
 
             await query.answer()
 
@@ -2326,9 +2145,7 @@ async def games_callback_router(
         # GAME PLAY
         # --------------------------------------------------
 
-        if data.startswith(
-            "games_play_"
-        ):
+        if data.startswith("games_play_"):
 
             await query.answer()
 
@@ -2345,13 +2162,24 @@ async def games_callback_router(
             return
 
         # --------------------------------------------------
-        # Unknown game callback
+        # UNKNOWN
         # --------------------------------------------------
 
         logger.warning(
             "Unknown game callback: %s",
             data,
         )
+
+        try:
+
+            await query.answer(
+                "⚠️ Game action not recognized.",
+                show_alert=True,
+            )
+
+        except Exception:
+
+            pass
 
     except Exception:
 
@@ -2373,5 +2201,5 @@ async def games_callback_router(
 
 
 # ==========================================================
-# END games/games.py
+# END games.py
 # ==========================================================
