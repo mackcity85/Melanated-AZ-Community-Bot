@@ -1,905 +1,799 @@
 # ==========================================================
-
 # Melanated AZ Bot
-
 # games/game_engine.py
-
 #
-
-# MELANATED AZ GAME ENGINE
-
+# SHARED GAME ENGINE
 #
-
-# Shared engine for all Game Center games.
-
+# Used by:
+#   - Truth or Dare
+#   - Would You Rather
+#   - Never Have I Ever
+#   - This or That
 #
-
-# Handles:
-
-# - Player creation
-
-# - XP
-
-# - AZ Coins
-
-# - Levels
-
-# - Games played
-
-# - Wins
-
-# - Losses
-
-# - High scores
-
-# - Game statistics
-
-# - Game sessions
-
-# - Achievements
-
+# Features:
+#   - Shared difficulty levels
+#   - Random prompt selection
+#   - PASS support
+#   - Button navigation
+#   - Safe callback handling
+#   - Per-user game state
+#   - No dependency on admin.py
+#
 # ==========================================================
 
-import json
 import logging
-from datetime import datetime
+import random
 
-from raffle_database import get_connection
-
-logger = logging.getLogger(
-"melanated_az_bot.games.engine"
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
 )
 
-# ==========================================================
 
-# REWARDS
+logger = logging.getLogger(__name__)
 
-# ==========================================================
-
-BASE_XP_WIN = 25
-BASE_XP_LOSS = 5
-
-BASE_COINS_WIN = 10
-BASE_COINS_LOSS = 2
 
 # ==========================================================
-
-# LEVEL SYSTEM
-
+# LEVELS
 # ==========================================================
 
-def calculate_level(xp):
-"""
-Calculate player level from XP.
-
-```
-Every 100 XP = one additional level.
-"""
-
-try:
-    xp = max(0, int(xp))
-except (TypeError, ValueError):
-    xp = 0
-
-return max(
-    1,
-    (xp // 100) + 1,
+VALID_LEVELS = (
+    "mild",
+    "spicy",
+    "extreme",
 )
-```
 
-def xp_for_next_level(xp):
-"""
-Return XP required for the next level.
-"""
 
-```
-level = calculate_level(xp)
+DEFAULT_LEVEL = "mild"
 
-return level * 100
-```
 
 # ==========================================================
-
-# ENSURE PLAYER
-
+# GAME IDENTIFIERS
 # ==========================================================
 
-def ensure_player(
-user_id,
-username=None,
-display_name=None,
+GAME_TRUTH_DARE = "truthdare"
+GAME_WOULD_YOU_RATHER = "wouldyourather"
+GAME_NEVER_HAVE_I_EVER = "neverhaveiever"
+GAME_THIS_OR_THAT = "thisorthat"
+
+
+VALID_GAMES = (
+    GAME_TRUTH_DARE,
+    GAME_WOULD_YOU_RATHER,
+    GAME_NEVER_HAVE_I_EVER,
+    GAME_THIS_OR_THAT,
+)
+
+
+# ==========================================================
+# LEVEL DISPLAY
+# ==========================================================
+
+LEVEL_DISPLAY = {
+    "mild": "🟢 Mild",
+    "spicy": "🌶️ Spicy",
+    "extreme": "🔥 Extreme",
+}
+
+
+def normalize_level(level):
+    """
+    Normalize a level value.
+
+    Invalid values automatically become mild.
+    """
+
+    if not isinstance(level, str):
+        return DEFAULT_LEVEL
+
+    level = level.lower().strip()
+
+    if level not in VALID_LEVELS:
+        return DEFAULT_LEVEL
+
+    return level
+
+
+def get_level(context):
+    """
+    Get the current level for the user.
+
+    Each Telegram user gets their own level through
+    context.user_data.
+    """
+
+    if not context:
+        return DEFAULT_LEVEL
+
+    level = context.user_data.get(
+        "games_level",
+        DEFAULT_LEVEL,
+    )
+
+    level = normalize_level(level)
+
+    context.user_data["games_level"] = level
+
+    return level
+
+
+def set_level(context, level):
+    """
+    Save the user's selected level.
+    """
+
+    level = normalize_level(level)
+
+    if context:
+        context.user_data["games_level"] = level
+
+    return level
+
+
+# ==========================================================
+# GAME STATE
+# ==========================================================
+
+def get_current_game(context):
+    """
+    Return the game currently being played by the user.
+    """
+
+    if not context:
+        return None
+
+    game = context.user_data.get(
+        "games_current_game"
+    )
+
+    if game not in VALID_GAMES:
+        return None
+
+    return game
+
+
+def set_current_game(context, game):
+    """
+    Save the game currently being played.
+    """
+
+    if game not in VALID_GAMES:
+        return None
+
+    if context:
+        context.user_data[
+            "games_current_game"
+        ] = game
+
+    return game
+
+
+def clear_current_game(context):
+    """
+    Clear the user's current game.
+    """
+
+    if context:
+        context.user_data.pop(
+            "games_current_game",
+            None,
+        )
+
+
+# ==========================================================
+# PROMPT MEMORY
+# ==========================================================
+
+def get_used_prompts(context, game, level):
+    """
+    Return prompts already used during the current
+    game session.
+
+    This helps prevent the same question from appearing
+    repeatedly until the available prompts have been used.
+    """
+
+    if not context:
+        return set()
+
+    used = context.user_data.setdefault(
+        "games_used_prompts",
+        {},
+    )
+
+    game_used = used.setdefault(
+        game,
+        {},
+    )
+
+    level_used = game_used.setdefault(
+        level,
+        [],
+    )
+
+    return set(level_used)
+
+
+def remember_prompt(
+    context,
+    game,
+    level,
+    prompt,
 ):
-"""
-Create the player if they don't exist.
+    """
+    Remember a prompt that was shown to the user.
+    """
 
-```
-Existing player information is updated.
-"""
+    if not context:
+        return
 
-now = datetime.utcnow().isoformat()
+    used = context.user_data.setdefault(
+        "games_used_prompts",
+        {},
+    )
 
-conn = get_connection()
+    game_used = used.setdefault(
+        game,
+        {},
+    )
 
-try:
+    level_used = game_used.setdefault(
+        level,
+        [],
+    )
 
-    conn.execute(
-        """
-        INSERT INTO game_players (
-            user_id,
-            username,
-            display_name,
-            coins,
-            xp,
+    if prompt not in level_used:
+        level_used.append(prompt)
+
+
+def reset_used_prompts(
+    context,
+    game=None,
+    level=None,
+):
+    """
+    Reset prompt history.
+
+    Examples:
+
+        reset_used_prompts(context)
+
+        reset_used_prompts(
+            context,
+            "truthdare",
+        )
+
+        reset_used_prompts(
+            context,
+            "truthdare",
+            "spicy",
+        )
+    """
+
+    if not context:
+        return
+
+    if game is None:
+
+        context.user_data.pop(
+            "games_used_prompts",
+            None,
+        )
+
+        return
+
+    used = context.user_data.get(
+        "games_used_prompts",
+        {},
+    )
+
+    if game not in used:
+        return
+
+    if level is None:
+
+        used.pop(game, None)
+
+        return
+
+    used[game].pop(level, None)
+
+
+# ==========================================================
+# RANDOM PROMPT
+# ==========================================================
+
+def get_random_prompt(
+    context,
+    game,
+    level,
+    prompts,
+):
+    """
+    Select a random prompt while attempting to avoid
+    repeats.
+
+    When every prompt has been used, the history for that
+    game/level is automatically reset and a new prompt
+    is selected.
+    """
+
+    level = normalize_level(level)
+
+    if not prompts:
+        return None
+
+    prompt_list = list(prompts)
+
+    used = get_used_prompts(
+        context,
+        game,
+        level,
+    )
+
+    available = [
+        prompt
+        for prompt in prompt_list
+        if prompt not in used
+    ]
+
+    if not available:
+
+        reset_used_prompts(
+            context,
+            game,
             level,
-            games_played,
-            wins,
-            losses,
-            created_at,
-            updated_at
-        )
-        VALUES (
-            ?, ?, ?, 0, 0, 1, 0, 0, 0, ?, ?
         )
 
-        ON CONFLICT(user_id)
-        DO UPDATE SET
-            username = excluded.username,
-            display_name = excluded.display_name,
-            updated_at = excluded.updated_at
-        """,
-        (
-            user_id,
-            username,
-            display_name,
-            now,
-            now,
-        ),
+        available = prompt_list
+
+    prompt = random.choice(
+        available
     )
 
-    conn.commit()
-
-except Exception:
-
-    conn.rollback()
-
-    logger.exception(
-        "Could not ensure game player."
+    remember_prompt(
+        context,
+        game,
+        level,
+        prompt,
     )
 
-    raise
+    return prompt
 
-finally:
-
-    conn.close()
-```
 
 # ==========================================================
-
-# GET PLAYER
-
+# GAME MENU KEYBOARD
 # ==========================================================
 
-def get_player(user_id):
-"""
-Return a player's complete profile.
-"""
+def games_back_keyboard():
+    """
+    Generic back-to-Games button.
+    """
 
-```
-conn = get_connection()
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎮 Games",
+                    callback_data="games_menu",
+                )
+            ]
+        ]
+    )
 
-try:
-
-    player = conn.execute(
-        """
-        SELECT *
-        FROM game_players
-        WHERE user_id = ?
-        """,
-        (user_id,),
-    ).fetchone()
-
-    return player
-
-finally:
-
-    conn.close()
-```
 
 # ==========================================================
-
-# START GAME SESSION
-
+# LEVEL MENU
 # ==========================================================
 
-def start_game_session(
-game_id,
-chat_id,
-user_id,
-game_data=None,
+def level_keyboard(
+    prefix,
 ):
-"""
-Create a new active game session.
-"""
+    """
+    Build a level-selection keyboard.
 
-```
-now = datetime.utcnow().isoformat()
+    prefix example:
 
-if game_data is not None:
+        truthdare
+        wouldyourather
+        neverhaveiever
+        thisorthat
+    """
 
-    game_data = json.dumps(
-        game_data
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🟢 Mild",
+                    callback_data=(
+                        f"{prefix}_level_mild"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🌶️ Spicy",
+                    callback_data=(
+                        f"{prefix}_level_spicy"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔥 Extreme",
+                    callback_data=(
+                        f"{prefix}_level_extreme"
+                    ),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Games",
+                    callback_data="games_menu",
+                )
+            ],
+        ]
     )
 
-conn = get_connection()
-
-try:
-
-    # Close any previous active session
-    # for this player and chat.
-
-    conn.execute(
-        """
-        UPDATE game_sessions
-        SET status = 'closed',
-            updated_at = ?
-        WHERE user_id = ?
-          AND chat_id = ?
-          AND status = 'active'
-        """,
-        (
-            now,
-            user_id,
-            chat_id,
-        ),
-    )
-
-    cursor = conn.execute(
-        """
-        INSERT INTO game_sessions (
-            game_id,
-            chat_id,
-            user_id,
-            status,
-            game_data,
-            started_at,
-            updated_at
-        )
-        VALUES (
-            ?, ?, ?, 'active', ?, ?, ?
-        )
-        """,
-        (
-            game_id,
-            chat_id,
-            user_id,
-            game_data,
-            now,
-            now,
-        ),
-    )
-
-    session_id = cursor.lastrowid
-
-    conn.commit()
-
-    return session_id
-
-except Exception:
-
-    conn.rollback()
-
-    logger.exception(
-        "Could not start game session."
-    )
-
-    raise
-
-finally:
-
-    conn.close()
-```
 
 # ==========================================================
-
-# GET ACTIVE SESSION
-
+# STANDARD GAME BUTTONS
 # ==========================================================
 
-def get_active_session(
-user_id,
-chat_id,
+def standard_game_keyboard(
+    game,
+    level=None,
+    include_level=True,
 ):
-"""
-Return the player's active session.
-"""
+    """
+    Build a standard game navigation keyboard.
 
-```
-conn = get_connection()
+    Individual games can add their own specialized
+    buttons on top of this structure.
+    """
 
-try:
+    buttons = []
 
-    session = conn.execute(
-        """
-        SELECT *
-        FROM game_sessions
-        WHERE user_id = ?
-          AND chat_id = ?
-          AND status = 'active'
-        ORDER BY id DESC
-        LIMIT 1
-        """,
-        (
-            user_id,
-            chat_id,
-        ),
-    ).fetchone()
+    if game == GAME_TRUTH_DARE:
 
-    return session
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "🔥 Truth",
+                    callback_data=(
+                        "truthdare_truth"
+                    ),
+                ),
+                InlineKeyboardButton(
+                    "😈 Dare",
+                    callback_data=(
+                        "truthdare_dare"
+                    ),
+                ),
+            ]
+        )
 
-finally:
+    elif game == GAME_WOULD_YOU_RATHER:
 
-    conn.close()
-```
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "🤔 Another One",
+                    callback_data=(
+                        "wyr_question"
+                    ),
+                )
+            ]
+        )
+
+    elif game == GAME_NEVER_HAVE_I_EVER:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "🙈 Next Statement",
+                    callback_data=(
+                        "nhie_statement"
+                    ),
+                )
+            ]
+        )
+
+    elif game == GAME_THIS_OR_THAT:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "⚡ Next Choice",
+                    callback_data=(
+                        "tot_choice"
+                    ),
+                )
+            ]
+        )
+
+    if include_level:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "🔄 Change Level",
+                    callback_data=(
+                        f"{game}_menu"
+                    ),
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🎮 Games",
+                callback_data="games_menu",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        buttons
+    )
+
 
 # ==========================================================
-
-# UPDATE GAME SESSION
-
+# PASS KEYBOARD
 # ==========================================================
 
-def update_game_session(
-session_id,
-game_data=None,
-status=None,
+def pass_keyboard(
+    game,
+    next_callback=None,
 ):
-"""
-Update an existing game session.
-"""
+    """
+    Create a PASS button.
 
-```
-now = datetime.utcnow().isoformat()
+    PASS never requires an explanation.
+    """
 
-conn = get_connection()
+    buttons = []
 
-try:
+    if next_callback:
 
-    if game_data is not None:
-
-        game_data = json.dumps(
-            game_data
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "➡️ Next",
+                    callback_data=next_callback,
+                )
+            ]
         )
 
-    if status is not None:
-
-        conn.execute(
-            """
-            UPDATE game_sessions
-            SET game_data = ?,
-                status = ?,
-                updated_at = ?
-            WHERE id = ?
-            """,
-            (
-                game_data,
-                status,
-                now,
-                session_id,
-            ),
-        )
-
-    else:
-
-        conn.execute(
-            """
-            UPDATE game_sessions
-            SET game_data = ?,
-                updated_at = ?
-            WHERE id = ?
-            """,
-            (
-                game_data,
-                now,
-                session_id,
-            ),
-        )
-
-    conn.commit()
-
-except Exception:
-
-    conn.rollback()
-
-    logger.exception(
-        "Could not update game session."
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "😈 PASS",
+                callback_data=(
+                    f"{game}_pass"
+                ),
+            )
+        ]
     )
 
-    raise
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🔄 Change Level",
+                callback_data=(
+                    f"{game}_menu"
+                ),
+            )
+        ]
+    )
 
-finally:
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🎮 Games",
+                callback_data="games_menu",
+            )
+        ]
+    )
 
-    conn.close()
-```
+    return InlineKeyboardMarkup(
+        buttons
+    )
+
 
 # ==========================================================
-
-# END GAME SESSION
-
+# FULL GAME KEYBOARD
 # ==========================================================
 
-def end_game_session(
-session_id,
+def game_prompt_keyboard(
+    game,
+    next_callback,
+    include_pass=True,
 ):
-"""
-Close a game session.
-"""
+    """
+    Keyboard displayed beneath a game prompt.
+    """
 
-```
-now = datetime.utcnow().isoformat()
+    buttons = [
+        [
+            InlineKeyboardButton(
+                "➡️ Next",
+                callback_data=next_callback,
+            )
+        ],
+    ]
 
-conn = get_connection()
+    if include_pass:
 
-try:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "😈 PASS",
+                    callback_data=(
+                        f"{game}_pass"
+                    ),
+                )
+            ]
+        )
 
-    conn.execute(
-        """
-        UPDATE game_sessions
-        SET status = 'completed',
-            updated_at = ?
-        WHERE id = ?
-        """,
-        (
-            now,
-            session_id,
-        ),
+    buttons.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    "🔄 Change Level",
+                    callback_data=(
+                        f"{game}_menu"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🎮 Games",
+                    callback_data="games_menu",
+                )
+            ],
+        ]
     )
 
-    conn.commit()
-
-except Exception:
-
-    conn.rollback()
-
-    logger.exception(
-        "Could not end game session."
+    return InlineKeyboardMarkup(
+        buttons
     )
 
-    raise
-
-finally:
-
-    conn.close()
-```
 
 # ==========================================================
-
-# RECORD GAME RESULT
-
+# DISPLAY HELPERS
 # ==========================================================
 
-def record_game_result(
-user_id,
-game_id,
-won=False,
-score=0,
-xp=None,
-coins=None,
+def level_label(level):
+    """
+    Return the friendly display name for a level.
+    """
+
+    level = normalize_level(level)
+
+    return LEVEL_DISPLAY.get(
+        level,
+        LEVEL_DISPLAY[DEFAULT_LEVEL],
+    )
+
+
+def game_header(
+    title,
+    level,
 ):
-"""
-Record the result of a completed game.
+    """
+    Create a consistent game header.
+    """
 
-```
-Updates:
-    - Player totals
-    - Game-specific statistics
-    - High score
-    - XP
-    - Coins
-    - Level
-    - Wins/losses
-    - Games played
-"""
-
-try:
-    score = max(
-        0,
-        int(score),
-    )
-except (TypeError, ValueError):
-    score = 0
-
-if xp is None:
-
-    xp = (
-        BASE_XP_WIN
-        if won
-        else BASE_XP_LOSS
+    return (
+        f"{title}\n\n"
+        f"Level: {level_label(level)}"
     )
 
-if coins is None:
-
-    coins = (
-        BASE_COINS_WIN
-        if won
-        else BASE_COINS_LOSS
-    )
-
-try:
-    xp = max(0, int(xp))
-    coins = max(0, int(coins))
-except (TypeError, ValueError):
-
-    xp = BASE_XP_LOSS
-    coins = BASE_COINS_LOSS
-
-now = datetime.utcnow().isoformat()
-
-conn = get_connection()
-
-try:
-
-    # --------------------------------------------------
-    # MAKE SURE PLAYER EXISTS
-    # --------------------------------------------------
-
-    conn.execute(
-        """
-        INSERT OR IGNORE INTO game_players (
-            user_id,
-            coins,
-            xp,
-            level,
-            games_played,
-            wins,
-            losses,
-            created_at,
-            updated_at
-        )
-        VALUES (
-            ?, 0, 0, 1, 0, 0, 0, ?, ?
-        )
-        """,
-        (
-            user_id,
-            now,
-            now,
-        ),
-    )
-
-    # --------------------------------------------------
-    # CURRENT PLAYER
-    # --------------------------------------------------
-
-    player = conn.execute(
-        """
-        SELECT *
-        FROM game_players
-        WHERE user_id = ?
-        """,
-        (user_id,),
-    ).fetchone()
-
-    if not player:
-        raise RuntimeError(
-            "Game player could not be created."
-        )
-
-    new_xp = (
-        player["xp"] + xp
-    )
-
-    new_coins = (
-        player["coins"] + coins
-    )
-
-    new_games_played = (
-        player["games_played"] + 1
-    )
-
-    new_wins = (
-        player["wins"] + (1 if won else 0)
-    )
-
-    new_losses = (
-        player["losses"] + (0 if won else 1)
-    )
-
-    new_level = calculate_level(
-        new_xp
-    )
-
-    # --------------------------------------------------
-    # UPDATE PLAYER
-    # --------------------------------------------------
-
-    conn.execute(
-        """
-        UPDATE game_players
-        SET
-            coins = ?,
-            xp = ?,
-            level = ?,
-            games_played = ?,
-            wins = ?,
-            losses = ?,
-            updated_at = ?
-        WHERE user_id = ?
-        """,
-        (
-            new_coins,
-            new_xp,
-            new_level,
-            new_games_played,
-            new_wins,
-            new_losses,
-            now,
-            user_id,
-        ),
-    )
-
-    # --------------------------------------------------
-    # GAME STATISTICS
-    # --------------------------------------------------
-
-    conn.execute(
-        """
-        INSERT INTO game_stats (
-            user_id,
-            game_id,
-            games_played,
-            wins,
-            losses,
-            high_score
-        )
-        VALUES (
-            ?, ?, 1, ?, ?, ?
-        )
-
-        ON CONFLICT(user_id, game_id)
-        DO UPDATE SET
-            games_played =
-                games_played + 1,
-
-            wins =
-                wins + excluded.wins,
-
-            losses =
-                losses + excluded.losses,
-
-            high_score =
-                CASE
-                    WHEN excluded.high_score > high_score
-                    THEN excluded.high_score
-                    ELSE high_score
-                END
-        """,
-        (
-            user_id,
-            game_id,
-            1 if won else 0,
-            0 if won else 1,
-            score,
-        ),
-    )
-
-    # --------------------------------------------------
-    # SCORE HISTORY
-    # --------------------------------------------------
-
-    conn.execute(
-        """
-        INSERT INTO game_scores (
-            user_id,
-            game_id,
-            score,
-            created_at
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            user_id,
-            game_id,
-            score,
-            now,
-        ),
-    )
-
-    conn.commit()
-
-    return {
-        "xp_earned": xp,
-        "coins_earned": coins,
-        "total_xp": new_xp,
-        "total_coins": new_coins,
-        "level": new_level,
-        "games_played": new_games_played,
-        "wins": new_wins,
-        "losses": new_losses,
-        "score": score,
-        "won": won,
-    }
-
-except Exception:
-
-    conn.rollback()
-
-    logger.exception(
-        "Could not record game result."
-    )
-
-    raise
-
-finally:
-
-    conn.close()
-```
 
 # ==========================================================
-
-# GET GAME STATS
-
+# PASS MESSAGE
 # ==========================================================
 
-def get_game_stats(
-user_id,
-game_id,
+def pass_message(game_title):
+    """
+    Standard PASS response.
+    """
+
+    return (
+        f"{game_title}\n\n"
+        "😈 PASS accepted.\n\n"
+        "No explanation needed. "
+        "Choose another prompt when you're ready."
+    )
+
+
+# ==========================================================
+# ERROR-SAFE CALLBACK EDIT
+# ==========================================================
+
+async def safe_edit(
+    query,
+    text,
+    reply_markup=None,
+    parse_mode=None,
 ):
-"""
-Return statistics for one player and one game.
-"""
+    """
+    Safely edit an inline-button message.
 
-```
-conn = get_connection()
+    Telegram can throw an error when the message has
+    already been changed or is otherwise unavailable.
+    """
 
-try:
+    if not query:
+        return False
 
-    stats = conn.execute(
-        """
-        SELECT *
-        FROM game_stats
-        WHERE user_id = ?
-          AND game_id = ?
-        """,
-        (
-            user_id,
-            game_id,
-        ),
-    ).fetchone()
+    try:
 
-    return stats
+        kwargs = {
+            "text": text,
+        }
 
-finally:
+        if reply_markup is not None:
+            kwargs["reply_markup"] = reply_markup
 
-    conn.close()
-```
+        if parse_mode is not None:
+            kwargs["parse_mode"] = parse_mode
 
-# ==========================================================
-
-# SAVE ACHIEVEMENT
-
-# ==========================================================
-
-def unlock_achievement(
-user_id,
-achievement_id,
-):
-"""
-Unlock an achievement.
-
-```
-Returns True if newly unlocked.
-Returns False if already unlocked.
-"""
-
-now = datetime.utcnow().isoformat()
-
-conn = get_connection()
-
-try:
-
-    cursor = conn.execute(
-        """
-        INSERT OR IGNORE INTO game_achievements (
-            user_id,
-            achievement_id,
-            unlocked_at
+        await query.edit_message_text(
+            **kwargs
         )
-        VALUES (?, ?, ?)
-        """,
-        (
-            user_id,
-            achievement_id,
-            now,
-        ),
-    )
 
-    conn.commit()
+        return True
 
-    return cursor.rowcount > 0
+    except Exception as exc:
 
-except Exception:
+        logger.debug(
+            "Unable to edit game message: %s",
+            exc,
+        )
 
-    conn.rollback()
+        return False
 
-    logger.exception(
-        "Could not unlock achievement."
-    )
-
-    raise
-
-finally:
-
-    conn.close()
-```
 
 # ==========================================================
-
-# GET ACHIEVEMENTS
-
+# CALLBACK ANSWER
 # ==========================================================
 
-def get_player_achievements(
-user_id,
+async def safe_answer(
+    query,
+    text=None,
+    show_alert=False,
 ):
-"""
-Return all achievements unlocked by a player.
-"""
+    """
+    Safely answer an inline keyboard callback.
+    """
 
-```
-conn = get_connection()
+    if not query:
+        return
 
-try:
+    try:
 
-    return conn.execute(
-        """
-        SELECT *
-        FROM game_achievements
-        WHERE user_id = ?
-        ORDER BY unlocked_at ASC
-        """,
-        (user_id,),
-    ).fetchall()
+        if text:
 
-finally:
+            await query.answer(
+                text=text,
+                show_alert=show_alert,
+            )
 
-    conn.close()
-```
+        else:
 
-# ==========================================================
+            await query.answer()
 
-# GAME RESULT MESSAGE
+    except Exception as exc:
 
-# ==========================================================
+        logger.debug(
+            "Unable to answer callback: %s",
+            exc,
+        )
 
-def format_game_result(
-result,
-title="GAME OVER",
-):
-"""
-Create a standard Telegram-friendly result message.
-"""
-
-```
-status = (
-    "🏆 YOU WIN!"
-    if result.get("won")
-    else "💀 GAME OVER"
-)
-
-return (
-    f"🎮 <b>{title}</b>\n\n"
-    f"{status}\n\n"
-    f"🎯 Score: <b>{result.get('score', 0):,}</b>\n"
-    f"⭐ XP: <b>+{result.get('xp_earned', 0)}</b>\n"
-    f"🪙 Coins: <b>+{result.get('coins_earned', 0)}</b>\n\n"
-    f"⭐ Total XP: <b>{result.get('total_xp', 0):,}</b>\n"
-    f"🪙 Total Coins: <b>{result.get('total_coins', 0):,}</b>\n"
-    f"📈 Level: <b>{result.get('level', 1)}</b>"
-)
-
-```
 
 # ==========================================================
-
 # END game_engine.py
-
 # ==========================================================
