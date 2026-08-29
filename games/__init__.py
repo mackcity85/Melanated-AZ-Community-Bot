@@ -2,12 +2,20 @@
 # Melanated AZ Bot
 # games/__init__.py
 #
-# Melanated AZ Game Center
+# Games package
+#
+# This file marks the games directory as a Python package.
 # ==========================================================
 
 """
-Melanated AZ Game Center.
+Melanated AZ Bot - Games Package
 
-This package contains all Game Center
-categories and game modules.
+Available games:
+
+    - Truth or Dare
+    - Would You Rather
+    - Never Have I Ever
+    - This or That
+
+The main Games category is handled by games.py.
 """
