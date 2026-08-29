@@ -95,15 +95,25 @@ from truth_dare import (
 
 # ==========================================================
 # GAME CENTER
+#
+# IMPORTANT:
+# Keep the Game Center router in games/game_center.py.
+#
+# bot.py should NOT import individual Game Center callback
+# functions such as:
+#
+#   games_category_callback
+#   games_home_callback
+#   games_play_callback
+#   games_profile_callback
+#   games_leaderboards_callback
+#
+# The central router handles those.
 # ==========================================================
 
 from games.game_center import (
     games_command,
-    games_category_callback,
-    games_home_callback,
-    games_profile_callback,
-    games_leaderboards_callback,
-    games_play_callback,
+    game_center_callback_router,
     initialize_game_database,
 )
 
@@ -223,10 +233,12 @@ async def delete_after(
         return
 
     if not context.job_queue:
+
         logger.warning(
             "Job queue unavailable; temporary message "
             "will not be automatically deleted."
         )
+
         return
 
     context.job_queue.run_once(
@@ -776,9 +788,29 @@ async def birthday_callback_router(
 
 # ==========================================================
 # GAME CENTER CALLBACK
+#
+# IMPORTANT:
+#
+# ALL Game Center callbacks are sent to the router inside
+# games/game_center.py.
+#
+# That router handles BOTH:
+#
+#   games_*
+#
+# and:
+#
+#   game_*
+#
+# This includes actual game buttons such as:
+#
+#   game_reaction_tap
+#   game_coin_flip
+#   game_dice_roll
+#   etc.
 # ==========================================================
 
-async def game_center_callback_router(
+async def game_center_callback_router_wrapper(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
@@ -791,112 +823,22 @@ async def game_center_callback_router(
     data = query.data or ""
 
     logger.info(
-        "Game Center callback received: %s",
+        "Game Center callback received by bot.py: %s",
         data,
     )
 
     try:
 
-        # --------------------------------------------------
-        # CATEGORY
-        # --------------------------------------------------
-
-        if data.startswith(
-            "games_category_"
-        ):
-
-            await games_category_callback(
-                update,
-                context,
-            )
-
-            return
-
-        # --------------------------------------------------
-        # HOME
-        # --------------------------------------------------
-
-        if data == "games_home":
-
-            await games_home_callback(
-                update,
-                context,
-            )
-
-            return
-
-        # --------------------------------------------------
-        # PROFILE
-        # --------------------------------------------------
-
-        if data == "games_profile":
-
-            await games_profile_callback(
-                update,
-                context,
-            )
-
-            return
-
-        # --------------------------------------------------
-        # LEADERBOARDS
-        # --------------------------------------------------
-
-        if data == "games_leaderboards":
-
-            await games_leaderboards_callback(
-                update,
-                context,
-            )
-
-            return
-
-        # --------------------------------------------------
-        # PLAY GAME
-        #
-        # THIS WAS MISSING FROM THE OLD BOT.PY
-        #
-        # Buttons created by game_center.py use:
-        #
-        # games_play_<game_id>
-        #
-        # Example:
-        #
-        # games_play_reaction
-        # games_play_coin_flip
-        # games_play_truth_dare
-        #
-        # --------------------------------------------------
-
-        if data.startswith(
-            "games_play_"
-        ):
-
-            await games_play_callback(
-                update,
-                context,
-            )
-
-            return
-
-        # --------------------------------------------------
-        # UNKNOWN GAME CALLBACK
-        # --------------------------------------------------
-
-        logger.warning(
-            "Unknown Game Center callback: %s",
-            data,
-        )
-
-        await query.answer(
-            "⚠️ Game action not recognized.",
-            show_alert=True,
+        await game_center_callback_router(
+            update,
+            context,
         )
 
     except Exception:
 
         logger.exception(
-            "Game Center callback failed."
+            "Game Center callback failed: %s",
+            data,
         )
 
         try:
@@ -1428,22 +1370,54 @@ def build_application():
     )
 
     # ------------------------------------------------------
-    # GAME CENTER
+    # GAME CENTER MENU
     #
-    # This handles:
+    # Handles:
     #
-    # games_category_*
     # games_home
+    # games_category_*
     # games_profile
     # games_leaderboards
     # games_play_*
+    # games_react
     #
     # ------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
-            game_center_callback_router,
+            game_center_callback_router_wrapper,
             pattern=r"^games_",
+        )
+    )
+
+    # ------------------------------------------------------
+    # ACTUAL GAME ACTIONS
+    #
+    # THIS IS THE IMPORTANT FIX.
+    #
+    # Game Center buttons inside the games.py engine use
+    # callback data beginning with:
+    #
+    # game_
+    #
+    # Examples:
+    #
+    # game_reaction_tap
+    # game_coin_flip_*
+    # game_dice_roll_*
+    #
+    # These previously had NO CallbackQueryHandler in
+    # bot.py, which caused:
+    #
+    # "Game action not recognized."
+    #
+    # They now go through the same central router.
+    # ------------------------------------------------------
+
+    application.add_handler(
+        CallbackQueryHandler(
+            game_center_callback_router_wrapper,
+            pattern=r"^game_",
         )
     )
 
