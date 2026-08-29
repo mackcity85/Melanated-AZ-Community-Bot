@@ -16,8 +16,8 @@
 #   - Consent-focused
 #
 # IMPORTANT:
-#   This file MUST NOT import admin.py.
-#   Doing so creates a circular import.
+#   This file does NOT import admin.py.
+#   This prevents circular imports.
 # ==========================================================
 
 import logging
@@ -404,10 +404,6 @@ async def dare(
 
 # ==========================================================
 # ADMIN TRUTH/DARE MENU
-#
-# IMPORTANT:
-#   No import from admin.py.
-#   Admin authorization is supplied by admin.py.
 # ==========================================================
 
 async def truth_dare_admin_menu(
