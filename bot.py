@@ -10,7 +10,7 @@
 #   - Birthday system
 #   - Truth or Dare
 #   - GAME CENTER
-#   - Game Center game-button routing
+#   - Game Center game button routing
 #   - Persistent SQLite database
 #   - Media spoiler enforcement
 #   - GIF / animation support
@@ -223,6 +223,10 @@ async def delete_after(
         return
 
     if not context.job_queue:
+        logger.warning(
+            "Job queue unavailable; temporary message "
+            "will not be automatically deleted."
+        )
         return
 
     context.job_queue.run_once(
@@ -637,16 +641,16 @@ async def start_command(
         "🔥 Truth or Dare\n"
         "🎮 Game Center\n"
         "🛡️ Media protection\n\n"
-        "Birthday: /birthday\n"
-        "Truth or Dare: /truthdare\n"
-        "Game Center: /games"
+        "Birthday: <code>/birthday</code>\n"
+        "Truth or Dare: <code>/truthdare</code>\n"
+        "Game Center: <code>/games</code>"
     )
 
     if is_admin(user.id):
 
         text += (
             "\n\n👑 <b>Admin:</b>\n"
-            "Use /admin to open the admin panel."
+            "Use <code>/admin</code> to open the admin panel."
         )
 
     await message.reply_text(
@@ -671,12 +675,10 @@ async def admin_command(
 
     if not is_admin(user.id):
 
-        if update.effective_message:
-
-            await update.effective_message.reply_text(
-                "⛔ You are not authorized to use "
-                "the admin panel."
-            )
+        await update.effective_message.reply_text(
+            "⛔ You are not authorized to use "
+            "the admin panel."
+        )
 
         return
 
@@ -796,30 +798,6 @@ async def game_center_callback_router(
     try:
 
         # --------------------------------------------------
-        # ACTUAL GAME
-        #
-        # IMPORTANT:
-        # category_game_keyboard() creates callbacks like:
-        #
-        # games_play_reaction
-        # games_play_number_guess
-        # games_play_fishing
-        #
-        # These MUST be routed to games_play_callback().
-        # --------------------------------------------------
-
-        if data.startswith(
-            "games_play_"
-        ):
-
-            await games_play_callback(
-                update,
-                context,
-            )
-
-            return
-
-        # --------------------------------------------------
         # CATEGORY
         # --------------------------------------------------
 
@@ -874,6 +852,34 @@ async def game_center_callback_router(
             return
 
         # --------------------------------------------------
+        # PLAY GAME
+        #
+        # THIS WAS MISSING FROM THE OLD BOT.PY
+        #
+        # Buttons created by game_center.py use:
+        #
+        # games_play_<game_id>
+        #
+        # Example:
+        #
+        # games_play_reaction
+        # games_play_coin_flip
+        # games_play_truth_dare
+        #
+        # --------------------------------------------------
+
+        if data.startswith(
+            "games_play_"
+        ):
+
+            await games_play_callback(
+                update,
+                context,
+            )
+
+            return
+
+        # --------------------------------------------------
         # UNKNOWN GAME CALLBACK
         # --------------------------------------------------
 
@@ -883,7 +889,7 @@ async def game_center_callback_router(
         )
 
         await query.answer(
-            "⚠️ Game Center option not found.",
+            "⚠️ Game action not recognized.",
             show_alert=True,
         )
 
@@ -1004,11 +1010,6 @@ async def raffle_callback_router(
                 update.effective_user.id
             ):
 
-                await query.answer(
-                    "Not authorized.",
-                    show_alert=True,
-                )
-
                 return
 
             await raffle_status(
@@ -1030,11 +1031,6 @@ async def raffle_callback_router(
             if not is_admin(
                 update.effective_user.id
             ):
-
-                await query.answer(
-                    "Not authorized.",
-                    show_alert=True,
-                )
 
                 return
 
@@ -1058,11 +1054,6 @@ async def raffle_callback_router(
                 update.effective_user.id
             ):
 
-                await query.answer(
-                    "Not authorized.",
-                    show_alert=True,
-                )
-
                 return
 
             await pending_entries(
@@ -1084,11 +1075,6 @@ async def raffle_callback_router(
             if not is_admin(
                 update.effective_user.id
             ):
-
-                await query.answer(
-                    "Not authorized.",
-                    show_alert=True,
-                )
 
                 return
 
@@ -1112,11 +1098,6 @@ async def raffle_callback_router(
                 update.effective_user.id
             ):
 
-                await query.answer(
-                    "Not authorized.",
-                    show_alert=True,
-                )
-
                 return
 
             await draw_raffle(
@@ -1138,11 +1119,6 @@ async def raffle_callback_router(
             if not is_admin(
                 update.effective_user.id
             ):
-
-                await query.answer(
-                    "Not authorized.",
-                    show_alert=True,
-                )
 
                 return
 
@@ -1454,12 +1430,14 @@ def build_application():
     # ------------------------------------------------------
     # GAME CENTER
     #
-    # Handles:
-    #   games_home
-    #   games_category_*
-    #   games_profile
-    #   games_leaderboards
-    #   games_play_*
+    # This handles:
+    #
+    # games_category_*
+    # games_home
+    # games_profile
+    # games_leaderboards
+    # games_play_*
+    #
     # ------------------------------------------------------
 
     application.add_handler(
