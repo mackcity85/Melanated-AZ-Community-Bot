@@ -14,6 +14,8 @@
 # Birthday format:
 #   MM/DD
 #
+# Birthday messages and user birthday input are temporary
+# and automatically deleted after 60 seconds.
 # ==========================================================
 
 import logging
@@ -26,7 +28,6 @@ from telegram import (
 )
 
 from telegram.ext import ContextTypes
-
 from telegram.error import TelegramError
 
 from raffle_database import (
@@ -66,12 +67,7 @@ def normalize_birthday(value):
     if not value:
         return None
 
-    value = value.strip()
-
-    value = value.replace(
-        "-",
-        "/",
-    )
+    value = value.strip().replace("-", "/")
 
     parts = value.split("/")
 
@@ -79,12 +75,9 @@ def normalize_birthday(value):
         return None
 
     try:
-
         month = int(parts[0])
         day = int(parts[1])
-
-    except ValueError:
-
+    except (TypeError, ValueError):
         return None
 
     if month < 1 or month > 12:
@@ -93,23 +86,19 @@ def normalize_birthday(value):
     if day < 1 or day > 31:
         return None
 
-    birthday_value = (
-        f"{month:02d}/{day:02d}"
-    )
+    birthday_value = f"{month:02d}/{day:02d}"
 
-    if not BIRTHDAY_PATTERN.match(
-        birthday_value
-    ):
+    if not BIRTHDAY_PATTERN.match(birthday_value):
         return None
 
     return birthday_value
 
 
 # ==========================================================
-# DELETE TEMPORARY BIRTHDAY RESPONSE
+# DELETE MESSAGE JOB
 # ==========================================================
 
-async def delete_birthday_response(
+async def delete_birthday_message(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
@@ -120,18 +109,10 @@ async def delete_birthday_response(
 
     data = job.data or {}
 
-    chat_id = data.get(
-        "chat_id"
-    )
+    chat_id = data.get("chat_id")
+    message_id = data.get("message_id")
 
-    message_id = data.get(
-        "message_id"
-    )
-
-    if (
-        chat_id is None
-        or message_id is None
-    ):
+    if chat_id is None or message_id is None:
         return
 
     try:
@@ -142,8 +123,7 @@ async def delete_birthday_response(
         )
 
         logger.info(
-            "Deleted birthday response | "
-            "chat=%s | message=%s",
+            "Deleted birthday message | chat=%s | message=%s",
             chat_id,
             message_id,
         )
@@ -151,7 +131,7 @@ async def delete_birthday_response(
     except TelegramError as exc:
 
         logger.info(
-            "Could not delete birthday response | "
+            "Could not delete birthday message | "
             "chat=%s | message=%s | error=%s",
             chat_id,
             message_id,
@@ -161,8 +141,54 @@ async def delete_birthday_response(
     except Exception:
 
         logger.exception(
-            "Unexpected error deleting birthday response."
+            "Unexpected error deleting birthday message."
         )
+
+
+# ==========================================================
+# SCHEDULE MESSAGE DELETION
+# ==========================================================
+
+def schedule_birthday_message_deletion(
+    context,
+    chat_id,
+    message_id,
+):
+
+    if not context.job_queue:
+        return
+
+    context.job_queue.run_once(
+        delete_birthday_message,
+        when=BIRTHDAY_RESPONSE_DELETE_SECONDS,
+        data={
+            "chat_id": chat_id,
+            "message_id": message_id,
+        },
+        name=(
+            "delete_birthday_message_"
+            f"{chat_id}_{message_id}"
+        ),
+    )
+
+
+# ==========================================================
+# DELETE USER MESSAGE LATER
+# ==========================================================
+
+def schedule_user_message_deletion(
+    context,
+    message,
+):
+
+    if not message:
+        return
+
+    schedule_birthday_message_deletion(
+        context,
+        message.chat_id,
+        message.message_id,
+    )
 
 
 # ==========================================================
@@ -189,23 +215,11 @@ async def send_birthday_response(
             parse_mode=parse_mode,
         )
 
-        if context.job_queue:
-
-            context.job_queue.run_once(
-                delete_birthday_response,
-                when=BIRTHDAY_RESPONSE_DELETE_SECONDS,
-                data={
-                    "chat_id": chat_id,
-                    "message_id": (
-                        sent_message.message_id
-                    ),
-                },
-                name=(
-                    "delete_birthday_response_"
-                    f"{chat_id}_"
-                    f"{sent_message.message_id}"
-                ),
-            )
+        schedule_birthday_message_deletion(
+            context,
+            chat_id,
+            sent_message.message_id,
+        )
 
         return sent_message
 
@@ -262,6 +276,12 @@ async def birthday(
 
     if not message or not user:
         return
+
+    # Delete the user's /birthday command after 60 seconds.
+    schedule_user_message_deletion(
+        context,
+        message,
+    )
 
     # ------------------------------------------------------
     # DATE SUPPLIED
@@ -344,6 +364,12 @@ async def my_birthday(
     if not message or not user:
         return
 
+    # Delete the user's /mybirthday command after 60 seconds.
+    schedule_user_message_deletion(
+        context,
+        message,
+    )
+
     birthday_record = get_birthday(
         user.id,
         message.chat_id,
@@ -392,6 +418,12 @@ async def remove_my_birthday(
     if not message or not user:
         return
 
+    # Delete the user's /removebirthday command after 60 seconds.
+    schedule_user_message_deletion(
+        context,
+        message,
+    )
+
     removed = remove_birthday(
         user.id,
         message.chat_id,
@@ -438,6 +470,12 @@ async def birthday_text_handler(
     if not awaiting:
         return False
 
+    # Delete the user's birthday input after 60 seconds.
+    schedule_user_message_deletion(
+        context,
+        message,
+    )
+
     birthday_value = normalize_birthday(
         message.text
     )
@@ -453,13 +491,24 @@ async def birthday_text_handler(
 
         return True
 
-    save_birthday(
+    success = save_birthday(
         user_id=user.id,
         chat_id=message.chat_id,
         birthday=birthday_value,
         username=user.username,
         display_name=user.full_name,
     )
+
+    if not success:
+
+        await send_birthday_response(
+            context,
+            message.chat_id,
+            "❌ I couldn't save your birthday.\n\n"
+            "Please try again.",
+        )
+
+        return True
 
     context.user_data.pop(
         "awaiting_birthday",
@@ -496,12 +545,16 @@ async def birthday_callback(
     if not user:
 
         await query.answer()
-
         return
 
     await query.answer()
 
     data = query.data or ""
+
+    if not query.message:
+        return
+
+    chat_id = query.message.chat_id
 
     # ======================================================
     # ENTER BIRTHDAY
@@ -515,7 +568,7 @@ async def birthday_callback(
 
         await send_birthday_response(
             context,
-            query.message.chat_id,
+            chat_id,
             "🎂 **Set Your Birthday**\n\n"
             "Enter your birthday using:\n\n"
             "MM/DD\n\n"
@@ -538,7 +591,7 @@ async def birthday_callback(
 
             await send_birthday_response(
                 context,
-                query.message.chat_id,
+                chat_id,
                 "🎂 No birthdays have been added yet.",
             )
 
@@ -568,7 +621,7 @@ async def birthday_callback(
 
         await send_birthday_response(
             context,
-            query.message.chat_id,
+            chat_id,
             "\n".join(lines),
             parse_mode="Markdown",
         )
@@ -583,14 +636,14 @@ async def birthday_callback(
 
         removed = remove_birthday(
             user.id,
-            query.message.chat_id,
+            chat_id,
         )
 
         if removed:
 
             await send_birthday_response(
                 context,
-                query.message.chat_id,
+                chat_id,
                 "🗑️ Your birthday has been removed.",
             )
 
@@ -598,7 +651,7 @@ async def birthday_callback(
 
             await send_birthday_response(
                 context,
-                query.message.chat_id,
+                chat_id,
                 "🎂 You don't have a birthday saved "
                 "in this chat.",
             )
