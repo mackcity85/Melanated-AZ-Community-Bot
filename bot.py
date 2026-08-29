@@ -10,6 +10,7 @@
 #   - Birthday system
 #   - Truth or Dare
 #   - GAME CENTER
+#   - Game Center game-button routing
 #   - Persistent SQLite database
 #   - Media spoiler enforcement
 #   - GIF / animation support
@@ -18,12 +19,6 @@
 #   - Group warning
 #   - Flask health server for Render
 #   - Telegram polling
-#
-# GAME CENTER FIXES:
-#   - Game Center play callbacks are routed
-#   - games_play_* callbacks now work
-#   - Game Center callbacks are kept separate
-#   - Existing raffle/birthday/admin routing preserved
 # ==========================================================
 
 import logging
@@ -642,16 +637,16 @@ async def start_command(
         "🔥 Truth or Dare\n"
         "🎮 Game Center\n"
         "🛡️ Media protection\n\n"
-        "Birthday: <code>/birthday</code>\n"
-        "Truth or Dare: <code>/truthdare</code>\n"
-        "Game Center: <code>/games</code>"
+        "Birthday: /birthday\n"
+        "Truth or Dare: /truthdare\n"
+        "Game Center: /games"
     )
 
     if is_admin(user.id):
 
         text += (
             "\n\n👑 <b>Admin:</b>\n"
-            "Use <code>/admin</code> to open the admin panel."
+            "Use /admin to open the admin panel."
         )
 
     await message.reply_text(
@@ -676,10 +671,12 @@ async def admin_command(
 
     if not is_admin(user.id):
 
-        await update.effective_message.reply_text(
-            "⛔ You are not authorized to use "
-            "the admin panel."
-        )
+        if update.effective_message:
+
+            await update.effective_message.reply_text(
+                "⛔ You are not authorized to use "
+                "the admin panel."
+            )
 
         return
 
@@ -799,6 +796,30 @@ async def game_center_callback_router(
     try:
 
         # --------------------------------------------------
+        # ACTUAL GAME
+        #
+        # IMPORTANT:
+        # category_game_keyboard() creates callbacks like:
+        #
+        # games_play_reaction
+        # games_play_number_guess
+        # games_play_fishing
+        #
+        # These MUST be routed to games_play_callback().
+        # --------------------------------------------------
+
+        if data.startswith(
+            "games_play_"
+        ):
+
+            await games_play_callback(
+                update,
+                context,
+            )
+
+            return
+
+        # --------------------------------------------------
         # CATEGORY
         # --------------------------------------------------
 
@@ -853,39 +874,16 @@ async def game_center_callback_router(
             return
 
         # --------------------------------------------------
-        # PLAY GAME
-        #
-        # THIS WAS THE MISSING ROUTE.
-        #
-        # Buttons use:
-        #
-        # games_play_<game_id>
-        #
-        # Example:
-        #
-        # games_play_dice_roll
-        # games_play_coin_flip
-        # games_play_truth_dare
-        #
+        # UNKNOWN GAME CALLBACK
         # --------------------------------------------------
 
-        if data.startswith(
-            "games_play_"
-        ):
-
-            await games_play_callback(
-                update,
-                context,
-            )
-
-            return
-
-        # --------------------------------------------------
-        # UNKNOWN GAME CENTER CALLBACK
-        # --------------------------------------------------
+        logger.warning(
+            "Unknown Game Center callback: %s",
+            data,
+        )
 
         await query.answer(
-            "⚠️ Game Center option not recognized.",
+            "⚠️ Game Center option not found.",
             show_alert=True,
         )
 
@@ -1457,13 +1455,11 @@ def build_application():
     # GAME CENTER
     #
     # Handles:
-    #
-    # games_category_*
-    # games_home
-    # games_profile
-    # games_leaderboards
-    # games_play_*
-    #
+    #   games_home
+    #   games_category_*
+    #   games_profile
+    #   games_leaderboards
+    #   games_play_*
     # ------------------------------------------------------
 
     application.add_handler(
@@ -1582,7 +1578,6 @@ def main():
 
     logger.info(
         "=========================================================="
-
     )
 
     # ------------------------------------------------------
