@@ -2,36 +2,33 @@
 # Melanated AZ Bot
 # games/game_engine.py
 #
-# Shared game engine
+# SHARED GAME ENGINE
 #
-# Handles:
-#   - Game state
-#   - Player tracking
-#   - Levels
-#   - Scores
-#   - Pass
-#   - Reset
-#   - Random game content
+# Used by:
+#   - Trivia
+#   - Would You Rather
+#   - Truth or Dare
+#   - Never Have I Ever
+#   - Most Likely To
+#   - This or That
+#   - Hot Seat
+#   - Guessing Games
+#   - Word Games
+#   - Party Games
+#
+# This file contains reusable game/session utilities.
 #
 # IMPORTANT:
-#   This file does NOT import bot.py or admin.py.
+# This file does NOT import from games.py.
+# This prevents circular imports.
 # ==========================================================
 
 import logging
 import random
-from typing import Any, Dict, Optional
 
-from .game_data import (
-    GAME_DEFINITIONS,
-    WOULD_YOU_RATHER,
-    NEVER_HAVE_I_EVER,
-    MOST_LIKELY,
-    THIS_OR_THAT,
-    HOT_SEAT,
-    CONFESSIONS,
-    COMPLIMENT_BATTLE,
-    DICE_RESULTS,
-    COIN_RESULTS,
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
 )
 
 
@@ -42,731 +39,861 @@ logger = logging.getLogger(__name__)
 # CONSTANTS
 # ==========================================================
 
-VALID_LEVELS = (
-    "mild",
-    "spicy",
-    "extreme",
-)
+GAME_HOME_CALLBACK = "games_home"
+GAME_MENU_CALLBACK = "games_menu"
 
-
-DEFAULT_LEVEL = "mild"
+PASS_CALLBACK = "game_pass"
+NEXT_CALLBACK = "game_next"
 
 
 # ==========================================================
-# GAME STATE
+# PLAYER SESSION HELPERS
 # ==========================================================
 
-def get_game_state(context) -> Dict[str, Any]:
+def initialize_player(context):
     """
-    Get the current user's game state.
-
-    State is stored in Telegram user_data so every player
-    can have their own current game level and score.
+    Initialize common game statistics for a player.
     """
 
-    state = context.user_data.get(
-        "games_state"
-    )
+    defaults = {
+        "games_played": 0,
+        "games_won": 0,
+        "games_score": 0,
+        "games_streak": 0,
+        "games_best_streak": 0,
+        "games_passes": 0,
+    }
 
-    if not isinstance(state, dict):
-        state = {
-            "level": DEFAULT_LEVEL,
-            "score": 0,
-            "rounds": 0,
-            "passes": 0,
-            "current_game": None,
-            "current_prompt": None,
-        }
+    for key, value in defaults.items():
 
-        context.user_data[
-            "games_state"
-        ] = state
+        if key not in context.user_data:
 
-    return state
+            context.user_data[key] = value
 
 
 # ==========================================================
-# LEVEL
+# GET PLAYER STAT
 # ==========================================================
 
-def get_level(context) -> str:
-    """
-    Return the current game level.
-    """
-
-    state = get_game_state(context)
-
-    level = state.get(
-        "level",
-        DEFAULT_LEVEL,
-    )
-
-    if level not in VALID_LEVELS:
-        level = DEFAULT_LEVEL
-        state["level"] = level
-
-    return level
-
-
-def set_level(
+def get_player_stat(
     context,
-    level: str,
-) -> str:
+    stat,
+    default=0,
+):
     """
-    Set the current game level.
-
-    Invalid levels automatically become mild.
+    Safely retrieve a player statistic.
     """
 
-    level = str(level or "").lower().strip()
+    initialize_player(context)
 
-    if level not in VALID_LEVELS:
-        level = DEFAULT_LEVEL
-
-    state = get_game_state(context)
-
-    state["level"] = level
-
-    return level
+    return context.user_data.get(
+        stat,
+        default,
+    )
 
 
 # ==========================================================
-# SCORE
+# ADD SCORE
 # ==========================================================
-
-def get_score(context) -> int:
-    """
-    Return the current score.
-    """
-
-    state = get_game_state(context)
-
-    try:
-        return int(
-            state.get(
-                "score",
-                0,
-            )
-        )
-
-    except (TypeError, ValueError):
-        state["score"] = 0
-        return 0
-
 
 def add_score(
     context,
-    amount: int = 1,
-) -> int:
+    points=1,
+):
     """
-    Add points to the current player's score.
+    Add points to the player's score.
     """
 
-    state = get_game_state(context)
+    initialize_player(context)
 
     try:
-        amount = int(amount)
+
+        points = int(points)
 
     except (TypeError, ValueError):
-        amount = 1
 
-    state["score"] = (
-        get_score(context) + amount
-    )
-
-    return state["score"]
-
-
-def reset_score(context) -> None:
-    """
-    Reset the current player's score.
-    """
-
-    state = get_game_state(context)
-
-    state["score"] = 0
-
-
-# ==========================================================
-# ROUNDS
-# ==========================================================
-
-def get_rounds(context) -> int:
-    """
-    Return number of completed rounds.
-    """
-
-    state = get_game_state(context)
-
-    try:
-        return int(
-            state.get(
-                "rounds",
-                0,
-            )
-        )
-
-    except (TypeError, ValueError):
-        state["rounds"] = 0
-        return 0
-
-
-def add_round(context) -> int:
-    """
-    Add one completed round.
-    """
-
-    state = get_game_state(context)
-
-    state["rounds"] = (
-        get_rounds(context) + 1
-    )
-
-    return state["rounds"]
-
-
-# ==========================================================
-# PASSES
-# ==========================================================
-
-def get_passes(context) -> int:
-    """
-    Return number of passes.
-    """
-
-    state = get_game_state(context)
-
-    try:
-        return int(
-            state.get(
-                "passes",
-                0,
-            )
-        )
-
-    except (TypeError, ValueError):
-        state["passes"] = 0
-        return 0
-
-
-def add_pass(context) -> int:
-    """
-    Record a PASS.
-
-    PASS never costs points.
-    """
-
-    state = get_game_state(context)
-
-    state["passes"] = (
-        get_passes(context) + 1
-    )
-
-    return state["passes"]
-
-
-# ==========================================================
-# CURRENT GAME
-# ==========================================================
-
-def set_current_game(
-    context,
-    game_key: Optional[str],
-) -> None:
-    """
-    Store the current game.
-    """
-
-    state = get_game_state(context)
-
-    state["current_game"] = game_key
-
-
-def get_current_game(context):
-    """
-    Return current game key.
-    """
-
-    state = get_game_state(context)
-
-    return state.get(
-        "current_game"
-    )
-
-
-def set_current_prompt(
-    context,
-    prompt: Any,
-) -> None:
-    """
-    Store the current prompt.
-    """
-
-    state = get_game_state(context)
-
-    state["current_prompt"] = prompt
-
-
-def get_current_prompt(context):
-    """
-    Return the current prompt.
-    """
-
-    state = get_game_state(context)
-
-    return state.get(
-        "current_prompt"
-    )
-
-
-# ==========================================================
-# RESET GAME
-# ==========================================================
-
-def reset_game(
-    context,
-    keep_level: bool = True,
-) -> None:
-    """
-    Reset game state.
-
-    By default the player's selected level remains.
-    """
-
-    old_level = get_level(context)
+        points = 0
 
     context.user_data[
-        "games_state"
-    ] = {
-        "level": (
-            old_level
-            if keep_level
-            else DEFAULT_LEVEL
-        ),
-        "score": 0,
-        "rounds": 0,
-        "passes": 0,
-        "current_game": None,
-        "current_prompt": None,
+        "games_score"
+    ] += points
+
+    return context.user_data[
+        "games_score"
+    ]
+
+
+# ==========================================================
+# CORRECT ANSWER
+# ==========================================================
+
+def record_correct(
+    context,
+    points=1,
+):
+    """
+    Record a correct answer.
+
+    Updates:
+        score
+        games played
+        wins
+        current streak
+        best streak
+    """
+
+    initialize_player(context)
+
+    context.user_data[
+        "games_played"
+    ] += 1
+
+    context.user_data[
+        "games_won"
+    ] += 1
+
+    add_score(
+        context,
+        points,
+    )
+
+    context.user_data[
+        "games_streak"
+    ] += 1
+
+    current_streak = context.user_data[
+        "games_streak"
+    ]
+
+    best_streak = context.user_data.get(
+        "games_best_streak",
+        0,
+    )
+
+    if current_streak > best_streak:
+
+        context.user_data[
+            "games_best_streak"
+        ] = current_streak
+
+    return {
+        "score": context.user_data["games_score"],
+        "streak": context.user_data["games_streak"],
+        "best_streak": context.user_data["games_best_streak"],
     }
 
 
 # ==========================================================
-# GAME LOOKUP
+# INCORRECT ANSWER
 # ==========================================================
 
-def get_game_definition(
-    game_key: str,
-) -> Optional[Dict[str, Any]]:
+def record_incorrect(context):
     """
-    Return a game definition.
-    """
+    Record an incorrect answer.
 
-    return GAME_DEFINITIONS.get(
-        game_key
-    )
-
-
-def game_exists(
-    game_key: str,
-) -> bool:
-    """
-    Check whether a game exists.
+    Resets the current streak.
     """
 
-    return game_key in GAME_DEFINITIONS
+    initialize_player(context)
 
+    context.user_data[
+        "games_played"
+    ] += 1
 
-# ==========================================================
-# RANDOM CONTENT
-# ==========================================================
+    context.user_data[
+        "games_streak"
+    ] = 0
 
-def random_would_you_rather(
-    level: str = DEFAULT_LEVEL,
-):
-    """
-    Return a random Would You Rather question.
-    """
-
-    questions = WOULD_YOU_RATHER.get(
-        level,
-        WOULD_YOU_RATHER[DEFAULT_LEVEL],
-    )
-
-    return random.choice(
-        questions
-    )
-
-
-def random_never_have_i_ever(
-    level: str = DEFAULT_LEVEL,
-):
-    """
-    Return a random Never Have I Ever statement.
-    """
-
-    questions = NEVER_HAVE_I_EVER.get(
-        level,
-        NEVER_HAVE_I_EVER[DEFAULT_LEVEL],
-    )
-
-    return random.choice(
-        questions
-    )
-
-
-def random_most_likely(
-    level: str = DEFAULT_LEVEL,
-):
-    """
-    Return a random Most Likely To question.
-    """
-
-    questions = MOST_LIKELY.get(
-        level,
-        MOST_LIKELY[DEFAULT_LEVEL],
-    )
-
-    return random.choice(
-        questions
-    )
-
-
-def random_this_or_that(
-    level: str = DEFAULT_LEVEL,
-):
-    """
-    Return a random This or That question.
-    """
-
-    choices = THIS_OR_THAT.get(
-        level,
-        THIS_OR_THAT[DEFAULT_LEVEL],
-    )
-
-    return random.choice(
-        choices
-    )
-
-
-def random_hot_seat(
-    level: str = DEFAULT_LEVEL,
-):
-    """
-    Return a random Hot Seat question.
-    """
-
-    questions = HOT_SEAT.get(
-        level,
-        HOT_SEAT[DEFAULT_LEVEL],
-    )
-
-    return random.choice(
-        questions
-    )
-
-
-def random_confession(
-    level: str = DEFAULT_LEVEL,
-):
-    """
-    Return a random confession prompt.
-    """
-
-    questions = CONFESSIONS.get(
-        level,
-        CONFESSIONS[DEFAULT_LEVEL],
-    )
-
-    return random.choice(
-        questions
-    )
-
-
-def random_compliment():
-    """
-    Return a random compliment challenge.
-    """
-
-    return random.choice(
-        COMPLIMENT_BATTLE
-    )
-
-
-def random_dice():
-    """
-    Return a random dice result.
-    """
-
-    return random.choice(
-        DICE_RESULTS
-    )
-
-
-def random_coin():
-    """
-    Return a random coin result.
-    """
-
-    return random.choice(
-        COIN_RESULTS
-    )
-
-
-# ==========================================================
-# DICE ROLL
-# ==========================================================
-
-def roll_dice() -> int:
-    """
-    Roll a standard six-sided die.
-    """
-
-    return random.randint(
-        1,
-        6,
-    )
-
-
-# ==========================================================
-# COIN FLIP
-# ==========================================================
-
-def flip_coin() -> str:
-    """
-    Return HEADS or TAILS.
-    """
-
-    return random.choice(
-        (
-            "HEADS",
-            "TAILS",
-        )
-    )
-
-
-# ==========================================================
-# PLAYER NAME
-# ==========================================================
-
-def get_player_name(update) -> str:
-    """
-    Safely determine the player's display name.
-    """
-
-    user = update.effective_user
-
-    if not user:
-        return "Player"
-
-    if user.full_name:
-        return user.full_name
-
-    if user.username:
-        return f"@{user.username}"
-
-    return "Player"
-
-
-# ==========================================================
-# GAME ROUND
-# ==========================================================
-
-def start_round(
-    context,
-    game_key: str,
-    prompt: Any,
-) -> None:
-    """
-    Start and store a new game round.
-    """
-
-    set_current_game(
-        context,
-        game_key,
-    )
-
-    set_current_prompt(
-        context,
-        prompt,
-    )
-
-    add_round(context)
-
-
-# ==========================================================
-# COMPLETE ROUND
-# ==========================================================
-
-def complete_round(
-    context,
-    points: int = 1,
-) -> int:
-    """
-    Complete the current round and award points.
-    """
-
-    return add_score(
-        context,
-        points,
-    )
+    return {
+        "score": context.user_data["games_score"],
+        "streak": 0,
+        "best_streak": context.user_data["games_best_streak"],
+    }
 
 
 # ==========================================================
 # PASS
 # ==========================================================
 
-def pass_current_round(
-    context,
-) -> int:
+def record_pass(context):
     """
-    Pass the current challenge.
+    Record a PASS.
 
-    Passing does not remove points.
+    PASS never counts as a loss.
+    It does end the current streak.
     """
 
-    add_pass(context)
+    initialize_player(context)
 
-    state = get_game_state(context)
+    context.user_data[
+        "games_passes"
+    ] += 1
 
-    state["current_prompt"] = None
-
-    return get_passes(context)
-
-
-# ==========================================================
-# GAME STATISTICS
-# ==========================================================
-
-def get_statistics(
-    context,
-) -> Dict[str, int]:
-    """
-    Return current player statistics.
-    """
+    context.user_data[
+        "games_streak"
+    ] = 0
 
     return {
-        "score": get_score(context),
-        "rounds": get_rounds(context),
-        "passes": get_passes(context),
+        "score": context.user_data["games_score"],
+        "streak": 0,
+        "passes": context.user_data["games_passes"],
     }
 
 
 # ==========================================================
-# FORMAT STATISTICS
+# START GAME
 # ==========================================================
 
-def format_statistics(
+def start_game(
     context,
-) -> str:
+    game_name,
+):
     """
-    Format player statistics for Telegram.
+    Start a new game session.
     """
 
-    stats = get_statistics(
-        context
+    initialize_player(context)
+
+    context.user_data[
+        "current_game"
+    ] = game_name
+
+    context.user_data[
+        "game_active"
+    ] = True
+
+    context.user_data[
+        "game_answered"
+    ] = False
+
+    context.user_data[
+        "game_current_item"
+    ] = None
+
+    return True
+
+
+# ==========================================================
+# END GAME
+# ==========================================================
+
+def end_game(context):
+    """
+    End the current game session.
+    """
+
+    context.user_data[
+        "game_active"
+    ] = False
+
+    context.user_data[
+        "game_answered"
+    ] = False
+
+    context.user_data[
+        "game_current_item"
+    ] = None
+
+
+# ==========================================================
+# CURRENT GAME
+# ==========================================================
+
+def get_current_game(context):
+
+    return context.user_data.get(
+        "current_game"
     )
 
-    level = get_level(
-        context
+
+# ==========================================================
+# ACTIVE GAME
+# ==========================================================
+
+def is_game_active(context):
+
+    return bool(
+        context.user_data.get(
+            "game_active",
+            False,
+        )
+    )
+
+
+# ==========================================================
+# ANSWERED STATUS
+# ==========================================================
+
+def is_answered(context):
+
+    return bool(
+        context.user_data.get(
+            "game_answered",
+            False,
+        )
+    )
+
+
+# ==========================================================
+# MARK ANSWERED
+# ==========================================================
+
+def mark_answered(context):
+
+    context.user_data[
+        "game_answered"
+    ] = True
+
+
+# ==========================================================
+# CURRENT ITEM
+# ==========================================================
+
+def set_current_item(
+    context,
+    item,
+):
+    context.user_data[
+        "game_current_item"
+    ] = item
+
+
+def get_current_item(context):
+
+    return context.user_data.get(
+        "game_current_item"
+    )
+
+
+# ==========================================================
+# RANDOM ITEM
+# ==========================================================
+
+def random_item(items):
+
+    if not items:
+
+        return None
+
+    return random.choice(items)
+
+
+# ==========================================================
+# RANDOM ITEM WITHOUT IMMEDIATE DUPLICATE
+# ==========================================================
+
+def random_item_no_repeat(
+    context,
+    items,
+    storage_key="game_previous_item",
+):
+    """
+    Select a random item while avoiding
+    the immediately previous item when possible.
+    """
+
+    if not items:
+
+        return None
+
+    if len(items) == 1:
+
+        selected = items[0]
+
+        context.user_data[
+            storage_key
+        ] = selected
+
+        return selected
+
+    previous = context.user_data.get(
+        storage_key
+    )
+
+    available = [
+        item
+        for item in items
+        if item != previous
+    ]
+
+    if not available:
+
+        available = items
+
+    selected = random.choice(
+        available
+    )
+
+    context.user_data[
+        storage_key
+    ] = selected
+
+    return selected
+
+
+# ==========================================================
+# SCORE DISPLAY
+# ==========================================================
+
+def score_text(context):
+
+    initialize_player(context)
+
+    score = context.user_data.get(
+        "games_score",
+        0,
+    )
+
+    streak = context.user_data.get(
+        "games_streak",
+        0,
+    )
+
+    best = context.user_data.get(
+        "games_best_streak",
+        0,
+    )
+
+    played = context.user_data.get(
+        "games_played",
+        0,
     )
 
     return (
-        "🎮 YOUR GAME STATS\n\n"
-        f"🏆 Score: {stats['score']}\n"
-        f"🎯 Rounds: {stats['rounds']}\n"
-        f"😈 Passes: {stats['passes']}\n"
-        f"🔥 Level: {level.upper()}"
+        f"🏆 Score: {score}\n"
+        f"🔥 Streak: {streak}\n"
+        f"⭐ Best Streak: {best}\n"
+        f"🎮 Played: {played}"
     )
 
 
 # ==========================================================
-# SAFE CALLBACK PARSER
+# PLAYER STATS TEXT
 # ==========================================================
 
-def parse_callback(
-    callback_data: str,
+def player_stats_text(context):
+
+    initialize_player(context)
+
+    played = context.user_data.get(
+        "games_played",
+        0,
+    )
+
+    wins = context.user_data.get(
+        "games_won",
+        0,
+    )
+
+    score = context.user_data.get(
+        "games_score",
+        0,
+    )
+
+    streak = context.user_data.get(
+        "games_streak",
+        0,
+    )
+
+    best = context.user_data.get(
+        "games_best_streak",
+        0,
+    )
+
+    passes = context.user_data.get(
+        "games_passes",
+        0,
+    )
+
+    if played > 0:
+
+        win_rate = round(
+            (wins / played) * 100
+        )
+
+    else:
+
+        win_rate = 0
+
+    return (
+        "🏆 YOUR GAME STATS\n\n"
+        f"🎮 Games Played: {played}\n"
+        f"🏅 Wins: {wins}\n"
+        f"📊 Win Rate: {win_rate}%\n"
+        f"⭐ Score: {score}\n"
+        f"🔥 Current Streak: {streak}\n"
+        f"💥 Best Streak: {best}\n"
+        f"😈 Passes: {passes}"
+    )
+
+
+# ==========================================================
+# RESET STATS
+# ==========================================================
+
+def reset_player_stats(context):
+
+    context.user_data[
+        "games_played"
+    ] = 0
+
+    context.user_data[
+        "games_won"
+    ] = 0
+
+    context.user_data[
+        "games_score"
+    ] = 0
+
+    context.user_data[
+        "games_streak"
+    ] = 0
+
+    context.user_data[
+        "games_best_streak"
+    ] = 0
+
+    context.user_data[
+        "games_passes"
+    ] = 0
+
+
+# ==========================================================
+# STANDARD GAME BUTTONS
+# ==========================================================
+
+def standard_game_buttons(
+    include_pass=True,
+    include_next=True,
+    include_home=True,
 ):
     """
-    Split callback data safely.
+    Build a reusable game button layout.
+    """
+
+    buttons = []
+
+    if include_pass:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "😈 PASS",
+                    callback_data=PASS_CALLBACK,
+                )
+            ]
+        )
+
+    navigation = []
+
+    if include_next:
+
+        navigation.append(
+            InlineKeyboardButton(
+                "➡️ Next",
+                callback_data=NEXT_CALLBACK,
+            )
+        )
+
+    if include_home:
+
+        navigation.append(
+            InlineKeyboardButton(
+                "🎮 Games",
+                callback_data=GAME_HOME_CALLBACK,
+            )
+        )
+
+    if navigation:
+
+        buttons.append(
+            navigation
+        )
+
+    return InlineKeyboardMarkup(
+        buttons
+    )
+
+
+# ==========================================================
+# ANSWER BUTTONS
+# ==========================================================
+
+def answer_keyboard(
+    answers,
+    prefix="game_answer",
+    include_pass=True,
+):
+    """
+    Create answer buttons.
 
     Example:
 
-        game_wyr:mild
+        A️⃣ Answer One
+        B️⃣ Answer Two
+        C️⃣ Answer Three
+        D️⃣ Answer Four
+    """
 
-    becomes:
+    labels = [
+        "A️⃣",
+        "B️⃣",
+        "C️⃣",
+        "D️⃣",
+    ]
 
-        ("game_wyr", "mild")
+    buttons = []
+
+    for index, answer in enumerate(
+        answers
+    ):
+
+        if index >= len(labels):
+
+            break
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    f"{labels[index]} {answer}",
+                    callback_data=(
+                        f"{prefix}_{index}"
+                    ),
+                )
+            ]
+        )
+
+    if include_pass:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "😈 PASS",
+                    callback_data=PASS_CALLBACK,
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🎮 Games",
+                callback_data=GAME_HOME_CALLBACK,
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        buttons
+    )
+
+
+# ==========================================================
+# YES / NO BUTTONS
+# ==========================================================
+
+def yes_no_keyboard(
+    yes_callback,
+    no_callback,
+    include_pass=True,
+):
+
+    buttons = [
+        [
+            InlineKeyboardButton(
+                "✅ YES",
+                callback_data=yes_callback,
+            ),
+            InlineKeyboardButton(
+                "❌ NO",
+                callback_data=no_callback,
+            ),
+        ],
+    ]
+
+    if include_pass:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "😈 PASS",
+                    callback_data=PASS_CALLBACK,
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🎮 Games",
+                callback_data=GAME_HOME_CALLBACK,
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        buttons
+    )
+
+
+# ==========================================================
+# CHOICE KEYBOARD
+# ==========================================================
+
+def choice_keyboard(
+    choices,
+    prefix="game_choice",
+    include_pass=True,
+):
+    """
+    Generic button generator for games
+    with multiple choices.
+    """
+
+    buttons = []
+
+    for index, choice in enumerate(
+        choices
+    ):
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    str(choice),
+                    callback_data=(
+                        f"{prefix}_{index}"
+                    ),
+                )
+            ]
+        )
+
+    if include_pass:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    "😈 PASS",
+                    callback_data=PASS_CALLBACK,
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🎮 Games",
+                callback_data=GAME_HOME_CALLBACK,
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(
+        buttons
+    )
+
+
+# ==========================================================
+# GAME MENU BUTTON
+# ==========================================================
+
+def games_button():
+
+    return InlineKeyboardButton(
+        "🎮 Games",
+        callback_data=GAME_HOME_CALLBACK,
+    )
+
+
+# ==========================================================
+# NEXT BUTTON
+# ==========================================================
+
+def next_button():
+
+    return InlineKeyboardButton(
+        "➡️ Next",
+        callback_data=NEXT_CALLBACK,
+    )
+
+
+# ==========================================================
+# PASS BUTTON
+# ==========================================================
+
+def pass_button():
+
+    return InlineKeyboardButton(
+        "😈 PASS",
+        callback_data=PASS_CALLBACK,
+    )
+
+
+# ==========================================================
+# SAFE CALLBACK PREFIX CHECK
+# ==========================================================
+
+def callback_starts_with(
+    callback_data,
+    prefix,
+):
+
+    if not callback_data:
+
+        return False
+
+    return callback_data.startswith(
+        prefix
+    )
+
+
+# ==========================================================
+# CALLBACK INDEX
+# ==========================================================
+
+def callback_index(
+    callback_data,
+    prefix,
+):
+    """
+    Extract numeric callback index.
+
+    Example:
+
+        callback_index(
+            "game_answer_2",
+            "game_answer"
+        )
+
+        returns 2
     """
 
     if not callback_data:
-        return (
-            "",
-            "",
-        )
 
-    parts = callback_data.split(
-        ":",
-        1,
+        return None
+
+    expected = (
+        f"{prefix}_"
     )
 
-    if len(parts) == 1:
-        return (
-            parts[0],
-            "",
-        )
+    if not callback_data.startswith(
+        expected
+    ):
 
-    return (
-        parts[0],
-        parts[1],
-    )
+        return None
 
+    value = callback_data[
+        len(expected):
+    ]
 
-# ==========================================================
-# CALLBACK LEVEL
-# ==========================================================
+    try:
 
-def level_from_callback(
-    callback_data: str,
-) -> Optional[str]:
-    """
-    Extract a valid level from callback data.
-    """
+        return int(value)
 
-    _, value = parse_callback(
-        callback_data
-    )
+    except (TypeError, ValueError):
 
-    if value in VALID_LEVELS:
-        return value
-
-    return None
+        return None
 
 
 # ==========================================================
-# LOGGING HELPER
-# ==========================================================
-
-def log_game_event(
-    game_key: str,
-    user_id: Optional[int] = None,
-    action: Optional[str] = None,
-) -> None:
-    """
-    Log game activity.
-
-    This intentionally does not log game answers or
-    potentially sensitive player content.
-    """
-
-    logger.info(
-        "Game event | game=%s | user_id=%s | action=%s",
-        game_key,
-        user_id,
-        action,
-    )
-
-
-# ==========================================================
-# END game_engine.py
+# END
 # ==========================================================
