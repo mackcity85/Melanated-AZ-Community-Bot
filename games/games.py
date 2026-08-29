@@ -1,26 +1,8 @@
 # ==========================================================
 # Melanated AZ Bot
-# games/party_games.py
+# games/games.py
 #
-# PARTY GAMES CATEGORY
-#
-# Games included:
-#   - Never Have I Ever
-#   - Most Likely To
-#   - This or That
-#   - Hot Seat
-#   - Finish the Sentence
-#
-# Features:
-#   - Button-based menus
-#   - Random prompts
-#   - PASS support
-#   - Next prompt
-#   - Return to Games category
-#
-# IMPORTANT:
-# This file does NOT import from games.py.
-# This prevents circular imports.
+# COMPLETE GAMES SYSTEM
 # ==========================================================
 
 import logging
@@ -34,250 +16,64 @@ from telegram import (
 
 from telegram.ext import ContextTypes
 
+from .game_data import (
+    GAME_CATEGORIES,
+    GAMES,
+    get_games_by_category,
+    get_game,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# SETTINGS
+# MAIN GAMES MENU
 # ==========================================================
 
-PARTY_GAMES_ENABLED = True
-
-
-# ==========================================================
-# NEVER HAVE I EVER
-# ==========================================================
-
-NEVER_HAVE_I_EVER = [
-
-    "Never have I ever flirted with someone I just met.",
-    "Never have I ever sent a message to the wrong person.",
-    "Never have I ever had a crush on someone in this group.",
-    "Never have I ever gone on a date and immediately wanted to leave.",
-    "Never have I ever stayed up all night talking to someone.",
-    "Never have I ever kissed someone on the first date.",
-    "Never have I ever had chemistry with someone completely unexpected.",
-    "Never have I ever pretended not to be interested when I actually was.",
-    "Never have I ever slid into someone's DMs first.",
-    "Never have I ever been caught flirting.",
-    "Never have I ever had a secret crush.",
-    "Never have I ever gone on a spontaneous date.",
-    "Never have I ever regretted sending a flirty message.",
-    "Never have I ever flirted with someone older than me.",
-    "Never have I ever flirted with someone younger than me.",
-    "Never have I ever matched with someone I already knew.",
-    "Never have I ever gone on a date without telling anyone where I was.",
-    "Never have I ever fallen for someone's personality before their looks.",
-    "Never have I ever been attracted to someone I knew I shouldn't be.",
-    "Never have I ever had a friends-with-benefits situation.",
-    "Never have I ever kissed more than one person in the same night.",
-    "Never have I ever had a crush on a friend's partner.",
-    "Never have I ever changed my plans because someone attractive invited me out.",
-    "Never have I ever used a cheesy pickup line.",
-    "Never have I ever been the one to make the first move.",
-]
-
-
-# ==========================================================
-# MOST LIKELY TO
-# ==========================================================
-
-MOST_LIKELY_TO = [
-
-    "Who is most likely to make the first move?",
-    "Who is most likely to flirt with someone they just met?",
-    "Who is most likely to plan the perfect date?",
-    "Who is most likely to disappear from the chat and come back with a story?",
-    "Who is most likely to fall for someone's personality?",
-    "Who is most likely to have a secret crush?",
-    "Who is most likely to start a conversation with a stranger?",
-    "Who is most likely to send the first DM?",
-    "Who is most likely to organize a group adventure?",
-    "Who is most likely to stay up all night talking?",
-    "Who is most likely to make everyone laugh?",
-    "Who is most likely to break the ice?",
-    "Who is most likely to try something completely new?",
-    "Who is most likely to have the best pickup line?",
-    "Who is most likely to turn a casual date into an adventure?",
-    "Who is most likely to be the biggest flirt?",
-    "Who is most likely to make someone blush?",
-    "Who is most likely to suggest a spontaneous road trip?",
-    "Who is most likely to have the wildest bucket list?",
-    "Who is most likely to make the first move at a party?",
-    "Who is most likely to remember everyone's birthday?",
-    "Who is most likely to make a new friend anywhere?",
-    "Who is most likely to talk their way out of trouble?",
-    "Who is most likely to say YES to an adventure?",
-    "Who is most likely to turn a boring night into a good time?",
-]
-
-
-# ==========================================================
-# THIS OR THAT
-# ==========================================================
-
-THIS_OR_THAT = [
-
-    ("Beach", "Mountains"),
-    ("Texting", "Calling"),
-    ("Morning date", "Late-night date"),
-    ("Dinner date", "Adventure date"),
-    ("Stay in", "Go out"),
-    ("Make the first move", "Be pursued"),
-    ("Romantic", "Adventurous"),
-    ("Sweet", "Spicy"),
-    ("Slow burn", "Instant chemistry"),
-    ("Planned date", "Spontaneous date"),
-    ("Movies", "Concert"),
-    ("Road trip", "Flight"),
-    ("Coffee date", "Dinner date"),
-    ("Flirty texts", "Flirty calls"),
-    ("Private conversation", "Group conversation"),
-    ("One-on-one", "Group date"),
-    ("Casual", "Formal"),
-    ("Sunrise", "Sunset"),
-    ("City", "Beach"),
-    ("Dance floor", "Lounge"),
-    ("Music", "Movies"),
-    ("Funny", "Confident"),
-    ("Brains", "Looks"),
-    ("Personality", "Chemistry"),
-    ("Kiss", "Cuddle"),
-]
-
-
-# ==========================================================
-# HOT SEAT
-# ==========================================================
-
-HOT_SEAT = [
-
-    "What is something people would never guess about you?",
-    "What is your biggest green flag?",
-    "What is your biggest red flag?",
-    "What instantly gets your attention?",
-    "What makes you feel comfortable around someone?",
-    "What is your favorite type of date?",
-    "What is something adventurous you want to try?",
-    "What is one thing you absolutely will not compromise on?",
-    "What is something you find unexpectedly attractive?",
-    "What is your biggest dating pet peeve?",
-    "What is the best compliment you have ever received?",
-    "What is the boldest thing you have done on a date?",
-    "What makes someone unforgettable to you?",
-    "What is one thing you wish people knew about you?",
-    "What kind of energy attracts you?",
-    "What is your favorite way to flirt?",
-    "What makes you lose interest immediately?",
-    "What is something on your bucket list?",
-    "What is your ideal night out?",
-    "What is one thing you are always willing to try?",
-    "What is one thing you will always say NO to?",
-    "What is something that instantly makes you smile?",
-    "What is your favorite way to meet new people?",
-    "What is something you have learned from past relationships?",
-    "What is one adventure you want to experience someday?",
-]
-
-
-# ==========================================================
-# FINISH THE SENTENCE
-# ==========================================================
-
-FINISH_THE_SENTENCE = [
-
-    "The fastest way to get my attention is ______.",
-    "My perfect date would be ______.",
-    "I instantly smile when ______.",
-    "The biggest green flag is ______.",
-    "The biggest red flag is ______.",
-    "I feel most confident when ______.",
-    "My idea of a perfect night is ______.",
-    "I would never say no to ______.",
-    "One thing on my bucket list is ______.",
-    "The best way to flirt with me is ______.",
-    "I know there is chemistry when ______.",
-    "I immediately notice someone's ______.",
-    "The most adventurous thing I would try is ______.",
-    "My favorite way to spend a weekend is ______.",
-    "A great conversation starts with ______.",
-    "I cannot resist someone who ______.",
-    "My biggest weakness is ______.",
-    "I am always down for ______.",
-    "The perfect first date includes ______.",
-    "I feel most comfortable when ______.",
-    "Something that always makes me laugh is ______.",
-    "The best compliment someone can give me is ______.",
-    "If I could travel anywhere tomorrow, I would go to ______.",
-    "A spontaneous adventure sounds like ______.",
-    "One thing I want to experience someday is ______.",
-]
-
-
-# ==========================================================
-# GAME NAMES
-# ==========================================================
-
-GAME_NAMES = {
-    "never": "🙅 Never Have I Ever",
-    "most_likely": "👀 Most Likely To",
-    "this_that": "⚖️ This or That",
-    "hot_seat": "🔥 Hot Seat",
-    "finish": "✍️ Finish the Sentence",
-}
-
-
-# ==========================================================
-# ENABLED
-# ==========================================================
-
-def is_enabled():
-    return PARTY_GAMES_ENABLED
-
-
-# ==========================================================
-# MAIN MENU
-# ==========================================================
-
-def party_games_keyboard():
+def games_menu_keyboard():
 
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    GAME_NAMES["never"],
-                    callback_data="party_game_never",
+                    "🎲 Board & Classic",
+                    callback_data="games_category_board",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    GAME_NAMES["most_likely"],
-                    callback_data="party_game_most_likely",
+                    "🏆 Sports",
+                    callback_data="games_category_sports",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    GAME_NAMES["this_that"],
-                    callback_data="party_game_this_that",
+                    "🦆 Arcade & Shooting",
+                    callback_data="games_category_arcade",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    GAME_NAMES["hot_seat"],
-                    callback_data="party_game_hot_seat",
+                    "🎣 Adventure & Outdoors",
+                    callback_data="games_category_outdoors",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    GAME_NAMES["finish"],
-                    callback_data="party_game_finish",
+                    "🧠 Trivia & Knowledge",
+                    callback_data="games_category_trivia",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    "🔙 Games",
-                    callback_data="games_main",
+                    "😂 Party & Social",
+                    callback_data="games_category_party",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔥 Spicy / Adult",
+                    callback_data="games_category_spicy",
                 ),
             ],
         ]
@@ -285,160 +81,10 @@ def party_games_keyboard():
 
 
 # ==========================================================
-# GAME CONTROLS
+# GAMES MENU
 # ==========================================================
 
-def game_controls():
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "➡️ Next",
-                    callback_data="party_game_next",
-                ),
-                InlineKeyboardButton(
-                    "😈 PASS",
-                    callback_data="party_game_pass",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🎮 Other Party Games",
-                    callback_data="party_games_menu",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔙 Games",
-                    callback_data="games_main",
-                ),
-            ],
-        ]
-    )
-
-
-# ==========================================================
-# GET CURRENT GAME
-# ==========================================================
-
-def get_current_game(context):
-
-    return context.user_data.get(
-        "party_current_game",
-        "never",
-    )
-
-
-# ==========================================================
-# GET PROMPT
-# ==========================================================
-
-def get_prompt(context):
-
-    game = get_current_game(context)
-
-    if game == "never":
-
-        return random.choice(
-            NEVER_HAVE_I_EVER
-        )
-
-    if game == "most_likely":
-
-        return random.choice(
-            MOST_LIKELY_TO
-        )
-
-    if game == "this_that":
-
-        first, second = random.choice(
-            THIS_OR_THAT
-        )
-
-        return (
-            f"Would you rather choose:\n\n"
-            f"🅰️ {first}\n\n"
-            f"OR\n\n"
-            f"🅱️ {second}"
-        )
-
-    if game == "hot_seat":
-
-        return random.choice(
-            HOT_SEAT
-        )
-
-    if game == "finish":
-
-        return random.choice(
-            FINISH_THE_SENTENCE
-        )
-
-    return random.choice(
-        NEVER_HAVE_I_EVER
-    )
-
-
-# ==========================================================
-# FORMAT GAME
-# ==========================================================
-
-def format_game(context):
-
-    game = get_current_game(context)
-
-    title = GAME_NAMES.get(
-        game,
-        "🎮 Party Game",
-    )
-
-    prompt = get_prompt(context)
-
-    context.user_data[
-        "party_current_prompt"
-    ] = prompt
-
-    return (
-        f"{title}\n\n"
-        f"{prompt}\n\n"
-        "😈 You can PASS at any time."
-    )
-
-
-# ==========================================================
-# START GAME
-# ==========================================================
-
-async def start_game(
-    query,
-    context,
-    game,
-):
-
-    if game not in GAME_NAMES:
-
-        game = "never"
-
-    context.user_data[
-        "party_current_game"
-    ] = game
-
-    context.user_data[
-        "party_current_prompt"
-    ] = None
-
-    await query.edit_message_text(
-        format_game(context),
-        reply_markup=game_controls(),
-    )
-
-
-# ==========================================================
-# /PARTYGAMES
-# ==========================================================
-
-async def party_games(
+async def games_menu(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
@@ -446,31 +92,591 @@ async def party_games(
     message = update.effective_message
 
     if not message:
-
-        return
-
-    if not PARTY_GAMES_ENABLED:
-
-        await message.reply_text(
-            "🎮 Party Games are currently disabled."
-        )
-
         return
 
     await message.reply_text(
-        "🎮 PARTY GAMES\n\n"
-        "Choose a game:\n\n"
-        "Have fun, respect boundaries, "
-        "and remember that PASS is always allowed.",
-        reply_markup=party_games_keyboard(),
+        "🎮 **MELANATED AZ GAMES**\n\n"
+        "Choose a category below.\n\n"
+        "There are games for solo play, group play, "
+        "competition, trivia, arcade challenges, "
+        "sports, fishing, and more.",
+        reply_markup=games_menu_keyboard(),
+        parse_mode="Markdown",
     )
 
 
 # ==========================================================
-# CALLBACK
+# COMMAND
 # ==========================================================
 
-async def callback(
+async def games_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    await games_menu(
+        update,
+        context,
+    )
+
+
+# ==========================================================
+# CATEGORY KEYBOARD
+# ==========================================================
+
+def category_keyboard(category):
+
+    games = get_games_by_category(category)
+
+    buttons = []
+
+    for game_id, game in games.items():
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    game["name"],
+                    callback_data=f"game_start_{game_id}",
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "⬅️ Games",
+                callback_data="games_main",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(buttons)
+
+
+# ==========================================================
+# CATEGORY MENU
+# ==========================================================
+
+async def show_category(
+    query,
+    category,
+):
+
+    category_data = GAME_CATEGORIES.get(category)
+
+    if not category_data:
+
+        await query.edit_message_text(
+            "⚠️ Unknown game category."
+        )
+
+        return
+
+    games = get_games_by_category(category)
+
+    text = (
+        f"{category_data['name']}\n\n"
+        f"{category_data['description']}\n\n"
+        f"🎮 Games available: {len(games)}\n\n"
+        "Choose a game:"
+    )
+
+    await query.edit_message_text(
+        text,
+        reply_markup=category_keyboard(category),
+    )
+
+
+# ==========================================================
+# GAME DESCRIPTION
+# ==========================================================
+
+def game_description(game):
+
+    return (
+        f"{game['name']}\n\n"
+        f"{game['description']}\n\n"
+        "Press START to play."
+    )
+
+
+# ==========================================================
+# GAME START KEYBOARD
+# ==========================================================
+
+def start_game_keyboard(game_id):
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "▶️ START GAME",
+                    callback_data=f"game_play_{game_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back to Category",
+                    callback_data="game_back_category",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🎮 Games",
+                    callback_data="games_main",
+                )
+            ],
+        ]
+    )
+
+
+# ==========================================================
+# GAME START SCREEN
+# ==========================================================
+
+async def show_game_start(
+    query,
+    context,
+    game_id,
+):
+
+    game = get_game(game_id)
+
+    if not game:
+
+        await query.edit_message_text(
+            "⚠️ Game not found."
+        )
+
+        return
+
+    context.user_data[
+        "selected_game"
+    ] = game_id
+
+    context.user_data[
+        "selected_game_category"
+    ] = game["category"]
+
+    await query.edit_message_text(
+        game_description(game),
+        reply_markup=start_game_keyboard(game_id),
+    )
+
+
+# ==========================================================
+# GAME BUTTONS
+# ==========================================================
+
+def generic_game_keyboard(game_id):
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎮 Play Again",
+                    callback_data=f"game_play_{game_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Category",
+                    callback_data="game_back_category",
+                ),
+                InlineKeyboardButton(
+                    "🎮 Games",
+                    callback_data="games_main",
+                ),
+            ],
+        ]
+    )
+
+
+# ==========================================================
+# GENERIC GAME
+# ==========================================================
+
+async def play_generic_game(
+    query,
+    context,
+    game_id,
+):
+
+    game = get_game(game_id)
+
+    if not game:
+        return
+
+    outcomes = [
+        "🔥 Great choice!",
+        "🎯 Nice move!",
+        "⭐ You scored a point!",
+        "💥 Excellent!",
+        "🏆 That's a strong play!",
+        "😎 Smooth move!",
+        "🎉 You got it!",
+    ]
+
+    outcome = random.choice(outcomes)
+
+    score = context.user_data.get(
+        "games_score",
+        0,
+    )
+
+    score += 1
+
+    context.user_data[
+        "games_score"
+    ] = score
+
+    await query.edit_message_text(
+        f"{game['name']}\n\n"
+        f"{outcome}\n\n"
+        f"🏆 Your Games Score: {score}\n\n"
+        "Ready for another round?",
+        reply_markup=generic_game_keyboard(
+            game_id
+        ),
+    )
+
+
+# ==========================================================
+# DUCK HUNT
+# ==========================================================
+
+async def play_duck_hunt(
+    query,
+    context,
+):
+
+    ducks = random.randint(
+        1,
+        5,
+    )
+
+    hits = random.randint(
+        0,
+        ducks,
+    )
+
+    points = hits * 10
+
+    score = context.user_data.get(
+        "duck_hunt_score",
+        0,
+    )
+
+    score += points
+
+    context.user_data[
+        "duck_hunt_score"
+    ] = score
+
+    duck_text = "🦆 " * ducks
+
+    await query.edit_message_text(
+        "🦆 **DUCK HUNT**\n\n"
+        f"{duck_text}\n\n"
+        f"🎯 Ducks: {ducks}\n"
+        f"💥 Hits: {hits}\n"
+        f"⭐ Points: +{points}\n\n"
+        f"🏆 High Score: {score}",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🦆 HUNT!",
+                        callback_data="game_play_duck_hunt",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🎮 Games",
+                        callback_data="games_main",
+                    )
+                ],
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# FISHING
+# ==========================================================
+
+FISH = [
+    (
+        "🐟 Bluegill",
+        5,
+        "Common",
+    ),
+    (
+        "🐠 Bass",
+        15,
+        "Common",
+    ),
+    (
+        "🐟 Trout",
+        25,
+        "Uncommon",
+    ),
+    (
+        "🐡 Catfish",
+        35,
+        "Uncommon",
+    ),
+    (
+        "🐟 Salmon",
+        50,
+        "Rare",
+    ),
+    (
+        "🦈 Shark",
+        100,
+        "Very Rare",
+    ),
+    (
+        "🐉 Legendary Fish",
+        250,
+        "LEGENDARY",
+    ),
+]
+
+
+async def play_fishing(
+    query,
+    context,
+):
+
+    fish, value, rarity = random.choice(
+        FISH
+    )
+
+    total = context.user_data.get(
+        "fishing_value",
+        0,
+    )
+
+    total += value
+
+    context.user_data[
+        "fishing_value"
+    ] = total
+
+    catches = context.user_data.get(
+        "fishing_catches",
+        0,
+    )
+
+    catches += 1
+
+    context.user_data[
+        "fishing_catches"
+    ] = catches
+
+    await query.edit_message_text(
+        "🎣 **FISHING**\n\n"
+        "🌊 You cast your line...\n\n"
+        "⏳ Waiting...\n\n"
+        f"🎣 **YOU CAUGHT A FISH!**\n\n"
+        f"{fish}\n"
+        f"⭐ Rarity: {rarity}\n"
+        f"💰 Value: ${value}\n\n"
+        f"🐟 Total Catches: {catches}\n"
+        f"💰 Total Value: ${total}",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎣 Fish Again",
+                        callback_data="game_play_fishing",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🎮 Games",
+                        callback_data="games_main",
+                    )
+                ],
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# MONOPOLY
+# ==========================================================
+
+MONOPOLY_PROPERTIES = [
+    "Mediterranean Avenue",
+    "Baltic Avenue",
+    "Oriental Avenue",
+    "Vermont Avenue",
+    "Connecticut Avenue",
+    "St. Charles Place",
+    "States Avenue",
+    "Virginia Avenue",
+    "St. James Place",
+    "Tennessee Avenue",
+    "New York Avenue",
+    "Kentucky Avenue",
+    "Indiana Avenue",
+    "Illinois Avenue",
+    "Atlantic Avenue",
+    "Ventnor Avenue",
+    "Marvin Gardens",
+    "Pacific Avenue",
+    "North Carolina Avenue",
+    "Pennsylvania Avenue",
+    "Park Place",
+    "Boardwalk",
+]
+
+
+async def play_monopoly(
+    query,
+    context,
+):
+
+    position = random.randint(
+        1,
+        12,
+    )
+
+    roll = random.randint(
+        1,
+        6,
+    ) + random.randint(
+        1,
+        6,
+    )
+
+    property_name = random.choice(
+        MONOPOLY_PROPERTIES
+    )
+
+    cash = context.user_data.get(
+        "monopoly_cash",
+        1500,
+    )
+
+    event = random.choice(
+        [
+            f"🎲 You rolled **{roll}**.",
+            f"🏠 You landed near **{property_name}**.",
+            "💰 You collected $200.",
+            "💸 You paid $100.",
+            "🎁 You received a Community Chest bonus.",
+            "🚔 Uh oh... Jail!",
+        ]
+    )
+
+    if "collected" in event or "received" in event:
+
+        cash += 200
+
+    if "paid" in event:
+
+        cash = max(
+            0,
+            cash - 100,
+        )
+
+    context.user_data[
+        "monopoly_cash"
+    ] = cash
+
+    await query.edit_message_text(
+        "🎲 **MONOPOLY**\n\n"
+        f"{event}\n\n"
+        f"💵 Cash: ${cash}\n\n"
+        "Keep playing to build your fortune.",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎲 Roll Dice",
+                        callback_data="game_play_monopoly",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🎮 Games",
+                        callback_data="games_main",
+                    )
+                ],
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# GAME PLAY ROUTER
+# ==========================================================
+
+async def play_game(
+    query,
+    context,
+    game_id,
+):
+
+    game = get_game(game_id)
+
+    if not game:
+
+        await query.edit_message_text(
+            "⚠️ Game not found."
+        )
+
+        return
+
+    game_type = game.get(
+        "type"
+    )
+
+    if game_type == "duck_hunt":
+
+        await play_duck_hunt(
+            query,
+            context,
+        )
+
+        return
+
+    if game_type == "fishing":
+
+        await play_fishing(
+            query,
+            context,
+        )
+
+        return
+
+    if game_type == "monopoly":
+
+        await play_monopoly(
+            query,
+            context,
+        )
+
+        return
+
+    await play_generic_game(
+        query,
+        context,
+        game_id,
+    )
+
+
+# ==========================================================
+# CALLBACK ROUTER
+# ==========================================================
+
+async def games_button(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
@@ -478,106 +684,114 @@ async def callback(
     query = update.callback_query
 
     if not query:
-
         return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     data = query.data or ""
 
-    try:
+    # ------------------------------------------------------
+    # MAIN MENU
+    # ------------------------------------------------------
 
-        await query.answer()
-
-    except Exception:
-
-        pass
-
-    if not PARTY_GAMES_ENABLED:
-
-        await query.answer(
-            "Party Games are disabled.",
-            show_alert=True,
-        )
-
-        return
-
-    # ======================================================
-    # MENU
-    # ======================================================
-
-    if data == "party_games_menu":
+    if data == "games_main":
 
         await query.edit_message_text(
-            "🎮 PARTY GAMES\n\n"
-            "Choose a game:",
-            reply_markup=party_games_keyboard(),
+            "🎮 **MELANATED AZ GAMES**\n\n"
+            "Choose a category:",
+            reply_markup=games_menu_keyboard(),
+            parse_mode="Markdown",
         )
 
         return
 
-    # ======================================================
-    # GAME SELECTION
-    # ======================================================
+    # ------------------------------------------------------
+    # CATEGORY
+    # ------------------------------------------------------
 
-    if data.startswith("party_game_"):
+    if data.startswith(
+        "games_category_"
+    ):
 
-        game = data.replace(
-            "party_game_",
+        category = data.replace(
+            "games_category_",
             "",
             1,
         )
 
-        # Don't treat controls as games.
+        await show_category(
+            query,
+            category,
+        )
 
-        if game in GAME_NAMES:
+        return
 
-            await start_game(
-                query,
-                context,
-                game,
-            )
+    # ------------------------------------------------------
+    # GAME DESCRIPTION
+    # ------------------------------------------------------
 
-            return
+    if data.startswith(
+        "game_start_"
+    ):
 
-    # ======================================================
-    # NEXT
-    # ======================================================
+        game_id = data.replace(
+            "game_start_",
+            "",
+            1,
+        )
 
-    if data == "party_game_next":
-
-        game = get_current_game(context)
-
-        await start_game(
+        await show_game_start(
             query,
             context,
-            game,
+            game_id,
         )
 
         return
 
-    # ======================================================
-    # PASS
-    # ======================================================
+    # ------------------------------------------------------
+    # PLAY
+    # ------------------------------------------------------
 
-    if data == "party_game_pass":
+    if data.startswith(
+        "game_play_"
+    ):
 
-        game = get_current_game(context)
-
-        title = GAME_NAMES.get(
-            game,
-            "🎮 Party Game",
+        game_id = data.replace(
+            "game_play_",
+            "",
+            1,
         )
 
-        await query.edit_message_text(
-            f"{title}\n\n"
-            "😈 PASS ACCEPTED!\n\n"
-            "No explanation needed. "
-            "Choose another prompt when you're ready.",
-            reply_markup=game_controls(),
+        await play_game(
+            query,
+            context,
+            game_id,
         )
 
         return
 
+    # ------------------------------------------------------
+    # BACK
+    # ------------------------------------------------------
 
-# ==========================================================
-# END party_games.py
-# ==========================================================
+    if data == "game_back_category":
+
+        category = context.user_data.get(
+            "selected_game_category",
+            "board",
+        )
+
+        await show_category(
+            query,
+            category,
+        )
+
+        return
+
+    logger.warning(
+        "Unknown games callback: %s",
+        data,
+    )
