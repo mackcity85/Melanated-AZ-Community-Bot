@@ -8,7 +8,7 @@
 #   - Button-based game
 #   - Mild / Spicy / Extreme
 #   - Random statements
-#   - "I Have" / "Never" buttons
+#   - "I HAVE" / "NEVER" buttons
 #   - PASS allowed
 #   - Next statement
 #   - Change level
@@ -58,31 +58,31 @@ STATEMENTS = {
 
     "mild": [
 
-        "Never have I ever stayed up all night talking to someone.",
+        "Never have I ever sent the first message to someone I liked.",
         "Never have I ever had a crush on someone I just met.",
-        "Never have I ever sent a message and immediately regretted it.",
-        "Never have I ever flirted with someone just for fun.",
-        "Never have I ever gone on a spontaneous date.",
-        "Never have I ever had a crush on a friend.",
-        "Never have I ever pretended not to notice someone flirting with me.",
-        "Never have I ever fallen for someone's personality before their looks.",
-        "Never have I ever given someone a fake excuse to avoid a date.",
-        "Never have I ever had chemistry with someone completely unexpected.",
-        "Never have I ever made the first move.",
-        "Never have I ever received a pickup line that actually worked.",
-        "Never have I ever sent a flirty emoji hoping someone would get the hint.",
-        "Never have I ever had a secret crush.",
-        "Never have I ever matched with someone online and actually met them.",
-        "Never have I ever gone on a date without knowing what to expect.",
         "Never have I ever flirted with someone at a party.",
-        "Never have I ever been attracted to someone's voice.",
-        "Never have I ever been attracted to someone's confidence.",
-        "Never have I ever changed my plans because someone interesting invited me out.",
-        "Never have I ever had an instant connection with someone.",
+        "Never have I ever stayed up all night talking to someone.",
+        "Never have I ever gone on a spontaneous date.",
+        "Never have I ever had a secret crush.",
+        "Never have I ever pretended not to notice someone flirting with me.",
+        "Never have I ever given someone my number without being asked.",
         "Never have I ever gotten nervous around someone I liked.",
-        "Never have I ever stayed up late because I didn't want a conversation to end.",
-        "Never have I ever complimented someone hoping they would flirt back.",
-        "Never have I ever had a date turn out much better than expected.",
+        "Never have I ever had chemistry with someone completely unexpected.",
+        "Never have I ever sent a flirty emoji and waited for a response.",
+        "Never have I ever planned a surprise date.",
+        "Never have I ever made the first move.",
+        "Never have I ever had a crush on a friend.",
+        "Never have I ever flirted with someone I met online.",
+        "Never have I ever gone on a date without telling anyone where I was going.",
+        "Never have I ever danced with someone I just met.",
+        "Never have I ever complimented someone because I wanted their attention.",
+        "Never have I ever stayed in a conversation because I liked the person's voice.",
+        "Never have I ever caught someone checking me out.",
+        "Never have I ever had someone develop a crush on me unexpectedly.",
+        "Never have I ever changed my outfit because I wanted to impress someone.",
+        "Never have I ever rehearsed what I was going to say before messaging someone.",
+        "Never have I ever flirted just for fun.",
+        "Never have I ever had an instant connection with someone.",
     ],
 
     # ======================================================
@@ -91,36 +91,36 @@ STATEMENTS = {
 
     "spicy": [
 
-        "Never have I ever flirted with someone I knew was attracted to me.",
+        "Never have I ever sent a spicy message to someone.",
+        "Never have I ever flirted with someone across a crowded room.",
         "Never have I ever kissed someone on a first date.",
-        "Never have I ever had a crush on someone I probably shouldn't have.",
-        "Never have I ever sent a spicy message.",
-        "Never have I ever had chemistry with someone I met online.",
-        "Never have I ever flirted with someone while my partner knew about it.",
-        "Never have I ever been attracted to someone simply because of their energy.",
-        "Never have I ever had a date become much more exciting than planned.",
-        "Never have I ever intentionally teased someone I was attracted to.",
-        "Never have I ever had a fantasy about someone I knew.",
-        "Never have I ever kissed someone unexpectedly.",
-        "Never have I ever had a secret crush that lasted a long time.",
-        "Never have I ever flirted with someone through messages for hours.",
+        "Never have I ever had chemistry with someone I did not expect.",
+        "Never have I ever intentionally made someone blush.",
+        "Never have I ever had a secret admirer.",
+        "Never have I ever flirted with someone I met through an adult community.",
+        "Never have I ever gone on an adults-only date.",
         "Never have I ever exchanged flirty pictures with someone.",
-        "Never have I ever had a conversation turn unexpectedly spicy.",
-        "Never have I ever been attracted to someone else's partner after getting consent to explore.",
-        "Never have I ever gone somewhere specifically because I knew an attractive person would be there.",
-        "Never have I ever used flirting to get someone's attention.",
-        "Never have I ever deliberately made someone blush.",
-        "Never have I ever been caught flirting.",
-        "Never have I ever had an attraction that surprised me.",
-        "Never have I ever imagined what it would be like to kiss someone I was talking to.",
-        "Never have I ever had a crush on someone from an adult community.",
-        "Never have I ever considered exploring something outside my usual type.",
-        "Never have I ever had chemistry with more than one person at the same time.",
-        "Never have I ever planned a date specifically around creating chemistry.",
-        "Never have I ever used a compliment as an excuse to start flirting.",
-        "Never have I ever had someone completely change my type.",
-        "Never have I ever been tempted to make a bold first move.",
-        "Never have I ever had a conversation that became much more intimate than expected.",
+        "Never have I ever teased someone because I knew they liked it.",
+        "Never have I ever stayed up late having a very flirty conversation.",
+        "Never have I ever had a crush on someone I probably should not have.",
+        "Never have I ever made the first romantic move.",
+        "Never have I ever intentionally left someone wanting more.",
+        "Never have I ever had a date turn much more exciting than expected.",
+        "Never have I ever flirted with someone while my partner knew about it.",
+        "Never have I ever discussed a fantasy with a partner.",
+        "Never have I ever considered trying something adventurous with a consenting partner.",
+        "Never have I ever been attracted to someone because of their confidence.",
+        "Never have I ever had an unexpected romantic connection.",
+        "Never have I ever asked someone if they wanted to move the conversation to private chat.",
+        "Never have I ever received a message that instantly made me blush.",
+        "Never have I ever intentionally dressed to get someone's attention.",
+        "Never have I ever had a flirtation that lasted longer than expected.",
+        "Never have I ever been attracted to someone based entirely on their energy.",
+        "Never have I ever made a bold move because the chemistry was undeniable.",
+        "Never have I ever had someone confess that they were attracted to me.",
+        "Never have I ever flirted with someone without knowing where it would lead.",
+        "Never have I ever planned an adventurous date.",
+        "Never have I ever been surprised by how attracted I was to someone.",
     ],
 
     # ======================================================
@@ -129,36 +129,36 @@ STATEMENTS = {
 
     "extreme": [
 
-        "Never have I ever explored a kink with a consenting partner.",
-        "Never have I ever had a fantasy about someone I knew.",
-        "Never have I ever had a consensual experience with more than one partner.",
-        "Never have I ever discussed a fantasy with my partner that I wanted to explore.",
-        "Never have I ever had a spontaneous adult adventure.",
-        "Never have I ever gone somewhere specifically for an adults-only experience.",
-        "Never have I ever flirted with someone while my partner was present and knew about it.",
-        "Never have I ever explored outside my usual type with consenting adults.",
-        "Never have I ever had a fantasy involving another couple.",
-        "Never have I ever discussed boundaries before an intimate experience.",
-        "Never have I ever changed my mind during an intimate experience and used my right to stop.",
-        "Never have I ever had an experience that started as flirting and became much more.",
-        "Never have I ever had a fantasy that I have never told anyone.",
-        "Never have I ever tried something specifically because my partner was curious about it.",
+        "Never have I ever discussed a kink I wanted to explore.",
+        "Never have I ever tried a new kink with a consenting partner.",
         "Never have I ever attended an adults-only event.",
-        "Never have I ever explored a new kink after researching it first.",
-        "Never have I ever had an experience with someone I met through an adult community.",
-        "Never have I ever considered a fantasy involving another consenting couple.",
-        "Never have I ever had a partner ask me to try something completely new.",
-        "Never have I ever created a safe word or other boundary system for an intimate experience.",
-        "Never have I ever talked about limits before agreeing to an adventure.",
-        "Never have I ever had an experience where communication made everything better.",
+        "Never have I ever had a fantasy become a real experience.",
+        "Never have I ever explored something outside my normal comfort zone with consent.",
+        "Never have I ever discussed boundaries before an adventurous experience.",
+        "Never have I ever had an adults-only adventure I never expected.",
+        "Never have I ever suggested trying something completely new with a partner.",
+        "Never have I ever explored a fantasy with someone I trusted.",
+        "Never have I ever had an adventurous date that lasted all night.",
+        "Never have I ever talked openly about my biggest fantasy.",
+        "Never have I ever considered exploring with another consenting adult.",
+        "Never have I ever been tempted to say yes to an unexpected adventure.",
+        "Never have I ever planned an adventurous night with a partner.",
+        "Never have I ever tried something because my partner was curious about it.",
+        "Never have I ever had a conversation about hard boundaries before playing.",
+        "Never have I ever explored an adult-community event.",
+        "Never have I ever been attracted to someone because of their confidence discussing kink.",
+        "Never have I ever had a fantasy I was nervous to admit.",
+        "Never have I ever surprised a partner with an adventurous idea.",
+        "Never have I ever discussed what would make an experience a hard NO.",
+        "Never have I ever discussed what would make an experience an enthusiastic YES.",
         "Never have I ever explored something I once thought I would never try.",
-        "Never have I ever had a fantasy that became reality.",
-        "Never have I ever had a consensual experience that surprised me in a good way.",
-        "Never have I ever considered inviting another consenting adult into an experience.",
-        "Never have I ever explored a fantasy with my partner without actually acting on it.",
-        "Never have I ever had to establish a hard NO before an experience.",
-        "Never have I ever discovered a new turn-on through consensual exploration.",
-        "Never have I ever had an adventure that I would absolutely do again.",
+        "Never have I ever had chemistry convince me to consider something new.",
+        "Never have I ever talked about an adult fantasy with trusted friends.",
+        "Never have I ever been curious about exploring with another couple.",
+        "Never have I ever considered attending a private adults-only gathering.",
+        "Never have I ever had an experience that completely changed what I thought I liked.",
+        "Never have I ever tried something adventurous after establishing clear consent.",
+        "Never have I ever discovered a new interest because of a partner.",
     ],
 }
 
@@ -200,7 +200,7 @@ def get_level(context):
 
 
 # ==========================================================
-# LEVEL KEYBOARD
+# LEVEL MENU
 # ==========================================================
 
 def level_keyboard():
@@ -350,7 +350,7 @@ def format_statement(
         f"🎯 Level: {LEVEL_NAMES.get(level, level)}\n\n"
         f"👉 {statement}\n\n"
         f"{stats_text(context)}\n\n"
-        "Be honest — or PASS. 😈"
+        "Have you done it?"
     )
 
 
@@ -521,9 +521,9 @@ async def callback(
 
         await query.edit_message_text(
             "🙈 NEVER HAVE I EVER\n\n"
-            "🙋 You HAVE!\n\n"
+            "🙋 You HAVE done it!\n\n"
             f"{stats_text(context)}\n\n"
-            "Ready for another one?",
+            "Ready for another?",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
@@ -585,9 +585,9 @@ async def callback(
 
         await query.edit_message_text(
             "🙈 NEVER HAVE I EVER\n\n"
-            "😇 You said NEVER!\n\n"
+            "😇 You've NEVER done it!\n\n"
             f"{stats_text(context)}\n\n"
-            "Ready for another one?",
+            "Ready for another?",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
@@ -650,8 +650,8 @@ async def callback(
         await query.edit_message_text(
             "🙈 NEVER HAVE I EVER\n\n"
             "😈 PASS ACCEPTED.\n\n"
-            f"{stats_text(context)}\n\n"
-            "No pressure. Ready for another?",
+            "No pressure.\n\n"
+            f"{stats_text(context)}",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
