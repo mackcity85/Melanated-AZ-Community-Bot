@@ -4,15 +4,13 @@
 #
 # GAME CENTER MENU / CALLBACK ROUTER
 #
-# IMPORTANT:
-# This file controls the Game Center menus and routes
-# game buttons into games.games.
-#
-# Compatible callback IDs:
+# Handles:
 #   games_home
 #   games_category_<category>
 #   games_play_<game>
 #   games_react
+#
+# Routes actual gameplay callbacks to games.py
 # ==========================================================
 
 import logging
@@ -162,7 +160,7 @@ CATEGORY_ORDER = [
 
 
 # ==========================================================
-# CATEGORY ICONS
+# CATEGORY BUTTONS
 # ==========================================================
 
 CATEGORY_BUTTONS = {
@@ -292,7 +290,13 @@ async def games_home_callback(
     if not query:
         return
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        logger.debug(
+            "Could not answer Game Center home callback.",
+            exc_info=True,
+        )
 
     await query.edit_message_text(
         "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
@@ -331,7 +335,13 @@ async def games_category_callback(
 
         return
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        logger.debug(
+            "Could not answer category callback.",
+            exc_info=True,
+        )
 
     category_data = GAME_CATEGORIES[category]
 
@@ -353,10 +363,10 @@ async def games_play_callback(
     game_id: str,
 ):
     """
-    Start a game.
+    Start a Game Center game.
 
-    This is intentionally separate from the main callback
-    router so bot.py can import games_play_callback directly.
+    This function is intentionally separate so bot.py
+    can import it directly if needed.
     """
 
     query = update.callback_query
@@ -387,13 +397,10 @@ async def games_play_callback(
     )
 
     try:
-
         await query.answer()
-
     except Exception:
-
         logger.debug(
-            "Callback answer failed while starting game.",
+            "Game start callback answer failed.",
             exc_info=True,
         )
 
@@ -413,17 +420,13 @@ async def games_reaction_callback(
     context: ContextTypes.DEFAULT_TYPE,
 ):
     """
-    Handle the Reaction Test button.
+    Handle the legacy Game Center Reaction callback.
 
-    Older Game Center messages use:
-
+    Legacy callback:
         games_react
 
-    The actual game engine uses:
-
+    Actual game callback:
         game_reaction_tap
-
-    We translate the old Game Center callback here.
     """
 
     query = update.callback_query
@@ -432,33 +435,28 @@ async def games_reaction_callback(
         return
 
     logger.info(
-        "Reaction button pressed | user=%s",
+        "Reaction Game Center callback received | user=%s",
         update.effective_user.id
         if update.effective_user
         else "unknown",
     )
 
     try:
-
         await query.answer()
-
     except Exception:
-
         logger.debug(
             "Reaction callback answer failed.",
             exc_info=True,
         )
 
-    # games_callback_router handles the actual reaction test.
-    #
-    # Temporarily replace the callback data so the existing
-    # game engine can process it.
+    # Translate the legacy callback into the actual
+    # reaction-game callback understood by games.py.
 
     original_data = query.data
 
     try:
 
-        query.data = "game_reaction_tap"
+        query.data = "games_play_reaction"
 
         await games_callback_router(
             update,
@@ -479,9 +477,9 @@ async def game_center_callback_router(
     context: ContextTypes.DEFAULT_TYPE,
 ):
     """
-    Central router for all Game Center callbacks.
+    Central router for ALL Game Center callbacks.
 
-    This function can be used directly by bot.py.
+    bot.py should send Game Center callbacks here.
     """
 
     query = update.callback_query
@@ -528,13 +526,7 @@ async def game_center_callback_router(
         return
 
     # ------------------------------------------------------
-    # REACTION TEST
-    #
-    # IMPORTANT:
-    # Existing Game Center buttons send:
-    #
-    #     games_react
-    #
+    # LEGACY REACTION BUTTON
     # ------------------------------------------------------
 
     if data == "games_react":
@@ -567,13 +559,12 @@ async def game_center_callback_router(
     # ------------------------------------------------------
     # ACTUAL GAME ACTIONS
     #
-    # Pass game-specific callbacks to games.py.
+    # IMPORTANT:
+    # Do NOT send games_react here.
+    # It has already been handled above.
     # ------------------------------------------------------
 
-    if (
-        data.startswith("game_")
-        or data.startswith("games_")
-    ):
+    if data.startswith("game_"):
 
         try:
 
@@ -590,6 +581,16 @@ async def game_center_callback_router(
                 "Game engine callback failed: %s",
                 data,
             )
+
+            try:
+                await query.answer(
+                    "⚠️ Game action failed.",
+                    show_alert=True,
+                )
+            except Exception:
+                pass
+
+            return
 
     # ------------------------------------------------------
     # UNKNOWN
@@ -618,8 +619,6 @@ async def game_center_callback_router(
 # ==========================================================
 # ALIAS
 # ==========================================================
-
-# Some versions of bot.py may import this name.
 
 games_callback = game_center_callback_router
 
