@@ -16,8 +16,8 @@
 #   - Consent-focused
 #
 # IMPORTANT:
-#   This file does NOT import admin.py.
-#   This prevents circular imports.
+# This file does NOT import from admin.py.
+# This prevents a circular import.
 # ==========================================================
 
 import logging
@@ -30,6 +30,8 @@ from telegram import (
 )
 
 from telegram.ext import ContextTypes
+
+from config import ADMIN_IDS
 
 
 logger = logging.getLogger(__name__)
@@ -49,11 +51,34 @@ VALID_LEVELS = (
 
 
 # ==========================================================
+# ADMIN CHECK
+#
+# IMPORTANT:
+# Do NOT import is_admin from admin.py.
+# That would create a circular import.
+# ==========================================================
+
+def is_truth_dare_admin(user_id):
+
+    try:
+        return int(user_id) in [
+            int(admin_id)
+            for admin_id in ADMIN_IDS
+        ]
+
+    except (TypeError, ValueError):
+
+        return False
+
+
+# ==========================================================
 # TRUTHS
 # ==========================================================
 
 TRUTHS = {
+
     "mild": [
+
         "What is something people assume about you that is completely wrong?",
         "What is your biggest green flag when meeting someone new?",
         "What is your favorite way to flirt?",
@@ -77,6 +102,7 @@ TRUTHS = {
     ],
 
     "spicy": [
+
         "What is something that instantly turns up the chemistry for you?",
         "What is your biggest turn-on when meeting someone new?",
         "What is something adventurous on your kink bucket list?",
@@ -105,6 +131,7 @@ TRUTHS = {
     ],
 
     "extreme": [
+
         "What is the boldest experience you would consider trying?",
         "What is one kink you are curious about but have not explored?",
         "What is one fantasy you have discussed with your partner but have not explored yet?",
@@ -139,7 +166,9 @@ TRUTHS = {
 # ==========================================================
 
 DARES = {
+
     "mild": [
+
         "Give someone in the chat a genuine compliment.",
         "Tell the group your favorite way to flirt.",
         "Give someone your best pickup line.",
@@ -163,10 +192,11 @@ DARES = {
     ],
 
     "spicy": [
+
         "Send someone a flirty message that makes your intentions clear.",
         "Give someone your best seductive pickup line.",
         "Tell someone in the group what caught your attention about them.",
-        "Invite someone you're interested in to chat privately if they're interested too.",
+        "Invite someone you're interested in to chat privately — if they're interested too.",
         "Send your partner a message designed to make them blush.",
         "Tell the group your ideal couple's night out.",
         "Tell someone what kind of chemistry you are looking for.",
@@ -185,6 +215,7 @@ DARES = {
     ],
 
     "extreme": [
+
         "Give someone your most creative seductive pickup line.",
         "Tell someone exactly what made you notice them.",
         "Tell the group about one adventure that is on your bucket list.",
@@ -213,24 +244,27 @@ DARES = {
 
 
 # ==========================================================
-# ENABLED
+# ENABLED STATUS
 # ==========================================================
 
 def is_truth_dare_enabled():
+
     return TRUTH_DARE_ENABLED
 
 
 # ==========================================================
-# LEVEL
+# GET CURRENT LEVEL
 # ==========================================================
 
 def get_level(context):
+
     level = context.user_data.get(
         "truth_dare_level",
         "mild",
     )
 
     if level not in VALID_LEVELS:
+
         level = "mild"
 
     return level
@@ -241,6 +275,7 @@ def get_level(context):
 # ==========================================================
 
 def truth_dare_menu_keyboard():
+
     return InlineKeyboardMarkup(
         [
             [
@@ -266,6 +301,7 @@ def truth_dare_menu_keyboard():
 # ==========================================================
 
 def game_keyboard():
+
     return InlineKeyboardMarkup(
         [
             [
@@ -296,15 +332,18 @@ async def truth_dare_menu(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if not message:
         return
 
     if not TRUTH_DARE_ENABLED:
+
         await message.reply_text(
             "🔥 Truth or Dare is currently disabled."
         )
+
         return
 
     await message.reply_text(
@@ -326,24 +365,30 @@ async def truth(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if not message:
         return
 
     if not TRUTH_DARE_ENABLED:
+
         await message.reply_text(
             "🔥 Truth or Dare is currently disabled."
         )
+
         return
 
     level = get_level(context)
 
     if context.args:
+
         requested_level = context.args[0].lower()
 
         if requested_level in TRUTHS:
+
             level = requested_level
+
             context.user_data[
                 "truth_dare_level"
             ] = level
@@ -368,24 +413,30 @@ async def dare(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     message = update.effective_message
 
     if not message:
         return
 
     if not TRUTH_DARE_ENABLED:
+
         await message.reply_text(
             "🔥 Truth or Dare is currently disabled."
         )
+
         return
 
     level = get_level(context)
 
     if context.args:
+
         requested_level = context.args[0].lower()
 
         if requested_level in DARES:
+
             level = requested_level
+
             context.user_data[
                 "truth_dare_level"
             ] = level
@@ -410,6 +461,13 @@ async def truth_dare_admin_menu(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
+    user = update.effective_user
+
+    if not user or not is_truth_dare_admin(user.id):
+
+        return
+
     query = update.callback_query
 
     status = (
@@ -456,6 +514,7 @@ async def truth_dare_admin_menu(
     )
 
     if query:
+
         await query.edit_message_text(
             text=text,
             reply_markup=keyboard,
@@ -463,6 +522,7 @@ async def truth_dare_admin_menu(
         )
 
     elif update.effective_message:
+
         await update.effective_message.reply_text(
             text=text,
             reply_markup=keyboard,
@@ -478,7 +538,14 @@ async def toggle_truth_dare(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     global TRUTH_DARE_ENABLED
+
+    user = update.effective_user
+
+    if not user or not is_truth_dare_admin(user.id):
+
+        return
 
     query = update.callback_query
 
@@ -491,6 +558,7 @@ async def toggle_truth_dare(
     )
 
     if query:
+
         await query.answer(
             f"Truth or Dare {status}"
         )
@@ -509,6 +577,13 @@ async def truth_dare_help(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
+    user = update.effective_user
+
+    if not user or not is_truth_dare_admin(user.id):
+
+        return
+
     query = update.callback_query
 
     text = (
@@ -542,6 +617,7 @@ async def truth_dare_help(
     )
 
     if query:
+
         await query.edit_message_text(
             text=text,
             reply_markup=keyboard,
@@ -549,6 +625,7 @@ async def truth_dare_help(
         )
 
     elif update.effective_message:
+
         await update.effective_message.reply_text(
             text=text,
             reply_markup=keyboard,
@@ -564,16 +641,21 @@ async def truth_dare_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     query = update.callback_query
 
     if not query:
+
         return
 
     data = query.data or ""
 
     try:
+
         await query.answer()
+
     except Exception:
+
         pass
 
     # ======================================================
@@ -581,6 +663,7 @@ async def truth_dare_callback(
     # ======================================================
 
     if data == "truthdare_menu":
+
         await query.edit_message_text(
             "🔥 CHOOSE YOUR LEVEL\n\n"
             "🟢 Mild — fun & flirty\n"
@@ -588,6 +671,7 @@ async def truth_dare_callback(
             "🔥 Extreme — bold & adventurous",
             reply_markup=truth_dare_menu_keyboard(),
         )
+
         return
 
     # ======================================================
@@ -595,6 +679,7 @@ async def truth_dare_callback(
     # ======================================================
 
     if data.startswith("truthdare_level_"):
+
         level = data.replace(
             "truthdare_level_",
             "",
@@ -602,6 +687,7 @@ async def truth_dare_callback(
         )
 
         if level not in VALID_LEVELS:
+
             level = "mild"
 
         context.user_data[
@@ -613,6 +699,7 @@ async def truth_dare_callback(
             "Choose Truth or Dare:",
             reply_markup=game_keyboard(),
         )
+
         return
 
     # ======================================================
@@ -620,11 +707,14 @@ async def truth_dare_callback(
     # ======================================================
 
     if data == "truthdare_truth":
+
         if not TRUTH_DARE_ENABLED:
+
             await query.answer(
                 "Truth or Dare is disabled.",
                 show_alert=True,
             )
+
             return
 
         level = get_level(context)
@@ -639,6 +729,7 @@ async def truth_dare_callback(
             "😈 You may PASS.",
             reply_markup=game_keyboard(),
         )
+
         return
 
     # ======================================================
@@ -646,11 +737,14 @@ async def truth_dare_callback(
     # ======================================================
 
     if data == "truthdare_dare":
+
         if not TRUTH_DARE_ENABLED:
+
             await query.answer(
                 "Truth or Dare is disabled.",
                 show_alert=True,
             )
+
             return
 
         level = get_level(context)
@@ -665,6 +759,7 @@ async def truth_dare_callback(
             "😈 PASS is always allowed.",
             reply_markup=game_keyboard(),
         )
+
         return
 
 
