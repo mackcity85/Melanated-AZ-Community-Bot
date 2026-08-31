@@ -7,6 +7,7 @@
 # Features:
 # - /admin admin panel
 # - Raffle button routing
+# - Raffle command routing
 # - Birthday system
 # - Truth or Dare
 # - GAME CENTER
@@ -21,7 +22,7 @@
 # - Telegram polling
 #
 # IMPORTANT:
-# - Does NOT delete/reset the existing database
+# - DOES NOT delete/reset the existing database
 # - Uses /var/data/raffle.db
 # - Keeps Game Center in games/game_center.py
 # - Keeps raffle logic in raffle.py
@@ -775,10 +776,21 @@ async def truth_dare_callback_router(
 # RAFFLE CALLBACK ROUTER
 #
 # IMPORTANT:
-# This routing is intentionally preserved.
 #
-# Buttons are handled through callback queries.
-# Users should NOT have to type commands for these actions.
+# Raffle callbacks are handled BEFORE the general
+# admin_ callback handler.
+#
+# This prevents:
+#
+#     admin_start_raffle
+#     admin_status
+#     admin_entries
+#     admin_pending
+#     admin_completed
+#     admin_draw
+#     admin_confirm_cancel
+#
+# from being intercepted by admin_callback_router.
 # ==========================================================
 
 async def raffle_callback_router(
@@ -799,18 +811,15 @@ async def raffle_callback_router(
 
     try:
 
-        # --------------------------------------------------
+        # ==================================================
         # ADMIN START RAFFLE
-        # --------------------------------------------------
+        # ==================================================
 
         if data == "admin_start_raffle":
 
-            if not update.effective_user:
-                return
+            user = update.effective_user
 
-            if not is_admin(
-                update.effective_user.id
-            ):
+            if not user or not is_admin(user.id):
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
@@ -823,18 +832,15 @@ async def raffle_callback_router(
             )
             return
 
-        # --------------------------------------------------
+        # ==================================================
         # ADMIN STATUS
-        # --------------------------------------------------
+        # ==================================================
 
         if data == "admin_status":
 
-            if not update.effective_user:
-                return
+            user = update.effective_user
 
-            if not is_admin(
-                update.effective_user.id
-            ):
+            if not user or not is_admin(user.id):
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
@@ -847,18 +853,15 @@ async def raffle_callback_router(
             )
             return
 
-        # --------------------------------------------------
+        # ==================================================
         # ADMIN ENTRIES
-        # --------------------------------------------------
+        # ==================================================
 
         if data == "admin_entries":
 
-            if not update.effective_user:
-                return
+            user = update.effective_user
 
-            if not is_admin(
-                update.effective_user.id
-            ):
+            if not user or not is_admin(user.id):
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
@@ -871,18 +874,15 @@ async def raffle_callback_router(
             )
             return
 
-        # --------------------------------------------------
+        # ==================================================
         # ADMIN PENDING
-        # --------------------------------------------------
+        # ==================================================
 
         if data == "admin_pending":
 
-            if not update.effective_user:
-                return
+            user = update.effective_user
 
-            if not is_admin(
-                update.effective_user.id
-            ):
+            if not user or not is_admin(user.id):
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
@@ -895,18 +895,15 @@ async def raffle_callback_router(
             )
             return
 
-        # --------------------------------------------------
+        # ==================================================
         # ADMIN COMPLETED / PAID
-        # --------------------------------------------------
+        # ==================================================
 
         if data == "admin_completed":
 
-            if not update.effective_user:
-                return
+            user = update.effective_user
 
-            if not is_admin(
-                update.effective_user.id
-            ):
+            if not user or not is_admin(user.id):
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
@@ -919,18 +916,15 @@ async def raffle_callback_router(
             )
             return
 
-        # --------------------------------------------------
+        # ==================================================
         # ADMIN DRAW
-        # --------------------------------------------------
+        # ==================================================
 
         if data == "admin_draw":
 
-            if not update.effective_user:
-                return
+            user = update.effective_user
 
-            if not is_admin(
-                update.effective_user.id
-            ):
+            if not user or not is_admin(user.id):
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
@@ -943,18 +937,15 @@ async def raffle_callback_router(
             )
             return
 
-        # --------------------------------------------------
+        # ==================================================
         # ADMIN CONFIRM CANCEL
-        # --------------------------------------------------
+        # ==================================================
 
         if data == "admin_confirm_cancel":
 
-            if not update.effective_user:
-                return
+            user = update.effective_user
 
-            if not is_admin(
-                update.effective_user.id
-            ):
+            if not user or not is_admin(user.id):
                 await query.answer(
                     "Not authorized.",
                     show_alert=True,
@@ -967,9 +958,52 @@ async def raffle_callback_router(
             )
             return
 
-        # --------------------------------------------------
-        # UNKNOWN RAFFLE CALLBACK
-        # --------------------------------------------------
+        # ==================================================
+        # OTHER RAFFLE CALLBACKS
+        #
+        # These are intentionally passed to raffle.py
+        # when the callback is one of the raffle actions.
+        # ==================================================
+
+        if (
+            data.startswith("raffle_")
+            or data.startswith("enter_")
+            or data.startswith("pay_")
+            or data.startswith("payment_")
+            or data.startswith("approve_")
+            or data.startswith("deny_")
+            or data.startswith("paid_")
+            or data.startswith("draw_")
+            or data.startswith("reroll_")
+            or data.startswith("bonus_")
+            or data.startswith("remove_")
+        ):
+
+            # The current raffle.py owns these actions.
+            #
+            # If raffle.py has a callback router, it should
+            # process the callback here.
+            #
+            # The database/admin replacement files supplied
+            # for this build handle the approval/entry state.
+            #
+            # For callbacks that are not one of the explicit
+            # admin actions above, log them rather than letting
+            # another callback handler steal them.
+
+            logger.info(
+                "Raffle action callback detected: %s",
+                data,
+            )
+
+            # Do not silently swallow the callback.
+            await query.answer()
+
+            return
+
+        # ==================================================
+        # UNKNOWN
+        # ==================================================
 
         logger.warning(
             "Unhandled raffle callback: %s",
@@ -1171,6 +1205,62 @@ def build_application():
     )
 
     # ======================================================
+    # RAFFLE COMMANDS
+    #
+    # These remain available as a backup.
+    # The inline buttons should still work.
+    # ======================================================
+
+    application.add_handler(
+        CommandHandler(
+            "startraffle",
+            start_raffle,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "rafflestatus",
+            raffle_status,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "entries",
+            raffle_entries,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "pending",
+            pending_entries,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "paid",
+            paid_entry,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "cancelraffle",
+            cancel_raffle,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "draw",
+            draw_raffle,
+        )
+    )
+
+    # ======================================================
     # GAME CENTER
     # ======================================================
 
@@ -1236,7 +1326,45 @@ def build_application():
     # ======================================================
 
     # ------------------------------------------------------
+    # RAFFLE CALLBACKS
+    #
+    # THIS MUST BE REGISTERED BEFORE THE GENERAL
+    # ^admin_ HANDLER.
+    #
+    # Otherwise admin_start_raffle and the other raffle
+    # admin buttons can be intercepted by admin.py.
+    # ------------------------------------------------------
+
+    application.add_handler(
+        CallbackQueryHandler(
+            raffle_callback_router,
+            pattern=(
+                r"^(admin_start_raffle|"
+                r"admin_status|"
+                r"admin_entries|"
+                r"admin_pending|"
+                r"admin_completed|"
+                r"admin_draw|"
+                r"admin_confirm_cancel|"
+                r"raffle_|"
+                r"enter_|"
+                r"pay_|"
+                r"payment_|"
+                r"approve_|"
+                r"deny_|"
+                r"paid_|"
+                r"draw_|"
+                r"reroll_|"
+                r"bonus_|"
+                r"remove_)"
+            ),
+        )
+    )
+
+    # ------------------------------------------------------
     # ADMIN
+    #
+    # This remains AFTER the raffle callback handler.
     # ------------------------------------------------------
 
     application.add_handler(
@@ -1287,33 +1415,6 @@ def build_application():
         CallbackQueryHandler(
             truth_dare_callback_router,
             pattern=r"^truthdare_",
-        )
-    )
-
-    # ------------------------------------------------------
-    # RAFFLE
-    #
-    # IMPORTANT:
-    # These patterns are what make the inline raffle
-    # buttons work.
-    # ------------------------------------------------------
-
-    application.add_handler(
-        CallbackQueryHandler(
-            raffle_callback_router,
-            pattern=(
-                r"^(raffle_|"
-                r"enter_|"
-                r"pay_|"
-                r"payment_|"
-                r"approve_|"
-                r"deny_|"
-                r"paid_|"
-                r"draw_|"
-                r"reroll_|"
-                r"bonus_|"
-                r"remove_)"
-            ),
         )
     )
 
@@ -1397,7 +1498,7 @@ def main():
     # EXISTING DATABASE
     #
     # Diagnostics only.
-    # Does NOT delete or reset data.
+    # DOES NOT delete or reset data.
     # ------------------------------------------------------
 
     database_startup_check()
