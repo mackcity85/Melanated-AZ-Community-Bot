@@ -6,6 +6,7 @@
 # - Raffles
 # - Raffle Entries
 # - Birthdays
+# - Known Group Members
 #
 # Render Persistent Disk:
 # /var/data
@@ -17,6 +18,8 @@
 # - NEVER falls back to application filesystem
 # - NEVER deletes existing data
 # - Existing database is preserved
+# - Existing tables are preserved
+# - New tables are added only when needed
 # ==========================================================
 
 import os
@@ -134,7 +137,6 @@ def get_connection():
 # ==========================================================
 # INITIALIZE DATABASE
 #
-# IMPORTANT:
 # CREATE TABLE IF NOT EXISTS preserves existing data.
 # ==========================================================
 
@@ -207,6 +209,28 @@ def initialize_database():
         )
 
         # ==================================================
+        # KNOWN MEMBERS
+        #
+        # The bot records members as they interact with it.
+        # This table powers the scrollable birthday selector.
+        # ==================================================
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                chat_id INTEGER NOT NULL,
+                username TEXT,
+                display_name TEXT,
+                first_seen_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                UNIQUE(user_id, chat_id)
+            )
+            """
+        )
+
+        # ==================================================
         # INDEXES
         # ==================================================
 
@@ -238,6 +262,20 @@ def initialize_database():
             """
         )
 
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_members_chat_id
+            ON members(chat_id)
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_members_display_name
+            ON members(display_name COLLATE NOCASE)
+            """
+        )
+
         conn.commit()
 
     except Exception:
@@ -253,6 +291,153 @@ def initialize_database():
 # ==========================================================
 
 initialize_database()
+
+
+# ==========================================================
+# MEMBER STORAGE
+# ==========================================================
+
+def save_member(
+    user_id,
+    chat_id,
+    username=None,
+    display_name=None,
+):
+    """
+    Save or update a known Telegram group member.
+
+    Existing records are updated.
+    Nothing is deleted.
+    """
+
+    if user_id is None or chat_id is None:
+        return False
+
+    now = datetime.utcnow().isoformat()
+
+    conn = get_connection()
+
+    try:
+        conn.execute(
+            """
+            INSERT INTO members (
+                user_id,
+                chat_id,
+                username,
+                display_name,
+                first_seen_at,
+                last_seen_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, chat_id)
+            DO UPDATE SET
+                username = excluded.username,
+                display_name = excluded.display_name,
+                last_seen_at = excluded.last_seen_at
+            """,
+            (
+                int(user_id),
+                int(chat_id),
+                username,
+                display_name,
+                now,
+                now,
+            ),
+        )
+
+        conn.commit()
+
+        return True
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
+
+
+# ==========================================================
+# GET MEMBERS
+# ==========================================================
+
+def get_members(
+    chat_id,
+    limit=1000,
+):
+    """
+    Return known members for a specific chat.
+
+    Members are sorted by display name.
+    """
+
+    conn = get_connection()
+
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                id,
+                user_id,
+                chat_id,
+                username,
+                display_name,
+                first_seen_at,
+                last_seen_at
+            FROM members
+            WHERE chat_id = ?
+            ORDER BY
+                COALESCE(
+                    NULLIF(display_name, ''),
+                    NULLIF(username, ''),
+                    CAST(user_id AS TEXT)
+                ) COLLATE NOCASE ASC
+            LIMIT ?
+            """,
+            (
+                int(chat_id),
+                int(limit),
+            ),
+        ).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+        conn.close()
+
+
+# ==========================================================
+# GET MEMBER
+# ==========================================================
+
+def get_member(
+    user_id,
+    chat_id,
+):
+    conn = get_connection()
+
+    try:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM members
+            WHERE user_id = ?
+            AND chat_id = ?
+            LIMIT 1
+            """,
+            (
+                int(user_id),
+                int(chat_id),
+            ),
+        ).fetchone()
+
+        return dict(row) if row else None
+
+    finally:
+        conn.close()
 
 
 # ==========================================================
@@ -1011,11 +1196,19 @@ def get_database_stats():
             """
         ).fetchone()[0]
 
+        member_count = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM members
+            """
+        ).fetchone()[0]
+
         return {
             "database": DB_NAME,
             "raffles": raffle_count,
             "raffle_entries": entry_count,
             "birthdays": birthday_count,
+            "members": member_count,
         }
 
     finally:
@@ -1055,6 +1248,7 @@ try:
     print("Raffles        :", stats["raffles"])
     print("Raffle Entries :", stats["raffle_entries"])
     print("Birthdays      :", stats["birthdays"])
+    print("Known Members  :", stats["members"])
     print(
         "Integrity      :",
         "OK" if integrity_ok else "FAILED",
