@@ -2,7 +2,7 @@
 # Melanated AZ Bot
 # raffle_database.py
 #
-# COMPLETE REPLACEMENT DATABASE MODULE
+# COMPLETE DROP-IN REPLACEMENT
 #
 # Persistent SQLite database for:
 # - Raffles
@@ -16,12 +16,11 @@
 # IMPORTANT:
 # - NEVER falls back to application filesystem
 # - NEVER deletes existing data
-# - NEVER drops existing tables
-# - NEVER resets the database
-# - Existing database is preserved
+# - NEVER resets existing data
 # - Existing tables are preserved
-# - Missing tables are created
-# - Missing indexes are created
+# - Existing rows are preserved
+# - Missing tables are added
+# - Missing indexes are added
 # ==========================================================
 
 import os
@@ -40,13 +39,8 @@ DB_NAME = os.environ.get(
     DEFAULT_DB_NAME,
 ).strip()
 
-DB_NAME = os.path.abspath(
-    DB_NAME
-)
-
-DB_DIR = os.path.dirname(
-    DB_NAME
-)
+DB_NAME = os.path.abspath(DB_NAME)
+DB_DIR = os.path.dirname(DB_NAME)
 
 
 # ==========================================================
@@ -59,21 +53,19 @@ if not DB_NAME.startswith("/var/data/"):
         "==========================================================\n"
         "FATAL DATABASE CONFIGURATION ERROR\n"
         "==========================================================\n"
-        f"Database path:\n{DB_NAME}\n\n"
+        f"Database path is:\n{DB_NAME}\n\n"
         "The Melanated AZ Bot database MUST be stored on the\n"
         "Render Persistent Disk.\n\n"
         "Required location:\n"
         "/var/data/raffle.db\n\n"
         "Set:\n"
         "RAFFLE_DB_NAME=/var/data/raffle.db\n\n"
-        "The bot will NOT use the application filesystem.\n"
+        "The bot will NOT use a temporary database.\n"
         "==========================================================\n"
     )
 
 
-if not os.path.isdir(
-    DB_DIR
-):
+if not os.path.isdir(DB_DIR):
     raise RuntimeError(
         "\n"
         "==========================================================\n"
@@ -96,10 +88,7 @@ print("Melanated AZ Bot - Persistent Database")
 print("==========================================================")
 print("Database path       :", DB_NAME)
 print("Database directory  :", DB_DIR)
-print(
-    "Database exists     :",
-    os.path.exists(DB_NAME),
-)
+print("Database exists     :", os.path.exists(DB_NAME))
 
 if os.path.exists(DB_NAME):
     print(
@@ -107,9 +96,7 @@ if os.path.exists(DB_NAME):
         os.path.getsize(DB_NAME),
     )
 else:
-    print(
-        "Database size       : 0"
-    )
+    print("Database size       : 0")
 
 print(
     "Persistent directory:",
@@ -133,42 +120,32 @@ def get_connection():
     conn.row_factory = sqlite3.Row
 
     try:
-        conn.execute(
-            "PRAGMA journal_mode=WAL"
-        )
+        conn.execute("PRAGMA journal_mode=WAL")
     except Exception as exc:
         print(
             "WARNING: Could not enable SQLite WAL mode:",
             exc,
         )
 
-    conn.execute(
-        "PRAGMA foreign_keys=ON"
-    )
-
-    conn.execute(
-        "PRAGMA busy_timeout=30000"
-    )
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=30000")
 
     return conn
 
 
 # ==========================================================
-# UTC TIME
-# ==========================================================
-
-def utc_now():
-    return datetime.utcnow().isoformat()
-
-
-# ==========================================================
-# INITIALIZE DATABASE
-#
-# IMPORTANT:
-# CREATE TABLE IF NOT EXISTS DOES NOT DELETE EXISTING DATA.
+# DATABASE INITIALIZATION
 # ==========================================================
 
 def initialize_database():
+    """
+    Initialize the database without destroying existing data.
+
+    IMPORTANT:
+    CREATE TABLE IF NOT EXISTS does NOT delete existing
+    tables or rows.
+    """
+
     conn = get_connection()
 
     try:
@@ -282,7 +259,7 @@ def initialize_database():
 
         cursor.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_raffle_entries_user_id
+            CREATE INDEX IF NOT EXISTS idx_raffle_entries_user
             ON raffle_entries(user_id)
             """
         )
@@ -319,7 +296,7 @@ def initialize_database():
 
 
 # ==========================================================
-# INITIALIZE
+# INITIALIZE EXISTING DATABASE
 # ==========================================================
 
 initialize_database()
@@ -338,7 +315,7 @@ def save_member(
     if user_id is None or chat_id is None:
         return False
 
-    now = utc_now()
+    now = datetime.utcnow().isoformat()
 
     conn = get_connection()
 
@@ -372,7 +349,6 @@ def save_member(
         )
 
         conn.commit()
-
         return True
 
     except Exception:
@@ -420,10 +396,7 @@ def get_members(
             ),
         ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        return [dict(row) for row in rows]
 
     finally:
         conn.close()
@@ -489,7 +462,7 @@ def create_raffle(
                 prize,
                 price,
                 expires_at,
-                utc_now(),
+                datetime.utcnow().isoformat(),
             ),
         )
 
@@ -511,9 +484,7 @@ def create_raffle(
 # GET RAFFLE
 # ==========================================================
 
-def get_raffle(
-    raffle_id,
-):
+def get_raffle(raffle_id):
     conn = get_connection()
 
     try:
@@ -523,9 +494,7 @@ def get_raffle(
             FROM raffles
             WHERE id = ?
             """,
-            (
-                raffle_id,
-            ),
+            (int(raffle_id),),
         ).fetchone()
 
         return dict(row) if row else None
@@ -583,12 +552,32 @@ def get_pending_raffle():
 
 
 # ==========================================================
+# ALL RAFFLES
+# ==========================================================
+
+def get_all_raffles():
+    conn = get_connection()
+
+    try:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM raffles
+            ORDER BY id DESC
+            """
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
+    finally:
+        conn.close()
+
+
+# ==========================================================
 # APPROVE RAFFLE
 # ==========================================================
 
-def approve_raffle(
-    raffle_id,
-):
+def approve_raffle(raffle_id):
     conn = get_connection()
 
     try:
@@ -601,9 +590,7 @@ def approve_raffle(
             WHERE id = ?
             AND status = 'pending'
             """,
-            (
-                raffle_id,
-            ),
+            (int(raffle_id),),
         )
 
         changed = cursor.rowcount > 0
@@ -624,9 +611,7 @@ def approve_raffle(
 # CANCEL PENDING RAFFLE
 # ==========================================================
 
-def cancel_pending_raffle(
-    raffle_id,
-):
+def cancel_pending_raffle(raffle_id):
     conn = get_connection()
 
     try:
@@ -639,9 +624,7 @@ def cancel_pending_raffle(
             WHERE id = ?
             AND status = 'pending'
             """,
-            (
-                raffle_id,
-            ),
+            (int(raffle_id),),
         )
 
         changed = cursor.rowcount > 0
@@ -678,9 +661,9 @@ def set_raffle_post(
             WHERE id = ?
             """,
             (
-                chat_id,
-                message_id,
-                raffle_id,
+                int(chat_id),
+                int(message_id),
+                int(raffle_id),
             ),
         )
 
@@ -698,9 +681,7 @@ def set_raffle_post(
 # CLOSE RAFFLE
 # ==========================================================
 
-def close_raffle(
-    raffle_id,
-):
+def close_raffle(raffle_id):
     conn = get_connection()
 
     try:
@@ -713,9 +694,7 @@ def close_raffle(
             WHERE id = ?
             AND status = 'active'
             """,
-            (
-                raffle_id,
-            ),
+            (int(raffle_id),),
         )
 
         changed = cursor.rowcount > 0
@@ -734,11 +713,6 @@ def close_raffle(
 
 # ==========================================================
 # ADD RAFFLE ENTRY
-#
-# IMPORTANT:
-# A denied entry can enter again.
-#
-# Existing pending/approved entry blocks duplicates.
 # ==========================================================
 
 def add_raffle_entry(
@@ -759,9 +733,7 @@ def add_raffle_entry(
             AND status = 'active'
             LIMIT 1
             """,
-            (
-                raffle_id,
-            ),
+            (int(raffle_id),),
         ).fetchone()
 
         if not raffle:
@@ -777,8 +749,8 @@ def add_raffle_entry(
             LIMIT 1
             """,
             (
-                raffle_id,
-                user_id,
+                int(raffle_id),
+                int(user_id),
             ),
         ).fetchone()
 
@@ -801,12 +773,12 @@ def add_raffle_entry(
             VALUES (?, ?, ?, ?, ?, 'pending', ?)
             """,
             (
-                raffle_id,
-                user_id,
+                int(raffle_id),
+                int(user_id),
                 username,
                 display_name,
                 payment_method,
-                utc_now(),
+                datetime.utcnow().isoformat(),
             ),
         )
 
@@ -828,21 +800,23 @@ def add_raffle_entry(
 # GET ENTRY
 # ==========================================================
 
-def get_entry(
-    entry_id,
-):
+def get_entry(entry_id):
     conn = get_connection()
 
     try:
         row = conn.execute(
             """
-            SELECT *
-            FROM raffle_entries
-            WHERE id = ?
+            SELECT
+                e.*,
+                r.prize,
+                r.price,
+                r.status AS raffle_status
+            FROM raffle_entries e
+            LEFT JOIN raffles r
+                ON r.id = e.raffle_id
+            WHERE e.id = ?
             """,
-            (
-                entry_id,
-            ),
+            (int(entry_id),),
         ).fetchone()
 
         return dict(row) if row else None
@@ -855,55 +829,47 @@ def get_entry(
 # GET PENDING ENTRIES
 # ==========================================================
 
-def get_pending_entries():
-    conn = get_connection()
-
-    try:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM raffle_entries
-            WHERE status = 'pending'
-            ORDER BY id ASC
-            """
-        ).fetchall()
-
-        return [
-            dict(row)
-            for row in rows
-        ]
-
-    finally:
-        conn.close()
-
-
-# ==========================================================
-# GET PENDING ENTRIES FOR RAFFLE
-# ==========================================================
-
-def get_pending_entries_for_raffle(
-    raffle_id,
+def get_pending_entries(
+    raffle_id=None,
 ):
     conn = get_connection()
 
     try:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM raffle_entries
-            WHERE raffle_id = ?
-            AND status = 'pending'
-            ORDER BY id ASC
-            """,
-            (
-                raffle_id,
-            ),
-        ).fetchall()
+        if raffle_id is not None:
+            rows = conn.execute(
+                """
+                SELECT
+                    e.*,
+                    r.prize,
+                    r.price,
+                    r.status AS raffle_status
+                FROM raffle_entries e
+                JOIN raffles r
+                    ON r.id = e.raffle_id
+                WHERE e.status = 'pending'
+                AND e.raffle_id = ?
+                ORDER BY e.id ASC
+                """,
+                (int(raffle_id),),
+            ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        else:
+            rows = conn.execute(
+                """
+                SELECT
+                    e.*,
+                    r.prize,
+                    r.price,
+                    r.status AS raffle_status
+                FROM raffle_entries e
+                JOIN raffles r
+                    ON r.id = e.raffle_id
+                WHERE e.status = 'pending'
+                ORDER BY e.id ASC
+                """
+            ).fetchall()
+
+        return [dict(row) for row in rows]
 
     finally:
         conn.close()
@@ -911,18 +877,22 @@ def get_pending_entries_for_raffle(
 
 # ==========================================================
 # APPROVE ENTRY
-#
-# Changes:
-# pending -> approved
-#
-# Does NOT create a new row.
-# Does NOT delete anything.
 # ==========================================================
 
 def approve_entry(
     entry_id,
     approved_by,
 ):
+    """
+    Approve one pending raffle entry.
+
+    Returns True when the entry was changed from pending
+    to approved.
+
+    Returns False if the entry does not exist or has
+    already been processed.
+    """
+
     conn = get_connection()
 
     try:
@@ -937,8 +907,8 @@ def approve_entry(
             AND status = 'pending'
             """,
             (
-                approved_by,
-                entry_id,
+                int(approved_by),
+                int(entry_id),
             ),
         )
 
@@ -958,17 +928,19 @@ def approve_entry(
 
 # ==========================================================
 # DENY ENTRY
-#
-# Changes:
-# pending -> denied
-#
-# Existing row is preserved.
 # ==========================================================
 
 def deny_entry(
     entry_id,
     denied_by,
 ):
+    """
+    Deny one pending raffle entry.
+
+    The existing database row is retained.
+    Nothing is deleted.
+    """
+
     conn = get_connection()
 
     try:
@@ -983,8 +955,8 @@ def deny_entry(
             AND status = 'pending'
             """,
             (
-                denied_by,
-                entry_id,
+                int(denied_by),
+                int(entry_id),
             ),
         )
 
@@ -1014,21 +986,47 @@ def get_approved_entries(
     try:
         rows = conn.execute(
             """
+            SELECT
+                e.*,
+                r.prize,
+                r.price
+            FROM raffle_entries e
+            JOIN raffles r
+                ON r.id = e.raffle_id
+            WHERE e.raffle_id = ?
+            AND e.status = 'approved'
+            ORDER BY e.id ASC
+            """,
+            (int(raffle_id),),
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
+    finally:
+        conn.close()
+
+
+# ==========================================================
+# ALL ENTRIES FOR RAFFLE
+# ==========================================================
+
+def get_raffle_entries(
+    raffle_id,
+):
+    conn = get_connection()
+
+    try:
+        rows = conn.execute(
+            """
             SELECT *
             FROM raffle_entries
             WHERE raffle_id = ?
-            AND status = 'approved'
             ORDER BY id ASC
             """,
-            (
-                raffle_id,
-            ),
+            (int(raffle_id),),
         ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        return [dict(row) for row in rows]
 
     finally:
         conn.close()
@@ -1036,14 +1034,9 @@ def get_approved_entries(
 
 # ==========================================================
 # REMOVE ENTRY
-#
-# This is ONLY called by an explicit admin command.
-# It is NOT used during startup or migration.
 # ==========================================================
 
-def remove_entry(
-    entry_id,
-):
+def remove_entry(entry_id):
     conn = get_connection()
 
     try:
@@ -1054,9 +1047,7 @@ def remove_entry(
             DELETE FROM raffle_entries
             WHERE id = ?
             """,
-            (
-                entry_id,
-            ),
+            (int(entry_id),),
         )
 
         changed = cursor.rowcount > 0
@@ -1084,7 +1075,7 @@ def save_birthday(
     username=None,
     display_name=None,
 ):
-    now = utc_now()
+    now = datetime.utcnow().isoformat()
 
     conn = get_connection()
 
@@ -1110,8 +1101,8 @@ def save_birthday(
                 updated_at = excluded.updated_at
             """,
             (
-                user_id,
-                chat_id,
+                int(user_id),
+                int(chat_id),
                 birthday,
                 username,
                 display_name,
@@ -1152,8 +1143,8 @@ def get_birthday(
             LIMIT 1
             """,
             (
-                user_id,
-                chat_id,
+                int(user_id),
+                int(chat_id),
             ),
         ).fetchone()
 
@@ -1180,15 +1171,10 @@ def get_birthdays_for_date(
             WHERE birthday = ?
             ORDER BY display_name COLLATE NOCASE ASC
             """,
-            (
-                birthday,
-            ),
+            (birthday,),
         ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        return [dict(row) for row in rows]
 
     finally:
         conn.close()
@@ -1213,10 +1199,7 @@ def get_all_birthdays():
             """
         ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        return [dict(row) for row in rows]
 
     finally:
         conn.close()
@@ -1242,8 +1225,8 @@ def remove_birthday(
             AND chat_id = ?
             """,
             (
-                user_id,
-                chat_id,
+                int(user_id),
+                int(chat_id),
             ),
         )
 
@@ -1278,9 +1261,7 @@ def remove_birthday_by_id(
             DELETE FROM birthdays
             WHERE id = ?
             """,
-            (
-                birthday_id,
-            ),
+            (int(birthday_id),),
         )
 
         changed = cursor.rowcount > 0
@@ -1349,14 +1330,6 @@ def get_database_stats():
             """
         ).fetchone()[0]
 
-        denied_count = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM raffle_entries
-            WHERE status = 'denied'
-            """
-        ).fetchone()[0]
-
         return {
             "database": DB_NAME,
             "raffles": raffle_count,
@@ -1365,7 +1338,6 @@ def get_database_stats():
             "members": member_count,
             "pending_entries": pending_count,
             "approved_entries": approved_count,
-            "denied_entries": denied_count,
         }
 
     finally:
@@ -1401,40 +1373,15 @@ try:
     print("==========================================================")
     print("Melanated AZ Bot - Database Statistics")
     print("==========================================================")
+    print("Database         :", stats["database"])
+    print("Raffles          :", stats["raffles"])
+    print("Raffle Entries   :", stats["raffle_entries"])
+    print("Pending Entries  :", stats["pending_entries"])
+    print("Approved Entries :", stats["approved_entries"])
+    print("Birthdays        :", stats["birthdays"])
+    print("Known Members    :", stats["members"])
     print(
-        "Database       :",
-        stats["database"],
-    )
-    print(
-        "Raffles        :",
-        stats["raffles"],
-    )
-    print(
-        "Raffle Entries :",
-        stats["raffle_entries"],
-    )
-    print(
-        "Pending Entries:",
-        stats["pending_entries"],
-    )
-    print(
-        "Approved Entries:",
-        stats["approved_entries"],
-    )
-    print(
-        "Denied Entries :",
-        stats["denied_entries"],
-    )
-    print(
-        "Birthdays      :",
-        stats["birthdays"],
-    )
-    print(
-        "Known Members  :",
-        stats["members"],
-    )
-    print(
-        "Integrity      :",
+        "Integrity        :",
         "OK" if integrity_ok else "FAILED",
     )
     print("==========================================================")
@@ -1448,7 +1395,6 @@ except Exception as exc:
     print(
         "WARNING: Could not read database statistics."
     )
-
     print(
         "Database error:",
         exc,
