@@ -1,9 +1,12 @@
 # ==========================================================
-# Melanated AZ Bot - bot.py
+# Melanated AZ Bot
+# bot.py
+#
 # COMPLETE DROP-IN LAUNCHER
 #
 # Critical raffle fix:
-# all raffle callbacks are handed to raffle.raffle_callback.
+# all raffle callbacks are handed to raffle.raffle_callback,
+# including approve_<entry_id>.
 # ==========================================================
 
 import logging
@@ -44,7 +47,6 @@ from admin import (
     admin_menu,
     admin_button,
     admin_birthday_text_handler,
-    admin_manual_entry_text_handler,
     is_admin,
 )
 
@@ -106,7 +108,7 @@ logger = logging.getLogger(
 
 
 # ==========================================================
-# FLASK
+# FLASK HEALTH SERVER
 # ==========================================================
 
 app = Flask(__name__)
@@ -148,7 +150,7 @@ def run_flask():
 
 
 # ==========================================================
-# DELETE MESSAGE JOB
+# MESSAGE DELETION
 # ==========================================================
 
 async def delete_message_later(
@@ -187,10 +189,7 @@ async def delete_after(
     seconds=30,
 ):
 
-    if (
-        message
-        and context.job_queue
-    ):
+    if message and context.job_queue:
 
         context.job_queue.run_once(
             delete_message_later,
@@ -217,6 +216,7 @@ async def get_bot_username(
     )
 
     if username:
+
         return username
 
     try:
@@ -243,15 +243,11 @@ async def get_bot_username(
 
 
 # ==========================================================
-# MEDIA SETTINGS
+# MEDIA MODERATION
 # ==========================================================
 
 MEDIA_WARNING_SECONDS = 30
 
-
-# ==========================================================
-# MEDIA WARNING
-# ==========================================================
 
 async def send_media_warning(
     update,
@@ -294,13 +290,11 @@ async def send_media_warning(
 
     try:
 
-        warning = (
-            await context.bot.send_message(
-                chat_id=message.chat_id,
-                text=text,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.HTML,
-            )
+        warning = await context.bot.send_message(
+            chat_id=message.chat_id,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML,
         )
 
         await delete_after(
@@ -315,10 +309,6 @@ async def send_media_warning(
             "Could not send media warning."
         )
 
-
-# ==========================================================
-# PRIVATE MEDIA WARNING
-# ==========================================================
 
 async def send_private_media_warning(
     update,
@@ -379,10 +369,6 @@ async def send_private_media_warning(
         )
 
 
-# ==========================================================
-# PHOTO
-# ==========================================================
-
 async def handle_photo(
     update,
     context,
@@ -394,6 +380,7 @@ async def handle_photo(
         return
 
     if message.has_media_spoiler:
+
         return
 
     try:
@@ -414,10 +401,6 @@ async def handle_photo(
         context,
     )
 
-
-# ==========================================================
-# VIDEO
-# ==========================================================
 
 async def handle_video(
     update,
@@ -430,6 +413,7 @@ async def handle_video(
         return
 
     if message.has_media_spoiler:
+
         return
 
     try:
@@ -451,10 +435,6 @@ async def handle_video(
     )
 
 
-# ==========================================================
-# ANIMATION
-# ==========================================================
-
 async def handle_animation(
     update,
     context,
@@ -462,10 +442,6 @@ async def handle_animation(
 
     return
 
-
-# ==========================================================
-# IMAGE DOCUMENT
-# ==========================================================
 
 async def handle_image_document(
     update,
@@ -484,31 +460,12 @@ async def text_router(
     context,
 ):
 
-    # ------------------------------------------------------
-    # MANUAL RAFFLE ENTRY
-    # ------------------------------------------------------
-
-    if await admin_manual_entry_text_handler(
-        update,
-        context,
-    ):
-
-        return
-
-    # ------------------------------------------------------
-    # ADMIN BIRTHDAY
-    # ------------------------------------------------------
-
     if await admin_birthday_text_handler(
         update,
         context,
     ):
 
         return
-
-    # ------------------------------------------------------
-    # MEMBER BIRTHDAY
-    # ------------------------------------------------------
 
     if await birthday_text_handler(
         update,
@@ -519,7 +476,7 @@ async def text_router(
 
 
 # ==========================================================
-# START
+# /START
 # ==========================================================
 
 async def start_command(
@@ -542,8 +499,7 @@ async def start_command(
         "🎮 Game Center\n"
         "🛡️ Media protection\n\n"
         "Birthday: <code>/birthday</code>\n"
-        "Truth or Dare: "
-        "<code>/truthdare</code>\n"
+        "Truth or Dare: <code>/truthdare</code>\n"
         "Game Center: <code>/games</code>"
     )
 
@@ -551,8 +507,8 @@ async def start_command(
 
         text += (
             "\n\n👑 <b>Admin:</b>\n"
-            "Use <code>/admin</code> "
-            "to open the admin panel."
+            "Use <code>/admin</code> to open "
+            "the admin panel."
         )
 
     await message.reply_text(
@@ -562,7 +518,7 @@ async def start_command(
 
 
 # ==========================================================
-# ADMIN COMMAND
+# /ADMIN
 # ==========================================================
 
 async def admin_command(
@@ -578,8 +534,8 @@ async def admin_command(
     if not is_admin(user.id):
 
         await update.effective_message.reply_text(
-            "⛔ You are not authorized "
-            "to use the admin panel."
+            "⛔ You are not authorized to use "
+            "the admin panel."
         )
 
         return
@@ -606,10 +562,7 @@ async def admin_callback_router(
 
     user = update.effective_user
 
-    if (
-        not user
-        or not is_admin(user.id)
-    ):
+    if not user or not is_admin(user.id):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -665,13 +618,13 @@ async def birthday_callback_router(
             "Birthday callback failed."
         )
 
-        q = update.callback_query
+        query = update.callback_query
 
-        if q:
+        if query:
 
             try:
 
-                await q.answer(
+                await query.answer(
                     "⚠️ Something went wrong.",
                     show_alert=True,
                 )
@@ -703,13 +656,13 @@ async def game_center_callback_router_wrapper(
             "Game Center callback failed."
         )
 
-        q = update.callback_query
+        query = update.callback_query
 
-        if q:
+        if query:
 
             try:
 
-                await q.answer(
+                await query.answer(
                     "⚠️ Game Center action failed.",
                     show_alert=True,
                 )
@@ -741,13 +694,13 @@ async def truth_dare_callback_router(
             "Truth or Dare callback failed."
         )
 
-        q = update.callback_query
+        query = update.callback_query
 
-        if q:
+        if query:
 
             try:
 
-                await q.answer(
+                await query.answer(
                     "⚠️ Something went wrong.",
                     show_alert=True,
                 )
@@ -772,11 +725,11 @@ async def raffle_callback_router(
     #
     # raffle.py owns the callback and must execute:
     #
-    # approve_entry()
-    # deny_entry()
-    # approve_raffle()
-    # enter_raffle()
-    # payment_method()
+    #   approve_entry()
+    #   deny_entry()
+    #   approve_raffle()
+    #   cancel_raffle()
+    #   enter_raffle()
     #
     try:
 
@@ -791,13 +744,13 @@ async def raffle_callback_router(
             "Raffle callback failed."
         )
 
-        q = update.callback_query
+        query = update.callback_query
 
-        if q:
+        if query:
 
             try:
 
-                await q.answer(
+                await query.answer(
                     "⚠️ Raffle action failed.",
                     show_alert=True,
                 )
@@ -849,7 +802,7 @@ def database_startup_check():
 
 
 # ==========================================================
-# GAME DATABASE STARTUP
+# GAME DATABASE
 # ==========================================================
 
 def game_database_startup_check():
@@ -1036,8 +989,7 @@ def build_application():
     # RAFFLE CALLBACKS
     #
     # CRITICAL:
-    #
-    # This MUST be before admin_.
+    # This MUST be registered before admin callbacks.
     # ------------------------------------------------------
 
     application.add_handler(
@@ -1120,51 +1072,45 @@ def build_application():
         MessageHandler(
             filters.PHOTO,
             handle_photo,
-            ),
-        group=5,
+            group=5,
+        )
     )
 
     application.add_handler(
         MessageHandler(
             filters.VIDEO,
             handle_video,
-        ),
-        group=5,
+            group=5,
+        )
     )
 
     application.add_handler(
         MessageHandler(
             filters.ANIMATION,
             handle_animation,
-        ),
-        group=5,
+            group=5,
+        )
     )
 
     application.add_handler(
         MessageHandler(
             filters.Document.IMAGE,
             handle_image_document,
-        ),
-        group=5,
+            group=5,
+        )
     )
 
     # ------------------------------------------------------
     # TEXT
-    #
-    # Manual raffle entry is checked first.
     # ------------------------------------------------------
 
     application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             text_router,
-        ),
-        group=10,
+            group=10,
+        )
     )
-
-    # ------------------------------------------------------
-    # ERROR HANDLER
-    # ------------------------------------------------------
 
     application.add_error_handler(
         error_handler
@@ -1223,9 +1169,14 @@ def main():
 
 
 # ==========================================================
-# LAUNCH
+# ENTRY POINT
 # ==========================================================
 
 if __name__ == "__main__":
 
     main()
+
+
+# ==========================================================
+# END bot.py
+# ==========================================================
