@@ -6,6 +6,7 @@
 #
 # Includes:
 #   - Raffle management
+#   - Manual raffle entries
 #   - Birthday management
 #   - Scrollable member selector for birthdays
 #   - Truth or Dare
@@ -34,6 +35,7 @@ from raffle import (
     paid_entry,
     cancel_raffle,
     draw_raffle,
+    manual_raffle_entry,
 )
 
 from raffle_database import (
@@ -94,15 +96,19 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "➕ Manual Entry",
+                    callback_data="admin_manual_entry",
+                ),
+                InlineKeyboardButton(
                     "✅ Completed Payments",
                     callback_data="admin_completed",
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     "🏆 Draw Winner",
                     callback_data="admin_draw",
                 ),
-            ],
-            [
                 InlineKeyboardButton(
                     "❌ Cancel Raffle",
                     callback_data="admin_cancel",
@@ -155,7 +161,8 @@ def admin_menu_text():
         "Select an option below.\n\n"
 
         "🎟️ **RAFFLE**\n"
-        "Start, review, monitor, and draw raffles.\n\n"
+        "Start, review, monitor, manually add, "
+        "and draw raffles.\n\n"
 
         "🎂 **BIRTHDAYS**\n"
         "Add, view, and remove member birthdays.\n\n"
@@ -355,6 +362,148 @@ async def admin_draw(update, context):
 
 
 # ==========================================================
+# MANUAL RAFFLE ENTRY
+# ==========================================================
+
+async def admin_manual_entry(update, context):
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    user = update.effective_user
+
+    if not user or not is_admin(user.id):
+
+        await query.answer(
+            "⛔ You are not authorized.",
+            show_alert=True,
+        )
+
+        return
+
+    await query.answer()
+
+    context.user_data[
+        "awaiting_manual_raffle_user_id"
+    ] = True
+
+    context.user_data.pop(
+        "manual_raffle_user_id",
+        None,
+    )
+
+    await query.edit_message_text(
+        "➕ **Manual Raffle Entry**\n\n"
+        "Enter the member's **Telegram User ID**.\n\n"
+        "Example:\n"
+        "`123456789`\n\n"
+        "The member will be added directly to the "
+        "currently active raffle as an **APPROVED** entry.",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Cancel",
+                        callback_data="admin_back",
+                    )
+                ]
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# MANUAL RAFFLE ENTRY TEXT HANDLER
+# ==========================================================
+
+async def admin_manual_entry_text_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    message = update.effective_message
+    user = update.effective_user
+
+    if not message or not user:
+        return False
+
+    if not context.user_data.get(
+        "awaiting_manual_raffle_user_id"
+    ):
+        return False
+
+    if not is_admin(user.id):
+
+        context.user_data.pop(
+            "awaiting_manual_raffle_user_id",
+            None,
+        )
+
+        await message.reply_text(
+            "⛔ You are not authorized."
+        )
+
+        return True
+
+    text = (message.text or "").strip()
+
+    try:
+
+        member_user_id = int(text)
+
+    except (TypeError, ValueError):
+
+        await message.reply_text(
+            "⚠️ Invalid Telegram User ID.\n\n"
+            "Please enter numbers only.\n\n"
+            "Example:\n"
+            "`123456789`",
+            parse_mode="Markdown",
+        )
+
+        return True
+
+    if member_user_id <= 0:
+
+        await message.reply_text(
+            "⚠️ Invalid Telegram User ID."
+        )
+
+        return True
+
+    context.user_data.pop(
+        "awaiting_manual_raffle_user_id",
+        None,
+    )
+
+    try:
+
+        success = await manual_raffle_entry(
+            update,
+            context,
+            member_user_id,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Manual raffle entry failed."
+        )
+
+        await message.reply_text(
+            "❌ Manual raffle entry failed.\n\n"
+            "Please check the Render logs."
+        )
+
+        return True
+
+    return True
+
+
+# ==========================================================
 # CANCEL RAFFLE
 # ==========================================================
 
@@ -470,13 +619,9 @@ def birthday_member_keyboard(
     page,
     page_size=8,
 ):
-    """
-    Creates the member selector.
-
-    Shows 8 users at a time with Previous / Next buttons.
-    """
 
     if not members:
+
         return InlineKeyboardMarkup(
             [
                 [
@@ -572,6 +717,7 @@ async def show_birthday_member_selector(
     context,
     page=0,
 ):
+
     query = update.callback_query
 
     if not query:
@@ -583,13 +729,6 @@ async def show_birthday_member_selector(
         chat_id=chat_id,
         limit=1000,
     )
-
-    # ------------------------------------------------------
-    # Store the member list in this admin's conversation.
-    #
-    # This allows the admin to scroll without needing to
-    # query the database again for every page.
-    # ------------------------------------------------------
 
     context.user_data[
         "admin_birthday_members"
@@ -703,6 +842,7 @@ async def admin_birthday_select(
     context,
     member_user_id,
 ):
+
     query = update.callback_query
 
     if not query:
@@ -743,11 +883,6 @@ async def admin_birthday_select(
         chat_id,
     )
 
-    # ------------------------------------------------------
-    # If the member isn't in the members table, check the
-    # cached selector list.
-    # ------------------------------------------------------
-
     if not member:
 
         members = context.user_data.get(
@@ -757,7 +892,12 @@ async def admin_birthday_select(
 
         for item in members:
 
-            if int(item.get("user_id", 0)) == member_user_id:
+            try:
+                item_id = int(item.get("user_id", 0))
+            except Exception:
+                continue
+
+            if item_id == member_user_id:
 
                 member = item
                 break
@@ -860,13 +1000,6 @@ async def admin_birthday_text_handler(
         "admin_birthday_selected_name"
     )
 
-    # ------------------------------------------------------
-    # New flow:
-    #
-    # The admin has selected a member, so only MM/DD
-    # should be entered.
-    # ------------------------------------------------------
-
     if birthday_chat_id is None or selected_user_id is None:
 
         context.user_data.pop(
@@ -899,10 +1032,6 @@ async def admin_birthday_text_handler(
         )
 
         return True
-
-    # ------------------------------------------------------
-    # Try to preserve the selected member's username/name.
-    # ------------------------------------------------------
 
     member = get_member(
         selected_user_id,
@@ -1421,6 +1550,16 @@ async def admin_back(update, context):
         None,
     )
 
+    context.user_data.pop(
+        "awaiting_manual_raffle_user_id",
+        None,
+    )
+
+    context.user_data.pop(
+        "manual_raffle_user_id",
+        None,
+    )
+
     await query.edit_message_text(
         text=admin_menu_text(),
         reply_markup=admin_main_keyboard(),
@@ -1477,6 +1616,19 @@ async def admin_button(
     if data == "admin_refresh":
 
         await admin_refresh(
+            update,
+            context,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # MANUAL RAFFLE ENTRY
+    # ------------------------------------------------------
+
+    if data == "admin_manual_entry":
+
+        await admin_manual_entry(
             update,
             context,
         )
@@ -1647,10 +1799,12 @@ async def admin_button(
         try:
             page = int(page_text)
         except (TypeError, ValueError):
+
             await query.answer(
                 "Invalid page.",
                 show_alert=True,
             )
+
             return
 
         await query.answer()
