@@ -7,10 +7,11 @@
 # Includes:
 #   - Raffle management
 #   - Birthday management
+#   - Scrollable member selector for birthdays
 #   - Truth or Dare
 #   - Games
 #
-# Games are routed to the existing games.py package.
+# Games are routed to the existing games package.
 # ==========================================================
 
 import logging
@@ -39,6 +40,8 @@ from raffle_database import (
     get_all_birthdays,
     remove_birthday_by_id,
     save_birthday,
+    get_members,
+    get_member,
 )
 
 
@@ -442,6 +445,212 @@ def normalize_admin_birthday(value):
 
 
 # ==========================================================
+# BIRTHDAY MEMBER DISPLAY
+# ==========================================================
+
+def member_display_name(member):
+
+    return (
+        member.get("display_name")
+        or (
+            f"@{member.get('username')}"
+            if member.get("username")
+            else None
+        )
+        or str(member.get("user_id"))
+    )
+
+
+# ==========================================================
+# BUILD SCROLLABLE MEMBER KEYBOARD
+# ==========================================================
+
+def birthday_member_keyboard(
+    members,
+    page,
+    page_size=8,
+):
+    """
+    Creates the member selector.
+
+    Shows 8 users at a time with Previous / Next buttons.
+    """
+
+    if not members:
+        return InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="admin_back",
+                    )
+                ]
+            ]
+        )
+
+    total = len(members)
+
+    max_page = max(
+        0,
+        (total - 1) // page_size,
+    )
+
+    page = max(
+        0,
+        min(page, max_page),
+    )
+
+    start = page * page_size
+    end = start + page_size
+
+    current_members = members[start:end]
+
+    buttons = []
+
+    for member in current_members:
+
+        user_id = member.get("user_id")
+
+        name = member_display_name(member)
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    f"👤 {name}",
+                    callback_data=(
+                        f"admin_bday_select_{user_id}"
+                    ),
+                )
+            ]
+        )
+
+    navigation = []
+
+    if page > 0:
+
+        navigation.append(
+            InlineKeyboardButton(
+                "⬅️ Previous",
+                callback_data=(
+                    f"admin_bday_page_{page - 1}"
+                ),
+            )
+        )
+
+    if page < max_page:
+
+        navigation.append(
+            InlineKeyboardButton(
+                "Next ➡️",
+                callback_data=(
+                    f"admin_bday_page_{page + 1}"
+                ),
+            )
+        )
+
+    if navigation:
+        buttons.append(navigation)
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "⬅️ Back",
+                callback_data="admin_back",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(buttons)
+
+
+# ==========================================================
+# SHOW MEMBER SELECTOR
+# ==========================================================
+
+async def show_birthday_member_selector(
+    update,
+    context,
+    page=0,
+):
+    query = update.callback_query
+
+    if not query:
+        return
+
+    chat_id = query.message.chat_id
+
+    members = get_members(
+        chat_id=chat_id,
+        limit=1000,
+    )
+
+    # ------------------------------------------------------
+    # Store the member list in this admin's conversation.
+    #
+    # This allows the admin to scroll without needing to
+    # query the database again for every page.
+    # ------------------------------------------------------
+
+    context.user_data[
+        "admin_birthday_members"
+    ] = members
+
+    context.user_data[
+        "admin_birthday_page"
+    ] = page
+
+    if not members:
+
+        await query.edit_message_text(
+            "🎂 **Add Member Birthday**\n\n"
+            "I don't have any known members for this "
+            "chat yet.\n\n"
+            "Once members interact with the bot, "
+            "they will appear here.\n\n"
+            "You can also use the manual method by "
+            "sending the member's User ID and birthday.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_back",
+                        )
+                    ]
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    total = len(members)
+
+    page_size = 8
+
+    max_page = max(
+        1,
+        (total + page_size - 1) // page_size,
+    )
+
+    current_page = page + 1
+
+    await query.edit_message_text(
+        "🎂 **Add Member Birthday**\n\n"
+        "Select a member below.\n\n"
+        f"Showing page **{current_page}** of "
+        f"**{max_page}**\n\n"
+        "Use **Previous** and **Next** to scroll.",
+        reply_markup=birthday_member_keyboard(
+            members,
+            page,
+            page_size,
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
 # ADD BIRTHDAY
 # ==========================================================
 
@@ -471,16 +680,127 @@ async def admin_birthday_add(update, context):
 
     context.user_data[
         "awaiting_admin_birthday"
+    ] = False
+
+    context.user_data.pop(
+        "admin_birthday_selected_user_id",
+        None,
+    )
+
+    await show_birthday_member_selector(
+        update,
+        context,
+        page=0,
+    )
+
+
+# ==========================================================
+# SELECT BIRTHDAY MEMBER
+# ==========================================================
+
+async def admin_birthday_select(
+    update,
+    context,
+    member_user_id,
+):
+    query = update.callback_query
+
+    if not query:
+        return
+
+    user = update.effective_user
+
+    if not user or not is_admin(user.id):
+
+        await query.answer(
+            "⛔ You are not authorized.",
+            show_alert=True,
+        )
+
+        return
+
+    try:
+        member_user_id = int(member_user_id)
+
+    except (TypeError, ValueError):
+
+        await query.answer(
+            "Invalid member.",
+            show_alert=True,
+        )
+
+        return
+
+    chat_id = context.user_data.get(
+        "admin_birthday_chat_id"
+    )
+
+    if chat_id is None:
+        chat_id = query.message.chat_id
+
+    member = get_member(
+        member_user_id,
+        chat_id,
+    )
+
+    # ------------------------------------------------------
+    # If the member isn't in the members table, check the
+    # cached selector list.
+    # ------------------------------------------------------
+
+    if not member:
+
+        members = context.user_data.get(
+            "admin_birthday_members",
+            [],
+        )
+
+        for item in members:
+
+            if int(item.get("user_id", 0)) == member_user_id:
+
+                member = item
+                break
+
+    if not member:
+
+        await query.answer(
+            "Member could not be found.",
+            show_alert=True,
+        )
+
+        return
+
+    name = member_display_name(member)
+
+    context.user_data[
+        "admin_birthday_selected_user_id"
+    ] = member_user_id
+
+    context.user_data[
+        "admin_birthday_selected_name"
+    ] = name
+
+    context.user_data[
+        "admin_birthday_chat_id"
+    ] = chat_id
+
+    context.user_data[
+        "awaiting_admin_birthday"
     ] = True
 
-    await query.message.reply_text(
-        "🎂 **Add Member Birthday**\n\n"
-        "Send the member's Telegram User ID "
-        "followed by their birthday.\n\n"
-        "**Format:**\n"
-        "`USER_ID MM/DD`\n\n"
-        "**Example:**\n"
-        "`123456789 08/27`",
+    await query.answer(
+        "Member selected."
+    )
+
+    await query.edit_message_text(
+        "🎂 **Birthday for Selected Member**\n\n"
+        f"👤 Member: **{name}**\n"
+        f"🆔 User ID: `{member_user_id}`\n\n"
+        "Now send the birthday in:\n\n"
+        "`MM/DD`\n\n"
+        "Example:\n"
+        "`08/27`",
         parse_mode="Markdown",
     )
 
@@ -517,6 +837,11 @@ async def admin_birthday_text_handler(
             None,
         )
 
+        context.user_data.pop(
+            "admin_birthday_selected_user_id",
+            None,
+        )
+
         await message.reply_text(
             "⛔ You are not authorized."
         )
@@ -527,7 +852,22 @@ async def admin_birthday_text_handler(
         "admin_birthday_chat_id"
     )
 
-    if birthday_chat_id is None:
+    selected_user_id = context.user_data.get(
+        "admin_birthday_selected_user_id"
+    )
+
+    selected_name = context.user_data.get(
+        "admin_birthday_selected_name"
+    )
+
+    # ------------------------------------------------------
+    # New flow:
+    #
+    # The admin has selected a member, so only MM/DD
+    # should be entered.
+    # ------------------------------------------------------
+
+    if birthday_chat_id is None or selected_user_id is None:
 
         context.user_data.pop(
             "awaiting_admin_birthday",
@@ -535,7 +875,7 @@ async def admin_birthday_text_handler(
         )
 
         await message.reply_text(
-            "⚠️ I lost track of the chat.\n\n"
+            "⚠️ I lost track of the selected member.\n\n"
             "Open `/admin` again and select "
             "🎂 Add Birthday."
         )
@@ -544,63 +884,51 @@ async def admin_birthday_text_handler(
 
     text = (message.text or "").strip()
 
-    parts = text.split()
-
-    if len(parts) != 2:
-
-        await message.reply_text(
-            "⚠️ **Invalid format.**\n\n"
-            "Use:\n"
-            "`USER_ID MM/DD`\n\n"
-            "Example:\n"
-            "`123456789 08/27`",
-            parse_mode="Markdown",
-        )
-
-        return True
-
-    try:
-
-        member_user_id = int(parts[0])
-
-    except (TypeError, ValueError):
-
-        await message.reply_text(
-            "⚠️ Invalid Telegram User ID.\n\n"
-            "The User ID must be a number."
-        )
-
-        return True
-
-    if member_user_id <= 0:
-
-        await message.reply_text(
-            "⚠️ The Telegram User ID must be positive."
-        )
-
-        return True
-
     birthday_value = normalize_admin_birthday(
-        parts[1]
+        text
     )
 
     if not birthday_value:
 
         await message.reply_text(
-            "🎂 Invalid birthday.\n\n"
-            "Use MM/DD.\n\n"
-            "Example: `08/27`",
+            "🎂 **Invalid birthday.**\n\n"
+            "Enter only the birthday using MM/DD.\n\n"
+            "Example:\n"
+            "`08/27`",
             parse_mode="Markdown",
         )
 
         return True
 
+    # ------------------------------------------------------
+    # Try to preserve the selected member's username/name.
+    # ------------------------------------------------------
+
+    member = get_member(
+        selected_user_id,
+        birthday_chat_id,
+    )
+
+    username = None
+    display_name = selected_name
+
+    if member:
+
+        username = member.get("username")
+
+        display_name = (
+            member.get("display_name")
+            or display_name
+        )
+
     try:
 
         success = save_birthday(
-            user_id=member_user_id,
+            user_id=selected_user_id,
             chat_id=birthday_chat_id,
             birthday=birthday_value,
+            username=username,
+            display_name=display_name,
         )
 
     except Exception:
@@ -635,9 +963,30 @@ async def admin_birthday_text_handler(
         None,
     )
 
+    context.user_data.pop(
+        "admin_birthday_selected_user_id",
+        None,
+    )
+
+    context.user_data.pop(
+        "admin_birthday_selected_name",
+        None,
+    )
+
+    context.user_data.pop(
+        "admin_birthday_members",
+        None,
+    )
+
+    context.user_data.pop(
+        "admin_birthday_page",
+        None,
+    )
+
     await message.reply_text(
         "✅ **Birthday Saved!**\n\n"
-        f"👤 Telegram User ID: `{member_user_id}`\n"
+        f"👤 Member: **{display_name}**\n"
+        f"🆔 Telegram User ID: `{selected_user_id}`\n"
         f"🎂 Birthday: **{birthday_value}**",
         parse_mode="Markdown",
     )
@@ -646,7 +995,7 @@ async def admin_birthday_text_handler(
         "Admin added birthday | admin=%s | "
         "member=%s | birthday=%s | chat=%s",
         user.id,
-        member_user_id,
+        selected_user_id,
         birthday_value,
         birthday_chat_id,
     )
@@ -700,7 +1049,11 @@ async def admin_birthdays(update, context):
 
         display_name = (
             birthday.get("display_name")
-            or birthday.get("username")
+            or (
+                f"@{birthday.get('username')}"
+                if birthday.get("username")
+                else None
+            )
             or str(birthday.get("user_id"))
         )
 
@@ -751,7 +1104,11 @@ def birthday_list_keyboard():
 
         display_name = (
             birthday.get("display_name")
-            or birthday.get("username")
+            or (
+                f"@{birthday.get('username')}"
+                if birthday.get("username")
+                else None
+            )
             or str(birthday.get("user_id"))
         )
 
@@ -901,14 +1258,6 @@ async def admin_games(update, context):
     except Exception:
         pass
 
-    # ------------------------------------------------------
-    # IMPORTANT:
-    # Import games lazily.
-    #
-    # This prevents games.py from creating a circular
-    # import with admin.py.
-    # ------------------------------------------------------
-
     try:
 
         from games import (
@@ -918,14 +1267,13 @@ async def admin_games(update, context):
     except Exception:
 
         logger.exception(
-            "Unable to import games.py"
+            "Unable to import games package."
         )
 
         await query.edit_message_text(
             "❌ **Games could not be loaded.**\n\n"
             "The Games package could not be imported.\n\n"
-            "Please check that `games.py` is installed "
-            "correctly and that the Games package has "
+            "Please check that the Games package has "
             "no import errors.",
             reply_markup=InlineKeyboardMarkup(
                 [
@@ -1050,6 +1398,26 @@ async def admin_back(update, context):
 
     context.user_data.pop(
         "admin_birthday_chat_id",
+        None,
+    )
+
+    context.user_data.pop(
+        "admin_birthday_selected_user_id",
+        None,
+    )
+
+    context.user_data.pop(
+        "admin_birthday_selected_name",
+        None,
+    )
+
+    context.user_data.pop(
+        "admin_birthday_members",
+        None,
+    )
+
+    context.user_data.pop(
+        "admin_birthday_page",
         None,
     )
 
@@ -1265,6 +1633,92 @@ async def admin_button(
         )
 
         return
+
+    # ------------------------------------------------------
+    # BIRTHDAY MEMBER PAGES
+    # ------------------------------------------------------
+
+    if data.startswith("admin_bday_page_"):
+
+        page_text = data[
+            len("admin_bday_page_"):
+        ]
+
+        try:
+            page = int(page_text)
+        except (TypeError, ValueError):
+            await query.answer(
+                "Invalid page.",
+                show_alert=True,
+            )
+            return
+
+        await query.answer()
+
+        members = context.user_data.get(
+            "admin_birthday_members"
+        )
+
+        if not members:
+
+            await show_birthday_member_selector(
+                update,
+                context,
+                page=page,
+            )
+
+            return
+
+        context.user_data[
+            "admin_birthday_page"
+        ] = page
+
+        page_size = 8
+
+        total = len(members)
+
+        max_page = max(
+            1,
+            (total + page_size - 1) // page_size,
+        )
+
+        await query.edit_message_text(
+            "🎂 **Add Member Birthday**\n\n"
+            "Select a member below.\n\n"
+            f"Showing page **{page + 1}** of "
+            f"**{max_page}**\n\n"
+            "Use **Previous** and **Next** to scroll.",
+            reply_markup=birthday_member_keyboard(
+                members,
+                page,
+                page_size,
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # SELECT MEMBER
+    # ------------------------------------------------------
+
+    if data.startswith("admin_bday_select_"):
+
+        member_user_id = data[
+            len("admin_bday_select_"):
+        ]
+
+        await admin_birthday_select(
+            update,
+            context,
+            member_user_id,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # REMOVE ONE BIRTHDAY
+    # ------------------------------------------------------
 
     if data.startswith("admin_bday_remove_"):
 
