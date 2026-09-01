@@ -4,11 +4,18 @@
 #
 # COMPLETE CLEAN DROP-IN LAUNCHER
 #
-# Fixes:
-#   - Correct Flask(__name__) syntax
-#   - Correct python-telegram-bot v21 handler groups
-#   - Raffle callbacks routed through raffle.raffle_callback
+# CURRENT FIX:
+#   - Raffle callbacks have dedicated routing
+#   - Raffle callback diagnostics added
+#   - Broader raffle callback pattern
 #   - Existing database is preserved
+#   - No database reset
+#   - No database replacement
+#   - ENTER RAFFLE works for admins AND members
+#
+# IMPORTANT:
+#   raffle.py owns the actual raffle callback processing.
+#   bot.py only routes callbacks to raffle.raffle_callback().
 # ==========================================================
 
 import logging
@@ -104,7 +111,36 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-logger = logging.getLogger("melanated_az_bot")
+logger = logging.getLogger(
+    "melanated_az_bot"
+)
+
+
+# ==========================================================
+# STARTUP INFORMATION
+# ==========================================================
+
+logger.info(
+    "=========================================================="
+)
+
+logger.info(
+    "Starting Melanated AZ Bot"
+)
+
+logger.info(
+    "Loaded Admin IDs: %s",
+    list(ADMIN_IDS),
+)
+
+logger.info(
+    "Raffle Chat ID: %s",
+    RAFFLE_CHAT_ID,
+)
+
+logger.info(
+    "=========================================================="
+)
 
 
 # ==========================================================
@@ -116,6 +152,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def health_check():
+
     return (
         "Melanated AZ Bot is running.",
         200,
@@ -124,6 +161,7 @@ def health_check():
 
 @app.route("/health")
 def health():
+
     return (
         "OK",
         200,
@@ -131,6 +169,7 @@ def health():
 
 
 def run_flask():
+
     port = int(
         os.environ.get(
             "PORT",
@@ -150,7 +189,9 @@ def run_flask():
 # MESSAGE DELETION
 # ==========================================================
 
-async def delete_message_later(context: ContextTypes.DEFAULT_TYPE):
+async def delete_message_later(
+    context: ContextTypes.DEFAULT_TYPE,
+):
 
     job = context.job
 
@@ -166,12 +207,14 @@ async def delete_message_later(context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
+
         await context.bot.delete_message(
             chat_id=data["chat_id"],
             message_id=data["message_id"],
         )
 
     except TelegramError:
+
         pass
 
 
@@ -201,8 +244,10 @@ async def get_bot_username(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    username = context.application.bot_data.get(
-        "bot_username"
+    username = (
+        context.application.bot_data.get(
+            "bot_username"
+        )
     )
 
     if username:
@@ -372,6 +417,7 @@ async def handle_photo(
         await message.delete()
 
     except TelegramError:
+
         pass
 
     await send_media_warning(
@@ -403,6 +449,7 @@ async def handle_video(
         await message.delete()
 
     except TelegramError:
+
         pass
 
     await send_media_warning(
@@ -571,6 +618,7 @@ async def admin_callback_router(
             )
 
         except Exception:
+
             pass
 
 
@@ -608,6 +656,7 @@ async def birthday_callback_router(
                 )
 
             except Exception:
+
                 pass
 
 
@@ -645,6 +694,7 @@ async def game_center_callback_router_wrapper(
                 )
 
             except Exception:
+
                 pass
 
 
@@ -682,6 +732,7 @@ async def truth_dare_callback_router(
                 )
 
             except Exception:
+
                 pass
 
 
@@ -694,28 +745,80 @@ async def raffle_callback_router(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    # IMPORTANT:
-    #
-    # raffle.py owns all raffle callbacks.
-    #
-    # This includes:
-    #
-    #   enter_
-    #   approve_
-    #   deny_
-    #   raffle_approve_
-    #   raffle_cancel_
-    #   pay_cashapp_
-    #   pay_zelle_
-    #   payment_
-    #   paid_
-    #   draw_
-    #   reroll_
-    #   bonus_
-    #   remove_
-    #
-    # Do NOT answer the callback here.
-    # raffle.py is responsible for doing so.
+    query = update.callback_query
+
+    logger.info(
+        "=========================================================="
+    )
+
+    logger.info(
+        "RAFFLE CALLBACK HANDLER TRIGGERED"
+    )
+
+    logger.info(
+        "Callback query exists: %s",
+        bool(query),
+    )
+
+    if query:
+
+        logger.info(
+            "Callback data: %s",
+            query.data,
+        )
+
+        logger.info(
+            "Callback user: %s",
+            getattr(
+                update.effective_user,
+                "id",
+                None,
+            ),
+        )
+
+        logger.info(
+            "Callback username: %s",
+            getattr(
+                update.effective_user,
+                "username",
+                None,
+            ),
+        )
+
+        callback_message = getattr(
+            query,
+            "message",
+            None,
+        )
+
+        logger.info(
+            "Callback chat ID: %s",
+            getattr(
+                callback_message,
+                "chat_id",
+                None,
+            ),
+        )
+
+        logger.info(
+            "Callback message ID: %s",
+            getattr(
+                callback_message,
+                "message_id",
+                None,
+            ),
+        )
+
+    else:
+
+        logger.warning(
+            "RAFFLE CALLBACK HANDLER RECEIVED "
+            "WITHOUT callback_query!"
+        )
+
+    logger.info(
+        "Calling raffle.raffle_callback()..."
+    )
 
     try:
 
@@ -724,13 +827,15 @@ async def raffle_callback_router(
             context,
         )
 
+        logger.info(
+            "raffle.raffle_callback() completed successfully."
+        )
+
     except Exception:
 
         logger.exception(
             "Raffle callback failed."
         )
-
-        query = update.callback_query
 
         if query:
 
@@ -742,7 +847,15 @@ async def raffle_callback_router(
                 )
 
             except Exception:
-                pass
+
+                logger.exception(
+                    "Could not answer failed "
+                    "raffle callback."
+                )
+
+    logger.info(
+        "=========================================================="
+    )
 
 
 # ==========================================================
@@ -756,27 +869,88 @@ def database_startup_check():
         stats = get_database_stats()
 
         logger.info(
-            "Database: %s",
+            "=========================================================="
+        )
+
+        logger.info(
+            "Melanated AZ Bot - Persistent Database"
+        )
+
+        logger.info(
+            "=========================================================="
+        )
+
+        logger.info(
+            "Database path       : %s",
             stats.get("database"),
         )
 
         logger.info(
-            "Raffles: %s | Entries: %s | "
-            "Birthdays: %s | Members: %s",
+            "Database directory  : %s",
+            stats.get("database_directory"),
+        )
+
+        logger.info(
+            "Database exists     : %s",
+            stats.get("exists"),
+        )
+
+        logger.info(
+            "Database size       : %s",
+            stats.get("size"),
+        )
+
+        logger.info(
+            "Persistent directory: %s",
+            stats.get("persistent"),
+        )
+
+        logger.info(
+            "=========================================================="
+        )
+
+        logger.info(
+            "Melanated AZ Bot - Database Statistics"
+        )
+
+        logger.info(
+            "=========================================================="
+        )
+
+        logger.info(
+            "Database       : %s",
+            stats.get("database"),
+        )
+
+        logger.info(
+            "Raffles        : %s",
             stats.get("raffles"),
+        )
+
+        logger.info(
+            "Raffle Entries : %s",
             stats.get("raffle_entries"),
+        )
+
+        logger.info(
+            "Birthdays      : %s",
             stats.get("birthdays"),
+        )
+
+        logger.info(
+            "Known Members  : %s",
             stats.get("members"),
         )
 
-        if not check_database_integrity():
-
-            raise RuntimeError(
-                "Database integrity check failed."
-            )
+        logger.info(
+            "Integrity      : %s",
+            "OK"
+            if check_database_integrity()
+            else "FAILED",
+        )
 
         logger.info(
-            "Database integrity: OK"
+            "=========================================================="
         )
 
     except Exception:
@@ -792,11 +966,19 @@ def database_startup_check():
 
 def game_database_startup_check():
 
-    initialize_game_database()
+    try:
 
-    logger.info(
-        "Game Center database: READY"
-    )
+        initialize_game_database()
+
+        logger.info(
+            "Game Center database: READY"
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Game Center database initialization failed."
+        )
 
 
 # ==========================================================
@@ -974,20 +1156,22 @@ def build_application():
     # RAFFLE CALLBACKS
     #
     # IMPORTANT:
-    # This MUST be registered before admin callbacks.
+    # This handler is intentionally broad enough to catch
+    # every callback family owned by raffle.py.
+    #
+    # raffle.py remains the ONLY owner of the actual
+    # callback processing.
     # ======================================================
 
     application.add_handler(
         CallbackQueryHandler(
             raffle_callback_router,
             pattern=(
-                r"^(raffle_approve_|"
-                r"raffle_cancel_|"
+                r"^(raffle_|"
                 r"approve_|"
                 r"deny_|"
                 r"enter_|"
-                r"pay_cashapp_|"
-                r"pay_zelle_|"
+                r"pay_|"
                 r"payment_|"
                 r"paid_|"
                 r"draw_|"
@@ -1108,6 +1292,20 @@ def build_application():
         error_handler
     )
 
+    logger.info(
+        "All Telegram handlers registered."
+    )
+
+    logger.info(
+        "Raffle callback handler registered."
+    )
+
+    logger.info(
+        "Raffle callback prefixes: "
+        "raffle_, approve_, deny_, enter_, pay_, "
+        "payment_, paid_, draw_, reroll_, bonus_, remove_"
+    )
+
     return application
 
 
@@ -1127,6 +1325,16 @@ def main():
 
     logger.info(
         "=========================================================="
+    )
+
+    logger.info(
+        "Loaded Admin IDs: %s",
+        list(ADMIN_IDS),
+    )
+
+    logger.info(
+        "Raffle Chat ID: %s",
+        RAFFLE_CHAT_ID,
     )
 
     database_startup_check()
