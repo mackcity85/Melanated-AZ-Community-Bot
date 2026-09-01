@@ -7,14 +7,28 @@
 #   - Raffle approval
 #   - Raffle cancellation
 #   - Public raffle entry
+#   - FREE raffle auto-approval
+#   - PAID raffle pending/admin approval
 #   - Cash App / Zelle
 #   - Pending entry approval
 #   - Entry denial
 #   - Manual admin entry
 #   - Winner drawing
 #
-# Critical:
-# raffle_callback() is the ONLY owner of raffle callbacks.
+# IMPORTANT:
+#   raffle_callback() is the ONLY owner of raffle callbacks.
+#
+# FREE RAFFLE:
+#   $0 / 0 / Free / FREE / $0.00 / 0.00
+#   -> Automatically approved.
+#
+# PAID RAFFLE:
+#   Any non-zero price
+#   -> Entry remains pending until admin approval.
+#
+# DATABASE:
+#   Uses existing raffle_database.py.
+#   No database reset or replacement.
 # ==========================================================
 
 import logging
@@ -29,7 +43,6 @@ from telegram import (
 )
 
 from telegram.constants import ParseMode
-
 from telegram.error import TelegramError
 
 from telegram.ext import ContextTypes
@@ -87,6 +100,66 @@ def is_raffle_admin(user_id):
         )
 
     except Exception:
+
+        return False
+
+
+# ==========================================================
+# FREE RAFFLE CHECK
+# ==========================================================
+
+def is_free_raffle(price):
+    """
+    Returns True when the raffle is a free-entry raffle.
+
+    Accepted free values include:
+
+        Free
+        FREE
+        free
+        0
+        0.00
+        $0
+        $0.00
+
+    Everything else is treated as a paid raffle.
+    """
+
+    if price is None:
+        return True
+
+    value = str(price).strip().lower()
+
+    value = value.replace(
+        "$",
+        "",
+    )
+
+    value = value.replace(
+        ",",
+        "",
+    )
+
+    value = value.strip()
+
+    if value in {
+        "",
+        "free",
+        "0",
+        "0.0",
+        "0.00",
+    }:
+
+        return True
+
+    try:
+
+        return float(value) == 0
+
+    except (
+        TypeError,
+        ValueError,
+    ):
 
         return False
 
@@ -179,7 +252,9 @@ async def start_raffle(
             "🎟️ <b>Start a Raffle</b>\n\n"
             "Use:\n"
             "<code>/startraffle Prize | Entry Price</code>\n\n"
-            "Example:\n"
+            "FREE raffle example:\n"
+            "<code>/startraffle $100 Cash Prize | FREE</code>\n\n"
+            "PAID raffle example:\n"
             "<code>/startraffle $100 Cash Prize | $5</code>",
             parse_mode=ParseMode.HTML,
         )
@@ -200,7 +275,11 @@ async def start_raffle(
 
         await message.reply_text(
             "Use:\n"
-            "<code>/startraffle Prize | Entry Price</code>",
+            "<code>/startraffle Prize | Entry Price</code>\n\n"
+            "FREE:\n"
+            "<code>/startraffle Prize | FREE</code>\n\n"
+            "PAID:\n"
+            "<code>/startraffle Prize | $5</code>",
             parse_mode=ParseMode.HTML,
         )
 
@@ -291,11 +370,18 @@ async def start_raffle(
         ]]
     )
 
+    raffle_type = (
+        "FREE ENTRY"
+        if is_free_raffle(price)
+        else "PAID ENTRY"
+    )
+
     text = (
         "🎟️ <b>RAFFLE AWAITING APPROVAL</b>\n\n"
         f"🆔 Raffle: <code>{raffle_id}</code>\n"
         f"🎁 Prize: <b>{prize}</b>\n"
         f"💵 Entry: <b>{price}</b>\n"
+        f"📋 Type: <b>{raffle_type}</b>\n"
         f"⏰ Ends: <b>"
         f"{format_expiration(expires.isoformat())}"
         f"</b>\n\n"
@@ -365,6 +451,33 @@ async def publish_raffle(
     if not raffle:
         return False
 
+    free = is_free_raffle(
+        raffle["price"]
+    )
+
+    if free:
+
+        entry_label = (
+            "🆓 <b>FREE ENTRY</b>"
+        )
+
+        pending_notice = (
+            "🎉 Your entry is automatically "
+            "<b>APPROVED</b> because this is "
+            "a free raffle."
+        )
+
+    else:
+
+        entry_label = (
+            f"💵 <b>Entry: {raffle['price']}</b>"
+        )
+
+        pending_notice = (
+            "⚠️ Your entry remains <b>PENDING</b> "
+            "until an admin verifies your payment."
+        )
+
     keyboard = InlineKeyboardMarkup(
         [
             [
@@ -397,12 +510,11 @@ async def publish_raffle(
     text = (
         "🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>\n\n"
         f"🎁 <b>Prize:</b> {raffle['prize']}\n"
-        f"💵 <b>Entry:</b> {raffle['price']}\n"
+        f"{entry_label}\n"
         f"⏰ <b>Ends:</b> "
         f"{format_expiration(raffle['expires_at'])}\n\n"
         "👇 Tap below to enter.\n\n"
-        "⚠️ Your entry remains pending until an "
-        "admin verifies your payment."
+        f"{pending_notice}"
     )
 
     try:
@@ -629,18 +741,31 @@ async def enter_raffle(
 
         return
 
+    free = is_free_raffle(
+        raffle["price"]
+    )
+
     name = (
         user.full_name
         or user.username
         or str(user.id)
     )
 
+    # ------------------------------------------------------
+    # DATABASE FUNCTION ALREADY PREVENTS:
+    #
+    #   pending + same raffle + same user
+    #   approved + same raffle + same user
+    #
+    # Therefore one active entry per user per raffle.
+    # ------------------------------------------------------
+
     entry_id = add_raffle_entry(
         raffle_id,
         user.id,
         user.username,
         name,
-        None,
+        "free" if free else None,
     )
 
     if entry_id is None:
@@ -653,20 +778,100 @@ async def enter_raffle(
 
         return
 
+    # ======================================================
+    # FREE RAFFLE
+    # ======================================================
+
+    if free:
+
+        changed = approve_entry(
+            entry_id,
+            user.id,
+        )
+
+        if not changed:
+
+            logger.error(
+                "FREE RAFFLE AUTO-APPROVAL FAILED | "
+                "entry=%s | raffle=%s | user=%s",
+                entry_id,
+                raffle_id,
+                user.id,
+            )
+
+            await query.answer(
+                "Your entry was created but "
+                "could not be approved. "
+                "Please contact an admin.",
+                show_alert=True,
+            )
+
+            return
+
+        logger.info(
+            "FREE RAFFLE ENTRY AUTO-APPROVED | "
+            "entry=%s | raffle=%s | user=%s",
+            entry_id,
+            raffle_id,
+            user.id,
+        )
+
+        await query.answer(
+            "🎉 You're entered! Entry approved.",
+            show_alert=True,
+        )
+
+        try:
+
+            await query.message.reply_text(
+                "🎉 <b>YOU'RE IN!</b>\n\n"
+                f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+                f"🆓 Entry: <b>FREE</b>\n"
+                f"🆔 Entry: <code>{entry_id}</code>\n\n"
+                "✅ Your entry has been "
+                "<b>APPROVED</b> automatically.\n\n"
+                "Good luck! 🍀",
+                parse_mode=ParseMode.HTML,
+            )
+
+        except TelegramError:
+
+            logger.exception(
+                "Could not send free-entry confirmation "
+                "for entry %s.",
+                entry_id,
+            )
+
+        return
+
+    # ======================================================
+    # PAID RAFFLE
+    # ======================================================
+
     await query.answer(
-        "Entry submitted!",
+        "Entry submitted for approval!",
         show_alert=True,
     )
 
-    await query.message.reply_text(
-        f"🎟️ <b>ENTRY SUBMITTED</b>\n\n"
-        f"🎁 Prize: <b>{raffle['prize']}</b>\n"
-        f"💵 Entry Price: <b>{raffle['price']}</b>\n"
-        f"🆔 Entry: <code>{entry_id}</code>\n\n"
-        "⚠️ Your entry is <b>PENDING</b> "
-        "until an admin verifies payment.",
-        parse_mode=ParseMode.HTML,
-    )
+    try:
+
+        await query.message.reply_text(
+            f"🎟️ <b>ENTRY SUBMITTED</b>\n\n"
+            f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+            f"💵 Entry Price: <b>{raffle['price']}</b>\n"
+            f"🆔 Entry: <code>{entry_id}</code>\n\n"
+            "⏳ Your entry is <b>PENDING</b> "
+            "until an admin verifies payment.",
+            parse_mode=ParseMode.HTML,
+        )
+
+    except TelegramError:
+
+        logger.exception(
+            "Could not send pending-entry confirmation "
+            "for entry %s.",
+            entry_id,
+        )
 
     keyboard = InlineKeyboardMarkup(
         [[
@@ -690,8 +895,10 @@ async def enter_raffle(
         f"🆔 Entry: <code>{entry_id}</code>\n"
         f"🎟️ Raffle: <code>{raffle_id}</code>\n"
         f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+        f"💵 Price: <b>{raffle['price']}</b>\n"
         f"👤 Member: <b>{name}</b>\n"
-        "💳 Payment: <b>Not selected</b>\n\n"
+        "💳 Payment: <b>Not selected</b>\n"
+        "⏳ Status: <b>PENDING</b>\n\n"
         "Choose an action:"
     )
 
@@ -744,6 +951,22 @@ async def payment_method(
 
         return
 
+    # ------------------------------------------------------
+    # Payment buttons are not needed for a free raffle.
+    # ------------------------------------------------------
+
+    if is_free_raffle(
+        raffle["price"]
+    ):
+
+        await query.answer(
+            "This is a FREE raffle. "
+            "No payment is required.",
+            show_alert=True,
+        )
+
+        return
+
     entry = next(
         (
             x
@@ -787,12 +1010,20 @@ async def payment_method(
 
     await query.answer()
 
-    await query.message.reply_text(
-        body
-        + "\n\nAfter payment, your entry remains "
-        "pending until an admin verifies it.",
-        parse_mode=ParseMode.HTML,
-    )
+    try:
+
+        await query.message.reply_text(
+            body
+            + "\n\nAfter payment, your entry remains "
+            "pending until an admin verifies it.",
+            parse_mode=ParseMode.HTML,
+        )
+
+    except TelegramError:
+
+        logger.exception(
+            "Could not send payment instructions."
+        )
 
 
 # ==========================================================
@@ -843,8 +1074,6 @@ async def approve_entry_callback(
 
         return
 
-    # IMPORTANT:
-    # This commits pending -> approved.
     changed = approve_entry(
         entry_id,
         user.id,
@@ -1073,12 +1302,6 @@ async def manual_raffle_entry(
         int(RAFFLE_CHAT_ID),
     )
 
-    # ------------------------------------------------------
-    # The selector normally already supplied the member.
-    # If get_member() doesn't find them, use cached member
-    # information from admin.py.
-    # ------------------------------------------------------
-
     if not member:
 
         members = context.user_data.get(
@@ -1182,10 +1405,6 @@ async def manual_raffle_entry(
 
     # ------------------------------------------------------
     # Create entry.
-    #
-    # add_raffle_entry() creates it as pending.
-    # We immediately approve it using the same database
-    # approval function used by the normal payment flow.
     # ------------------------------------------------------
 
     entry_id = add_raffle_entry(
@@ -1206,7 +1425,7 @@ async def manual_raffle_entry(
         return False
 
     # ------------------------------------------------------
-    # Commit pending -> approved.
+    # Manual entries are always approved immediately.
     # ------------------------------------------------------
 
     changed = approve_entry(
@@ -1353,6 +1572,7 @@ async def raffle_callback(
 
     IMPORTANT:
     This function owns:
+
         raffle_approve_
         raffle_cancel_
         approve_
@@ -1373,6 +1593,10 @@ async def raffle_callback(
         "Raffle callback received: %s",
         data,
     )
+
+    # ------------------------------------------------------
+    # APPROVE RAFFLE
+    # ------------------------------------------------------
 
     if data.startswith(
         "raffle_approve_"
@@ -1399,6 +1623,10 @@ async def raffle_callback(
 
         return
 
+    # ------------------------------------------------------
+    # CANCEL RAFFLE
+    # ------------------------------------------------------
+
     if data.startswith(
         "raffle_cancel_"
     ):
@@ -1423,6 +1651,10 @@ async def raffle_callback(
             )
 
         return
+
+    # ------------------------------------------------------
+    # APPROVE ENTRY
+    # ------------------------------------------------------
 
     if data.startswith(
         "approve_"
@@ -1449,6 +1681,10 @@ async def raffle_callback(
 
         return
 
+    # ------------------------------------------------------
+    # DENY ENTRY
+    # ------------------------------------------------------
+
     if data.startswith(
         "deny_"
     ):
@@ -1473,6 +1709,10 @@ async def raffle_callback(
             )
 
         return
+
+    # ------------------------------------------------------
+    # ENTER RAFFLE
+    # ------------------------------------------------------
 
     if data.startswith(
         "enter_"
@@ -1499,6 +1739,10 @@ async def raffle_callback(
 
         return
 
+    # ------------------------------------------------------
+    # CASH APP
+    # ------------------------------------------------------
+
     if data.startswith(
         "pay_cashapp_"
     ):
@@ -1524,6 +1768,10 @@ async def raffle_callback(
             )
 
         return
+
+    # ------------------------------------------------------
+    # ZELLE
+    # ------------------------------------------------------
 
     if data.startswith(
         "pay_zelle_"
@@ -1604,11 +1852,20 @@ async def raffle_status(
             raffle["id"]
         )
 
+        raffle_type = (
+            "FREE"
+            if is_free_raffle(
+                raffle["price"]
+            )
+            else "PAID"
+        )
+
         text = (
             "🎟️ <b>RAFFLE STATUS</b>\n\n"
             f"🆔 ID: <code>{raffle['id']}</code>\n"
             f"🎁 Prize: <b>{raffle['prize']}</b>\n"
             f"💵 Entry: <b>{raffle['price']}</b>\n"
+            f"📋 Type: <b>{raffle_type}</b>\n"
             f"⏰ Ends: <b>"
             f"{format_expiration(raffle['expires_at'])}"
             f"</b>\n\n"
@@ -1676,8 +1933,17 @@ async def raffle_entries(
             raffle["id"]
         )
 
+        raffle_type = (
+            "FREE"
+            if is_free_raffle(
+                raffle["price"]
+            )
+            else "PAID"
+        )
+
         text = (
-            "🎟️ <b>APPROVED ENTRIES</b>\n\n"
+            f"🎟️ <b>APPROVED ENTRIES "
+            f"({raffle_type})</b>\n\n"
             +
             (
                 "\n".join(
