@@ -1,13 +1,44 @@
+<!--
+==============================================================
+Melanated AZ Real Games
+game.html
+COMPLETE DROP-IN PLAYABLE GAME PAGE
+
+This file intentionally contains REAL playable engines.
+
+Supported:
+    snake
+    pong
+    breakout
+    2048
+    memory
+    tic_tac_toe
+    connect_four
+    rock_paper_scissors
+    target_shooter
+    dodge_battle
+    trivia
+    clicker
+
+IMPORTANT:
+Do NOT map games such as flappy, tetris, pacman, chess,
+monopoly, minesweeper, etc. to fake clicker engines.
+Add their real engines before registering them.
+==============================================================
+-->
+
 <!DOCTYPE html>
 
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
 <title>{{ game.name }} — Melanated AZ Real Games</title>
 
 <style>
+
 * {
     box-sizing: border-box;
 }
@@ -18,18 +49,18 @@ body {
     padding: 0;
     min-height: 100%;
     background: #080808;
-    color: #fff;
+    color: #ffffff;
     font-family: Arial, Helvetica, sans-serif;
 }
 
 body {
-    padding: 20px;
+    padding: 15px;
 }
 
 .wrapper {
     width: 100%;
     max-width: 1200px;
-    margin: 0 auto;
+    margin: auto;
 }
 
 .topbar {
@@ -37,8 +68,8 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 15px;
-    margin-bottom: 20px;
     flex-wrap: wrap;
+    margin-bottom: 20px;
 }
 
 .brand {
@@ -48,15 +79,15 @@ body {
 
 .back {
     display: inline-block;
-    background: #252525;
-    color: #fff;
-    text-decoration: none;
-    padding: 10px 15px;
+    padding: 10px 16px;
     border-radius: 10px;
+    background: #252525;
+    color: white;
+    text-decoration: none;
 }
 
 .back:hover {
-    background: #3a3a3a;
+    background: #3b3b3b;
 }
 
 .game-header {
@@ -89,51 +120,53 @@ body {
     text-align: center;
     padding: 12px;
     margin-bottom: 15px;
-    background: #202020;
     border-radius: 10px;
+    background: #202020;
     color: #ddd;
 }
 
 .scoreboard {
     display: flex;
     justify-content: center;
-    gap: 30px;
+    gap: 15px;
     flex-wrap: wrap;
     margin-bottom: 15px;
 }
 
 .score {
-    background: #202020;
-    padding: 10px 20px;
-    border-radius: 10px;
-    min-width: 100px;
+    min-width: 110px;
+    padding: 10px 18px;
     text-align: center;
+    background: #202020;
+    border-radius: 10px;
 }
 
 .score strong {
     display: block;
+    margin-top: 3px;
     font-size: 22px;
 }
 
 canvas {
     display: block;
-    margin: 0 auto;
+    margin: 15px auto;
     max-width: 100%;
     background: #000;
     border: 2px solid #444;
     border-radius: 10px;
+    touch-action: none;
 }
 
 .controls {
     display: flex;
     justify-content: center;
+    align-items: center;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 18px;
 }
 
-button,
-.game-button {
+button {
     border: 0;
     border-radius: 10px;
     padding: 11px 17px;
@@ -143,78 +176,73 @@ button,
     cursor: pointer;
 }
 
-button:hover,
-.game-button:hover {
+button:hover {
     opacity: .85;
 }
 
 button.secondary {
     background: #333;
-    color: #fff;
-}
-
-button.danger {
-    background: #8b0000;
-    color: #fff;
+    color: white;
 }
 
 .instructions {
     margin-top: 20px;
+    padding: 15px;
     background: #1b1b1b;
     border-radius: 12px;
-    padding: 15px;
     color: #bbb;
 }
 
-.hidden {
-    display: none !important;
+.big-message {
+    text-align: center;
+    padding: 30px;
+    font-size: 22px;
 }
 
-/* ==========================================================
-   GENERAL GAME BOARDS
-   ========================================================== */
-
 .board {
-    margin: 20px auto;
     display: grid;
-    gap: 4px;
     justify-content: center;
+    gap: 5px;
+    margin: 20px auto;
 }
 
 .cell {
-    width: 48px;
-    height: 48px;
+    width: 55px;
+    height: 55px;
     background: #252525;
-    border-radius: 6px;
+    border-radius: 7px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 25px;
+    font-size: 26px;
     cursor: pointer;
+    user-select: none;
 }
 
 .cell:hover {
-    background: #333;
+    background: #353535;
 }
 
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-    max-width: 700px;
-    margin: 20px auto;
+    grid-template-columns:
+        repeat(4, minmax(65px, 110px));
+    justify-content: center;
     gap: 10px;
+    margin: 20px auto;
 }
 
 .card {
-    min-height: 100px;
+    height: 100px;
     background: #252525;
     border: 2px solid #444;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 30px;
+    font-size: 32px;
     cursor: pointer;
+    user-select: none;
 }
 
 .card.flipped {
@@ -223,28 +251,21 @@ button.danger {
 }
 
 .card.matched {
-    background: #333;
-    opacity: .6;
+    opacity: .45;
+    cursor: default;
 }
-
-/* ==========================================================
-   TRIVIA
-   ========================================================== */
 
 .question {
-    max-width: 800px;
-    margin: 25px auto;
+    max-width: 850px;
+    margin: 20px auto;
     text-align: center;
-}
-
-.question h2 {
-    font-size: 25px;
 }
 
 .answers {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
+    grid-template-columns:
+        repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
     margin-top: 20px;
 }
 
@@ -252,66 +273,24 @@ button.danger {
     min-height: 55px;
 }
 
-/* ==========================================================
-   CARDS / WORD GAMES
-   ========================================================== */
-
-.word-box {
-    text-align: center;
-    max-width: 700px;
-    margin: 30px auto;
-}
-
 .word-input {
     width: 100%;
-    max-width: 500px;
+    max-width: 450px;
     padding: 14px;
-    border-radius: 10px;
     border: 1px solid #555;
+    border-radius: 10px;
     background: #111;
-    color: #fff;
+    color: white;
     font-size: 20px;
     text-align: center;
 }
 
-.big-message {
-    text-align: center;
-    font-size: 25px;
-    padding: 30px;
-}
-
-/* ==========================================================
-   ROOM
-   ========================================================== */
-
-.room-panel {
-    background: #1b1b1b;
-    border-radius: 12px;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-
-.players-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.player {
-    background: #292929;
-    padding: 8px 12px;
-    border-radius: 8px;
-}
-
-/* ==========================================================
-   MOBILE CONTROLS
-   ========================================================== */
-
 .mobile-controls {
     width: 190px;
-    margin: 20px auto;
+    margin: 15px auto;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns:
+        repeat(3, 1fr);
     gap: 6px;
 }
 
@@ -326,23 +305,47 @@ button.danger {
 
 .mobile-controls .left {
     grid-column: 1;
+    grid-row: 2;
 }
 
 .mobile-controls .down {
     grid-column: 2;
+    grid-row: 2;
 }
 
 .mobile-controls .right {
     grid-column: 3;
+    grid-row: 2;
+}
+
+.room-panel {
+    background: #1b1b1b;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.players-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.player {
+    padding: 8px 12px;
+    background: #292929;
+    border-radius: 8px;
 }
 
 @media (max-width: 600px) {
+
     body {
-        padding: 10px;
+        padding: 8px;
     }
 
     .game-shell {
-        padding: 12px;
+        padding: 10px;
     }
 
     .game-title {
@@ -350,10 +353,22 @@ button.danger {
     }
 
     .cell {
-        width: 38px;
-        height: 38px;
+        width: 45px;
+        height: 45px;
     }
+
+    .card-grid {
+        grid-template-columns:
+            repeat(4, 65px);
+    }
+
+    .card {
+        height: 75px;
+        font-size: 25px;
+    }
+
 }
+
 </style>
 
 </head>
@@ -364,15 +379,23 @@ button.danger {
 
 ```
 <div class="topbar">
-    <div class="brand">👑 Melanated AZ Real Games</div>
 
-    <a class="back" href="{{ url_for('real_games.real_games_home') }}">
+    <div class="brand">
+        👑 Melanated AZ Real Games
+    </div>
+
+    <a class="back"
+       href="{{ url_for('real_games.real_games_home') }}">
         ← Games
     </a>
+
 </div>
 
 <div class="game-header">
-    <div class="game-icon">{{ game.icon }}</div>
+
+    <div class="game-icon">
+        {{ game.icon }}
+    </div>
 
     <h1 class="game-title">
         {{ game.name }}
@@ -381,6 +404,7 @@ button.danger {
     <div class="game-description">
         {{ game.description }}
     </div>
+
 </div>
 
 {% if multiplayer and room %}
@@ -388,18 +412,25 @@ button.danger {
 <div class="room-panel">
 
     <strong>Room:</strong>
-    <span id="room-id">{{ room.room_id }}</span>
+    <span id="room-id">
+        {{ room.room_id }}
+    </span>
 
-    <br><br>
+    <div>
+        <strong>Players</strong>
+    </div>
 
-    <strong>Players</strong>
+    <div id="players-list"
+         class="players-list">
 
-    <div id="players-list" class="players-list">
         {% for player in room.players.values() %}
-            <div class="player">
-                {{ player.display_name }}
-            </div>
+
+        <div class="player">
+            {{ player.display_name }}
+        </div>
+
         {% endfor %}
+
     </div>
 
 </div>
@@ -438,25 +469,36 @@ button.danger {
 
 <div class="game-shell">
 
-    <div id="status" class="status">
+    <div id="status"
+         class="status">
         Loading game...
     </div>
 
-    <div id="scoreboard" class="scoreboard"></div>
+    <div id="scoreboard"
+         class="scoreboard">
+    </div>
 
-    <div id="game-container"></div>
+    <div id="game-container">
+    </div>
 
     <div class="controls">
-        <button onclick="restartGame()">🔄 Restart</button>
+
+        <button onclick="restartGame()">
+            🔄 Restart
+        </button>
+
     </div>
 
 </div>
 
 <div class="instructions">
+
     <strong>How to Play</strong>
+
     <div id="instructions-text">
         Loading instructions...
     </div>
+
 </div>
 ```
 
@@ -465,11 +507,14 @@ button.danger {
 <script>
 
 /* ==========================================================
-   GLOBAL GAME INFORMATION
+   GLOBAL DATA
    ========================================================== */
 
-const GAME_ID = {{ game.game_id | tojson }};
-const GAME_NAME = {{ game.name | tojson }};
+const GAME_ID =
+    {{ game.game_id | tojson }};
+
+const GAME_NAME =
+    {{ game.name | tojson }};
 
 const ROOM_ID =
     {% if room %}
@@ -479,65 +524,135 @@ const ROOM_ID =
     {% endif %}
 
 const GAME_CONTAINER =
-    document.getElementById("game-container");
+    document.getElementById(
+        "game-container"
+    );
 
 const STATUS =
-    document.getElementById("status");
+    document.getElementById(
+        "status"
+    );
 
 const SCOREBOARD =
-    document.getElementById("scoreboard");
+    document.getElementById(
+        "scoreboard"
+    );
 
 let CURRENT_GAME = null;
 
+let ACTIVE_INTERVALS = [];
+
+let ACTIVE_TIMEOUTS = [];
+
 
 /* ==========================================================
-   COMMON HELPERS
+   CLEANUP
    ========================================================== */
 
+function safeInterval(fn, delay) {
+
+    const id =
+        setInterval(fn, delay);
+
+    ACTIVE_INTERVALS.push(id);
+
+    return id;
+}
+
+function safeTimeout(fn, delay) {
+
+    const id =
+        setTimeout(fn, delay);
+
+    ACTIVE_TIMEOUTS.push(id);
+
+    return id;
+}
+
+function cleanupGame() {
+
+    ACTIVE_INTERVALS.forEach(
+        clearInterval
+    );
+
+    ACTIVE_TIMEOUTS.forEach(
+        clearTimeout
+    );
+
+    ACTIVE_INTERVALS = [];
+    ACTIVE_TIMEOUTS = [];
+
+    document.onkeydown = null;
+    document.onkeyup = null;
+
+    if (CURRENT_GAME &&
+        typeof CURRENT_GAME.destroy ===
+        "function") {
+
+        try {
+            CURRENT_GAME.destroy();
+        } catch (e) {
+            console.error(e);
+        }
+
+    }
+
+}
+
+
+/* ==========================================================
+   HELPERS
+   ========================================================== */
+
+function clearGame() {
+
+    cleanupGame();
+
+    GAME_CONTAINER.innerHTML = "";
+
+    SCOREBOARD.innerHTML = "";
+
+}
+
 function setStatus(text) {
+
     STATUS.textContent = text;
+
 }
 
 function setInstructions(text) {
+
     document.getElementById(
         "instructions-text"
     ).textContent = text;
+
 }
 
 function setScore(label, value) {
 
-    SCOREBOARD.innerHTML = `
-        <div class="score">
-            ${label}
-            <strong>${value}</strong>
-        </div>
-    `;
-}
-
-function clearGame() {
-    GAME_CONTAINER.innerHTML = "";
     SCOREBOARD.innerHTML = "";
-}
 
-function button(text, callback, cls = "") {
+    const item =
+        document.createElement(
+            "div"
+        );
 
-    const b = document.createElement("button");
+    item.className = "score";
 
-    b.textContent = text;
+    item.innerHTML =
+        `${label}<strong>${value}</strong>`;
 
-    if (cls) {
-        b.className = cls;
-    }
+    SCOREBOARD.appendChild(item);
 
-    b.onclick = callback;
-
-    return b;
 }
 
 function restartGame() {
 
-    if (CURRENT_GAME &&
-        typeof CURRENT_GAME.restart === "function") {
+    if (
+        CURRENT_GAME &&
+        typeof CURRENT_GAME.restart ===
+        "function"
+    ) {
 
         CURRENT_GAME.restart();
 
@@ -546,6 +661,30 @@ function restartGame() {
         location.reload();
 
     }
+
+}
+
+function makeButton(
+    text,
+    callback,
+    className = ""
+) {
+
+    const b =
+        document.createElement(
+            "button"
+        );
+
+    b.textContent = text;
+
+    if (className) {
+        b.className = className;
+    }
+
+    b.onclick = callback;
+
+    return b;
+
 }
 
 
@@ -556,89 +695,171 @@ function restartGame() {
 function loadSnake() {
 
     CURRENT_GAME = {
-
-        restart() {
-            startSnake();
-        }
-
+        restart: startSnake
     };
 
     startSnake();
-}
 
+}
 
 function startSnake() {
 
     clearGame();
 
-    const canvas = document.createElement("canvas");
+    const canvas =
+        document.createElement(
+            "canvas"
+        );
 
     canvas.width = 500;
     canvas.height = 500;
 
-    GAME_CONTAINER.appendChild(canvas);
-
-    const ctx = canvas.getContext("2d");
-
-    const size = 20;
-
-    let snake = [
-        {x: 10, y: 10},
-        {x: 9, y: 10},
-        {x: 8, y: 10}
-    ];
-
-    let food = randomFood();
-
-    let dx = 1;
-    let dy = 0;
-
-    let score = 0;
-    let running = true;
-
-    setStatus("🐍 Use the arrow keys to move.");
-
-    setInstructions(
-        "Eat the food, grow longer, and avoid the walls and your own body."
+    GAME_CONTAINER.appendChild(
+        canvas
     );
 
-    function randomFood() {
+    const ctx =
+        canvas.getContext("2d");
 
-        return {
-            x: Math.floor(Math.random() * 25),
-            y: Math.floor(Math.random() * 25)
-        };
+    const GRID = 25;
+    const SIZE = 20;
+
+    let snake;
+    let food;
+    let dx;
+    let dy;
+    let nextDx;
+    let nextDy;
+    let score;
+    let running;
+
+    function reset() {
+
+        snake = [
+            {x: 12, y: 12},
+            {x: 11, y: 12},
+            {x: 10, y: 12}
+        ];
+
+        food = createFood();
+
+        dx = 1;
+        dy = 0;
+
+        nextDx = 1;
+        nextDy = 0;
+
+        score = 0;
+
+        running = true;
+
+    }
+
+    function createFood() {
+
+        let position;
+
+        do {
+
+            position = {
+                x:
+                    Math.floor(
+                        Math.random() * GRID
+                    ),
+
+                y:
+                    Math.floor(
+                        Math.random() * GRID
+                    )
+            };
+
+        } while (
+            snake &&
+            snake.some(
+                part =>
+                    part.x === position.x &&
+                    part.y === position.y
+            )
+        );
+
+        return position;
 
     }
 
     function draw() {
 
         ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, 500, 500);
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        ctx.fillStyle = "#333";
+
+        for (
+            let i = 0;
+            i <= GRID;
+            i++
+        ) {
+
+            ctx.fillRect(
+                i * SIZE,
+                0,
+                1,
+                500
+            );
+
+            ctx.fillRect(
+                0,
+                i * SIZE,
+                500,
+                1
+            );
+
+        }
 
         ctx.fillStyle = "#fff";
 
-        snake.forEach(part => {
+        snake.forEach(
+            (part, index) => {
 
-            ctx.fillRect(
-                part.x * size,
-                part.y * size,
-                size - 2,
-                size - 2
-            );
+                ctx.fillRect(
+                    part.x * SIZE + 1,
+                    part.y * SIZE + 1,
+                    SIZE - 2,
+                    SIZE - 2
+                );
 
-        });
-
-        ctx.fillStyle = "#f00";
-
-        ctx.fillRect(
-            food.x * size,
-            food.y * size,
-            size - 2,
-            size - 2
+            }
         );
 
-        setScore("Score", score);
+        ctx.fillStyle = "#ff3333";
+
+        ctx.fillRect(
+            food.x * SIZE + 2,
+            food.y * SIZE + 2,
+            SIZE - 4,
+            SIZE - 4
+        );
+
+        setScore(
+            "Score",
+            score
+        );
+
+    }
+
+    function gameOver() {
+
+        running = false;
+
+        setStatus(
+            "💀 Game Over — Score: " +
+            score
+        );
 
     }
 
@@ -648,6 +869,9 @@ function startSnake() {
             return;
         }
 
+        dx = nextDx;
+        dy = nextDy;
+
         const head = {
             x: snake[0].x + dx,
             y: snake[0].y + dy
@@ -655,9 +879,9 @@ function startSnake() {
 
         if (
             head.x < 0 ||
-            head.x >= 25 ||
+            head.x >= GRID ||
             head.y < 0 ||
-            head.y >= 25
+            head.y >= GRID
         ) {
 
             gameOver();
@@ -665,30 +889,35 @@ function startSnake() {
 
         }
 
-        for (let i = 0; i < snake.length; i++) {
+        const ate =
+            head.x === food.x &&
+            head.y === food.y;
 
-            if (
-                snake[i].x === head.x &&
-                snake[i].y === head.y
-            ) {
+        const bodyToCheck =
+            ate
+            ? snake
+            : snake.slice(0, -1);
 
-                gameOver();
-                return;
+        if (
+            bodyToCheck.some(
+                part =>
+                    part.x === head.x &&
+                    part.y === head.y
+            )
+        ) {
 
-            }
+            gameOver();
+            return;
 
         }
 
         snake.unshift(head);
 
-        if (
-            head.x === food.x &&
-            head.y === food.y
-        ) {
+        if (ate) {
 
             score++;
 
-            food = randomFood();
+            food = createFood();
 
         } else {
 
@@ -700,63 +929,140 @@ function startSnake() {
 
     }
 
-    function gameOver() {
+    function setDirection(
+        newDx,
+        newDy
+    ) {
 
-        running = false;
+        if (
+            newDx === -dx &&
+            newDy === -dy
+        ) {
+            return;
+        }
 
-        setStatus(
-            "💀 Game Over — Score: " + score
-        );
+        nextDx = newDx;
+        nextDy = newDy;
 
     }
 
-    document.onkeydown = function(e) {
+    document.onkeydown =
+        function(e) {
 
-        if (
-            e.key === "ArrowUp" &&
-            dy !== 1
-        ) {
+            if (
+                e.key === "ArrowUp" ||
+                e.key.toLowerCase() === "w"
+            ) {
 
-            dx = 0;
-            dy = -1;
+                setDirection(0, -1);
 
-        }
+                e.preventDefault();
 
-        if (
-            e.key === "ArrowDown" &&
-            dy !== -1
-        ) {
+            }
 
-            dx = 0;
-            dy = 1;
+            if (
+                e.key === "ArrowDown" ||
+                e.key.toLowerCase() === "s"
+            ) {
 
-        }
+                setDirection(0, 1);
 
-        if (
-            e.key === "ArrowLeft" &&
-            dx !== 1
-        ) {
+                e.preventDefault();
 
-            dx = -1;
-            dy = 0;
+            }
 
-        }
+            if (
+                e.key === "ArrowLeft" ||
+                e.key.toLowerCase() === "a"
+            ) {
 
-        if (
-            e.key === "ArrowRight" &&
-            dx !== -1
-        ) {
+                setDirection(-1, 0);
 
-            dx = 1;
-            dy = 0;
+                e.preventDefault();
 
-        }
+            }
 
-    };
+            if (
+                e.key === "ArrowRight" ||
+                e.key.toLowerCase() === "d"
+            ) {
+
+                setDirection(1, 0);
+
+                e.preventDefault();
+
+            }
+
+        };
+
+    const controls =
+        document.createElement(
+            "div"
+        );
+
+    controls.className =
+        "mobile-controls";
+
+    const up =
+        makeButton(
+            "▲",
+            () => setDirection(0, -1)
+        );
+
+    up.className = "up";
+
+    const left =
+        makeButton(
+            "◀",
+            () => setDirection(-1, 0)
+        );
+
+    left.className = "left";
+
+    const down =
+        makeButton(
+            "▼",
+            () => setDirection(0, 1)
+        );
+
+    down.className = "down";
+
+    const right =
+        makeButton(
+            "▶",
+            () => setDirection(1, 0)
+        );
+
+    right.className = "right";
+
+    controls.append(
+        up,
+        left,
+        down,
+        right
+    );
+
+    GAME_CONTAINER.appendChild(
+        controls
+    );
+
+    setStatus(
+        "🐍 Snake"
+    );
+
+    setInstructions(
+        "Use Arrow Keys or WASD. Eat the red food and avoid the walls and yourself."
+    );
+
+    reset();
 
     draw();
 
-    setInterval(tick, 110);
+    safeInterval(
+        tick,
+        100
+    );
+
 }
 
 
@@ -767,31 +1073,34 @@ function startSnake() {
 function loadPong() {
 
     CURRENT_GAME = {
-        restart() {
-            startPong();
-        }
+        restart: startPong
     };
 
     startPong();
 
 }
 
-
 function startPong() {
 
     clearGame();
 
-    const canvas = document.createElement("canvas");
+    const canvas =
+        document.createElement(
+            "canvas"
+        );
 
     canvas.width = 700;
     canvas.height = 400;
 
-    GAME_CONTAINER.appendChild(canvas);
+    GAME_CONTAINER.appendChild(
+        canvas
+    );
 
-    const ctx = canvas.getContext("2d");
+    const ctx =
+        canvas.getContext("2d");
 
-    let paddleY = 160;
-    let aiY = 160;
+    let playerY = 160;
+    let cpuY = 160;
 
     let ball = {
         x: 350,
@@ -801,19 +1110,22 @@ function startPong() {
     };
 
     let playerScore = 0;
-    let aiScore = 0;
+    let cpuScore = 0;
 
-    setInstructions(
-        "Move with W/S or Arrow Up/Down. First player to reach 10 wins."
-    );
+    let running = true;
 
-    function resetBall(direction) {
+    function resetBall(
+        direction
+    ) {
 
         ball = {
             x: 350,
             y: 200,
             vx: 5 * direction,
-            vy: Math.random() > .5 ? 3 : -3
+            vy:
+                Math.random() < .5
+                ? 3
+                : -3
         };
 
     }
@@ -821,20 +1133,48 @@ function startPong() {
     function draw() {
 
         ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, 700, 400);
+
+        ctx.fillRect(
+            0,
+            0,
+            700,
+            400
+        );
+
+        ctx.setLineDash(
+            [10, 10]
+        );
+
+        ctx.strokeStyle = "#555";
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            350,
+            0
+        );
+
+        ctx.lineTo(
+            350,
+            400
+        );
+
+        ctx.stroke();
+
+        ctx.setLineDash([]);
 
         ctx.fillStyle = "#fff";
 
         ctx.fillRect(
             20,
-            paddleY,
+            playerY,
             15,
             80
         );
 
         ctx.fillRect(
             665,
-            aiY,
+            cpuY,
             15,
             80
         );
@@ -844,62 +1184,87 @@ function startPong() {
         ctx.arc(
             ball.x,
             ball.y,
-            10,
+            9,
             0,
             Math.PI * 2
         );
 
         ctx.fill();
 
-        setScore(
-            "Player " + playerScore +
-            " — CPU " + aiScore,
-            ""
-        );
+        SCOREBOARD.innerHTML = `
+            <div class="score">
+                YOU
+                <strong>${playerScore}</strong>
+            </div>
+
+            <div class="score">
+                CPU
+                <strong>${cpuScore}</strong>
+            </div>
+        `;
 
     }
 
     function update() {
 
+        if (!running) {
+            return;
+        }
+
         ball.x += ball.vx;
         ball.y += ball.vy;
 
         if (
-            ball.y <= 10 ||
-            ball.y >= 390
+            ball.y <= 9 ||
+            ball.y >= 391
         ) {
 
             ball.vy *= -1;
 
         }
 
-        aiY +=
-            (ball.y - (aiY + 40)) *
-            .07;
+        cpuY +=
+            (
+                ball.y -
+                (cpuY + 40)
+            ) * .08;
+
+        cpuY =
+            Math.max(
+                0,
+                Math.min(
+                    320,
+                    cpuY
+                )
+            );
 
         if (
-            ball.x < 35 &&
-            ball.y > paddleY &&
-            ball.y < paddleY + 80
+            ball.x <= 35 &&
+            ball.x >= 20 &&
+            ball.y >= playerY &&
+            ball.y <= playerY + 80
         ) {
 
-            ball.vx = Math.abs(ball.vx);
+            ball.vx =
+                Math.abs(ball.vx);
 
         }
 
         if (
-            ball.x > 650 &&
-            ball.y > aiY &&
-            ball.y < aiY + 80
+            ball.x >= 650 &&
+            ball.x <= 680 &&
+            ball.y >= cpuY &&
+            ball.y <= cpuY + 80
         ) {
 
-            ball.vx = -Math.abs(ball.vx);
+            ball.vx =
+                -Math.abs(ball.vx);
 
         }
 
         if (ball.x < 0) {
 
-            aiScore++;
+            cpuScore++;
 
             resetBall(1);
 
@@ -915,14 +1280,18 @@ function startPong() {
 
         if (
             playerScore >= 10 ||
-            aiScore >= 10
+            cpuScore >= 10
         ) {
+
+            running = false;
 
             setStatus(
                 playerScore >= 10
-                ? "🏆 You Win!"
-                : "💀 CPU Wins!"
+                ? "🏆 YOU WIN!"
+                : "💀 CPU WINS!"
             );
+
+            draw();
 
             return;
 
@@ -930,44 +1299,54 @@ function startPong() {
 
         draw();
 
-        requestAnimationFrame(update);
-
     }
 
-    document.onkeydown = function(e) {
+    document.onkeydown =
+        function(e) {
 
-        if (
-            e.key === "ArrowUp" ||
-            e.key.toLowerCase() === "w"
-        ) {
+            if (
+                e.key === "ArrowUp" ||
+                e.key.toLowerCase() === "w"
+            ) {
 
-            paddleY -= 25;
+                playerY -= 25;
 
-        }
+            }
 
-        if (
-            e.key === "ArrowDown" ||
-            e.key.toLowerCase() === "s"
-        ) {
+            if (
+                e.key === "ArrowDown" ||
+                e.key.toLowerCase() === "s"
+            ) {
 
-            paddleY += 25;
+                playerY += 25;
 
-        }
+            }
 
-        paddleY =
-            Math.max(
-                0,
-                Math.min(
-                    320,
-                    paddleY
-                )
-            );
+            playerY =
+                Math.max(
+                    0,
+                    Math.min(
+                        320,
+                        playerY
+                    )
+                );
 
-    };
+        };
 
-    setStatus("🏓 Pong");
+    setStatus(
+        "🏓 Pong"
+    );
 
-    update();
+    setInstructions(
+        "Move with W/S or Arrow Up/Down. First to 10 wins."
+    );
+
+    draw();
+
+    safeInterval(
+        update,
+        16
+    );
 
 }
 
@@ -979,61 +1358,98 @@ function startPong() {
 function loadBreakout() {
 
     CURRENT_GAME = {
-        restart() {
-            startBreakout();
-        }
+        restart: startBreakout
     };
 
     startBreakout();
 
 }
 
-
 function startBreakout() {
 
     clearGame();
 
-    const canvas = document.createElement("canvas");
+    const canvas =
+        document.createElement(
+            "canvas"
+        );
 
     canvas.width = 700;
     canvas.height = 500;
 
-    GAME_CONTAINER.appendChild(canvas);
+    GAME_CONTAINER.appendChild(
+        canvas
+    );
 
-    const ctx = canvas.getContext("2d");
+    const ctx =
+        canvas.getContext("2d");
 
-    let paddleX = 300;
-
-    let ball = {
-        x: 350,
-        y: 430,
-        vx: 4,
-        vy: -4
+    const paddle = {
+        x: 300,
+        y: 470,
+        width: 100,
+        height: 15,
+        speed: 8
     };
 
-    let bricks = [];
+    let ball;
 
-    let score = 0;
+    let bricks;
 
-    for (let row = 0; row < 5; row++) {
+    let score;
 
-        for (let col = 0; col < 10; col++) {
+    let lives;
 
-            bricks.push({
-                x: col * 68 + 10,
-                y: row * 30 + 30,
-                alive: true
-            });
+    let running;
+
+    function resetBall() {
+
+        ball = {
+            x: 350,
+            y: 430,
+            radius: 8,
+            vx:
+                Math.random() < .5
+                ? 4
+                : -4,
+            vy: -4
+        };
+
+    }
+
+    function resetBricks() {
+
+        bricks = [];
+
+        for (
+            let row = 0;
+            row < 6;
+            row++
+        ) {
+
+            for (
+                let col = 0;
+                col < 10;
+                col++
+            ) {
+
+                bricks.push({
+                    x:
+                        col * 68 + 10,
+
+                    y:
+                        row * 28 + 30,
+
+                    width: 58,
+                    height: 18,
+                    alive: true
+                });
+
+            }
 
         }
 
     }
-
-    setStatus("🧱 Breakout");
-
-    setInstructions(
-        "Move the paddle with Arrow Left and Arrow Right. Destroy every block."
-    );
 
     function draw() {
 
@@ -1049,10 +1465,10 @@ function startBreakout() {
         ctx.fillStyle = "#fff";
 
         ctx.fillRect(
-            paddleX,
-            470,
-            100,
-            15
+            paddle.x,
+            paddle.y,
+            paddle.width,
+            paddle.height
         );
 
         ctx.beginPath();
@@ -1060,132 +1476,241 @@ function startBreakout() {
         ctx.arc(
             ball.x,
             ball.y,
-            8,
+            ball.radius,
             0,
             Math.PI * 2
         );
 
         ctx.fill();
 
-        bricks.forEach(b => {
+        bricks.forEach(
+            brick => {
 
-            if (!b.alive) {
-                return;
+                if (!brick.alive) {
+                    return;
+                }
+
+                ctx.fillRect(
+                    brick.x,
+                    brick.y,
+                    brick.width,
+                    brick.height
+                );
+
             }
+        );
 
-            ctx.fillRect(
-                b.x,
-                b.y,
-                58,
-                20
-            );
+        SCOREBOARD.innerHTML = `
+            <div class="score">
+                SCORE
+                <strong>${score}</strong>
+            </div>
 
-        });
-
-        setScore("Score", score);
+            <div class="score">
+                LIVES
+                <strong>${lives}</strong>
+            </div>
+        `;
 
     }
 
     function update() {
 
+        if (!running) {
+            return;
+        }
+
         ball.x += ball.vx;
         ball.y += ball.vy;
 
         if (
-            ball.x < 0 ||
-            ball.x > 700
+            ball.x - ball.radius <= 0 ||
+            ball.x + ball.radius >= 700
         ) {
 
             ball.vx *= -1;
 
         }
 
-        if (ball.y < 0) {
+        if (
+            ball.y - ball.radius <= 0
+        ) {
 
             ball.vy *= -1;
 
         }
 
         if (
-            ball.y >= 455 &&
-            ball.x >= paddleX &&
-            ball.x <= paddleX + 100
+            ball.y + ball.radius >= paddle.y &&
+            ball.y - ball.radius <=
+                paddle.y +
+                paddle.height &&
+            ball.x >= paddle.x &&
+            ball.x <=
+                paddle.x +
+                paddle.width &&
+            ball.vy > 0
         ) {
 
-            ball.vy = -Math.abs(ball.vy);
+            const hit =
+                (
+                    ball.x -
+                    (
+                        paddle.x +
+                        paddle.width / 2
+                    )
+                ) /
+                (
+                    paddle.width / 2
+                );
+
+            ball.vx =
+                hit * 6;
+
+            ball.vy =
+                -Math.abs(
+                    ball.vy
+                );
 
         }
 
-        bricks.forEach(b => {
+        for (
+            const brick of bricks
+        ) {
+
+            if (!brick.alive) {
+                continue;
+            }
 
             if (
-                b.alive &&
-                ball.x >= b.x &&
-                ball.x <= b.x + 58 &&
-                ball.y >= b.y &&
-                ball.y <= b.y + 20
+                ball.x + ball.radius >
+                    brick.x &&
+                ball.x - ball.radius <
+                    brick.x +
+                    brick.width &&
+                ball.y + ball.radius >
+                    brick.y &&
+                ball.y - ball.radius <
+                    brick.y +
+                    brick.height
             ) {
 
-                b.alive = false;
-
-                ball.vy *= -1;
+                brick.alive = false;
 
                 score++;
 
+                ball.vy *= -1;
+
+                break;
+
             }
 
-        });
+        }
 
-        if (ball.y > 500) {
+        if (
+            bricks.every(
+                brick =>
+                    !brick.alive
+            )
+        ) {
+
+            running = false;
 
             setStatus(
-                "💀 Game Over — Score " + score
+                "🏆 BOARD CLEARED!"
             );
+
+            draw();
 
             return;
 
         }
 
         if (
-            bricks.every(
-                b => !b.alive
-            )
+            ball.y -
+            ball.radius >
+            500
         ) {
 
-            setStatus("🏆 You cleared the board!");
+            lives--;
 
-            return;
+            if (lives <= 0) {
+
+                running = false;
+
+                setStatus(
+                    "💀 GAME OVER — Score: " +
+                    score
+                );
+
+            } else {
+
+                resetBall();
+
+                paddle.x = 300;
+
+            }
 
         }
 
         draw();
 
-        requestAnimationFrame(update);
-
     }
 
-    document.onkeydown = function(e) {
+    document.onkeydown =
+        function(e) {
 
-        if (e.key === "ArrowLeft") {
-            paddleX -= 30;
-        }
+            if (
+                e.key === "ArrowLeft"
+            ) {
 
-        if (e.key === "ArrowRight") {
-            paddleX += 30;
-        }
+                paddle.x -=
+                    paddle.speed;
 
-        paddleX =
-            Math.max(
-                0,
-                Math.min(
-                    600,
-                    paddleX
-                )
-            );
+            }
 
-    };
+            if (
+                e.key === "ArrowRight"
+            ) {
 
-    update();
+                paddle.x +=
+                    paddle.speed;
+
+            }
+
+            paddle.x =
+                Math.max(
+                    0,
+                    Math.min(
+                        600,
+                        paddle.x
+                    )
+                );
+
+        };
+
+    setStatus(
+        "🧱 Breakout"
+    );
+
+    setInstructions(
+        "Move with Arrow Left/Right. Break every block."
+    );
+
+    score = 0;
+    lives = 3;
+    running = true;
+
+    resetBall();
+
+    resetBricks();
+
+    draw();
+
+    safeInterval(
+        update,
+        16
+    );
 
 }
 
@@ -1197,33 +1722,37 @@ function startBreakout() {
 function load2048() {
 
     CURRENT_GAME = {
-        restart() {
-            start2048();
-        }
+        restart: start2048
     };
 
     start2048();
 
 }
 
-
 function start2048() {
 
     clearGame();
 
-    const board = document.createElement("div");
+    const board =
+        document.createElement(
+            "div"
+        );
 
-    board.className = "board";
+    board.className =
+        "board";
 
     board.style.gridTemplateColumns =
         "repeat(4, 60px)";
 
-    GAME_CONTAINER.appendChild(board);
+    GAME_CONTAINER.appendChild(
+        board
+    );
 
     let grid =
         Array.from(
             {length: 4},
-            () => Array(4).fill(0)
+            () =>
+                Array(4).fill(0)
         );
 
     let score = 0;
@@ -1232,13 +1761,25 @@ function start2048() {
 
         const empty = [];
 
-        for (let r = 0; r < 4; r++) {
+        for (
+            let r = 0;
+            r < 4;
+            r++
+        ) {
 
-            for (let c = 0; c < 4; c++) {
+            for (
+                let c = 0;
+                c < 4;
+                c++
+            ) {
 
-                if (grid[r][c] === 0) {
+                if (
+                    grid[r][c] === 0
+                ) {
 
-                    empty.push([r, c]);
+                    empty.push(
+                        [r, c]
+                    );
 
                 }
 
@@ -1247,10 +1788,10 @@ function start2048() {
         }
 
         if (!empty.length) {
-            return;
+            return false;
         }
 
-        const [r, c] =
+        const position =
             empty[
                 Math.floor(
                     Math.random() *
@@ -1258,38 +1799,57 @@ function start2048() {
                 )
             ];
 
-        grid[r][c] =
+        grid[
+            position[0]
+        ][
+            position[1]
+        ] =
             Math.random() < .9
             ? 2
             : 4;
+
+        return true;
 
     }
 
     function slide(row) {
 
-        row =
+        let values =
             row.filter(
-                x => x !== 0
+                value =>
+                    value !== 0
             );
+
+        let result = [];
 
         for (
             let i = 0;
-            i < row.length - 1;
+            i < values.length;
             i++
         ) {
 
             if (
-                row[i] ===
-                row[i + 1]
+                i + 1 <
+                    values.length &&
+                values[i] ===
+                    values[i + 1]
             ) {
 
-                row[i] *= 2;
+                const merged =
+                    values[i] * 2;
 
-                score += row[i];
+                result.push(
+                    merged
+                );
 
-                row.splice(
-                    i + 1,
-                    1
+                score += merged;
+
+                i++;
+
+            } else {
+
+                result.push(
+                    values[i]
                 );
 
             }
@@ -1297,28 +1857,68 @@ function start2048() {
         }
 
         while (
-            row.length < 4
+            result.length < 4
         ) {
 
-            row.push(0);
+            result.push(0);
 
         }
 
-        return row;
+        return result;
 
     }
 
-    function rotate() {
+    function moveLeft() {
+
+        let changed = false;
+
+        for (
+            let r = 0;
+            r < 4;
+            r++
+        ) {
+
+            const old =
+                [...grid[r]];
+
+            grid[r] =
+                slide(grid[r]);
+
+            if (
+                old.join(",") !==
+                grid[r].join(",")
+            ) {
+
+                changed = true;
+
+            }
+
+        }
+
+        return changed;
+
+    }
+
+    function rotateRight() {
 
         const result =
             Array.from(
                 {length: 4},
-                () => Array(4).fill(0)
+                () =>
+                    Array(4).fill(0)
             );
 
-        for (let r = 0; r < 4; r++) {
+        for (
+            let r = 0;
+            r < 4;
+            r++
+        ) {
 
-            for (let c = 0; c < 4; c++) {
+            for (
+                let c = 0;
+                c < 4;
+                c++
+            ) {
 
                 result[c][3-r] =
                     grid[r][c];
@@ -1331,46 +1931,126 @@ function start2048() {
 
     }
 
-    function move(direction) {
+    function move(
+        direction
+    ) {
 
-        let rotations =
-            {
-                left: 0,
-                up: 3,
-                right: 2,
-                down: 1
-            }[direction];
+        const rotations = {
+            left: 0,
+            up: 3,
+            right: 2,
+            down: 1
+        };
 
-        for (
-            let i = 0;
-            i < rotations;
-            i++
-        ) {
-
-            rotate();
-
-        }
-
-        for (let r = 0; r < 4; r++) {
-
-            grid[r] =
-                slide(grid[r]);
-
-        }
+        const count =
+            rotations[
+                direction
+            ];
 
         for (
             let i = 0;
-            i < (4 - rotations) % 4;
+            i < count;
             i++
         ) {
 
-            rotate();
+            rotateRight();
 
         }
 
-        addTile();
+        const changed =
+            moveLeft();
+
+        for (
+            let i = 0;
+            i <
+            (4 - count) % 4;
+            i++
+        ) {
+
+            rotateRight();
+
+        }
+
+        if (changed) {
+            addTile();
+        }
 
         render();
+
+        if (hasWon()) {
+
+            setStatus(
+                "🏆 YOU REACHED 2048!"
+            );
+
+        } else if (
+            !canMove()
+        ) {
+
+            setStatus(
+                "💀 GAME OVER"
+            );
+
+        }
+
+    }
+
+    function hasWon() {
+
+        return grid.some(
+            row =>
+                row.includes(2048)
+        );
+
+    }
+
+    function canMove() {
+
+        for (
+            let r = 0;
+            r < 4;
+            r++
+        ) {
+
+            for (
+                let c = 0;
+                c < 4;
+                c++
+            ) {
+
+                if (
+                    grid[r][c] === 0
+                ) {
+
+                    return true;
+
+                }
+
+                if (
+                    c < 3 &&
+                    grid[r][c] ===
+                    grid[r][c + 1]
+                ) {
+
+                    return true;
+
+                }
+
+                if (
+                    r < 3 &&
+                    grid[r][c] ===
+                    grid[r + 1][c]
+                ) {
+
+                    return true;
+
+                }
+
+            }
+
+        }
+
+        return false;
 
     }
 
@@ -1378,9 +2058,17 @@ function start2048() {
 
         board.innerHTML = "";
 
-        grid.forEach(row => {
+        for (
+            let r = 0;
+            r < 4;
+            r++
+        ) {
 
-            row.forEach(value => {
+            for (
+                let c = 0;
+                c < 4;
+                c++
+            ) {
 
                 const cell =
                     document.createElement(
@@ -1391,42 +2079,53 @@ function start2048() {
                     "cell";
 
                 cell.textContent =
-                    value || "";
+                    grid[r][c] || "";
 
-                board.appendChild(cell);
+                board.appendChild(
+                    cell
+                );
 
-            });
+            }
 
-        });
+        }
 
-        setScore("Score", score);
+        setScore(
+            "Score",
+            score
+        );
 
     }
 
-    document.onkeydown = function(e) {
+    document.onkeydown =
+        function(e) {
 
-        if (
-            e.key === "ArrowLeft"
-        ) move("left");
+            const keys = {
+                ArrowLeft: "left",
+                ArrowRight: "right",
+                ArrowUp: "up",
+                ArrowDown: "down"
+            };
 
-        if (
-            e.key === "ArrowRight"
-        ) move("right");
+            if (
+                keys[e.key]
+            ) {
 
-        if (
-            e.key === "ArrowUp"
-        ) move("up");
+                e.preventDefault();
 
-        if (
-            e.key === "ArrowDown"
-        ) move("down");
+                move(
+                    keys[e.key]
+                );
 
-    };
+            }
 
-    setStatus("🔢 2048");
+        };
+
+    setStatus(
+        "🔢 2048"
+    );
 
     setInstructions(
-        "Use the arrow keys to combine matching numbers. Reach 2048."
+        "Use the arrow keys to combine matching numbers and reach 2048."
     );
 
     addTile();
@@ -1438,33 +2137,34 @@ function start2048() {
 
 
 /* ==========================================================
-   MEMORY
+   MEMORY MATCH
    ========================================================== */
 
 function loadMemory() {
 
     CURRENT_GAME = {
-        restart() {
-            startMemory();
-        }
+        restart: startMemory
     };
 
     startMemory();
 
 }
 
-
 function startMemory() {
 
     clearGame();
 
-    const grid =
-        document.createElement("div");
+    const board =
+        document.createElement(
+            "div"
+        );
 
-    grid.className =
+    board.className =
         "card-grid";
 
-    GAME_CONTAINER.appendChild(grid);
+    GAME_CONTAINER.appendChild(
+        board
+    );
 
     const symbols = [
         "🍎",
@@ -1477,11 +2177,12 @@ function startMemory() {
         "🍊"
     ];
 
-    let cards =
+    const cards =
         [...symbols, ...symbols]
         .sort(
             () =>
-                Math.random() - .5
+                Math.random() -
+                .5
         );
 
     let first = null;
@@ -1489,110 +2190,131 @@ function startMemory() {
     let matches = 0;
     let moves = 0;
 
-    cards.forEach(symbol => {
+    cards.forEach(
+        symbol => {
 
-        const card =
-            document.createElement("div");
-
-        card.className =
-            "card";
-
-        card.textContent = "❓";
-
-        card.onclick = function() {
-
-            if (
-                lock ||
-                card.classList.contains(
-                    "matched"
-                ) ||
-                card === first
-            ) {
-
-                return;
-
-            }
-
-            card.textContent = symbol;
-            card.classList.add("flipped");
-
-            if (!first) {
-
-                first = card;
-                return;
-
-            }
-
-            moves++;
-
-            if (
-                first.textContent ===
-                card.textContent
-            ) {
-
-                first.classList.add(
-                    "matched"
+            const card =
+                document.createElement(
+                    "div"
                 );
 
-                card.classList.add(
-                    "matched"
-                );
+            card.className =
+                "card";
 
-                first = null;
+            card.textContent =
+                "❓";
 
-                matches++;
+            card.dataset.symbol =
+                symbol;
 
-                if (
-                    matches ===
-                    symbols.length
-                ) {
+            card.onclick =
+                function() {
 
-                    setStatus(
-                        "🏆 You won in " +
-                        moves +
-                        " moves!"
-                    );
+                    if (
+                        lock ||
+                        card === first ||
+                        card.classList.contains(
+                            "matched"
+                        )
+                    ) {
 
-                }
+                        return;
 
-            } else {
-
-                lock = true;
-
-                setTimeout(() => {
-
-                    first.textContent =
-                        "❓";
+                    }
 
                     card.textContent =
-                        "❓";
+                        symbol;
 
-                    first.classList.remove(
+                    card.classList.add(
                         "flipped"
                     );
 
-                    card.classList.remove(
-                        "flipped"
-                    );
+                    if (!first) {
 
-                    first = null;
+                        first = card;
 
-                    lock = false;
+                        return;
 
-                }, 700);
+                    }
 
-            }
+                    moves++;
 
-        };
+                    if (
+                        first.dataset.symbol ===
+                        card.dataset.symbol
+                    ) {
 
-        grid.appendChild(card);
+                        first.classList.add(
+                            "matched"
+                        );
 
-    });
+                        card.classList.add(
+                            "matched"
+                        );
 
-    setStatus("🧠 Memory Match");
+                        first = null;
+
+                        matches++;
+
+                        if (
+                            matches ===
+                            symbols.length
+                        ) {
+
+                            setStatus(
+                                "🏆 YOU WON IN " +
+                                moves +
+                                " MOVES!"
+                            );
+
+                        }
+
+                    } else {
+
+                        lock = true;
+
+                        safeTimeout(
+                            () => {
+
+                                first.textContent =
+                                    "❓";
+
+                                card.textContent =
+                                    "❓";
+
+                                first.classList.remove(
+                                    "flipped"
+                                );
+
+                                card.classList.remove(
+                                    "flipped"
+                                );
+
+                                first = null;
+
+                                lock = false;
+
+                            },
+                            700
+                        );
+
+                    }
+
+                };
+
+            board.appendChild(
+                card
+            );
+
+        }
+    );
+
+    setStatus(
+        "🧠 Memory Match"
+    );
 
     setInstructions(
-        "Flip two cards at a time and match all the pairs."
+        "Flip two cards at a time and match every pair."
     );
 
 }
@@ -1605,22 +2327,21 @@ function startMemory() {
 function loadTicTacToe() {
 
     CURRENT_GAME = {
-        restart() {
-            startTicTacToe();
-        }
+        restart: startTicTacToe
     };
 
     startTicTacToe();
 
 }
 
-
 function startTicTacToe() {
 
     clearGame();
 
     const board =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     board.className =
         "board";
@@ -1628,30 +2349,39 @@ function startTicTacToe() {
     board.style.gridTemplateColumns =
         "repeat(3, 70px)";
 
-    GAME_CONTAINER.appendChild(board);
+    GAME_CONTAINER.appendChild(
+        board
+    );
 
     let cells =
         Array(9).fill("");
 
     let turn = "X";
 
-    function checkWinner() {
+    let finished = false;
 
-        const wins = [
-            [0,1,2],
-            [3,4,5],
-            [6,7,8],
-            [0,3,6],
-            [1,4,7],
-            [2,5,8],
-            [0,4,8],
-            [2,4,6]
-        ];
+    const wins = [
+        [0,1,2],
+        [3,4,5],
+        [6,7,8],
+        [0,3,6],
+        [1,4,7],
+        [2,5,8],
+        [0,4,8],
+        [2,4,6]
+    ];
+
+    function winner() {
 
         for (
-            const [a,b,c]
-            of wins
+            const line of wins
         ) {
+
+            const [
+                a,
+                b,
+                c
+            ] = line;
 
             if (
                 cells[a] &&
@@ -1667,7 +2397,7 @@ function startTicTacToe() {
 
         if (
             cells.every(
-                x => x !== ""
+                Boolean
             )
         ) {
 
@@ -1679,63 +2409,92 @@ function startTicTacToe() {
 
     }
 
-    cells.forEach((_, index) => {
+    function render() {
 
-        const cell =
-            document.createElement("div");
+        board.innerHTML = "";
 
-        cell.className =
-            "cell";
+        cells.forEach(
+            (value, index) => {
 
-        cell.onclick = function() {
+                const cell =
+                    document.createElement(
+                        "div"
+                    );
 
-            if (cells[index]) {
-                return;
-            }
+                cell.className =
+                    "cell";
 
-            cells[index] = turn;
+                cell.textContent =
+                    value;
 
-            cell.textContent = turn;
+                cell.onclick =
+                    function() {
 
-            const winner =
-                checkWinner();
+                        if (
+                            finished ||
+                            cells[index]
+                        ) {
 
-            if (winner) {
+                            return;
 
-                setStatus(
-                    winner === "draw"
-                    ? "🤝 Draw!"
-                    : "🏆 " +
-                      winner +
-                      " wins!"
+                        }
+
+                        cells[index] =
+                            turn;
+
+                        const result =
+                            winner();
+
+                        if (result) {
+
+                            finished = true;
+
+                            setStatus(
+                                result ===
+                                "draw"
+                                ? "🤝 DRAW!"
+                                : "🏆 " +
+                                  result +
+                                  " WINS!"
+                            );
+
+                        } else {
+
+                            turn =
+                                turn === "X"
+                                ? "O"
+                                : "X";
+
+                            setStatus(
+                                "Player " +
+                                turn +
+                                "'s turn"
+                            );
+
+                        }
+
+                        render();
+
+                    };
+
+                board.appendChild(
+                    cell
                 );
 
-                return;
-
             }
+        );
 
-            turn =
-                turn === "X"
-                ? "O"
-                : "X";
+    }
 
-            setStatus(
-                "Player " +
-                turn +
-                "'s turn"
-            );
-
-        };
-
-        board.appendChild(cell);
-
-    });
-
-    setStatus("⭕ Tic-Tac-Toe");
+    setStatus(
+        "⭕ Tic-Tac-Toe — X starts"
+    );
 
     setInstructions(
         "Click an empty square. Get three in a row."
     );
+
+    render();
 
 }
 
@@ -1747,22 +2506,21 @@ function startTicTacToe() {
 function loadConnectFour() {
 
     CURRENT_GAME = {
-        restart() {
-            startConnectFour();
-        }
+        restart: startConnectFour
     };
 
     startConnectFour();
 
 }
 
-
 function startConnectFour() {
 
     clearGame();
 
     const board =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     board.className =
         "board";
@@ -1770,20 +2528,28 @@ function startConnectFour() {
     board.style.gridTemplateColumns =
         "repeat(7, 50px)";
 
-    GAME_CONTAINER.appendChild(board);
+    GAME_CONTAINER.appendChild(
+        board
+    );
 
     let grid =
         Array.from(
             {length: 6},
-            () => Array(7).fill("")
+            () =>
+                Array(7).fill("")
         );
 
     let turn = "🔴";
 
-    function checkWin(r,c) {
+    let finished = false;
+
+    function checkWin(
+        row,
+        col
+    ) {
 
         const player =
-            grid[r][c];
+            grid[row][col];
 
         const directions = [
             [0,1],
@@ -1793,8 +2559,10 @@ function startConnectFour() {
         ];
 
         for (
-            const [dr,dc]
-            of directions
+            const [
+                dr,
+                dc
+            ] of directions
         ) {
 
             let count = 1;
@@ -1805,19 +2573,23 @@ function startConnectFour() {
                 d++
             ) {
 
-                const rr =
-                    r + dr * d;
+                const r =
+                    row + dr * d;
 
-                const cc =
-                    c + dc * d;
+                const c =
+                    col + dc * d;
 
                 if (
-                    rr < 0 ||
-                    rr >= 6 ||
-                    cc < 0 ||
-                    cc >= 7 ||
-                    grid[rr][cc] !== player
-                ) break;
+                    r < 0 ||
+                    r >= 6 ||
+                    c < 0 ||
+                    c >= 7 ||
+                    grid[r][c] !== player
+                ) {
+
+                    break;
+
+                }
 
                 count++;
 
@@ -1829,26 +2601,34 @@ function startConnectFour() {
                 d++
             ) {
 
-                const rr =
-                    r - dr * d;
+                const r =
+                    row - dr * d;
 
-                const cc =
-                    c - dc * d;
+                const c =
+                    col - dc * d;
 
                 if (
-                    rr < 0 ||
-                    rr >= 6 ||
-                    cc < 0 ||
-                    cc >= 7 ||
-                    grid[rr][cc] !== player
-                ) break;
+                    r < 0 ||
+                    r >= 6 ||
+                    c < 0 ||
+                    c >= 7 ||
+                    grid[r][c] !== player
+                ) {
+
+                    break;
+
+                }
 
                 count++;
 
             }
 
-            if (count >= 4) {
+            if (
+                count >= 4
+            ) {
+
                 return true;
+
             }
 
         }
@@ -1857,91 +2637,9 @@ function startConnectFour() {
 
     }
 
-    for (
-        let r = 0;
-        r < 6;
-        r++
-    ) {
+    function render() {
 
-        for (
-            let c = 0;
-            c < 7;
-            c++
-        ) {
-
-            const cell =
-                document.createElement(
-                    "div"
-                );
-
-            cell.className =
-                "cell";
-
-            cell.onclick = function() {
-
-                for (
-                    let rr = 5;
-                    rr >= 0;
-                    rr--
-                ) {
-
-                    if (
-                        !grid[rr][c]
-                    ) {
-
-                        grid[rr][c] =
-                            turn;
-
-                        cellRender();
-
-                        if (
-                            checkWin(
-                                rr,
-                                c
-                            )
-                        ) {
-
-                            setStatus(
-                                "🏆 " +
-                                turn +
-                                " wins!"
-                            );
-
-                        } else {
-
-                            turn =
-                                turn ===
-                                "🔴"
-                                ? "🟡"
-                                : "🔴";
-
-                            setStatus(
-                                turn +
-                                " turn"
-                            );
-
-                        }
-
-                        break;
-
-                    }
-
-                }
-
-            };
-
-            board.appendChild(cell);
-
-        }
-
-    }
-
-    function cellRender() {
-
-        const cells =
-            board.children;
-
-        let i = 0;
+        board.innerHTML = "";
 
         for (
             let r = 0;
@@ -1955,10 +2653,97 @@ function startConnectFour() {
                 c++
             ) {
 
-                cells[i].textContent =
+                const cell =
+                    document.createElement(
+                        "div"
+                    );
+
+                cell.className =
+                    "cell";
+
+                cell.textContent =
                     grid[r][c];
 
-                i++;
+                cell.onclick =
+                    function() {
+
+                        if (finished) {
+                            return;
+                        }
+
+                        for (
+                            let row = 5;
+                            row >= 0;
+                            row--
+                        ) {
+
+                            if (
+                                !grid[row][c]
+                            ) {
+
+                                grid[row][c] =
+                                    turn;
+
+                                if (
+                                    checkWin(
+                                        row,
+                                        c
+                                    )
+                                ) {
+
+                                    finished =
+                                        true;
+
+                                    setStatus(
+                                        "🏆 " +
+                                        turn +
+                                        " WINS!"
+                                    );
+
+                                } else if (
+                                    grid.every(
+                                        row =>
+                                            row.every(
+                                                Boolean
+                                            )
+                                    )
+                                ) {
+
+                                    finished =
+                                        true;
+
+                                    setStatus(
+                                        "🤝 DRAW!"
+                                    );
+
+                                } else {
+
+                                    turn =
+                                        turn ===
+                                        "🔴"
+                                        ? "🟡"
+                                        : "🔴";
+
+                                    setStatus(
+                                        turn +
+                                        " TURN"
+                                    );
+
+                                }
+
+                                render();
+
+                                break;
+
+                            }
+
+                        }
+
+                    };
+
+                board.appendChild(
+                    cell
+                );
 
             }
 
@@ -1971,8 +2756,10 @@ function startConnectFour() {
     );
 
     setInstructions(
-        "Click a column to drop your piece. Connect four."
+        "Click a column to drop your piece. Connect four before your opponent."
     );
+
+    render();
 
 }
 
@@ -1984,15 +2771,12 @@ function startConnectFour() {
 function loadRPS() {
 
     CURRENT_GAME = {
-        restart() {
-            startRPS();
-        }
+        restart: startRPS
     };
 
     startRPS();
 
 }
-
 
 function startRPS() {
 
@@ -2007,9 +2791,13 @@ function startRPS() {
         "big-message";
 
     area.innerHTML =
-        "<h2>✊ ✋ ✌️</h2>";
+        "<div style='font-size:80px'>" +
+        "✊ ✋ ✌️" +
+        "</div>";
 
-    GAME_CONTAINER.appendChild(area);
+    GAME_CONTAINER.appendChild(
+        area
+    );
 
     const buttons =
         document.createElement(
@@ -2025,39 +2813,47 @@ function startRPS() {
         "Scissors"
     ];
 
-    choices.forEach(choice => {
+    let playerScore = 0;
+    let cpuScore = 0;
 
-        buttons.appendChild(
-            button(
-                choice,
-                () => play(choice)
-            )
-        );
+    choices.forEach(
+        choice => {
 
-    });
+            buttons.appendChild(
+                makeButton(
+                    choice,
+                    () =>
+                        play(choice)
+                )
+            );
+
+        }
+    );
 
     GAME_CONTAINER.appendChild(
         buttons
     );
 
-    let playerScore = 0;
-    let cpuScore = 0;
-
-    function play(player) {
+    function play(
+        player
+    ) {
 
         const cpu =
             choices[
                 Math.floor(
                     Math.random() *
-                    3
+                    choices.length
                 )
             ];
 
         let result;
 
-        if (player === cpu) {
+        if (
+            player === cpu
+        ) {
 
-            result = "Draw!";
+            result =
+                "🤝 DRAW!";
 
         } else if (
             (
@@ -2077,14 +2873,14 @@ function startRPS() {
             playerScore++;
 
             result =
-                "🏆 You win!";
+                "🏆 YOU WIN!";
 
         } else {
 
             cpuScore++;
 
             result =
-                "💀 CPU wins!";
+                "💀 CPU WINS!";
 
         }
 
@@ -2096,12 +2892,17 @@ function startRPS() {
             cpu
         );
 
-        setScore(
-            "Score",
-            playerScore +
-            " - " +
-            cpuScore
-        );
+        SCOREBOARD.innerHTML = `
+            <div class="score">
+                YOU
+                <strong>${playerScore}</strong>
+            </div>
+
+            <div class="score">
+                CPU
+                <strong>${cpuScore}</strong>
+            </div>
+        `;
 
     }
 
@@ -2117,128 +2918,18 @@ function startRPS() {
 
 
 /* ==========================================================
-   CLICKER / GENERIC ARCADE GAME
-   ========================================================== */
-
-function loadClicker(title, emoji) {
-
-    CURRENT_GAME = {
-        restart() {
-            startClicker(
-                title,
-                emoji
-            );
-        }
-    };
-
-    startClicker(
-        title,
-        emoji
-    );
-
-}
-
-
-function startClicker(title, emoji) {
-
-    clearGame();
-
-    let score = 0;
-    let time = 15;
-    let running = true;
-
-    const area =
-        document.createElement(
-            "div"
-        );
-
-    area.className =
-        "big-message";
-
-    area.innerHTML = `
-        <div style="font-size:90px">
-            ${emoji}
-        </div>
-        <h2>${title}</h2>
-    `;
-
-    GAME_CONTAINER.appendChild(area);
-
-    const click =
-        button(
-            "CLICK!",
-            () => {
-
-                if (!running) {
-                    return;
-                }
-
-                score++;
-
-                setScore(
-                    "Score",
-                    score
-                );
-
-            }
-        );
-
-    click.style.fontSize =
-        "25px";
-
-    GAME_CONTAINER.appendChild(
-        click
-    );
-
-    setInstructions(
-        "Click as fast as possible before the timer reaches zero."
-    );
-
-    const timer =
-        setInterval(() => {
-
-            time--;
-
-            setStatus(
-                "⏱️ Time: " +
-                time +
-                " seconds"
-            );
-
-            if (time <= 0) {
-
-                running = false;
-
-                clearInterval(timer);
-
-                setStatus(
-                    "🏆 Final Score: " +
-                    score
-                );
-
-            }
-
-        }, 1000);
-
-}
-
-
-/* ==========================================================
-   SIMPLE TARGET SHOOTER
+   TARGET SHOOTER
    ========================================================== */
 
 function loadTargetShooter() {
 
     CURRENT_GAME = {
-        restart() {
-            startTargetShooter();
-        }
+        restart: startTargetShooter
     };
 
     startTargetShooter();
 
 }
-
 
 function startTargetShooter() {
 
@@ -2257,46 +2948,118 @@ function startTargetShooter() {
     );
 
     const ctx =
-        canvas.getContext(
-            "2d"
-        );
+        canvas.getContext("2d");
+
+    let target;
 
     let score = 0;
+
     let shots = 0;
+
     let time = 20;
-    let target = randomTarget();
 
-    function randomTarget() {
+    let running = true;
 
-        return {
+    function newTarget() {
+
+        target = {
             x:
                 40 +
-                Math.random() *
-                620,
+                Math.random() * 620,
 
             y:
                 40 +
-                Math.random() *
-                420,
+                Math.random() * 420,
 
             radius: 25
         };
 
     }
 
+    function draw() {
+
+        ctx.fillStyle = "#000";
+
+        ctx.fillRect(
+            0,
+            0,
+            700,
+            500
+        );
+
+        ctx.fillStyle =
+            "#fff";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            target.x,
+            target.y,
+            target.radius,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+        ctx.fillStyle =
+            "#000";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            target.x,
+            target.y,
+            8,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+        SCOREBOARD.innerHTML = `
+            <div class="score">
+                HITS
+                <strong>${score}</strong>
+            </div>
+
+            <div class="score">
+                TIME
+                <strong>${time}</strong>
+            </div>
+        `;
+
+    }
+
     canvas.onclick =
         function(e) {
+
+            if (!running) {
+                return;
+            }
 
             const rect =
                 canvas.getBoundingClientRect();
 
+            const scaleX =
+                canvas.width /
+                rect.width;
+
+            const scaleY =
+                canvas.height /
+                rect.height;
+
             const x =
-                e.clientX -
-                rect.left;
+                (
+                    e.clientX -
+                    rect.left
+                ) * scaleX;
 
             const y =
-                e.clientY -
-                rect.top;
+                (
+                    e.clientY -
+                    rect.top
+                ) * scaleY;
 
             shots++;
 
@@ -2313,8 +3076,7 @@ function startTargetShooter() {
 
                 score++;
 
-                target =
-                    randomTarget();
+                newTarget();
 
             }
 
@@ -2322,109 +3084,63 @@ function startTargetShooter() {
 
         };
 
-    function draw() {
+    newTarget();
 
-        ctx.fillStyle =
-            "#000";
-
-        ctx.fillRect(
-            0,
-            0,
-            700,
-            500
-        );
-
-        ctx.beginPath();
-
-        ctx.arc(
-            target.x,
-            target.y,
-            target.radius,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fillStyle =
-            "#fff";
-
-        ctx.fill();
-
-        ctx.beginPath();
-
-        ctx.arc(
-            target.x,
-            target.y,
-            8,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fillStyle =
-            "#000";
-
-        ctx.fill();
-
-        setScore(
-            "Hits",
-            score
-        );
-
-    }
-
-    setInstructions(
-        "Click the target as quickly as possible."
+    setStatus(
+        "🎯 Target Shooter"
     );
 
-    const timer =
-        setInterval(() => {
+    setInstructions(
+        "Click the target as many times as possible before time runs out."
+    );
+
+    draw();
+
+    safeInterval(
+        () => {
+
+            if (!running) {
+                return;
+            }
 
             time--;
 
-            setStatus(
-                "🎯 Time: " +
-                time +
-                " seconds"
-            );
-
             if (time <= 0) {
 
-                clearInterval(timer);
+                running = false;
 
                 setStatus(
-                    "🏆 Finished! Hits: " +
+                    "🏆 FINISHED — " +
                     score +
-                    " / " +
-                    shots
+                    " HITS / " +
+                    shots +
+                    " SHOTS"
                 );
-
-                canvas.onclick =
-                    null;
 
             }
 
-        }, 1000);
+            draw();
 
-    draw();
+        },
+        1000
+    );
 
 }
 
 
 /* ==========================================================
-   DODGE GAME
+   DODGE
    ========================================================== */
 
 function loadDodge() {
 
     CURRENT_GAME = {
-        restart() {
-            startDodge();
-        }
+        restart: startDodge
     };
 
     startDodge();
 
 }
-
 
 function startDodge() {
 
@@ -2443,44 +3159,46 @@ function startDodge() {
     );
 
     const ctx =
-        canvas.getContext(
-            "2d"
-        );
+        canvas.getContext("2d");
 
     let player = {
-        x: 280,
+        x: 285,
         y: 440,
-        size: 30
+        width: 30,
+        height: 30,
+        speed: 7
     };
 
     let enemies = [];
 
     let score = 0;
+
     let running = true;
 
+    const keys = {};
+
     document.onkeydown =
-        function(e) {
+        e => {
+
+            keys[e.key] = true;
 
             if (
-                e.key === "ArrowLeft"
+                [
+                    "ArrowLeft",
+                    "ArrowRight"
+                ].includes(e.key)
             ) {
-                player.x -= 25;
+
+                e.preventDefault();
+
             }
 
-            if (
-                e.key === "ArrowRight"
-            ) {
-                player.x += 25;
-            }
+        };
 
-            player.x =
-                Math.max(
-                    0,
-                    Math.min(
-                        570,
-                        player.x
-                    )
-                );
+    document.onkeyup =
+        e => {
+
+            keys[e.key] = false;
 
         };
 
@@ -2493,7 +3211,8 @@ function startDodge() {
 
             y: -30,
 
-            size: 30,
+            width: 30,
+            height: 30,
 
             speed:
                 2 +
@@ -2502,11 +3221,101 @@ function startDodge() {
 
     }
 
+    function collide(
+        a,
+        b
+    ) {
+
+        return (
+            a.x <
+                b.x + b.width &&
+            a.x + a.width >
+                b.x &&
+            a.y <
+                b.y + b.height &&
+            a.y + a.height >
+                b.y
+        );
+
+    }
+
     function update() {
 
         if (!running) {
             return;
         }
+
+        if (
+            keys.ArrowLeft ||
+            keys.a ||
+            keys.A
+        ) {
+
+            player.x -=
+                player.speed;
+
+        }
+
+        if (
+            keys.ArrowRight ||
+            keys.d ||
+            keys.D
+        ) {
+
+            player.x +=
+                player.speed;
+
+        }
+
+        player.x =
+            Math.max(
+                0,
+                Math.min(
+                    570,
+                    player.x
+                )
+            );
+
+        enemies.forEach(
+            enemy => {
+
+                enemy.y +=
+                    enemy.speed;
+
+            }
+        );
+
+        for (
+            const enemy of enemies
+        ) {
+
+            if (
+                collide(
+                    player,
+                    enemy
+                )
+            ) {
+
+                running = false;
+
+                setStatus(
+                    "💀 GAME OVER — " +
+                    Math.floor(
+                        score / 10
+                    )
+                );
+
+            }
+
+        }
+
+        enemies =
+            enemies.filter(
+                enemy =>
+                    enemy.y < 550
+            );
+
+        score++;
 
         ctx.fillStyle =
             "#000";
@@ -2524,54 +3333,22 @@ function startDodge() {
         ctx.fillRect(
             player.x,
             player.y,
-            player.size,
-            player.size
+            player.width,
+            player.height
         );
 
-        enemies.forEach(enemy => {
+        enemies.forEach(
+            enemy => {
 
-            enemy.y +=
-                enemy.speed;
-
-            ctx.fillRect(
-                enemy.x,
-                enemy.y,
-                enemy.size,
-                enemy.size
-            );
-
-            if (
-                player.x <
-                    enemy.x +
-                    enemy.size &&
-                player.x +
-                    player.size >
-                    enemy.x &&
-                player.y <
-                    enemy.y +
-                    enemy.size &&
-                player.y +
-                    player.size >
-                    enemy.y
-            ) {
-
-                running = false;
-
-                setStatus(
-                    "💀 Game Over! Score: " +
-                    score
+                ctx.fillRect(
+                    enemy.x,
+                    enemy.y,
+                    enemy.width,
+                    enemy.height
                 );
 
             }
-
-        });
-
-        enemies =
-            enemies.filter(
-                e => e.y < 550
-            );
-
-        score++;
+        );
 
         setScore(
             "Survival",
@@ -2580,558 +3357,152 @@ function startDodge() {
             )
         );
 
-        requestAnimationFrame(
-            update
-        );
-
     }
 
     setStatus(
-        "🥊 Dodge Battle"
+        "🥊 Dodge"
     );
 
     setInstructions(
-        "Use the left and right arrow keys to dodge falling objects."
+        "Use Arrow Left/Right or A/D to avoid the falling blocks."
     );
 
-    setInterval(
+    safeInterval(
         spawn,
-        700
+        650
     );
 
-    update();
+    safeInterval(
+        update,
+        16
+    );
 
 }
 
 
 /* ==========================================================
-   GENERIC CARD GAME
+   TRIVIA
    ========================================================== */
 
-function loadCardGame(title, emoji) {
+function loadTrivia() {
 
     CURRENT_GAME = {
-        restart() {
-            startCardGame(
-                title,
-                emoji
-            );
-        }
+        restart: startTrivia
     };
 
-    startCardGame(
-        title,
-        emoji
-    );
+    startTrivia();
 
 }
 
-
-function startCardGame(title, emoji) {
-
-    clearGame();
-
-    const area =
-        document.createElement(
-            "div"
-        );
-
-    area.className =
-        "big-message";
-
-    area.innerHTML = `
-        <div style="font-size:80px">
-            ${emoji}
-        </div>
-
-        <h2>${title}</h2>
-
-        <p>
-            Draw a card and build your score.
-        </p>
-    `;
-
-    GAME_CONTAINER.appendChild(
-        area
-    );
-
-    const deck = [
-        1,2,3,4,5,6,7,8,9,10,
-        10,10,10,10
-    ];
-
-    let score = 0;
-
-    const draw =
-        button(
-            "🃏 DRAW CARD",
-            () => {
-
-                const card =
-                    deck[
-                        Math.floor(
-                            Math.random() *
-                            deck.length
-                        )
-                    ];
-
-                score += card;
-
-                setScore(
-                    "Score",
-                    score
-                );
-
-                setStatus(
-                    "You drew " +
-                    card
-                );
-
-            }
-        );
-
-    GAME_CONTAINER.appendChild(
-        draw
-    );
-
-    setInstructions(
-        "Draw cards and try to build the highest score."
-    );
-
-    setStatus(title);
-
-}
-
-
-/* ==========================================================
-   GAME DISPATCHER
-   ========================================================== */
-
-function launchGame() {
-
-    const games = {
-
-        snake:
-            loadSnake,
-
-        pong:
-            loadPong,
-
-        breakout:
-            loadBreakout,
-
-        "2048":
-            load2048,
-
-        memory:
-            loadMemory,
-
-        tic_tac_toe:
-            loadTicTacToe,
-
-        connect_four:
-            loadConnectFour,
-
-        target_shooter:
-            loadTargetShooter,
-
-        dodge_battle:
-            loadDodge,
-
-        rock_paper_scissors:
-            loadRPS,
-
-        rps:
-            loadRPS
-
-    };
-
-    if (games[GAME_ID]) {
-
-        games[GAME_ID]();
-
-        return;
-
-    }
-
-
-    /* ------------------------------------------------------
-       Games that use the clicker engine
-       ------------------------------------------------------ */
-
-    const clickerGames = {
-
-        basketball:
-            ["Basketball Challenge", "🏀"],
-
-        bowling:
-            ["Bowling", "🎳"],
-
-        archery:
-            ["Archery Challenge", "🏹"],
-
-        fishing:
-            ["Fishing", "🎣"],
-
-        traffic_racer:
-            ["Traffic Racer", "🚗"],
-
-        space_invaders:
-            ["Space Invaders", "👾"],
-
-        asteroids:
-            ["Asteroids", "☄️"],
-
-        pacman:
-            ["Pac-Man", "🟡"],
-
-        flappy:
-            ["Flappy", "🐦"],
-
-        tetris:
-            ["Tetris", "🟦"],
-
-        minesweeper:
-            ["Minesweeper", "💣"],
-
-        sudoku:
-            ["Sudoku", "🔢"],
-
-        wordle:
-            ["Word Challenge", "🔤"],
-
-        maze:
-            ["Maze Runner", "🌀"],
-
-        alien_blaster:
-            ["Alien Blaster", "👽"],
-
-        space_fighter:
-            ["Space Fighter", "🚀"],
-
-        zombie_blaster:
-            ["Zombie Blaster", "🧟"],
-
-        disc_golf:
-            ["Disc Golf", "🥏"],
-
-        camping:
-            ["Camping Adventure", "🏕️"],
-
-        trail_explorer:
-            ["Trail Explorer", "🥾"],
-
-        football:
-            ["Football", "🏈"],
-
-        soccer:
-            ["Soccer", "⚽"],
-
-        cricket:
-            ["Cricket", "🏏"],
-
-        car_race:
-            ["Car Race", "🏎️"],
-
-        drag_race:
-            ["Drag Race", "🏁"],
-
-        space_race:
-            ["Space Race", "🚀"],
-
-        tank_battle:
-            ["Tank Battle", "🛡️"],
-
-        snake_arena:
-            ["Snake Arena", "🐍"]
-
-    };
-
-    if (
-        clickerGames[GAME_ID]
-    ) {
-
-        const [title, emoji] =
-            clickerGames[
-                GAME_ID
-            ];
-
-        loadClicker(
-            title,
-            emoji
-        );
-
-        return;
-
-    }
-
-
-    /* ------------------------------------------------------
-       Card games
-       ------------------------------------------------------ */
-
-    const cardGames = {
-
-        solitaire:
-            ["Solitaire", "🃏"],
-
-        yahtzee:
-            ["Yahtzee", "🎲"],
-
-        ludo:
-            ["Ludo", "🎲"],
-
-        battleship:
-            ["Battleship", "🚢"],
-
-        chess:
-            ["Chess", "♟️"],
-
-        checkers:
-            ["Checkers", "🔴"],
-
-        monopoly:
-            ["Monopoly", "🎩"],
-
-        risk:
-            ["Risk", "🌎"]
-
-    };
-
-    if (
-        cardGames[GAME_ID]
-    ) {
-
-        const [title, emoji] =
-            cardGames[
-                GAME_ID
-            ];
-
-        loadCardGame(
-            title,
-            emoji
-        );
-
-        return;
-
-    }
-
-
-    /* ------------------------------------------------------
-       Party games
-       ------------------------------------------------------ */
-
-    const partyGames = {
-
-        truth_or_dare:
-            [
-                "Truth or Dare",
-                "🎉"
-            ],
-
-        would_you_rather:
-            [
-                "Would You Rather?",
-                "🤔"
-            ],
-
-        two_truths:
-            [
-                "Two Truths & A Lie",
-                "😈"
-            ],
-
-        most_likely:
-            [
-                "Most Likely To",
-                "😂"
-            ]
-
-    };
-
-    if (
-        partyGames[GAME_ID]
-    ) {
-
-        const [title, emoji] =
-            partyGames[
-                GAME_ID
-            ];
-
-        loadClicker(
-            title,
-            emoji
-        );
-
-        return;
-
-    }
-
-
-    /* ------------------------------------------------------
-       Trivia
-       ------------------------------------------------------ */
-
-    const triviaGames = {
-
-        trivia:
-            "Trivia Challenge",
-
-        quick_quiz:
-            "Quick Quiz",
-
-        word_challenge:
-            "Word Challenge"
-
-    };
-
-    if (
-        triviaGames[GAME_ID]
-    ) {
-
-        loadTrivia(
-            triviaGames[GAME_ID]
-        );
-
-        return;
-
-    }
-
-
-    /* ------------------------------------------------------
-       Unknown game
-       ------------------------------------------------------ */
-
-    setStatus(
-        "🎮 Game engine ready"
-    );
-
-    setInstructions(
-        "This game is registered but its specialized engine has not yet been added."
-    );
-
-    GAME_CONTAINER.innerHTML = `
-        <div class="big-message">
-            <div style="font-size:80px">
-                ${GAME_ID}
-            </div>
-
-            <h2>
-                ${GAME_NAME}
-            </h2>
-
-            <p>
-                The universal Real Games engine is running.
-            </p>
-        </div>
-    `;
-
-}
-
-
-/* ==========================================================
-   TRIVIA ENGINE
-   ========================================================== */
-
-function loadTrivia(title) {
-
-    CURRENT_GAME = {
-        restart() {
-            startTrivia(title);
-        }
-    };
-
-    startTrivia(title);
-
-}
-
-
-function startTrivia(title) {
+function startTrivia() {
 
     clearGame();
 
     const questions = [
 
         {
-            q: "What planet do we live on?",
-            a: [
-                "Earth",
+            q:
+                "What planet do humans live on?",
+
+            answers: [
                 "Mars",
+                "Earth",
                 "Venus",
                 "Jupiter"
             ],
-            correct: 0
+
+            correct: 1
         },
 
         {
-            q: "How many days are in a week?",
-            a: [
+            q:
+                "How many days are in a week?",
+
+            answers: [
                 "5",
                 "6",
                 "7",
                 "8"
             ],
+
             correct: 2
         },
 
         {
-            q: "What is 5 + 5?",
-            a: [
+            q:
+                "What is 5 + 5?",
+
+            answers: [
                 "8",
                 "9",
                 "10",
-                "15"
+                "12"
             ],
+
             correct: 2
         },
 
         {
-            q: "Which animal is known as man's best friend?",
-            a: [
+            q:
+                "Which animal is known as man's best friend?",
+
+            answers: [
                 "Cat",
                 "Dog",
                 "Horse",
-                "Bird"
+                "Rabbit"
             ],
+
             correct: 1
         },
 
         {
-            q: "Which ocean is the largest?",
-            a: [
+            q:
+                "Which is the largest ocean?",
+
+            answers: [
                 "Atlantic",
                 "Indian",
                 "Pacific",
                 "Arctic"
             ],
+
             correct: 2
         }
 
     ];
 
     let index = 0;
+
     let score = 0;
 
-    function renderQuestion() {
+    function render() {
 
-        GAME_CONTAINER.innerHTML = "";
+        GAME_CONTAINER.innerHTML =
+            "";
 
         if (
-            index >= questions.length
+            index >=
+            questions.length
         ) {
 
             setStatus(
-                "🏆 Quiz Complete!"
+                "🏆 QUIZ COMPLETE!"
             );
 
             GAME_CONTAINER.innerHTML = `
                 <div class="big-message">
-                    Final Score:
-                    <strong>
+                    Final Score
+                    <h2>
                         ${score}/${questions.length}
-                    </strong>
+                    </h2>
                 </div>
             `;
+
+            setScore(
+                "Score",
+                score
+            );
 
             return;
 
@@ -3148,8 +3519,17 @@ function startTrivia(title) {
         box.className =
             "question";
 
-        box.innerHTML =
-            `<h2>${question.q}</h2>`;
+        const title =
+            document.createElement(
+                "h2"
+            );
+
+        title.textContent =
+            question.q;
+
+        box.appendChild(
+            title
+        );
 
         const answers =
             document.createElement(
@@ -3159,37 +3539,40 @@ function startTrivia(title) {
         answers.className =
             "answers";
 
-        question.a.forEach(
-            (answer, i) => {
+        question.answers.forEach(
+            (
+                answer,
+                answerIndex
+            ) => {
 
                 const b =
-                    button(
+                    makeButton(
                         answer,
                         () => {
 
                             if (
-                                i ===
+                                answerIndex ===
                                 question.correct
                             ) {
 
                                 score++;
 
                                 setStatus(
-                                    "✅ Correct!"
+                                    "✅ CORRECT!"
                                 );
 
                             } else {
 
                                 setStatus(
-                                    "❌ Incorrect!"
+                                    "❌ INCORRECT!"
                                 );
 
                             }
 
                             index++;
 
-                            setTimeout(
-                                renderQuestion,
+                            safeTimeout(
+                                render,
                                 500
                             );
 
@@ -3217,8 +3600,7 @@ function startTrivia(title) {
         );
 
         setStatus(
-            title +
-            " — Question " +
+            "Trivia — Question " +
             (index + 1) +
             "/" +
             questions.length
@@ -3227,17 +3609,271 @@ function startTrivia(title) {
     }
 
     setInstructions(
-        "Choose the correct answer for each question."
+        "Select the correct answer for every question."
     );
 
-    renderQuestion();
+    render();
+
+}
+
+
+/* ==========================================================
+   SIMPLE CLICK CHALLENGE
+   ONLY USED FOR GAMES THAT ARE ACTUALLY CLICK GAMES.
+   ========================================================== */
+
+function loadClicker() {
+
+    CURRENT_GAME = {
+        restart: startClicker
+    };
+
+    startClicker();
+
+}
+
+function startClicker() {
+
+    clearGame();
+
+    let score = 0;
+
+    let time = 15;
+
+    let running = true;
+
+    const area =
+        document.createElement(
+            "div"
+        );
+
+    area.className =
+        "big-message";
+
+    area.innerHTML =
+        `
+        <div style="font-size:80px">
+            🎯
+        </div>
+
+        <h2>
+            Click Challenge
+        </h2>
+        `;
+
+    GAME_CONTAINER.appendChild(
+        area
+    );
+
+    const clickButton =
+        makeButton(
+            "CLICK!",
+            () => {
+
+                if (!running) {
+                    return;
+                }
+
+                score++;
+
+                setScore(
+                    "Clicks",
+                    score
+                );
+
+            }
+        );
+
+    clickButton.style.fontSize =
+        "25px";
+
+    GAME_CONTAINER.appendChild(
+        clickButton
+    );
+
+    setInstructions(
+        "Click as quickly as possible for 15 seconds."
+    );
+
+    setStatus(
+        "⏱️ Time: 15"
+    );
+
+    safeInterval(
+        () => {
+
+            if (!running) {
+                return;
+            }
+
+            time--;
+
+            setStatus(
+                "⏱️ Time: " +
+                time
+            );
+
+            if (time <= 0) {
+
+                running = false;
+
+                setStatus(
+                    "🏆 FINAL SCORE: " +
+                    score
+                );
+
+            }
+
+        },
+        1000
+    );
+
+}
+
+
+/* ==========================================================
+   GAME REGISTRY
+   ==========================================================
+
+   IMPORTANT:
+   Every ID below has a REAL engine above.
+
+   Do not put placeholder games here.
+========================================================== */
+
+const GAME_ENGINES = {
+
+    snake:
+        loadSnake,
+
+    pong:
+        loadPong,
+
+    breakout:
+        loadBreakout,
+
+    "2048":
+        load2048,
+
+    memory:
+        loadMemory,
+
+    tic_tac_toe:
+        loadTicTacToe,
+
+    connect_four:
+        loadConnectFour,
+
+    rock_paper_scissors:
+        loadRPS,
+
+    rps:
+        loadRPS,
+
+    target_shooter:
+        loadTargetShooter,
+
+    dodge_battle:
+        loadDodge,
+
+    trivia:
+        loadTrivia,
+
+    quick_quiz:
+        loadTrivia
+
+};
+
+
+/* ==========================================================
+   START GAME
+   ========================================================== */
+
+function launchGame() {
+
+    const engine =
+        GAME_ENGINES[GAME_ID];
+
+    if (!engine) {
+
+        clearGame();
+
+        setStatus(
+            "⚠️ GAME ENGINE NOT INSTALLED"
+        );
+
+        setInstructions(
+            "This game is registered in the game database, but a verified playable engine has not been installed yet."
+        );
+
+        GAME_CONTAINER.innerHTML = `
+            <div class="big-message">
+
+                <div style="font-size:80px">
+                    🎮
+                </div>
+
+                <h2>
+                    ${GAME_NAME}
+                </h2>
+
+                <p>
+                    Game ID:
+                    <strong>${GAME_ID}</strong>
+                </p>
+
+                <p>
+                    This prevents a fake or broken
+                    game from being presented as playable.
+                </p>
+
+            </div>
+        `;
+
+        return;
+
+    }
+
+    try {
+
+        engine();
+
+    } catch (error) {
+
+        console.error(
+            "Game engine error:",
+            error
+        );
+
+        clearGame();
+
+        setStatus(
+            "❌ GAME ENGINE ERROR"
+        );
+
+        GAME_CONTAINER.innerHTML = `
+            <div class="big-message">
+
+                <h2>
+                    ${GAME_NAME}
+                </h2>
+
+                <p>
+                    The game engine encountered
+                    an error while starting.
+                </p>
+
+            </div>
+        `;
+
+    }
 
 }
 
 
 /* ==========================================================
    MULTIPLAYER ROOM POLLING
-   ========================================================== */
+========================================================== */
 
 let roomPolling = null;
 
@@ -3245,6 +3881,10 @@ function startRoomPolling() {
 
     if (!ROOM_ID) {
         return;
+    }
+
+    if (roomPolling) {
+        clearInterval(roomPolling);
     }
 
     roomPolling =
@@ -3309,7 +3949,7 @@ function startRoomPolling() {
                 } catch (error) {
 
                     console.error(
-                        "Room update error:",
+                        "Room polling error:",
                         error
                     );
 
@@ -3323,8 +3963,8 @@ function startRoomPolling() {
 
 
 /* ==========================================================
-   START
-   ========================================================== */
+   PAGE START
+========================================================== */
 
 document.addEventListener(
     "DOMContentLoaded",
