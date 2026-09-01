@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>Melanated AZ Monopoly</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+header {
+    padding: 15px;
+    text-align: center;
+    background: #1c1c1c;
+}
+
+h1 {
+    margin: 0;
+}
+
+#game {
+    max-width: 1200px;
+    margin: auto;
+    padding: 15px;
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    aspect-ratio: 1 / 1;
+    background: #f3f0d0;
+    border: 8px solid #222;
+    color: #111;
+}
+
+.space {
+    border: 1px solid #444;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+    text-align: center;
+    min-width: 0;
+}
+
+.space-name {
+    font-size: clamp(8px, 1.2vw, 15px);
+    font-weight: bold;
+}
+
+.space-price {
+    font-size: clamp(7px, 1vw, 12px);
+    margin-top: 4px;
+}
+
+.player-piece {
+    font-size: 22px;
+    margin-top: 4px;
+}
+
+#panel {
+    margin-top: 15px;
+    padding: 15px;
+    background: #1c1c1c;
+    border-radius: 10px;
+}
+
+button {
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+button:hover {
+    opacity: .8;
+}
+
+#roll {
+    background: #fff;
+    color: #111;
+}
+
+#buy {
+    background: #ddd;
+    color: #111;
+}
+
+#start {
+    background: #aaa;
+    color: #111;
+}
+
+.player {
+    padding: 8px;
+    margin: 4px 0;
+    background: #292929;
+    border-radius: 6px;
+}
+
+#message {
+    font-size: 18px;
+    margin: 10px 0;
+}
+
+input {
+    padding: 11px;
+    border-radius: 6px;
+    border: 0;
+    margin: 4px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<h1>🎲 Melanated AZ Monopoly</h1>
+
+</header>
+
+<div id="game">
+
+<div id="setup">
+
+<input
+    id="playerName"
+    placeholder="Your name"
+>
+
+<button onclick="createGame()">
+    CREATE GAME
+</button>
+
+<input
+    id="gameId"
+    placeholder="Game ID"
+>
+
+<button onclick="joinGame()">
+    JOIN GAME
+</button>
+
+</div>
+
+<div id="board"></div>
+
+<div id="panel">
+
+<div id="message">
+    Create or join a game.
+</div>
+
+<div>
+
+<button
+    id="start"
+    onclick="startGame()"
+>
+    🚀 START GAME
+</button>
+
+<button
+    id="roll"
+    onclick="rollDice()"
+    disabled
+>
+    🎲 ROLL DICE
+</button>
+
+<button
+    id="buy"
+    onclick="buyProperty()"
+    disabled
+>
+    💰 BUY PROPERTY
+</button>
+
+</div>
+
+<div id="players"></div>
+
+</div>
+
+</div>
+
+<script>
+
+let gameId = null;
+
+let playerId =
+    localStorage.getItem(
+        "melanated_player_id"
+    );
+
+if (!playerId) {
+
+    playerId =
+        crypto.randomUUID();
+
+    localStorage.setItem(
+        "melanated_player_id",
+        playerId
+    );
+}
+
+
+function name() {
+
+    return (
+        document
+        .getElementById("playerName")
+        .value
+        .trim()
+        || "Player"
+    );
+}
+
+
+async function api(
+    url,
+    method = "GET",
+    data = null
+) {
+
+    const options = {
+        method,
+        headers: {
+            "Content-Type":
+                "application/json"
+        }
+    };
+
+    if (data) {
+
+        options.body =
+            JSON.stringify(data);
+    }
+
+    const response =
+        await fetch(
+            url,
+            options
+        );
+
+    const result =
+        await response.json();
+
+    if (!response.ok) {
+
+        throw new Error(
+            result.error ||
+            "Request failed."
+        );
+    }
+
+    return result;
+}
+
+
+async function createGame() {
+
+    try {
+
+        const result =
+            await api(
+                "/real-games/monopoly/create",
+                "POST",
+                {
+                    player_id:
+                        playerId,
+
+                    player_name:
+                        name()
+                }
+            );
+
+        gameId =
+            result.game_id;
+
+        document
+            .getElementById("gameId")
+            .value = gameId;
+
+        render(
+            result.state
+        );
+
+    } catch (error) {
+
+        alert(error.message);
+    }
+}
+
+
+async function joinGame() {
+
+    const id =
+        document
+        .getElementById("gameId")
+        .value
+        .trim();
+
+    if (!id) {
+
+        alert(
+            "Enter a game ID."
+        );
+
+        return;
+    }
+
+    try {
+
+        const state =
+            await api(
+                `/real-games/monopoly/${id}/join`,
+                "POST",
+                {
+                    player_id:
+                        playerId,
+
+                    player_name:
+                        name()
+                }
+            );
+
+        gameId = id;
+
+        render(state);
+
+    } catch (error) {
+
+        alert(error.message);
+    }
+}
+
+
+async function startGame() {
+
+    if (!gameId) return;
+
+    try {
+
+        const state =
+            await api(
+                `/real-games/monopoly/${gameId}/start`,
+                "POST"
+            );
+
+        render(state);
+
+    } catch (error) {
+
+        alert(error.message);
+    }
+}
+
+
+async function rollDice() {
+
+    if (!gameId) return;
+
+    try {
+
+        const state =
+            await api(
+                `/real-games/monopoly/${gameId}/roll`,
+                "POST",
+                {
+                    player_id:
+                        playerId
+                }
+            );
+
+        render(state);
+
+    } catch (error) {
+
+        alert(error.message);
+    }
+}
+
+
+async function buyProperty() {
+
+    if (!gameId) return;
+
+    try {
+
+        const state =
+            await api(
+                `/real-games/monopoly/${gameId}/buy`,
+                "POST",
+                {
+                    player_id:
+                        playerId
+                }
+            );
+
+        render(state);
+
+    } catch (error) {
+
+        alert(error.message);
+    }
+}
+
+
+function render(state) {
+
+    document
+        .getElementById("message")
+        .innerText =
+            state.message || "";
+
+    const board =
+        document
+        .getElementById("board");
+
+    board.innerHTML = "";
+
+    state.board.forEach(
+        (space, index) => {
+
+            const div =
+                document.createElement(
+                    "div"
+                );
+
+            div.className =
+                "space";
+
+            const name =
+                document.createElement(
+                    "div"
+                );
+
+            name.className =
+                "space-name";
+
+            name.innerText =
+                space.name;
+
+            div.appendChild(
+                name
+            );
+
+            if (space.price) {
+
+                const price =
+                    document.createElement(
+                        "div"
+                    );
+
+                price.className =
+                    "space-price";
+
+                price.innerText =
+                    "$" + space.price;
+
+                div.appendChild(
+                    price
+                );
+            }
+
+            state.players.forEach(
+                player => {
+
+                    if (
+                        player.position
+                        === index &&
+                        !player.bankrupt
+                    ) {
+
+                        const piece =
+                            document
+                            .createElement(
+                                "div"
+                            );
+
+                        piece.className =
+                            "player-piece";
+
+                        piece.innerText =
+                            player.token;
+
+                        div.appendChild(
+                            piece
+                        );
+                    }
+                }
+            );
+
+            board.appendChild(
+                div
+            );
+        }
+    );
+
+    const players =
+        document
+        .getElementById("players");
+
+    players.innerHTML =
+        "<h3>Players</h3>";
+
+    state.players.forEach(
+        player => {
+
+            const div =
+                document
+                .createElement(
+                    "div"
+                );
+
+            div.className =
+                "player";
+
+            div.innerHTML =
+                `${player.token} <b>${player.name}</b>
+                 — $${player.money}
+                 — Properties: ${player.properties.length}`;
+
+            if (
+                player.id ===
+                state.current_player
+            ) {
+
+                div.innerHTML +=
+                    " 🎯 TURN";
+            }
+
+            if (
+                player.bankrupt
+            ) {
+
+                div.innerHTML +=
+                    " 💀 BANKRUPT";
+            }
+
+            players.appendChild(
+                div
+            );
+        }
+    );
+
+    const myTurn =
+        state.current_player
+        === playerId;
+
+    document
+        .getElementById("roll")
+        .disabled =
+            !state.started ||
+            state.finished ||
+            !myTurn;
+
+    document
+        .getElementById("start")
+        .disabled =
+            state.started;
+
+    document
+        .getElementById("buy")
+        .disabled =
+            !state.started ||
+            state.finished ||
+            !myTurn;
+}
+
+
+// Automatically refresh
+// multiplayer game state.
+
+setInterval(
+    async () => {
+
+        if (!gameId)
+            return;
+
+        try {
+
+            const state =
+                await api(
+                    `/real-games/monopoly/${gameId}/state`
+                );
+
+            render(state);
+
+        } catch (_) {}
+
+    },
+    1500
+);
+
+</script>
+
+</body>
+
+</html>
