@@ -4,6 +4,15 @@
 #
 # COMPLETE GAME ENGINE / GAME ROUTER
 #
+# DROP-IN REPLACEMENT
+#
+# IMPORTANT:
+#   - Does NOT reset the database
+#   - Does NOT replace the database
+#   - Does NOT touch raffle tables
+#   - Compatible with the existing bot.py
+#   - Compatible with games/game_center.py
+#
 # Handles:
 #   - Game database initialization
 #   - Player profiles
@@ -12,12 +21,8 @@
 #   - Wins / losses
 #   - Scores
 #   - Leaderboards
-#   - Actual gameplay
-#   - Game action callbacks
-#
-# Compatible with:
-#   games/game_center.py
-#
+#   - Interactive games
+#   - Game callbacks
 # ==========================================================
 
 import logging
@@ -64,93 +69,63 @@ XP_PER_LEVEL = 100
 
 GAME_NAMES = {
 
-    # ------------------------------------------------------
     # ARCADE
-    # ------------------------------------------------------
-
     "reaction": "⚡ Reaction Test",
     "number_guess": "🔢 Number Guess",
     "high_low": "📈 High or Low",
     "coin_flip": "🪙 Coin Flip",
     "dice_roll": "🎲 Dice Roll",
 
-    # ------------------------------------------------------
     # OUTDOOR
-    # ------------------------------------------------------
-
     "fishing": "🎣 Fishing",
     "camping": "🏕️ Camping",
     "hiking": "🥾 Hiking Challenge",
     "hunting": "🏹 Hunting Challenge",
     "survival": "🔥 Survival",
 
-    # ------------------------------------------------------
     # SHOOTING
-    # ------------------------------------------------------
-
     "target": "🎯 Target Practice",
     "quick_shot": "🔫 Quick Shot",
     "bullseye": "🎯 Bullseye",
     "accuracy": "🏹 Accuracy",
     "sniper": "🔭 Sniper Challenge",
 
-    # ------------------------------------------------------
     # BOARD
-    # ------------------------------------------------------
-
     "strategy": "♟️ Strategy",
     "dice_duel": "🎲 Dice Duel",
 
-    # ------------------------------------------------------
     # PARTY
-    # ------------------------------------------------------
-
     "truth_dare": "🔥 Truth or Dare",
 
-    # ------------------------------------------------------
     # TRIVIA
-    # ------------------------------------------------------
-
     "general_trivia": "🧠 General Trivia",
     "music_trivia": "🎵 Music Trivia",
     "sports_trivia": "🏆 Sports Trivia",
     "movie_trivia": "🎬 Movie Trivia",
     "word_challenge": "🔤 Word Challenge",
 
-    # ------------------------------------------------------
     # SPORTS
-    # ------------------------------------------------------
-
     "football": "🏈 Football Challenge",
     "basketball": "🏀 Basketball Challenge",
     "baseball": "⚾ Baseball Challenge",
     "boxing": "🥊 Boxing",
     "soccer": "⚽ Soccer",
 
-    # ------------------------------------------------------
     # RACING
-    # ------------------------------------------------------
-
     "car_race": "🏎️ Car Race",
     "bike_race": "🏍️ Bike Race",
     "boat_race": "🚤 Boat Race",
     "drag_race": "🏁 Drag Race",
     "street_race": "🏎️ Street Race",
 
-    # ------------------------------------------------------
     # MYSTERY
-    # ------------------------------------------------------
-
     "detective": "🕵🏾 Detective",
     "murder_mystery": "🔎 Mystery Case",
     "code_breaker": "🔐 Code Breaker",
     "escape": "🚪 Escape Room",
     "investigation": "🔍 Investigation",
 
-    # ------------------------------------------------------
     # FIGHTING
-    # ------------------------------------------------------
-
     "mma": "🥋 MMA",
     "karate": "🥋 Karate",
     "street_fight": "👊 Street Fight",
@@ -163,11 +138,6 @@ GAME_NAMES = {
 # ==========================================================
 
 def initialize_game_database():
-    """
-    Create all Game Center tables if they do not exist.
-
-    This is safe to call every time /games is opened.
-    """
 
     conn = get_connection()
 
@@ -239,44 +209,6 @@ def initialize_game_database():
 
 
 # ==========================================================
-# GENERIC KEYBOARDS
-# ==========================================================
-
-def game_back_keyboard():
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "⬅️ Game Center",
-                    callback_data="games_home",
-                )
-            ]
-        ]
-    )
-
-
-def replay_keyboard(game_id):
-
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🔄 Play Again",
-                    callback_data=f"games_play_{game_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "⬅️ Game Center",
-                    callback_data="games_home",
-                )
-            ],
-        ]
-    )
-
-
-# ==========================================================
 # PLAYER
 # ==========================================================
 
@@ -340,7 +272,7 @@ def ensure_player(
 
 
 # ==========================================================
-# RECORD GAME RESULT
+# RECORD RESULT
 # ==========================================================
 
 def record_game_result(
@@ -374,34 +306,34 @@ def record_game_result(
 
     try:
 
-        # --------------------------------------------------
-        # PLAYER TOTALS
-        # --------------------------------------------------
+        # Make absolutely sure player exists.
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO game_players (
+                user_id,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?)
+            """,
+            (
+                user_id,
+                now,
+                now,
+            ),
+        )
 
         conn.execute(
             """
             UPDATE game_players
             SET
-                games_played =
-                    games_played + 1,
-
-                wins =
-                    wins + ?,
-
-                losses =
-                    losses + ?,
-
-                xp =
-                    xp + ?,
-
-                coins =
-                    coins + ?,
-
-                level =
-                    1 + ((xp + ?) / ?),
-
+                games_played = games_played + 1,
+                wins = wins + ?,
+                losses = losses + ?,
+                xp = xp + ?,
+                coins = coins + ?,
+                level = 1 + ((xp + ?) / ?),
                 updated_at = ?
-
             WHERE user_id = ?
             """,
             (
@@ -415,10 +347,6 @@ def record_game_result(
                 user_id,
             ),
         )
-
-        # --------------------------------------------------
-        # SCORE HISTORY
-        # --------------------------------------------------
 
         conn.execute(
             """
@@ -438,10 +366,6 @@ def record_game_result(
             ),
         )
 
-        # --------------------------------------------------
-        # PER-GAME STATISTICS
-        # --------------------------------------------------
-
         conn.execute(
             """
             INSERT INTO game_stats (
@@ -456,16 +380,9 @@ def record_game_result(
 
             ON CONFLICT(user_id, game_id)
             DO UPDATE SET
-
-                games_played =
-                    games_played + 1,
-
-                wins =
-                    wins + excluded.wins,
-
-                losses =
-                    losses + excluded.losses,
-
+                games_played = games_played + 1,
+                wins = wins + excluded.wins,
+                losses = losses + excluded.losses,
                 high_score =
                     CASE
                         WHEN excluded.high_score > high_score
@@ -500,7 +417,7 @@ def record_game_result(
 
 
 # ==========================================================
-# GET PLAYER STATS
+# PLAYER STATS
 # ==========================================================
 
 def get_player_stats(user_id):
@@ -511,7 +428,7 @@ def get_player_stats(user_id):
 
     try:
 
-        row = conn.execute(
+        return conn.execute(
             """
             SELECT
                 user_id,
@@ -528,8 +445,6 @@ def get_player_stats(user_id):
             """,
             (user_id,),
         ).fetchone()
-
-        return row
 
     finally:
 
@@ -646,6 +561,44 @@ def get_leaderboard_by_wins(limit=10):
 
 
 # ==========================================================
+# KEYBOARDS
+# ==========================================================
+
+def game_back_keyboard():
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "⬅️ Game Center",
+                    callback_data="games_home",
+                )
+            ]
+        ]
+    )
+
+
+def replay_keyboard(game_id):
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🔄 Play Again",
+                    callback_data=f"games_play_{game_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Game Center",
+                    callback_data="games_home",
+                )
+            ],
+        ]
+    )
+
+
+# ==========================================================
 # RESULT SCREEN
 # ==========================================================
 
@@ -665,17 +618,8 @@ async def show_result(
         won=won,
     )
 
-    xp = (
-        WIN_XP
-        if won
-        else BASE_XP
-    )
-
-    coins = (
-        WIN_COINS
-        if won
-        else BASE_COINS
-    )
+    xp = WIN_XP if won else BASE_XP
+    coins = WIN_COINS if won else BASE_COINS
 
     result = (
         f"{title}\n\n"
@@ -806,10 +750,7 @@ async def number_guess_game(
 
     buttons = []
 
-    for value in range(
-        1,
-        11,
-    ):
+    for value in range(1, 11):
 
         buttons.append(
             InlineKeyboardButton(
@@ -819,8 +760,8 @@ async def number_guess_game(
         )
 
     keyboard = [
-        buttons[0:5],
-        buttons[5:10],
+        buttons[:5],
+        buttons[5:],
         [
             InlineKeyboardButton(
                 "⬅️ Game Center",
@@ -865,10 +806,7 @@ async def number_guess_answer(
 
         guess = int(guess)
 
-    except (
-        ValueError,
-        TypeError,
-    ):
+    except (ValueError, TypeError):
 
         await query.answer(
             "Invalid guess.",
@@ -877,18 +815,14 @@ async def number_guess_answer(
 
         return
 
-    correct = (
-        guess == target
-    )
+    correct = guess == target
 
     score = (
         100
         if correct
         else max(
             10,
-            50 - abs(
-                guess - target
-            ) * 5,
+            50 - abs(guess - target) * 5,
         )
     )
 
@@ -897,8 +831,7 @@ async def number_guess_answer(
         "number_guess",
         "🔢 <b>NUMBER GUESS</b>",
         (
-            f"🎯 My number was "
-            f"<b>{target}</b>.\n\n"
+            f"🎯 My number was <b>{target}</b>.\n\n"
             +
             (
                 "🎉 You got it!"
@@ -921,15 +854,8 @@ async def high_low_game(
     context,
 ):
 
-    first = random.randint(
-        1,
-        13,
-    )
-
-    second = random.randint(
-        1,
-        13,
-    )
+    first = random.randint(1, 13)
+    second = random.randint(1, 13)
 
     context.user_data[
         "high_low"
@@ -962,8 +888,7 @@ async def high_low_game(
     await query.edit_message_text(
         "📈 <b>HIGH OR LOW</b>\n\n"
         f"Current card: <b>{first}</b>\n\n"
-        "Will the next card be higher "
-        "or lower?",
+        "Will the next card be higher or lower?",
         reply_markup=keyboard,
         parse_mode=ParseMode.HTML,
     )
@@ -993,15 +918,10 @@ async def high_low_answer(
     second = data["second"]
 
     if second == first:
-
         won = False
-
     elif choice == "high":
-
         won = second > first
-
     else:
-
         won = second < first
 
     await show_result(
@@ -1059,10 +979,7 @@ async def dice_roll_game(
     context,
 ):
 
-    roll = random.randint(
-        1,
-        6,
-    )
+    roll = random.randint(1, 6)
 
     won = roll >= 4
 
@@ -1071,8 +988,7 @@ async def dice_roll_game(
         "dice_roll",
         "🎲 <b>DICE ROLL</b>",
         (
-            f"You rolled a "
-            f"<b>{roll}</b>!\n\n"
+            f"You rolled a <b>{roll}</b>!\n\n"
             +
             (
                 "🔥 Nice roll!"
@@ -1087,281 +1003,10 @@ async def dice_roll_game(
 
 
 # ==========================================================
-# RANDOM CHALLENGES
-# ==========================================================
-
-CHALLENGES = {
-
-    # ------------------------------------------------------
-    # OUTDOOR
-    # ------------------------------------------------------
-
-    "fishing": [
-        ("🐟 You caught a huge bass!", True),
-        ("🐠 You caught a colorful fish!", True),
-        ("🎣 The fish got away!", False),
-        ("🐟 You landed a trophy fish!", True),
-    ],
-
-    "camping": [
-        ("🔥 You built the perfect campfire!", True),
-        ("🏕️ You found an amazing campsite!", True),
-        ("🌧️ Rain ruined the campsite!", False),
-        ("🦌 You spotted wildlife nearby!", True),
-    ],
-
-    "hiking": [
-        ("🥾 You reached the summit!", True),
-        ("🏔️ Amazing trail completed!", True),
-        ("🌲 You discovered a hidden trail!", True),
-        ("😅 You took the wrong trail!", False),
-    ],
-
-    "hunting": [
-        ("🏹 Perfect shot!", True),
-        ("🦌 You tracked your target!", True),
-        ("🌲 The target escaped!", False),
-        ("🎯 Bullseye!", True),
-    ],
-
-    "survival": [
-        ("🔥 You survived the night!", True),
-        ("💧 You found clean water!", True),
-        ("🏕️ You built shelter!", True),
-        ("🌧️ The storm almost got you!", False),
-    ],
-
-    # ------------------------------------------------------
-    # SHOOTING
-    # ------------------------------------------------------
-
-    "target": [
-        ("🎯 Bullseye!", True),
-        ("🎯 Excellent shot!", True),
-        ("💥 Direct hit!", True),
-        ("😅 You missed!", False),
-    ],
-
-    "quick_shot": [
-        ("⚡ Lightning-fast shot!", True),
-        ("🎯 Fast and accurate!", True),
-        ("💥 Perfect hit!", True),
-        ("😅 Too slow!", False),
-    ],
-
-    "bullseye": [
-        ("🎯 PERFECT BULLSEYE!", True),
-        ("🔥 Dead center!", True),
-        ("🎯 Almost perfect!", True),
-        ("😅 Off target!", False),
-    ],
-
-    "accuracy": [
-        ("🏹 Incredible accuracy!", True),
-        ("🎯 Excellent aim!", True),
-        ("💥 Great shot!", True),
-        ("😅 Needs practice!", False),
-    ],
-
-    "sniper": [
-        ("🔭 Perfect long-range shot!", True),
-        ("🎯 Target hit!", True),
-        ("🔥 Incredible accuracy!", True),
-        ("😅 Target escaped!", False),
-    ],
-
-    # ------------------------------------------------------
-    # BOARD
-    # ------------------------------------------------------
-
-    "strategy": [
-        ("♟️ Brilliant strategy!", True),
-        ("🧠 You outsmarted the opponent!", True),
-        ("♟️ Excellent move!", True),
-        ("😅 Your opponent saw it coming!", False),
-    ],
-
-    "dice_duel": [
-        ("🎲 You won the dice duel!", True),
-        ("🎲 Huge roll!", True),
-        ("😈 Your opponent got crushed!", True),
-        ("💀 Your opponent rolled higher!", False),
-    ],
-
-    # ------------------------------------------------------
-    # SPORTS
-    # ------------------------------------------------------
-
-    "football": [
-        ("🏈 TOUCHDOWN!", True),
-        ("🏈 Huge gain!", True),
-        ("🏈 Perfect pass!", True),
-        ("🏈 Fumble!", False),
-    ],
-
-    "basketball": [
-        ("🏀 THREE POINTER!", True),
-        ("🏀 Nothing but net!", True),
-        ("🔥 Clutch shot!", True),
-        ("😅 Air ball!", False),
-    ],
-
-    "baseball": [
-        ("⚾ HOME RUN!", True),
-        ("⚾ Perfect hit!", True),
-        ("🔥 Extra-base hit!", True),
-        ("😅 Strikeout!", False),
-    ],
-
-    "boxing": [
-        ("🥊 Knockout!", True),
-        ("🥊 Perfect combination!", True),
-        ("🔥 Huge punch!", True),
-        ("😵 You got rocked!", False),
-    ],
-
-    "soccer": [
-        ("⚽ GOAL!", True),
-        ("⚽ Beautiful finish!", True),
-        ("🔥 Top corner!", True),
-        ("😅 Missed the shot!", False),
-    ],
-
-    # ------------------------------------------------------
-    # RACING
-    # ------------------------------------------------------
-
-    "car_race": [
-        ("🏎️ You crossed the finish line first!", True),
-        ("🏁 Perfect launch!", True),
-        ("🔥 Fastest lap!", True),
-        ("💥 You spun out!", False),
-    ],
-
-    "bike_race": [
-        ("🏍️ First across the line!", True),
-        ("🏁 Amazing cornering!", True),
-        ("🔥 Fastest lap!", True),
-        ("😅 You wiped out!", False),
-    ],
-
-    "boat_race": [
-        ("🚤 You dominated the race!", True),
-        ("🌊 Perfect turn!", True),
-        ("🏁 First place!", True),
-        ("🌊 You hit a huge wave!", False),
-    ],
-
-    "drag_race": [
-        ("🏁 LIGHTS OUT!", True),
-        ("🏎️ Perfect launch!", True),
-        ("🔥 You won by a nose!", True),
-        ("😅 Bad reaction!", False),
-    ],
-
-    "street_race": [
-        ("🏎️ You took the win!", True),
-        ("🔥 Fastest car on the street!", True),
-        ("🏁 Perfect corner!", True),
-        ("💥 You lost control!", False),
-    ],
-
-    # ------------------------------------------------------
-    # FIGHTING
-    # ------------------------------------------------------
-
-    "mma": [
-        ("🥊 Submission victory!", True),
-        ("🔥 Technical knockout!", True),
-        ("💪 Dominant performance!", True),
-        ("😵 You got submitted!", False),
-    ],
-
-    "karate": [
-        ("🥋 Perfect strike!", True),
-        ("🔥 Tournament victory!", True),
-        ("🥋 Excellent technique!", True),
-        ("😵 Countered!", False),
-    ],
-
-    "street_fight": [
-        ("👊 You won the fight!", True),
-        ("🔥 Knockout!", True),
-        ("💪 Powerful combination!", True),
-        ("😵 You got dropped!", False),
-    ],
-
-    "arena": [
-        ("⚔️ ARENA VICTORY!", True),
-        ("🔥 You defeated your opponent!", True),
-        ("⚔️ Critical hit!", True),
-        ("💀 You were defeated!", False),
-    ],
-
-    # ------------------------------------------------------
-    # MYSTERY
-    # ------------------------------------------------------
-
-    "murder_mystery": [
-        ("🔎 Mystery solved!", True),
-        ("🕵🏾 You found the culprit!", True),
-        ("🔍 Critical clue discovered!", True),
-        ("😅 Wrong suspect!", False),
-    ],
-
-    "investigation": [
-        ("🔍 Evidence discovered!", True),
-        ("🕵🏾 Investigation successful!", True),
-        ("🧠 Case breakthrough!", True),
-        ("😅 Dead end!", False),
-    ],
-}
-
-
-# ==========================================================
-# RANDOM CHALLENGE ENGINE
-# ==========================================================
-
-async def random_challenge_game(
-    query,
-    game_id,
-):
-
-    outcomes = CHALLENGES.get(
-        game_id,
-        [
-            ("🎮 Challenge completed!", True),
-            ("🔥 Great job!", True),
-            ("🏆 Excellent!", True),
-            ("😅 Try again!", False),
-        ],
-    )
-
-    outcome, won = random.choice(
-        outcomes
-    )
-
-    score = random.randint(
-        40,
-        100,
-    )
-
-    await show_result(
-        query,
-        game_id,
-        f"<b>{GAME_NAMES.get(game_id, '🎮 Game')}</b>",
-        outcome,
-        score,
-        won,
-    )
-
-
-# ==========================================================
 # TRUTH OR DARE
 # ==========================================================
 
 TRUTHS = [
-
     "What is something you've never told the group?",
     "Who in the group has the best personality?",
     "What's your biggest guilty pleasure?",
@@ -1374,7 +1019,6 @@ TRUTHS = [
 
 
 DARES = [
-
     "Send the funniest GIF you can find.",
     "Give someone in the group a genuine compliment.",
     "Change your profile picture for 10 minutes.",
@@ -1386,9 +1030,7 @@ DARES = [
 ]
 
 
-async def truth_dare_game(
-    query,
-):
+async def truth_dare_game(query):
 
     keyboard = InlineKeyboardMarkup(
         [
@@ -1426,18 +1068,12 @@ async def truth_dare_answer(
 
     if choice == "truth":
 
-        prompt = random.choice(
-            TRUTHS
-        )
-
+        prompt = random.choice(TRUTHS)
         title = "🔥 TRUTH"
 
     else:
 
-        prompt = random.choice(
-            DARES
-        )
-
+        prompt = random.choice(DARES)
         title = "😈 DARE"
 
     keyboard = InlineKeyboardMarkup(
@@ -1473,126 +1109,65 @@ async def truth_dare_answer(
 TRIVIA = {
 
     "general_trivia": [
-
         (
             "What is the largest planet?",
-            [
-                "Earth",
-                "Mars",
-                "Jupiter",
-                "Venus",
-            ],
+            ["Earth", "Mars", "Jupiter", "Venus"],
             "Jupiter",
         ),
-
         (
             "How many continents are there?",
-            [
-                "5",
-                "6",
-                "7",
-                "8",
-            ],
+            ["5", "6", "7", "8"],
             "7",
         ),
-
         (
             "What is the fastest land animal?",
-            [
-                "Lion",
-                "Cheetah",
-                "Horse",
-                "Tiger",
-            ],
+            ["Lion", "Cheetah", "Horse", "Tiger"],
             "Cheetah",
         ),
     ],
 
     "music_trivia": [
-
         (
             "Which instrument has 88 keys?",
-            [
-                "Guitar",
-                "Piano",
-                "Drums",
-                "Violin",
-            ],
+            ["Guitar", "Piano", "Drums", "Violin"],
             "Piano",
         ),
-
         (
             "How many strings does a standard guitar have?",
-            [
-                "4",
-                "5",
-                "6",
-                "7",
-            ],
+            ["4", "5", "6", "7"],
             "6",
         ),
-
         (
             "Which musical symbol indicates silence?",
-            [
-                "Rest",
-                "Sharp",
-                "Flat",
-                "Clef",
-            ],
+            ["Rest", "Sharp", "Flat", "Clef"],
             "Rest",
         ),
     ],
 
     "sports_trivia": [
-
         (
             "How many players are on a basketball team on the court?",
-            [
-                "4",
-                "5",
-                "6",
-                "7",
-            ],
+            ["4", "5", "6", "7"],
             "5",
         ),
-
         (
             "How many bases are on a baseball field?",
-            [
-                "3",
-                "4",
-                "5",
-                "6",
-            ],
+            ["3", "4", "5", "6"],
             "4",
         ),
-
         (
             "How many points is a touchdown worth before the extra point?",
-            [
-                "3",
-                "6",
-                "7",
-                "8",
-            ],
+            ["3", "6", "7", "8"],
             "6",
         ),
     ],
 
     "movie_trivia": [
-
         (
             "Which superhero carries a shield?",
-            [
-                "Batman",
-                "Spider-Man",
-                "Captain America",
-                "Thor",
-            ],
+            ["Batman", "Spider-Man", "Captain America", "Thor"],
             "Captain America",
         ),
-
         (
             "Which movie features Jack Sparrow?",
             [
@@ -1603,21 +1178,14 @@ TRIVIA = {
             ],
             "Pirates of the Caribbean",
         ),
-
         (
             "Who is Shrek's best friend?",
-            [
-                "Donkey",
-                "Fiona",
-                "Puss",
-                "Dragon",
-            ],
+            ["Donkey", "Fiona", "Puss", "Dragon"],
             "Donkey",
         ),
     ],
 
     "word_challenge": [
-
         (
             "Which word is spelled correctly?",
             [
@@ -1628,26 +1196,14 @@ TRIVIA = {
             ],
             "Necessary",
         ),
-
         (
             "What is the opposite of 'ancient'?",
-            [
-                "Old",
-                "Modern",
-                "Historic",
-                "Past",
-            ],
+            ["Old", "Modern", "Historic", "Past"],
             "Modern",
         ),
-
         (
             "Which word means very happy?",
-            [
-                "Sad",
-                "Angry",
-                "Ecstatic",
-                "Tired",
-            ],
+            ["Sad", "Angry", "Ecstatic", "Tired"],
             "Ecstatic",
         ),
     ],
@@ -1678,13 +1234,9 @@ async def trivia_game(
         questions
     )
 
-    shuffled = list(
-        answers
-    )
+    shuffled = list(answers)
 
-    random.shuffle(
-        shuffled
-    )
+    random.shuffle(shuffled)
 
     context.user_data[
         "trivia"
@@ -1699,9 +1251,7 @@ async def trivia_game(
 
     buttons = []
 
-    for index, answer in enumerate(
-        shuffled
-    ):
+    for index, answer in enumerate(shuffled):
 
         buttons.append(
             [
@@ -1758,10 +1308,7 @@ async def trivia_answer(
 
     try:
 
-        index = int(
-            answer_index
-        )
-
+        index = int(answer_index)
         answer = answers[index]
 
     except (
@@ -1780,19 +1327,15 @@ async def trivia_answer(
     correct = data["correct"]
     game_id = data["game_id"]
 
-    won = (
-        answer == correct
-    )
+    won = answer == correct
 
     await show_result(
         query,
         game_id,
         f"<b>{GAME_NAMES[game_id]}</b>",
         (
-            f"Your answer: "
-            f"<b>{answer}</b>\n"
-            f"Correct answer: "
-            f"<b>{correct}</b>\n\n"
+            f"Your answer: <b>{answer}</b>\n"
+            f"Correct answer: <b>{correct}</b>\n\n"
             +
             (
                 "🎉 Correct!"
@@ -1824,12 +1367,9 @@ async def code_breaker_game(
         "code_breaker"
     ] = code
 
-    # Instead of only offering 100, 200, 300...
-    # give the player a range of practical guesses.
-
-    hundreds = (code // 100) * 100
-
-    guesses = {
+    # Provide useful possible guesses.
+    # The player gets multiple attempts.
+    guesses = [
         100,
         200,
         300,
@@ -1839,15 +1379,11 @@ async def code_breaker_game(
         700,
         800,
         900,
-        max(100, hundreds),
-        min(999, hundreds + 99),
-    }
+    ]
 
     keyboard = []
 
-    for number in sorted(
-        guesses
-    ):
+    for number in guesses:
 
         keyboard.append(
             [
@@ -1902,9 +1438,7 @@ async def code_breaker_answer(
 
     try:
 
-        guess = int(
-            guess
-        )
+        guess = int(guess)
 
     except (
         ValueError,
@@ -1918,9 +1452,7 @@ async def code_breaker_answer(
 
         return
 
-    won = (
-        guess == code
-    )
+    won = guess == code
 
     difference = abs(
         guess - code
@@ -1952,7 +1484,8 @@ async def code_breaker_answer(
         message = (
             f"❌ <b>Incorrect.</b>\n\n"
             f"{hint}\n"
-            f"Your guess: <b>{guess}</b>"
+            f"Your guess: <b>{guess}</b>\n"
+            f"The code was <b>{code}</b>."
         )
 
     await show_result(
@@ -1970,21 +1503,9 @@ async def code_breaker_answer(
 # ==========================================================
 
 ESCAPE_OPTIONS = [
-
-    (
-        "🚪 Open the red door",
-        "red",
-    ),
-
-    (
-        "🔐 Try the keypad",
-        "keypad",
-    ),
-
-    (
-        "🪟 Check the window",
-        "window",
-    ),
+    ("🚪 Open the red door", "red"),
+    ("🔐 Try the keypad", "keypad"),
+    ("🪟 Check the window", "window"),
 ]
 
 
@@ -2005,17 +1526,18 @@ async def escape_game(
         "escape"
     ] = correct
 
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                label,
-                callback_data=f"game_escape_{value}",
-            )
-        ]
+    keyboard = []
 
-        for label, value
-        in ESCAPE_OPTIONS
-    ]
+    for label, value in ESCAPE_OPTIONS:
+
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    label,
+                    callback_data=f"game_escape_{value}",
+                )
+            ]
+        )
 
     keyboard.append(
         [
@@ -2057,9 +1579,7 @@ async def escape_answer(
 
         return
 
-    won = (
-        choice == correct
-    )
+    won = choice == correct
 
     if won:
 
@@ -2099,12 +1619,10 @@ async def detective_game(
 ):
 
     suspects = [
-
         "🕵🏾 Alex",
         "🕵🏾 Jordan",
         "🕵🏾 Taylor",
         "🕵🏾 Morgan",
-
     ]
 
     culprit = random.choice(
@@ -2119,18 +1637,18 @@ async def detective_game(
         "detective_suspects"
     ] = suspects
 
-    keyboard = [
+    keyboard = []
 
-        [
-            InlineKeyboardButton(
-                suspect,
-                callback_data=f"game_detective_{index}",
-            )
-        ]
+    for index, suspect in enumerate(suspects):
 
-        for index, suspect
-        in enumerate(suspects)
-    ]
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    suspect,
+                    callback_data=f"game_detective_{index}",
+                )
+            ]
+        )
 
     keyboard.append(
         [
@@ -2180,9 +1698,7 @@ async def detective_answer(
 
     try:
 
-        selected = suspects[
-            int(index)
-        ]
+        selected = suspects[int(index)]
 
     except (
         ValueError,
@@ -2197,9 +1713,7 @@ async def detective_answer(
 
         return
 
-    won = (
-        selected == culprit
-    )
+    won = selected == culprit
 
     await show_result(
         query,
@@ -2217,6 +1731,575 @@ async def detective_answer(
             )
         ),
         100 if won else 20,
+        won,
+    )
+
+
+# ==========================================================
+# GENERIC INTERACTIVE CHALLENGES
+# ==========================================================
+
+CHALLENGE_DATA = {
+
+    # OUTDOOR
+    "fishing": {
+        "question": "🎣 Cast your line!",
+        "options": [
+            ("🎣 Cast near the rocks", "rocks"),
+            ("🌊 Cast into deep water", "deep"),
+            ("🌿 Cast near the shore", "shore"),
+        ],
+        "success": {
+            "rocks": "🐟 You caught a huge bass!",
+            "deep": "🐠 You landed a trophy fish!",
+            "shore": "🎣 You caught dinner!",
+        },
+    },
+
+    "camping": {
+        "question": "🏕️ Choose your campsite.",
+        "options": [
+            ("🌲 Near the trees", "trees"),
+            ("🏞️ Near the lake", "lake"),
+            ("⛰️ On the hill", "hill"),
+        ],
+        "success": {
+            "trees": "🔥 Perfect campsite!",
+            "lake": "🌊 Beautiful campsite by the water!",
+            "hill": "🏕️ Amazing view from the hill!",
+        },
+    },
+
+    "hiking": {
+        "question": "🥾 Choose your trail.",
+        "options": [
+            ("🌲 Forest trail", "forest"),
+            ("🏔️ Mountain trail", "mountain"),
+            ("🌊 River trail", "river"),
+        ],
+        "success": {
+            "forest": "🌲 You discovered a hidden trail!",
+            "mountain": "🏔️ You reached the summit!",
+            "river": "🌊 You completed the river trail!",
+        },
+    },
+
+    "hunting": {
+        "question": "🏹 Choose your position.",
+        "options": [
+            ("🌲 Tree line", "trees"),
+            ("🏞️ Open field", "field"),
+            ("⛰️ Ridge", "ridge"),
+        ],
+        "success": {
+            "trees": "🏹 Perfect shot!",
+            "field": "🎯 Direct hit!",
+            "ridge": "🔥 Excellent tracking!",
+        },
+    },
+
+    "survival": {
+        "question": "🔥 What do you secure first?",
+        "options": [
+            ("💧 Find water", "water"),
+            ("🔥 Build fire", "fire"),
+            ("🏕️ Build shelter", "shelter"),
+        ],
+        "success": {
+            "water": "💧 You found clean water!",
+            "fire": "🔥 You built a strong fire!",
+            "shelter": "🏕️ You built a safe shelter!",
+        },
+    },
+
+    # SHOOTING
+    "target": {
+        "question": "🎯 Pick your target.",
+        "options": [
+            ("🎯 Center target", "center"),
+            ("🎯 Left target", "left"),
+            ("🎯 Right target", "right"),
+        ],
+        "success": {
+            "center": "🎯 BULLSEYE!",
+            "left": "🎯 Excellent shot!",
+            "right": "💥 Direct hit!",
+        },
+    },
+
+    "quick_shot": {
+        "question": "⚡ Pick your shot.",
+        "options": [
+            ("⚡ Fast shot", "fast"),
+            ("🎯 Careful shot", "careful"),
+            ("🔥 Power shot", "power"),
+        ],
+        "success": {
+            "fast": "⚡ Lightning-fast shot!",
+            "careful": "🎯 Fast and accurate!",
+            "power": "💥 Perfect hit!",
+        },
+    },
+
+    "bullseye": {
+        "question": "🎯 Where do you aim?",
+        "options": [
+            ("🎯 Dead center", "center"),
+            ("🎯 Upper ring", "upper"),
+            ("🎯 Lower ring", "lower"),
+        ],
+        "success": {
+            "center": "🎯 PERFECT BULLSEYE!",
+            "upper": "🔥 Almost perfect!",
+            "lower": "🎯 Great shot!",
+        },
+    },
+
+    "accuracy": {
+        "question": "🏹 Choose your shot.",
+        "options": [
+            ("🎯 Short range", "short"),
+            ("🎯 Medium range", "medium"),
+            ("🔭 Long range", "long"),
+        ],
+        "success": {
+            "short": "🎯 Excellent accuracy!",
+            "medium": "🏹 Great shot!",
+            "long": "🔥 Incredible accuracy!",
+        },
+    },
+
+    "sniper": {
+        "question": "🔭 Choose your position.",
+        "options": [
+            ("🏔️ High ground", "high"),
+            ("🌲 Tree line", "trees"),
+            ("🏢 Rooftop", "roof"),
+        ],
+        "success": {
+            "high": "🎯 Perfect long-range shot!",
+            "trees": "🔭 Target hit!",
+            "roof": "🔥 Incredible accuracy!",
+        },
+    },
+
+    # BOARD
+    "strategy": {
+        "question": "♟️ Choose your move.",
+        "options": [
+            ("♟️ Attack", "attack"),
+            ("🛡️ Defend", "defend"),
+            ("🧠 Trap", "trap"),
+        ],
+        "success": {
+            "attack": "♟️ Brilliant attack!",
+            "defend": "🛡️ Excellent defense!",
+            "trap": "🧠 You outsmarted the opponent!",
+        },
+    },
+
+    "dice_duel": {
+        "question": "🎲 Roll against your opponent.",
+        "options": [
+            ("🎲 Roll once", "one"),
+            ("🎲 Roll twice", "two"),
+            ("🔥 Risk it", "risk"),
+        ],
+        "success": {
+            "one": "🎲 You rolled higher!",
+            "two": "🔥 Huge roll!",
+            "risk": "😈 Your opponent got crushed!",
+        },
+    },
+
+    # SPORTS
+    "football": {
+        "question": "🏈 Choose your play.",
+        "options": [
+            ("🏈 Pass", "pass"),
+            ("🏃 Run", "run"),
+            ("🔥 Deep pass", "deep"),
+        ],
+        "success": {
+            "pass": "🏈 Perfect pass!",
+            "run": "🏈 Huge gain!",
+            "deep": "🏈 TOUCHDOWN!",
+        },
+    },
+
+    "basketball": {
+        "question": "🏀 Choose your shot.",
+        "options": [
+            ("🏀 Layup", "layup"),
+            ("🏀 Mid-range", "mid"),
+            ("🔥 Three pointer", "three"),
+        ],
+        "success": {
+            "layup": "🏀 Easy bucket!",
+            "mid": "🏀 Nothing but net!",
+            "three": "🔥 THREE POINTER!",
+        },
+    },
+
+    "baseball": {
+        "question": "⚾ Pick your swing.",
+        "options": [
+            ("⚾ Contact swing", "contact"),
+            ("🔥 Power swing", "power"),
+            ("🎯 Precision swing", "precision"),
+        ],
+        "success": {
+            "contact": "⚾ Perfect hit!",
+            "power": "⚾ HOME RUN!",
+            "precision": "🔥 Extra-base hit!",
+        },
+    },
+
+    "boxing": {
+        "question": "🥊 Choose your combination.",
+        "options": [
+            ("🥊 Jab", "jab"),
+            ("🥊 Combination", "combo"),
+            ("🔥 Power punch", "power"),
+        ],
+        "success": {
+            "jab": "🥊 Clean jab!",
+            "combo": "🥊 Perfect combination!",
+            "power": "🔥 Knockout!",
+        },
+    },
+
+    "soccer": {
+        "question": "⚽ Choose your attack.",
+        "options": [
+            ("⚽ Near post", "near"),
+            ("⚽ Far post", "far"),
+            ("🔥 Top corner", "top"),
+        ],
+        "success": {
+            "near": "⚽ GOAL!",
+            "far": "⚽ Beautiful finish!",
+            "top": "🔥 Top corner!",
+        },
+    },
+
+    # RACING
+    "car_race": {
+        "question": "🏎️ Choose your racing line.",
+        "options": [
+            ("🏁 Inside line", "inside"),
+            ("🏁 Outside line", "outside"),
+            ("🔥 Aggressive line", "aggressive"),
+        ],
+        "success": {
+            "inside": "🏎️ Perfect corner!",
+            "outside": "🏁 Fastest lap!",
+            "aggressive": "🔥 You crossed the finish line first!",
+        },
+    },
+
+    "bike_race": {
+        "question": "🏍️ Choose your move.",
+        "options": [
+            ("🏍️ Tight corner", "tight"),
+            ("🏁 Straight sprint", "sprint"),
+            ("🔥 Late brake", "brake"),
+        ],
+        "success": {
+            "tight": "🏍️ Amazing cornering!",
+            "sprint": "🏁 First across the line!",
+            "brake": "🔥 Incredible pass!",
+        },
+    },
+
+    "boat_race": {
+        "question": "🚤 Choose your route.",
+        "options": [
+            ("🌊 Inside turn", "inside"),
+            ("🌊 Outside turn", "outside"),
+            ("🔥 Straight shot", "straight"),
+        ],
+        "success": {
+            "inside": "🌊 Perfect turn!",
+            "outside": "🚤 You dominated the race!",
+            "straight": "🏁 First place!",
+        },
+    },
+
+    "drag_race": {
+        "question": "🏁 The lights are coming down!",
+        "options": [
+            ("⚡ Launch early", "early"),
+            ("🏁 Perfect launch", "perfect"),
+            ("🔥 Full send", "full"),
+        ],
+        "success": {
+            "early": "🏁 You got off the line!",
+            "perfect": "🔥 LIGHTS OUT!",
+            "full": "🏎️ You won by a nose!",
+        },
+    },
+
+    "street_race": {
+        "question": "🏎️ Choose your move.",
+        "options": [
+            ("🏎️ Take the corner", "corner"),
+            ("🔥 Hit the straight", "straight"),
+            ("🏁 Pass inside", "pass"),
+        ],
+        "success": {
+            "corner": "🏁 Perfect corner!",
+            "straight": "🔥 Fastest car on the street!",
+            "pass": "🏎️ You took the win!",
+        },
+    },
+
+    # FIGHTING
+    "mma": {
+        "question": "🥋 Choose your opening.",
+        "options": [
+            ("🥊 Strike", "strike"),
+            ("🤼 Takedown", "take"),
+            ("🔥 Combination", "combo"),
+        ],
+        "success": {
+            "strike": "🥊 Perfect strike!",
+            "take": "🥋 Submission victory!",
+            "combo": "🔥 Technical knockout!",
+        },
+    },
+
+    "karate": {
+        "question": "🥋 Choose your technique.",
+        "options": [
+            ("🥋 Front kick", "kick"),
+            ("👊 Punch", "punch"),
+            ("🔥 Combination", "combo"),
+        ],
+        "success": {
+            "kick": "🥋 Perfect strike!",
+            "punch": "🥋 Excellent technique!",
+            "combo": "🔥 Tournament victory!",
+        },
+    },
+
+    "street_fight": {
+        "question": "👊 Choose your move.",
+        "options": [
+            ("👊 Punch", "punch"),
+            ("🦵 Kick", "kick"),
+            ("🔥 Combination", "combo"),
+        ],
+        "success": {
+            "punch": "👊 You won the fight!",
+            "kick": "💪 Powerful kick!",
+            "combo": "🔥 Knockout!",
+        },
+    },
+
+    "arena": {
+        "question": "⚔️ Enter the arena!",
+        "options": [
+            ("⚔️ Strike", "strike"),
+            ("🛡️ Defend", "defend"),
+            ("🔥 Critical attack", "critical"),
+        ],
+        "success": {
+            "strike": "⚔️ Arena victory!",
+            "defend": "🛡️ You survived the attack!",
+            "critical": "🔥 Critical hit!",
+        },
+    },
+
+    # MYSTERY
+    "murder_mystery": {
+        "question": "🔎 Which clue do you investigate?",
+        "options": [
+            ("🔎 Footprints", "prints"),
+            ("🧤 Glove", "glove"),
+            ("📱 Phone", "phone"),
+        ],
+        "success": {
+            "prints": "🕵🏾 Mystery solved!",
+            "glove": "🔍 Critical clue discovered!",
+            "phone": "🕵🏾 You found the culprit!",
+        },
+    },
+
+    "investigation": {
+        "question": "🔍 Which evidence do you examine?",
+        "options": [
+            ("📄 Documents", "documents"),
+            ("🔎 Evidence bag", "evidence"),
+            ("📱 Phone records", "phone"),
+        ],
+        "success": {
+            "documents": "🔍 Evidence discovered!",
+            "evidence": "🧠 Case breakthrough!",
+            "phone": "🕵🏾 Investigation successful!",
+        },
+    },
+}
+
+
+# ==========================================================
+# GENERIC CHALLENGE GAME
+# ==========================================================
+
+async def generic_challenge_game(
+    query,
+    context,
+    game_id,
+):
+
+    data = CHALLENGE_DATA.get(
+        game_id
+    )
+
+    if not data:
+
+        # Absolute fallback.
+        won = random.choice(
+            [True, True, True, False]
+        )
+
+        score = random.randint(
+            40,
+            100,
+        )
+
+        await show_result(
+            query,
+            game_id,
+            f"<b>{GAME_NAMES.get(game_id, '🎮 Game')}</b>",
+            (
+                "🎮 Challenge complete!\n\n"
+                +
+                (
+                    "🏆 You won!"
+                    if won
+                    else
+                    "😅 Better luck next time!"
+                )
+            ),
+            score,
+            won,
+        )
+
+        return
+
+    keyboard = []
+
+    for label, value in data["options"]:
+
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    label,
+                    callback_data=f"game_challenge_{game_id}_{value}",
+                )
+            ]
+        )
+
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                "⬅️ Game Center",
+                callback_data="games_home",
+            )
+        ]
+    )
+
+    context.user_data[
+        f"challenge_{game_id}"
+    ] = {
+        "options": [
+            value
+            for _, value
+            in data["options"]
+        ]
+    }
+
+    await query.edit_message_text(
+        f"<b>{GAME_NAMES.get(game_id, '🎮 Game')}</b>\n\n"
+        f"{data['question']}",
+        reply_markup=InlineKeyboardMarkup(
+            keyboard
+        ),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def generic_challenge_answer(
+    query,
+    context,
+    game_id,
+    choice,
+):
+
+    key = f"challenge_{game_id}"
+
+    state = context.user_data.pop(
+        key,
+        None,
+    )
+
+    if state is None:
+
+        await query.answer(
+            "That game has already ended.",
+            show_alert=True,
+        )
+
+        return
+
+    valid_choices = state.get(
+        "options",
+        [],
+    )
+
+    if choice not in valid_choices:
+
+        await query.answer(
+            "Invalid choice.",
+            show_alert=True,
+        )
+
+        return
+
+    data = CHALLENGE_DATA.get(
+        game_id,
+        {},
+    )
+
+    success = data.get(
+        "success",
+        {},
+    )
+
+    body = success.get(
+        choice,
+        "🎮 Challenge complete!",
+    )
+
+    # Give most challenges a chance to win.
+    won = random.random() < 0.75
+
+    score = random.randint(
+        50,
+        100,
+    )
+
+    if not won:
+
+        body += "\n\n😅 Your opponent got the better of you!"
+
+    await show_result(
+        query,
+        game_id,
+        f"<b>{GAME_NAMES.get(game_id, '🎮 Game')}</b>",
+        body,
+        score,
         won,
     )
 
@@ -2256,8 +2339,15 @@ async def play_game(
         display_name=user.full_name,
     )
 
+    logger.info(
+        "Starting game %s for user %s",
+        game_id,
+        user.id,
+    )
+
     try:
 
+        # ARCADE
         if game_id == "reaction":
 
             await reaction_game(
@@ -2303,6 +2393,7 @@ async def play_game(
 
             return
 
+        # PARTY
         if game_id == "truth_dare":
 
             await truth_dare_game(
@@ -2311,6 +2402,7 @@ async def play_game(
 
             return
 
+        # TRIVIA
         if game_id in TRIVIA:
 
             await trivia_game(
@@ -2321,6 +2413,7 @@ async def play_game(
 
             return
 
+        # MYSTERY SPECIAL GAMES
         if game_id == "code_breaker":
 
             await code_breaker_game(
@@ -2348,8 +2441,10 @@ async def play_game(
 
             return
 
-        await random_challenge_game(
+        # EVERYTHING ELSE
+        await generic_challenge_game(
             query,
+            context,
             game_id,
         )
 
@@ -2420,9 +2515,7 @@ async def games_callback_router(
         # NUMBER GUESS
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_guess_"
-        ):
+        if data.startswith("game_guess_"):
 
             await query.answer()
 
@@ -2496,9 +2589,7 @@ async def games_callback_router(
         # TRIVIA
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_trivia_"
-        ):
+        if data.startswith("game_trivia_"):
 
             await query.answer()
 
@@ -2518,9 +2609,7 @@ async def games_callback_router(
         # CODE BREAKER
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_code_"
-        ):
+        if data.startswith("game_code_"):
 
             await query.answer()
 
@@ -2540,9 +2629,7 @@ async def games_callback_router(
         # ESCAPE
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_escape_"
-        ):
+        if data.startswith("game_escape_"):
 
             await query.answer()
 
@@ -2562,9 +2649,7 @@ async def games_callback_router(
         # DETECTIVE
         # --------------------------------------------------
 
-        if data.startswith(
-            "game_detective_"
-        ):
+        if data.startswith("game_detective_"):
 
             await query.answer()
 
@@ -2576,6 +2661,57 @@ async def games_callback_router(
                 query,
                 context,
                 index,
+            )
+
+            return
+
+        # --------------------------------------------------
+        # GENERIC CHALLENGES
+        # --------------------------------------------------
+
+        if data.startswith("game_challenge_"):
+
+            await query.answer()
+
+            remainder = data[
+                len("game_challenge_"):
+            ]
+
+            parts = remainder.split(
+                "_"
+            )
+
+            if len(parts) < 2:
+
+                await query.answer(
+                    "Invalid game action.",
+                    show_alert=True,
+                )
+
+                return
+
+            # Game IDs may contain underscores.
+            # The final part is the selected option.
+            choice = parts[-1]
+
+            game_id = "_".join(
+                parts[:-1]
+            )
+
+            if game_id not in CHALLENGE_DATA:
+
+                await query.answer(
+                    "Game not found.",
+                    show_alert=True,
+                )
+
+                return
+
+            await generic_challenge_answer(
+                query,
+                context,
+                game_id,
+                choice,
             )
 
             return
