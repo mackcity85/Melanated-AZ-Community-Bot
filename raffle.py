@@ -10,6 +10,7 @@
 #   - FREE raffle auto-approval
 #   - PAID raffle pending/admin approval
 #   - Cash App / Zelle
+#   - Payment method tracking
 #   - Pending entry approval
 #   - Entry denial
 #   - Manual admin entry
@@ -21,10 +22,12 @@
 # FREE RAFFLE:
 #   $0 / 0 / Free / FREE / $0.00 / 0.00
 #   -> Automatically approved.
+#   -> Payment buttons are NOT displayed.
 #
 # PAID RAFFLE:
 #   Any non-zero price
 #   -> Entry remains pending until admin approval.
+#   -> Cash App / Zelle payment method is saved.
 #
 # DATABASE:
 #   Uses existing raffle_database.py.
@@ -455,7 +458,22 @@ async def publish_raffle(
         raffle["price"]
     )
 
+    # ------------------------------------------------------
+    # FREE RAFFLE KEYBOARD
+    # ------------------------------------------------------
+
     if free:
+
+        keyboard = InlineKeyboardMarkup(
+            [[
+                InlineKeyboardButton(
+                    "🎟️ ENTER RAFFLE",
+                    callback_data=(
+                        f"enter_{raffle_id}"
+                    ),
+                )
+            ]]
+        )
 
         entry_label = (
             "🆓 <b>FREE ENTRY</b>"
@@ -467,7 +485,40 @@ async def publish_raffle(
             "a free raffle."
         )
 
+    # ------------------------------------------------------
+    # PAID RAFFLE KEYBOARD
+    # ------------------------------------------------------
+
     else:
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎟️ ENTER RAFFLE",
+                        callback_data=(
+                            f"enter_{raffle_id}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "💵 PAY WITH CASH APP",
+                        callback_data=(
+                            f"pay_cashapp_{raffle_id}"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🏦 PAY WITH ZELLE",
+                        callback_data=(
+                            f"pay_zelle_{raffle_id}"
+                        ),
+                    )
+                ],
+            ]
+        )
 
         entry_label = (
             f"💵 <b>Entry: {raffle['price']}</b>"
@@ -477,35 +528,6 @@ async def publish_raffle(
             "⚠️ Your entry remains <b>PENDING</b> "
             "until an admin verifies your payment."
         )
-
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🎟️ ENTER RAFFLE",
-                    callback_data=(
-                        f"enter_{raffle_id}"
-                    ),
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "💵 PAY WITH CASH APP",
-                    callback_data=(
-                        f"pay_cashapp_{raffle_id}"
-                    ),
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🏦 PAY WITH ZELLE",
-                    callback_data=(
-                        f"pay_zelle_{raffle_id}"
-                    ),
-                )
-            ],
-        ]
-    )
 
     text = (
         "🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>\n\n"
@@ -752,10 +774,10 @@ async def enter_raffle(
     )
 
     # ------------------------------------------------------
-    # DATABASE FUNCTION ALREADY PREVENTS:
+    # DATABASE PREVENTS:
     #
-    #   pending + same raffle + same user
-    #   approved + same raffle + same user
+    # pending + same raffle + same user
+    # approved + same raffle + same user
     #
     # Therefore one active entry per user per raffle.
     # ------------------------------------------------------
@@ -861,7 +883,9 @@ async def enter_raffle(
             f"💵 Entry Price: <b>{raffle['price']}</b>\n"
             f"🆔 Entry: <code>{entry_id}</code>\n\n"
             "⏳ Your entry is <b>PENDING</b> "
-            "until an admin verifies payment.",
+            "until an admin verifies payment.\n\n"
+            "💳 Please choose Cash App or Zelle "
+            "below and complete your payment.",
             parse_mode=ParseMode.HTML,
         )
 
@@ -874,6 +898,43 @@ async def enter_raffle(
         )
 
     keyboard = InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton(
+                "💵 PAY WITH CASH APP",
+                callback_data=(
+                    f"pay_cashapp_{raffle_id}"
+                ),
+            ),
+            InlineKeyboardButton(
+                "🏦 PAY WITH ZELLE",
+                callback_data=(
+                    f"pay_zelle_{raffle_id}"
+                ),
+            ),
+        ]]
+    )
+
+    try:
+
+        await query.message.reply_text(
+            "💳 <b>SELECT PAYMENT METHOD</b>",
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML,
+        )
+
+    except TelegramError:
+
+        logger.exception(
+            "Could not send payment selection "
+            "for entry %s.",
+            entry_id,
+        )
+
+    # ------------------------------------------------------
+    # Notify admins.
+    # ------------------------------------------------------
+
+    admin_keyboard = InlineKeyboardMarkup(
         [[
             InlineKeyboardButton(
                 "✅ APPROVE",
@@ -909,7 +970,7 @@ async def enter_raffle(
             await context.bot.send_message(
                 chat_id=int(admin_id),
                 text=admin_text,
-                reply_markup=keyboard,
+                reply_markup=admin_keyboard,
                 parse_mode=ParseMode.HTML,
             )
 
@@ -919,6 +980,56 @@ async def enter_raffle(
                 "Could not notify admin %s.",
                 admin_id,
             )
+
+
+# ==========================================================
+# UPDATE PAYMENT METHOD
+# ==========================================================
+
+def _set_entry_payment_method(
+    entry_id,
+    payment_method,
+):
+    """
+    Updates the payment method for a pending entry.
+
+    Uses the existing raffle_entries table.
+    No schema changes are required because
+    payment_method already exists in raffle_database.py.
+    """
+
+    import raffle_database
+
+    conn = raffle_database.get_connection()
+
+    try:
+
+        cur = conn.execute(
+            """
+            UPDATE raffle_entries
+            SET payment_method=?
+            WHERE id=?
+              AND status='pending'
+            """,
+            (
+                payment_method,
+                int(entry_id),
+            ),
+        )
+
+        conn.commit()
+
+        return cur.rowcount == 1
+
+    except Exception:
+
+        conn.rollback()
+
+        raise
+
+    finally:
+
+        conn.close()
 
 
 # ==========================================================
@@ -952,7 +1063,7 @@ async def payment_method(
         return
 
     # ------------------------------------------------------
-    # Payment buttons are not needed for a free raffle.
+    # Payment buttons are not needed for FREE raffles.
     # ------------------------------------------------------
 
     if is_free_raffle(
@@ -966,6 +1077,10 @@ async def payment_method(
         )
 
         return
+
+    # ------------------------------------------------------
+    # Find this user's pending entry.
+    # ------------------------------------------------------
 
     entry = next(
         (
@@ -991,14 +1106,83 @@ async def payment_method(
 
         return
 
+    # ------------------------------------------------------
+    # Validate payment method.
+    # ------------------------------------------------------
+
+    method = str(
+        method or ""
+    ).strip().lower()
+
+    if method not in {
+        "cashapp",
+        "zelle",
+    }:
+
+        await query.answer(
+            "Invalid payment method.",
+            show_alert=True,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # SAVE PAYMENT METHOD
+    # ------------------------------------------------------
+
+    try:
+
+        changed = _set_entry_payment_method(
+            entry["id"],
+            method,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Could not save payment method | "
+            "entry=%s | method=%s",
+            entry["id"],
+            method,
+        )
+
+        await query.answer(
+            "Could not save payment method. "
+            "Please try again.",
+            show_alert=True,
+        )
+
+        return
+
+    if not changed:
+
+        await query.answer(
+            "This entry is no longer pending.",
+            show_alert=True,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # PAYMENT INSTRUCTIONS
+    # ------------------------------------------------------
+
     if method == "cashapp":
 
         body = (
             "💵 <b>CASH APP</b>\n\n"
             f"Send <b>{raffle['price']}</b> to:\n"
-            f"<code>{CASHAPP_TAG}</code>\n\n"
-            f"{CASHAPP_URL or ''}"
+            f"<code>{CASHAPP_TAG}</code>"
         )
+
+        if CASHAPP_URL:
+
+            body += (
+                f"\n\n"
+                f"{CASHAPP_URL}"
+            )
+
+        method_name = "Cash App"
 
     else:
 
@@ -1008,14 +1192,21 @@ async def payment_method(
             f"<code>{ZELLE_PHONE}</code>"
         )
 
-    await query.answer()
+        method_name = "Zelle"
+
+    await query.answer(
+        f"{method_name} selected!"
+    )
 
     try:
 
         await query.message.reply_text(
             body
-            + "\n\nAfter payment, your entry remains "
-            "pending until an admin verifies it.",
+            + "\n\n"
+            "⏳ After payment, your entry remains "
+            "<b>PENDING</b> until an admin verifies it.\n\n"
+            f"💳 Payment method recorded: "
+            f"<b>{method_name}</b>",
             parse_mode=ParseMode.HTML,
         )
 
@@ -1024,6 +1215,65 @@ async def payment_method(
         logger.exception(
             "Could not send payment instructions."
         )
+
+    # ------------------------------------------------------
+    # Update admin notifications.
+    #
+    # We send a NEW notification rather than trying to
+    # edit every existing admin message.
+    # This makes payment-method tracking reliable.
+    # ------------------------------------------------------
+
+    admin_keyboard = InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton(
+                "✅ APPROVE",
+                callback_data=(
+                    f"approve_{entry['id']}"
+                ),
+            ),
+            InlineKeyboardButton(
+                "❌ DENY",
+                callback_data=(
+                    f"deny_{entry['id']}"
+                ),
+            ),
+        ]]
+    )
+
+    admin_text = (
+        "💳 <b>PAYMENT METHOD SELECTED</b>\n\n"
+        f"🆔 Entry: <code>{entry['id']}</code>\n"
+        f"🎟️ Raffle: <code>{raffle_id}</code>\n"
+        f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+        f"💵 Price: <b>{raffle['price']}</b>\n"
+        f"👤 Member: <b>"
+        f"{display_user(entry)}"
+        f"</b>\n"
+        f"💳 Payment: <b>{method_name}</b>\n"
+        "⏳ Status: <b>PENDING</b>\n\n"
+        "Verify the payment and choose an action:"
+    )
+
+    for admin_id in ADMIN_IDS:
+
+        try:
+
+            await context.bot.send_message(
+                chat_id=int(admin_id),
+                text=admin_text,
+                reply_markup=admin_keyboard,
+                parse_mode=ParseMode.HTML,
+            )
+
+        except TelegramError:
+
+            logger.warning(
+                "Could not notify admin %s about payment "
+                "for entry %s.",
+                admin_id,
+                entry["id"],
+            )
 
 
 # ==========================================================
@@ -1100,6 +1350,20 @@ async def approve_entry_callback(
         "✅ Entry approved!"
     )
 
+    payment_display = (
+        entry.get("payment_method")
+        or "Verified"
+    )
+
+    if payment_display == "cashapp":
+        payment_display = "Cash App"
+
+    elif payment_display == "zelle":
+        payment_display = "Zelle"
+
+    elif payment_display == "manual":
+        payment_display = "Manual"
+
     try:
 
         await query.edit_message_text(
@@ -1113,7 +1377,7 @@ async def approve_entry_callback(
             f"{display_user(entry)}"
             f"</b>\n"
             f"💳 Payment: <b>"
-            f"{entry.get('payment_method') or 'Verified'}"
+            f"{payment_display}"
             f"</b>\n\n"
             f"Approved by admin "
             f"<code>{user.id}</code>.",
@@ -1139,6 +1403,8 @@ async def approve_entry_callback(
                 f"{entry.get('prize') or 'Raffle'}"
                 f"</b>\n"
                 f"🆔 Entry: <code>{entry_id}</code>\n\n"
+                "✅ Your payment has been verified "
+                "and your entry is approved.\n\n"
                 "Good luck! 🍀"
             ),
             parse_mode=ParseMode.HTML,
@@ -1224,6 +1490,9 @@ async def deny_entry_callback(
             f"🎟️ Raffle: <code>{entry['raffle_id']}</code>\n"
             f"👤 Member: <b>"
             f"{display_user(entry)}"
+            f"</b>\n"
+            f"💳 Payment: <b>"
+            f"{entry.get('payment_method') or 'Not selected'}"
             f"</b>\n\n"
             f"Denied by admin "
             f"<code>{user.id}</code>.",
@@ -1233,6 +1502,33 @@ async def deny_entry_callback(
     except TelegramError:
 
         pass
+
+    # ------------------------------------------------------
+    # Notify entrant.
+    # ------------------------------------------------------
+
+    try:
+
+        await context.bot.send_message(
+            chat_id=int(entry["user_id"]),
+            text=(
+                "❌ <b>YOUR RAFFLE ENTRY "
+                "WAS DENIED</b>\n\n"
+                f"🎁 Prize: <b>"
+                f"{entry.get('prize') or 'Raffle'}"
+                f"</b>\n"
+                f"🆔 Entry: <code>{entry_id}</code>\n\n"
+                "Your raffle entry was denied by an admin."
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+
+    except TelegramError:
+
+        logger.info(
+            "Could not notify denied entrant %s.",
+            entry["user_id"],
+        )
 
 
 # ==========================================================
@@ -2047,6 +2343,20 @@ async def pending_entries(
             ]]
         )
 
+        payment_display = (
+            entry.get("payment_method")
+            or "Not selected"
+        )
+
+        if payment_display == "cashapp":
+            payment_display = "Cash App"
+
+        elif payment_display == "zelle":
+            payment_display = "Zelle"
+
+        elif payment_display == "manual":
+            payment_display = "Manual"
+
         text = (
             "⏳ <b>PENDING RAFFLE ENTRY</b>\n\n"
             f"🆔 Entry: <code>{entry['id']}</code>\n"
@@ -2062,8 +2372,9 @@ async def pending_entries(
             f"{display_user(entry)}"
             f"</b>\n"
             f"💳 Payment: <b>"
-            f"{entry.get('payment_method') or 'Not selected'}"
-            f"</b>\n\n"
+            f"{payment_display}"
+            f"</b>\n"
+            f"⏳ Status: <b>PENDING</b>\n\n"
             "Choose an action:"
         )
 
