@@ -1,9 +1,6 @@
 """
 Melanated AZ Bot
 Real Games Package
-
-This package is intentionally separate from the existing
-games/ package.
 """
 
 from .routes import real_games_bp
