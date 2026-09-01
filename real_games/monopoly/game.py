@@ -1,22 +1,21 @@
-# ==========================================================
-# Melanated AZ Bot
-# REAL GAMES - MONOPOLY
-#
-# Original Monopoly-style game mechanics.
-# ==========================================================
+"""
+Original property-trading board game.
+
+Designed for 2-6 players.
+"""
 
 import random
-import uuid
+
+from ..game_manager import GAME_MANAGER
 
 
 BOARD = [
     {"name": "START", "price": 0, "rent": 0},
-
-    {"name": "Copper Street", "price": 60, "rent": 2},
+    {"name": "Copper Street", "price": 60, "rent": 4},
     {"name": "Community Chest", "price": 0, "rent": 0},
     {"name": "Desert Avenue", "price": 60, "rent": 4},
     {"name": "Income Tax", "price": 0, "rent": 0},
-    {"name": "Central Bank", "price": 200, "rent": 0},
+    {"name": "Central Bank", "price": 0, "rent": 0},
 
     {"name": "Cactus Road", "price": 100, "rent": 6},
     {"name": "Chance", "price": 0, "rent": 0},
@@ -28,7 +27,7 @@ BOARD = [
     {"name": "Electric Company", "price": 150, "rent": 0},
     {"name": "Tempe Street", "price": 140, "rent": 10},
     {"name": "Scottsdale Road", "price": 160, "rent": 12},
-    {"name": "Desert Works", "price": 200, "rent": 0},
+    {"name": "Desert Works", "price": 0, "rent": 0},
 
     {"name": "Mesa Avenue", "price": 180, "rent": 14},
     {"name": "Community Chest", "price": 0, "rent": 0},
@@ -40,7 +39,7 @@ BOARD = [
     {"name": "Chance", "price": 0, "rent": 0},
     {"name": "Grand Avenue", "price": 220, "rent": 18},
     {"name": "Camelback Road", "price": 240, "rent": 20},
-    {"name": "Transit Hub", "price": 200, "rent": 0},
+    {"name": "Transit Hub", "price": 0, "rent": 0},
 
     {"name": "Broadway", "price": 260, "rent": 22},
     {"name": "Central Avenue", "price": 260, "rent": 22},
@@ -52,7 +51,7 @@ BOARD = [
     {"name": "Lake Pleasant", "price": 300, "rent": 26},
     {"name": "Community Chest", "price": 0, "rent": 0},
     {"name": "Paradise Valley", "price": 320, "rent": 28},
-    {"name": "Airport", "price": 200, "rent": 0},
+    {"name": "Airport", "price": 0, "rent": 0},
 
     {"name": "Camelback Mountain", "price": 350, "rent": 35},
     {"name": "Chance", "price": 0, "rent": 0},
@@ -60,7 +59,7 @@ BOARD = [
 ]
 
 
-SPECIAL_SPACES = {
+SPECIAL = {
     "START",
     "Community Chest",
     "Chance",
@@ -78,18 +77,30 @@ SPECIAL_SPACES = {
 
 
 class Player:
-    def __init__(self, player_id, name, token):
-        self.id = player_id
-        self.name = name
+
+    def __init__(
+        self,
+        player_id,
+        name,
+        token,
+    ):
+
+        self.id = str(player_id)
+        self.name = name[:40]
         self.token = token
+
         self.position = 0
         self.money = 1500
+
         self.properties = []
+
         self.in_jail = False
         self.jail_turns = 0
+
         self.bankrupt = False
 
-    def to_dict(self):
+    def serialize(self):
+
         return {
             "id": self.id,
             "name": self.name,
@@ -98,6 +109,7 @@ class Player:
             "money": self.money,
             "properties": self.properties,
             "in_jail": self.in_jail,
+            "jail_turns": self.jail_turns,
             "bankrupt": self.bankrupt,
         }
 
@@ -113,110 +125,158 @@ class MonopolyGame:
         "⭐",
     ]
 
-    def __init__(self, creator_id, creator_name):
-        self.id = str(uuid.uuid4())[:8]
+    def __init__(
+        self,
+        creator_id,
+        creator_name,
+    ):
 
-        self.players = [
-            Player(
-                creator_id,
-                creator_name,
-                self.TOKENS[0],
-            )
-        ]
+        self.game_id = GAME_MANAGER.create_id()
 
-        self.current_player_index = 0
+        self.players = []
+
         self.started = False
         self.finished = False
-        self.winner = None
+
+        self.current_index = 0
+
         self.last_roll = None
-        self.message = f"{creator_name} created the game."
 
-    # ------------------------------------------------------
-    # PLAYER MANAGEMENT
-    # ------------------------------------------------------
-
-    def add_player(self, player_id, name):
-
-        if self.started:
-            raise ValueError("The game has already started.")
-
-        if len(self.players) >= 6:
-            raise ValueError("The game is full.")
-
-        if any(p.id == player_id for p in self.players):
-            return
-
-        token = self.TOKENS[len(self.players)]
-
-        self.players.append(
-            Player(
-                player_id,
-                name,
-                token,
-            )
+        self.message = (
+            f"{creator_name} created the game."
         )
 
-        self.message = f"{name} joined the game."
+        self.winner = None
+
+        self.add_player(
+            creator_id,
+            creator_name,
+        )
+
+    # ------------------------------------------------------
+    # PLAYERS
+    # ------------------------------------------------------
+
+    def add_player(
+        self,
+        player_id,
+        name,
+    ):
+
+        player_id = str(player_id)
+
+        if self.started:
+            raise ValueError(
+                "The game has already started."
+            )
+
+        if len(self.players) >= 6:
+            raise ValueError(
+                "The game is full."
+            )
+
+        if any(
+            p.id == player_id
+            for p in self.players
+        ):
+            return
+
+        player = Player(
+            player_id,
+            name,
+            self.TOKENS[len(self.players)],
+        )
+
+        self.players.append(player)
+
+        self.message = (
+            f"{player.name} joined the game."
+        )
+
+    # ------------------------------------------------------
+    # START
+    # ------------------------------------------------------
 
     def start(self):
 
+        if self.started:
+            return
+
         if len(self.players) < 2:
-            raise ValueError("At least 2 players are required.")
+            raise ValueError(
+                "You need at least 2 players."
+            )
 
         self.started = True
-        self.current_player_index = 0
+
+        self.current_index = 0
 
         self.message = (
-            f"{self.players[0].name}'s turn."
+            f"{self.current_player.name}'s turn."
         )
 
     # ------------------------------------------------------
-    # TURN MANAGEMENT
+    # CURRENT PLAYER
     # ------------------------------------------------------
 
     @property
     def current_player(self):
-        return self.players[self.current_player_index]
 
-    def roll(self, player_id):
+        return self.players[
+            self.current_index
+        ]
+
+    # ------------------------------------------------------
+    # ROLL
+    # ------------------------------------------------------
+
+    def roll(
+        self,
+        player_id,
+    ):
 
         if not self.started:
-            raise ValueError("Game has not started.")
+            raise ValueError(
+                "The game has not started."
+            )
 
         if self.finished:
-            raise ValueError("Game is over.")
+            raise ValueError(
+                "The game is over."
+            )
 
         player = self.current_player
 
-        if player.id != player_id:
-            raise ValueError("It is not your turn.")
-
-        if player.bankrupt:
-            self.next_turn()
-            return
+        if player.id != str(player_id):
+            raise ValueError(
+                "It is not your turn."
+            )
 
         if player.in_jail:
 
             player.jail_turns += 1
 
             if player.jail_turns >= 3:
+
                 player.in_jail = False
                 player.jail_turns = 0
+
                 player.money -= 50
 
-                if player.money < 0:
-                    self.bankrupt_player(player)
-
                 self.message = (
-                    f"{player.name} paid $50 and left jail."
+                    f"{player.name} paid $50 "
+                    "and left jail."
                 )
 
             else:
+
                 self.message = (
-                    f"{player.name} is still in jail."
+                    f"{player.name} is in jail. "
+                    f"Jail turn {player.jail_turns}/3."
                 )
 
             self.next_turn()
+
             return
 
         die1 = random.randint(1, 6)
@@ -233,30 +293,38 @@ class MonopolyGame:
         old_position = player.position
 
         player.position = (
-            player.position + total
+            old_position + total
         ) % len(BOARD)
 
         if player.position < old_position:
+
             player.money += 200
 
             self.message = (
-                f"{player.name} passed START and "
-                f"collected $200."
+                f"{player.name} passed START "
+                "and collected $200."
             )
+
         else:
+
             self.message = (
-                f"{player.name} rolled {die1} + {die2}."
+                f"{player.name} rolled "
+                f"{die1} + {die2}."
             )
 
         self.resolve_space(player)
 
     # ------------------------------------------------------
-    # BOARD LOGIC
+    # SPACE
     # ------------------------------------------------------
 
-    def resolve_space(self, player):
+    def resolve_space(
+        self,
+        player,
+    ):
 
         space = BOARD[player.position]
+
         name = space["name"]
 
         if name == "GO TO JAIL":
@@ -270,33 +338,45 @@ class MonopolyGame:
             )
 
             self.next_turn()
+
             return
 
         if name == "Income Tax":
 
-            amount = min(200, player.money)
+            amount = min(
+                200,
+                player.money,
+            )
 
             player.money -= amount
 
             self.message = (
-                f"{player.name} paid ${amount} in tax."
+                f"{player.name} paid ${amount} "
+                "in tax."
             )
 
             self.next_turn()
+
             return
 
-        if name in {"Chance", "Community Chest"}:
+        if name in {
+            "Chance",
+            "Community Chest",
+        }:
 
-            self.draw_card(player, name)
+            self.card(player)
+
             self.next_turn()
+
             return
 
-        if name in SPECIAL_SPACES:
+        if name in SPECIAL:
 
             self.next_turn()
+
             return
 
-        owner = self.property_owner(name)
+        owner = self.owner_of(name)
 
         if owner and owner.id != player.id:
 
@@ -311,62 +391,68 @@ class MonopolyGame:
             )
 
             if player.money < 0:
-                self.bankrupt_player(player)
+                self.bankrupt(player)
 
             self.next_turn()
 
-        elif not owner:
+            return
+
+        if owner is None:
 
             self.message = (
                 f"{player.name} landed on "
-                f"{name}. It costs ${space['price']}."
+                f"{name}. "
+                f"Purchase price: ${space['price']}."
             )
 
-            # Do not automatically buy.
-            # Browser displays BUY button.
+            return
 
-        else:
-            self.next_turn()
+        self.next_turn()
 
     # ------------------------------------------------------
-    # PROPERTY
+    # BUY
     # ------------------------------------------------------
 
-    def property_owner(self, property_name):
-
-        for player in self.players:
-
-            if property_name in player.properties:
-                return player
-
-        return None
-
-    def buy_property(self, player_id):
+    def buy(
+        self,
+        player_id,
+    ):
 
         player = self.current_player
 
-        if player.id != player_id:
-            raise ValueError("It is not your turn.")
+        if player.id != str(player_id):
+            raise ValueError(
+                "It is not your turn."
+            )
 
         space = BOARD[player.position]
 
-        if space["name"] in SPECIAL_SPACES:
-            raise ValueError("This space cannot be purchased.")
+        name = space["name"]
 
-        if self.property_owner(space["name"]):
-            raise ValueError("This property is already owned.")
+        if name in SPECIAL:
+            raise ValueError(
+                "This space cannot be purchased."
+            )
+
+        if self.owner_of(name):
+            raise ValueError(
+                "This property is already owned."
+            )
 
         price = space["price"]
 
         if player.money < price:
-            raise ValueError("You cannot afford this property.")
+            raise ValueError(
+                "You cannot afford this property."
+            )
 
         player.money -= price
-        player.properties.append(space["name"])
+
+        player.properties.append(name)
 
         self.message = (
             f"{player.name} bought "
-            f"{space['name']} for ${price}."
+            f"{name} for ${price}."
         )
 
         self.next_turn()
@@ -375,15 +461,17 @@ class MonopolyGame:
     # CARDS
     # ------------------------------------------------------
 
-    def draw_card(self, player, deck):
+    def card(
+        self,
+        player,
+    ):
 
         cards = [
-
-            ("Collect $100.", 100),
-            ("Pay $50.", -50),
-            ("Collect $150.", 150),
-            ("Pay $100.", -100),
-            ("Collect $50 from the bank.", 50),
+            ("You found $100.", 100),
+            ("You received $150.", 150),
+            ("You paid a $50 fee.", -50),
+            ("You paid a $100 fee.", -100),
+            ("Bank bonus: $75.", 75),
         ]
 
         text, amount = random.choice(cards)
@@ -395,34 +483,57 @@ class MonopolyGame:
         )
 
         if player.money < 0:
-            self.bankrupt_player(player)
+            self.bankrupt(player)
+
+    # ------------------------------------------------------
+    # OWNER
+    # ------------------------------------------------------
+
+    def owner_of(
+        self,
+        property_name,
+    ):
+
+        for player in self.players:
+
+            if (
+                property_name
+                in player.properties
+            ):
+                return player
+
+        return None
 
     # ------------------------------------------------------
     # BANKRUPTCY
     # ------------------------------------------------------
 
-    def bankrupt_player(self, player):
+    def bankrupt(
+        self,
+        player,
+    ):
 
         player.bankrupt = True
-
         player.money = 0
 
         self.message = (
-            f"{player.name} is bankrupt!"
+            f"{player.name} is bankrupt."
         )
 
         active = [
-            p for p in self.players
+            p
+            for p in self.players
             if not p.bankrupt
         ]
 
         if len(active) == 1:
 
             self.finished = True
+
             self.winner = active[0].name
 
             self.message = (
-                f"🏆 {self.winner} wins the game!"
+                f"🏆 {self.winner} wins!"
             )
 
     # ------------------------------------------------------
@@ -434,66 +545,50 @@ class MonopolyGame:
         if self.finished:
             return
 
-        if len([
-            p for p in self.players
+        active = [
+            p
+            for p in self.players
             if not p.bankrupt
-        ]) <= 1:
+        ]
+
+        if len(active) <= 1:
             return
 
         for _ in range(len(self.players)):
 
-            self.current_player_index = (
-                self.current_player_index + 1
+            self.current_index = (
+                self.current_index + 1
             ) % len(self.players)
 
-            player = self.current_player
+            if not self.current_player.bankrupt:
 
-            if not player.bankrupt:
                 self.message = (
-                    f"{player.name}'s turn."
+                    f"{self.current_player.name}'s turn."
                 )
-                break
+
+                return
 
     # ------------------------------------------------------
     # STATE
     # ------------------------------------------------------
 
-    def state(self):
+    def serialize(self):
 
         return {
-            "id": self.id,
+            "game_id": self.game_id,
             "started": self.started,
             "finished": self.finished,
             "winner": self.winner,
             "message": self.message,
+            "current_player": (
+                self.current_player.id
+                if self.started
+                else None
+            ),
             "last_roll": self.last_roll,
-            "current_player": self.current_player.id
-            if self.started and self.players
-            else None,
             "players": [
-                p.to_dict()
+                p.serialize()
                 for p in self.players
             ],
             "board": BOARD,
         }
-
-
-# Global game rooms.
-GAMES = {}
-
-
-def create_game(player_id, player_name):
-
-    game = MonopolyGame(
-        player_id,
-        player_name,
-    )
-
-    GAMES[game.id] = game
-
-    return game
-
-
-def get_game(game_id):
-
-    return GAMES.get(game_id)
