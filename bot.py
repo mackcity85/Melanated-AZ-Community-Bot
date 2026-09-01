@@ -4,18 +4,21 @@
 #
 # COMPLETE CLEAN DROP-IN LAUNCHER
 #
-# CURRENT FIX:
-#   - Raffle callbacks have dedicated routing
-#   - Raffle callback diagnostics added
-#   - Broader raffle callback pattern
-#   - Existing database is preserved
-#   - No database reset
-#   - No database replacement
-#   - ENTER RAFFLE works for admins AND members
+# Includes:
+#   - Existing raffle system
+#   - Existing birthday system
+#   - Existing Game Center
+#   - Existing Truth or Dare
+#   - Existing media moderation
+#   - NEW separate Real Games system
+#   - NEW Monopoly web game
+#   - NEW Telegram deep-links for Real Games
 #
 # IMPORTANT:
-#   raffle.py owns the actual raffle callback processing.
-#   bot.py only routes callbacks to raffle.raffle_callback().
+#   - Existing games/ package is NOT replaced.
+#   - Existing raffle database is NOT replaced.
+#   - Existing raffle callbacks remain owned by raffle.py.
+#   - Real Games lives separately in real_games/.
 # ==========================================================
 
 import logging
@@ -90,10 +93,29 @@ from truth_dare import (
     truth_dare_callback,
 )
 
+# ----------------------------------------------------------
+# EXISTING GAME CENTER
+# ----------------------------------------------------------
+
 from games.game_center import (
     games_command,
     game_center_callback_router,
     initialize_game_database,
+)
+
+# ----------------------------------------------------------
+# NEW REAL GAMES
+#
+# This is completely separate from games/
+# ----------------------------------------------------------
+
+from real_games import (
+    real_games_bp,
+    handle_real_game_deep_link,
+)
+
+from real_games.monopoly import (
+    monopoly_bp,
 )
 
 
@@ -150,6 +172,10 @@ logger.info(
 app = Flask(__name__)
 
 
+# ----------------------------------------------------------
+# EXISTING HEALTH ROUTES
+# ----------------------------------------------------------
+
 @app.route("/")
 def health_check():
 
@@ -168,6 +194,33 @@ def health():
     )
 
 
+# ----------------------------------------------------------
+# NEW REAL GAMES ROUTES
+#
+# These do NOT interfere with the existing health routes.
+# ----------------------------------------------------------
+
+app.register_blueprint(
+    real_games_bp
+)
+
+app.register_blueprint(
+    monopoly_bp
+)
+
+logger.info(
+    "Real Games web routes registered."
+)
+
+logger.info(
+    "Real Games URL: /real-games/"
+)
+
+logger.info(
+    "Monopoly URL: /real-games/monopoly/"
+)
+
+
 def run_flask():
 
     port = int(
@@ -175,6 +228,11 @@ def run_flask():
             "PORT",
             "10000",
         )
+    )
+
+    logger.info(
+        "Starting Flask on port %s",
+        port,
     )
 
     app.run(
@@ -503,6 +561,18 @@ async def text_router(
 
 # ==========================================================
 # /START
+#
+# IMPORTANT:
+# Telegram deep-links also arrive through /start.
+#
+# Examples:
+#
+# /start rg_monopoly
+# /start rg_join_AB12CD34
+#
+# We check Real Games FIRST.
+# If it is not a Real Games payload,
+# normal /start continues.
 # ==========================================================
 
 async def start_command(
@@ -516,6 +586,43 @@ async def start_command(
     if not message or not user:
         return
 
+    # ------------------------------------------------------
+    # REAL GAMES DEEP-LINK
+    # ------------------------------------------------------
+
+    try:
+
+        handled = await handle_real_game_deep_link(
+            update,
+            context,
+        )
+
+        if handled:
+
+            logger.info(
+                "Real Games deep-link handled for user %s",
+                user.id,
+            )
+
+            return
+
+    except Exception:
+
+        logger.exception(
+            "Real Games deep-link processing failed."
+        )
+
+        await message.reply_text(
+            "⚠️ I couldn't open that game link. "
+            "Please try again."
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # NORMAL /START
+    # ------------------------------------------------------
+
     text = (
         "👋 <b>Welcome to Melanated AZ Bot!</b>\n\n"
         "I'm the bot for the Melanated AZ community.\n\n"
@@ -523,10 +630,12 @@ async def start_command(
         "🎟️ Raffles\n"
         "🔥 Truth or Dare\n"
         "🎮 Game Center\n"
+        "🎲 Real Games\n"
         "🛡️ Media protection\n\n"
         "Birthday: <code>/birthday</code>\n"
         "Truth or Dare: <code>/truthdare</code>\n"
-        "Game Center: <code>/games</code>"
+        "Game Center: <code>/games</code>\n"
+        "Real Games: <code>/realgames</code>"
     )
 
     if is_admin(user.id):
@@ -537,8 +646,93 @@ async def start_command(
             "the admin panel."
         )
 
+    keyboard = InlineKeyboardMarkup(
+        [[
+            InlineKeyboardButton(
+                "🎮 REAL GAMES",
+                callback_data="real_games_menu",
+            )
+        ]]
+    )
+
     await message.reply_text(
         text,
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ==========================================================
+# /REALGAMES
+# ==========================================================
+
+async def real_games_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    message = update.effective_message
+
+    if not message:
+        return
+
+    base_url = (
+        context.application.bot_data.get(
+            "public_base_url"
+        )
+        or os.environ.get(
+            "PUBLIC_BASE_URL",
+            "",
+        )
+    ).rstrip("/")
+
+    if base_url:
+
+        games_url = (
+            f"{base_url}/real-games/"
+        )
+
+        monopoly_url = (
+            f"{base_url}/real-games/monopoly/"
+        )
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎮 REAL GAMES",
+                        url=games_url,
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🎲 MONOPOLY",
+                        url=monopoly_url,
+                    )
+                ],
+            ]
+        )
+
+        text = (
+            "🎮 <b>Melanated AZ Real Games</b>\n\n"
+            "These are the interactive browser games.\n\n"
+            "Choose a game below:"
+        )
+
+    else:
+
+        keyboard = None
+
+        text = (
+            "🎮 <b>Melanated AZ Real Games</b>\n\n"
+            "The game server URL has not been configured yet.\n\n"
+            "Set the Render environment variable:\n\n"
+            "<code>PUBLIC_BASE_URL</code>"
+        )
+
+    await message.reply_text(
+        text,
+        reply_markup=keyboard,
         parse_mode=ParseMode.HTML,
     )
 
@@ -696,6 +890,81 @@ async def game_center_callback_router_wrapper(
             except Exception:
 
                 pass
+
+
+# ==========================================================
+# REAL GAMES CALLBACK ROUTER
+#
+# This is intentionally separate from games/.
+# ==========================================================
+
+async def real_games_callback_router(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    try:
+
+        await query.answer()
+
+    except Exception:
+
+        pass
+
+    base_url = (
+        context.application.bot_data.get(
+            "public_base_url"
+        )
+        or os.environ.get(
+            "PUBLIC_BASE_URL",
+            "",
+        )
+    ).rstrip("/")
+
+    if not base_url:
+
+        await query.message.reply_text(
+            "⚠️ Real Games are not configured yet.\n\n"
+            "The Render PUBLIC_BASE_URL environment "
+            "variable needs to be set."
+        )
+
+        return
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎲 MONOPOLY",
+                    url=(
+                        f"{base_url}"
+                        "/real-games/monopoly/"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🎮 ALL REAL GAMES",
+                    url=(
+                        f"{base_url}"
+                        "/real-games/"
+                    ),
+                )
+            ],
+        ]
+    )
+
+    await query.message.reply_text(
+        "🎮 <b>REAL GAMES</b>\n\n"
+        "Choose a game:",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
 
 
 # ==========================================================
@@ -982,12 +1251,81 @@ def game_database_startup_check():
 
 
 # ==========================================================
+# REAL GAMES STARTUP CHECK
+# ==========================================================
+
+def real_games_startup_check():
+
+    public_url = os.environ.get(
+        "PUBLIC_BASE_URL",
+        "",
+    ).strip().rstrip("/")
+
+    if public_url:
+
+        logger.info(
+            "=========================================================="
+        )
+
+        logger.info(
+            "Real Games: READY"
+        )
+
+        logger.info(
+            "Public URL: %s",
+            public_url,
+        )
+
+        logger.info(
+            "Real Games: %s/real-games/",
+            public_url,
+        )
+
+        logger.info(
+            "Monopoly: %s/real-games/monopoly/",
+            public_url,
+        )
+
+        logger.info(
+            "=========================================================="
+        )
+
+    else:
+
+        logger.warning(
+            "=========================================================="
+        )
+
+        logger.warning(
+            "PUBLIC_BASE_URL is NOT configured."
+        )
+
+        logger.warning(
+            "Real Games can still run locally, but "
+            "Telegram game links will not have a "
+            "public Render URL."
+        )
+
+        logger.warning(
+            "Set PUBLIC_BASE_URL in Render."
+        )
+
+        logger.warning(
+            "=========================================================="
+        )
+
+
+# ==========================================================
 # POST INIT
 # ==========================================================
 
 async def post_init(
     application: Application,
 ):
+
+    # ------------------------------------------------------
+    # BOT INFORMATION
+    # ------------------------------------------------------
 
     try:
 
@@ -1006,6 +1344,36 @@ async def post_init(
 
         logger.exception(
             "Could not retrieve bot information."
+        )
+
+    # ------------------------------------------------------
+    # PUBLIC URL
+    # ------------------------------------------------------
+
+    public_url = os.environ.get(
+        "PUBLIC_BASE_URL",
+        "",
+    ).strip().rstrip("/")
+
+    if public_url:
+
+        application.bot_data[
+            "public_base_url"
+        ] = public_url
+
+        logger.info(
+            "Public Base URL loaded: %s",
+            public_url,
+        )
+
+    else:
+
+        application.bot_data[
+            "public_base_url"
+        ] = ""
+
+        logger.warning(
+            "PUBLIC_BASE_URL is not configured."
         )
 
 
@@ -1066,6 +1434,11 @@ def build_application():
         (
             "start",
             start_command,
+        ),
+
+        (
+            "realgames",
+            real_games_command,
         ),
 
         (
@@ -1155,11 +1528,7 @@ def build_application():
     # ======================================================
     # RAFFLE CALLBACKS
     #
-    # IMPORTANT:
-    # This handler is intentionally broad enough to catch
-    # every callback family owned by raffle.py.
-    #
-    # raffle.py remains the ONLY owner of the actual
+    # raffle.py remains the ONLY owner of raffle
     # callback processing.
     # ======================================================
 
@@ -1205,7 +1574,7 @@ def build_application():
     )
 
     # ======================================================
-    # GAME CENTER CALLBACKS
+    # EXISTING GAME CENTER CALLBACKS
     # ======================================================
 
     application.add_handler(
@@ -1223,6 +1592,17 @@ def build_application():
     )
 
     # ======================================================
+    # NEW REAL GAMES CALLBACKS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            real_games_callback_router,
+            pattern=r"^real_games_",
+        )
+    )
+
+    # ======================================================
     # TRUTH OR DARE CALLBACKS
     # ======================================================
 
@@ -1235,9 +1615,6 @@ def build_application():
 
     # ======================================================
     # MEDIA
-    #
-    # IMPORTANT:
-    # group belongs to add_handler(), NOT MessageHandler().
     # ======================================================
 
     application.add_handler(
@@ -1301,9 +1678,15 @@ def build_application():
     )
 
     logger.info(
-        "Raffle callback prefixes: "
-        "raffle_, approve_, deny_, enter_, pay_, "
-        "payment_, paid_, draw_, reroll_, bonus_, remove_"
+        "Existing Game Center callbacks registered."
+    )
+
+    logger.info(
+        "Real Games callback handler registered."
+    )
+
+    logger.info(
+        "Real Games deep-link handler registered."
     )
 
     return application
@@ -1337,9 +1720,27 @@ def main():
         RAFFLE_CHAT_ID,
     )
 
+    # ------------------------------------------------------
+    # DATABASE
+    # ------------------------------------------------------
+
     database_startup_check()
 
+    # ------------------------------------------------------
+    # EXISTING GAME CENTER DATABASE
+    # ------------------------------------------------------
+
     game_database_startup_check()
+
+    # ------------------------------------------------------
+    # NEW REAL GAMES
+    # ------------------------------------------------------
+
+    real_games_startup_check()
+
+    # ------------------------------------------------------
+    # START FLASK
+    # ------------------------------------------------------
 
     threading.Thread(
         target=run_flask,
@@ -1351,11 +1752,19 @@ def main():
         "Flask health server started."
     )
 
+    # ------------------------------------------------------
+    # BUILD TELEGRAM APPLICATION
+    # ------------------------------------------------------
+
     application = build_application()
 
     logger.info(
         "Telegram application created."
     )
+
+    # ------------------------------------------------------
+    # START POLLING
+    # ------------------------------------------------------
 
     logger.info(
         "Starting Telegram polling..."
