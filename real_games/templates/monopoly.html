@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -7,7 +8,7 @@
 
 <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0"
+    content="width=device-width,initial-scale=1"
 >
 
 <title>Melanated AZ Monopoly</title>
@@ -27,108 +28,113 @@ body {
 
 header {
     padding: 15px;
+    background: #1d1d1d;
     text-align: center;
-    background: #1c1c1c;
 }
 
-h1 {
-    margin: 0;
-}
-
-#game {
+.container {
     max-width: 1200px;
     margin: auto;
     padding: 15px;
 }
 
-#board {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    aspect-ratio: 1 / 1;
-    background: #f3f0d0;
-    border: 8px solid #222;
-    color: #111;
-}
-
-.space {
-    border: 1px solid #444;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 5px;
-    text-align: center;
-    min-width: 0;
-}
-
-.space-name {
-    font-size: clamp(8px, 1.2vw, 15px);
-    font-weight: bold;
-}
-
-.space-price {
-    font-size: clamp(7px, 1vw, 12px);
-    margin-top: 4px;
-}
-
-.player-piece {
-    font-size: 22px;
-    margin-top: 4px;
-}
-
-#panel {
-    margin-top: 15px;
+.setup {
+    background: #1d1d1d;
     padding: 15px;
-    background: #1c1c1c;
-    border-radius: 10px;
-}
-
-button {
-    border: 0;
-    border-radius: 8px;
-    padding: 12px 18px;
-    margin: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 15px;
-}
-
-button:hover {
-    opacity: .8;
-}
-
-#roll {
-    background: #fff;
-    color: #111;
-}
-
-#buy {
-    background: #ddd;
-    color: #111;
-}
-
-#start {
-    background: #aaa;
-    color: #111;
-}
-
-.player {
-    padding: 8px;
-    margin: 4px 0;
-    background: #292929;
-    border-radius: 6px;
-}
-
-#message {
-    font-size: 18px;
-    margin: 10px 0;
+    border-radius: 12px;
+    margin-bottom: 15px;
 }
 
 input {
-    padding: 11px;
-    border-radius: 6px;
+    padding: 12px;
+    margin: 5px;
     border: 0;
-    margin: 4px;
+    border-radius: 7px;
+}
+
+button {
+    padding: 12px 16px;
+    margin: 5px;
+    border: 0;
+    border-radius: 7px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
+
+.board {
+    display: grid;
+    grid-template-columns:
+        repeat(10, minmax(45px, 1fr));
+
+    background: #e9e1b8;
+    color: #111;
+
+    border: 8px solid #222;
+
+    aspect-ratio: 1 / 1;
+
+    width: 100%;
+    max-width: 900px;
+
+    margin: auto;
+}
+
+.space {
+    border: 1px solid #555;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+
+    padding: 4px;
+
+    overflow: hidden;
+}
+
+.space-name {
+    font-size: clamp(7px, 1.2vw, 14px);
+    font-weight: bold;
+}
+
+.price {
+    font-size: clamp(7px, 1vw, 12px);
+}
+
+.pieces {
+    font-size: 18px;
+    margin-top: 3px;
+}
+
+.panel {
+    background: #1d1d1d;
+    margin-top: 15px;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+.message {
+    font-size: 19px;
+    margin-bottom: 10px;
+}
+
+.player {
+    background: #292929;
+    padding: 9px;
+    border-radius: 7px;
+    margin: 5px 0;
+}
+
+.current {
+    outline: 2px solid white;
 }
 
 </style>
@@ -143,12 +149,12 @@ input {
 
 </header>
 
-<div id="game">
+<div class="container">
 
-<div id="setup">
+<div class="setup">
 
 <input
-    id="playerName"
+    id="name"
     placeholder="Your name"
 >
 
@@ -157,8 +163,8 @@ input {
 </button>
 
 <input
-    id="gameId"
-    placeholder="Game ID"
+    id="room"
+    placeholder="Room code"
 >
 
 <button onclick="joinGame()">
@@ -167,21 +173,25 @@ input {
 
 </div>
 
-<div id="board"></div>
+<div
+    id="board"
+    class="board"
+></div>
 
-<div id="panel">
+<div class="panel">
 
-<div id="message">
-    Create or join a game.
+<div
+    id="message"
+    class="message"
+>
+Create or join a game.
 </div>
-
-<div>
 
 <button
     id="start"
     onclick="startGame()"
 >
-    🚀 START GAME
+🚀 START GAME
 </button>
 
 <button
@@ -189,7 +199,7 @@ input {
     onclick="rollDice()"
     disabled
 >
-    🎲 ROLL DICE
+🎲 ROLL
 </button>
 
 <button
@@ -197,10 +207,8 @@ input {
     onclick="buyProperty()"
     disabled
 >
-    💰 BUY PROPERTY
+💰 BUY
 </button>
-
-</div>
 
 <div id="players"></div>
 
@@ -210,11 +218,12 @@ input {
 
 <script>
 
-let gameId = null;
+let gameId =
+    "{{ game_id or '' }}";
 
 let playerId =
     localStorage.getItem(
-        "melanated_player_id"
+        "melanated_az_real_player"
     );
 
 if (!playerId) {
@@ -223,17 +232,17 @@ if (!playerId) {
         crypto.randomUUID();
 
     localStorage.setItem(
-        "melanated_player_id",
+        "melanated_az_real_player",
         playerId
     );
 }
 
 
-function name() {
+function playerName() {
 
     return (
         document
-        .getElementById("playerName")
+        .getElementById("name")
         .value
         .trim()
         || "Player"
@@ -241,24 +250,24 @@ function name() {
 }
 
 
-async function api(
+async function request(
     url,
     method = "GET",
-    data = null
+    body = null
 ) {
 
     const options = {
-        method,
+        method: method,
         headers: {
             "Content-Type":
                 "application/json"
         }
     };
 
-    if (data) {
+    if (body) {
 
         options.body =
-            JSON.stringify(data);
+            JSON.stringify(body);
     }
 
     const response =
@@ -286,8 +295,8 @@ async function createGame() {
 
     try {
 
-        const result =
-            await api(
+        const state =
+            await request(
                 "/real-games/monopoly/create",
                 "POST",
                 {
@@ -295,20 +304,24 @@ async function createGame() {
                         playerId,
 
                     player_name:
-                        name()
+                        playerName()
                 }
             );
 
         gameId =
-            result.game_id;
+            state.game_id;
 
         document
-            .getElementById("gameId")
+            .getElementById("room")
             .value = gameId;
 
-        render(
-            result.state
+        window.history.replaceState(
+            {},
+            "",
+            `/real-games/monopoly/${gameId}`
         );
+
+        render(state);
 
     } catch (error) {
 
@@ -321,14 +334,15 @@ async function joinGame() {
 
     const id =
         document
-        .getElementById("gameId")
+        .getElementById("room")
         .value
-        .trim();
+        .trim()
+        .toUpperCase();
 
     if (!id) {
 
         alert(
-            "Enter a game ID."
+            "Enter a room code."
         );
 
         return;
@@ -337,7 +351,7 @@ async function joinGame() {
     try {
 
         const state =
-            await api(
+            await request(
                 `/real-games/monopoly/${id}/join`,
                 "POST",
                 {
@@ -345,11 +359,17 @@ async function joinGame() {
                         playerId,
 
                     player_name:
-                        name()
+                        playerName()
                 }
             );
 
         gameId = id;
+
+        window.history.replaceState(
+            {},
+            "",
+            `/real-games/monopoly/${gameId}`
+        );
 
         render(state);
 
@@ -362,12 +382,13 @@ async function joinGame() {
 
 async function startGame() {
 
-    if (!gameId) return;
+    if (!gameId)
+        return;
 
     try {
 
         const state =
-            await api(
+            await request(
                 `/real-games/monopoly/${gameId}/start`,
                 "POST"
             );
@@ -383,12 +404,13 @@ async function startGame() {
 
 async function rollDice() {
 
-    if (!gameId) return;
+    if (!gameId)
+        return;
 
     try {
 
         const state =
-            await api(
+            await request(
                 `/real-games/monopoly/${gameId}/roll`,
                 "POST",
                 {
@@ -408,12 +430,13 @@ async function rollDice() {
 
 async function buyProperty() {
 
-    if (!gameId) return;
+    if (!gameId)
+        return;
 
     try {
 
         const state =
-            await api(
+            await request(
                 `/real-games/monopoly/${gameId}/buy`,
                 "POST",
                 {
@@ -447,27 +470,27 @@ function render(state) {
     state.board.forEach(
         (space, index) => {
 
-            const div =
+            const cell =
                 document.createElement(
                     "div"
                 );
 
-            div.className =
+            cell.className =
                 "space";
 
-            const name =
+            const title =
                 document.createElement(
                     "div"
                 );
 
-            name.className =
+            title.className =
                 "space-name";
 
-            name.innerText =
+            title.innerText =
                 space.name;
 
-            div.appendChild(
-                name
+            cell.appendChild(
+                title
             );
 
             if (space.price) {
@@ -478,49 +501,48 @@ function render(state) {
                     );
 
                 price.className =
-                    "space-price";
+                    "price";
 
                 price.innerText =
                     "$" + space.price;
 
-                div.appendChild(
+                cell.appendChild(
                     price
                 );
             }
+
+            const pieces =
+                document.createElement(
+                    "div"
+                );
+
+            pieces.className =
+                "pieces";
 
             state.players.forEach(
                 player => {
 
                     if (
-                        player.position
-                        === index &&
+                        player.position === index &&
                         !player.bankrupt
                     ) {
 
-                        const piece =
-                            document
-                            .createElement(
-                                "div"
-                            );
-
-                        piece.className =
-                            "player-piece";
-
-                        piece.innerText =
+                        pieces.innerText +=
                             player.token;
-
-                        div.appendChild(
-                            piece
-                        );
                     }
                 }
             );
 
+            cell.appendChild(
+                pieces
+            );
+
             board.appendChild(
-                div
+                cell
             );
         }
     );
+
 
     const players =
         document
@@ -529,22 +551,33 @@ function render(state) {
     players.innerHTML =
         "<h3>Players</h3>";
 
+
     state.players.forEach(
         player => {
 
             const div =
-                document
-                .createElement(
+                document.createElement(
                     "div"
                 );
 
             div.className =
                 "player";
 
+            if (
+                player.id ===
+                state.current_player
+            ) {
+
+                div.classList.add(
+                    "current"
+                );
+            }
+
             div.innerHTML =
-                `${player.token} <b>${player.name}</b>
+                `${player.token}
+                 <b>${escapeHtml(player.name)}</b>
                  — $${player.money}
-                 — Properties: ${player.properties.length}`;
+                 — ${player.properties.length} properties`;
 
             if (
                 player.id ===
@@ -552,15 +585,13 @@ function render(state) {
             ) {
 
                 div.innerHTML +=
-                    " 🎯 TURN";
+                    " 🎯";
             }
 
-            if (
-                player.bankrupt
-            ) {
+            if (player.bankrupt) {
 
                 div.innerHTML +=
-                    " 💀 BANKRUPT";
+                    " 💀";
             }
 
             players.appendChild(
@@ -569,9 +600,15 @@ function render(state) {
         }
     );
 
+
     const myTurn =
-        state.current_player
-        === playerId;
+        state.current_player ===
+        playerId;
+
+    document
+        .getElementById("start")
+        .disabled =
+            state.started;
 
     document
         .getElementById("roll")
@@ -579,11 +616,6 @@ function render(state) {
             !state.started ||
             state.finished ||
             !myTurn;
-
-    document
-        .getElementById("start")
-        .disabled =
-            state.started;
 
     document
         .getElementById("buy")
@@ -594,29 +626,52 @@ function render(state) {
 }
 
 
-// Automatically refresh
-// multiplayer game state.
+function escapeHtml(value) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+    div.innerText =
+        value;
+
+    return div.innerHTML;
+}
+
+
+async function refresh() {
+
+    if (!gameId)
+        return;
+
+    try {
+
+        const state =
+            await request(
+                `/real-games/monopoly/${gameId}/state`
+            );
+
+        render(state);
+
+    } catch (_) {}
+}
+
 
 setInterval(
-    async () => {
-
-        if (!gameId)
-            return;
-
-        try {
-
-            const state =
-                await api(
-                    `/real-games/monopoly/${gameId}/state`
-                );
-
-            render(state);
-
-        } catch (_) {}
-
-    },
+    refresh,
     1500
 );
+
+
+if (gameId) {
+
+    document
+        .getElementById("room")
+        .value = gameId;
+
+    refresh();
+}
 
 </script>
 
