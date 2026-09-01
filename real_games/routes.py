@@ -2,17 +2,7 @@
 Melanated AZ Bot
 Real Games - Flask Routes
 
-Routes for:
-
-    /real-games/
-    /real-games/game/<game_id>
-    /real-games/create/<game_id>/<room_id>
-    /real-games/<game_id>/<room_id>
-
-The actual game implementation is loaded by the game page.
-
-Telegram deep links are generated from the same game IDs
-used by registry.py.
+Real Games launcher and multiplayer room routes.
 """
 
 from __future__ import annotations
@@ -66,7 +56,7 @@ def real_games_home():
 
 
 # ==========================================================
-# GAME INFORMATION
+# GAME LAUNCHER
 # ==========================================================
 
 @real_games_bp.get("/game/<game_id>")
@@ -75,32 +65,57 @@ def game_launcher(game_id):
     game = get_game(game_id)
 
     if not game:
-        abort(404, description="Game not found.")
-
-    # ------------------------------------------------------
-    # Solo game
-    # ------------------------------------------------------
-
-    if not game.uses_rooms:
-
-        return render_template(
-            "game.html",
-            game=game,
-            room=None,
+        abort(
+            404,
+            description="Game not found."
         )
 
-    # ------------------------------------------------------
-    # Multiplayer game
-    #
-    # Don't automatically create a room just because
-    # somebody clicked the game.
-    # ------------------------------------------------------
+    logger.info(
+        "Launching Real Game: %s (%s)",
+        game.name,
+        game.game_id,
+    )
 
     return render_template(
         "game.html",
         game=game,
         room=None,
-        multiplayer=True,
+        multiplayer=game.uses_rooms,
+    )
+
+
+# ==========================================================
+# REAL GAME PLAY ENDPOINT
+#
+# registry.py points every game at:
+#
+#     real_games.play_game
+#
+# This route makes that endpoint actually exist.
+# ==========================================================
+
+@real_games_bp.get("/play/<game_id>")
+def play_game(game_id):
+
+    game = get_game(game_id)
+
+    if not game:
+        abort(
+            404,
+            description="Game not found."
+        )
+
+    logger.info(
+        "Starting game: %s (%s)",
+        game.name,
+        game.game_id,
+    )
+
+    return render_template(
+        "game.html",
+        game=game,
+        room=None,
+        multiplayer=game.uses_rooms,
     )
 
 
@@ -114,9 +129,13 @@ def create_game_room(game_id):
     game = get_game(game_id)
 
     if not game:
-        abort(404, description="Game not found.")
+        abort(
+            404,
+            description="Game not found."
+        )
 
     if not game.uses_rooms:
+
         return redirect(
             url_for(
                 "real_games.game_launcher",
@@ -155,20 +174,24 @@ def game_room(game_id, room_id):
     game = get_game(game_id)
 
     if not game:
-        abort(404, description="Game not found.")
+        abort(
+            404,
+            description="Game not found."
+        )
 
     room = GAME_MANAGER.get(room_id)
 
     if not room:
         abort(
             404,
-            description="That game room no longer exists.",
+            description="That game room no longer exists."
         )
 
     if room.game_id != game.game_id:
+
         abort(
             400,
-            description="This room belongs to a different game.",
+            description="This room belongs to a different game."
         )
 
     return render_template(
@@ -189,6 +212,7 @@ def room_information(room_id):
     room = GAME_MANAGER.get(room_id)
 
     if not room:
+
         return jsonify(
             {
                 "ok": False,
@@ -228,6 +252,7 @@ def join_room(room_id):
     room = GAME_MANAGER.get(room_id)
 
     if not room:
+
         return jsonify(
             {
                 "ok": False,
@@ -243,12 +268,13 @@ def join_room(room_id):
         data.get("user_id", "")
     ).strip()
 
-    display_name = (
+    display_name = str(
         data.get("display_name")
         or "Player"
     ).strip()
 
     if not user_id:
+
         return jsonify(
             {
                 "ok": False,
@@ -294,6 +320,7 @@ def start_room(room_id):
     room = GAME_MANAGER.get(room_id)
 
     if not room:
+
         return jsonify(
             {
                 "ok": False,
@@ -324,7 +351,7 @@ def start_room(room_id):
 
 
 # ==========================================================
-# GENERIC GAME DATA
+# GAME INFORMATION API
 # ==========================================================
 
 @real_games_bp.get("/api/game/<game_id>")
@@ -333,6 +360,7 @@ def game_information(game_id):
     game = get_game(game_id)
 
     if not game:
+
         return jsonify(
             {
                 "ok": False,
@@ -353,6 +381,7 @@ def game_information(game_id):
                 "min_players": game.min_players,
                 "uses_rooms": game.uses_rooms,
                 "icon": game.icon,
+                "endpoint": game.endpoint,
             },
         }
     )
