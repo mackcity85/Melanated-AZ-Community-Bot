@@ -109,10 +109,15 @@ body {
     text-align: center;
 }
 
+.score-label {
+    color: #aaa;
+    font-size: 13px;
+}
+
 .score strong {
     display: block;
     font-size: 22px;
-    margin-top: 4px;
+    margin-top: 3px;
 }
 
 canvas {
@@ -122,6 +127,7 @@ canvas {
     background: #000;
     border: 2px solid #444;
     border-radius: 10px;
+    touch-action: none;
 }
 
 .controls {
@@ -157,25 +163,35 @@ button.secondary {
     border-radius: 12px;
     padding: 15px;
     color: #bbb;
+    line-height: 1.5;
+}
+
+.big-message {
     text-align: center;
+    font-size: 25px;
+    padding: 30px;
+}
+
+.big-message .emoji {
+    font-size: 80px;
 }
 
 .board {
     margin: 20px auto;
     display: grid;
-    gap: 5px;
+    gap: 6px;
     justify-content: center;
 }
 
 .cell {
-    width: 60px;
-    height: 60px;
+    width: 58px;
+    height: 58px;
     background: #252525;
-    border-radius: 7px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
+    font-size: 30px;
     cursor: pointer;
     user-select: none;
 }
@@ -187,20 +203,20 @@ button.secondary {
 .card-grid {
     display: grid;
     grid-template-columns: repeat(4, 90px);
-    gap: 10px;
     justify-content: center;
+    gap: 10px;
     margin: 20px auto;
 }
 
 .card {
-    height: 110px;
+    height: 105px;
     background: #252525;
     border: 2px solid #444;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
+    font-size: 35px;
     cursor: pointer;
     user-select: none;
 }
@@ -211,8 +227,9 @@ button.secondary {
 }
 
 .card.matched {
-    background: #333;
-    opacity: .6;
+    background: #555;
+    opacity: .65;
+    cursor: default;
 }
 
 .question {
@@ -223,6 +240,7 @@ button.secondary {
 
 .question h2 {
     font-size: 25px;
+    line-height: 1.4;
 }
 
 .answers {
@@ -233,26 +251,21 @@ button.secondary {
 }
 
 .answers button {
-    min-height: 60px;
-}
-
-.big-message {
-    text-align: center;
-    font-size: 25px;
-    padding: 30px;
+    min-height: 55px;
 }
 
 .mobile-controls {
-    width: 190px;
-    margin: 20px auto;
+    width: 210px;
+    margin: 20px auto 5px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+    gap: 7px;
 }
 
 .mobile-controls button {
-    height: 50px;
+    height: 52px;
     padding: 0;
+    font-size: 20px;
 }
 
 .mobile-controls .up {
@@ -261,32 +274,44 @@ button.secondary {
 
 .mobile-controls .left {
     grid-column: 1;
+    grid-row: 2;
 }
 
 .mobile-controls .down {
     grid-column: 2;
+    grid-row: 2;
 }
 
 .mobile-controls .right {
     grid-column: 3;
+    grid-row: 2;
 }
 
-.error-box {
-    max-width: 650px;
-    margin: 50px auto;
-    padding: 30px;
-    text-align: center;
-    background: #211111;
-    border: 1px solid #662222;
-    border-radius: 15px;
+.room-panel {
+    background: #1b1b1b;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
 }
 
-.error-box h2 {
-    color: #ff7777;
+.players-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
 }
 
-@media (max-width: 600px) {
+.player {
+    background: #292929;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
 
+.hidden {
+    display: none !important;
+}
+
+@media (max-width: 700px) {
     body {
         padding: 10px;
     }
@@ -299,23 +324,23 @@ button.secondary {
         font-size: 28px;
     }
 
-    .cell {
-        width: 48px;
-        height: 48px;
-    }
-
     .card-grid {
-        grid-template-columns: repeat(4, 65px);
-        gap: 7px;
+        grid-template-columns: repeat(4, minmax(55px, 1fr));
     }
 
     .card {
-        height: 85px;
-        font-size: 25px;
+        height: 80px;
+        font-size: 27px;
     }
 
     .answers {
         grid-template-columns: 1fr;
+    }
+
+    .cell {
+        width: 48px;
+        height: 48px;
+        font-size: 25px;
     }
 }
 </style>
@@ -326,25 +351,16 @@ button.secondary {
 <div class="wrapper">
 
     <div class="topbar">
+        <div class="brand">👑 Melanated AZ Real Games</div>
 
-        <div class="brand">
-            👑 Melanated AZ Real Games
-        </div>
-
-        <a
-            class="back"
-            href="{{ url_for('real_games.real_games_home') }}"
-        >
+        <a class="back"
+           href="{{ url_for('real_games.real_games_home') }}">
             ← Games
         </a>
-
     </div>
 
     <div class="game-header">
-
-        <div class="game-icon">
-            {{ game.icon }}
-        </div>
+        <div class="game-icon">{{ game.icon }}</div>
 
         <h1 class="game-title">
             {{ game.name }}
@@ -353,8 +369,52 @@ button.secondary {
         <div class="game-description">
             {{ game.description }}
         </div>
-
     </div>
+
+    {% if multiplayer and room %}
+
+    <div class="room-panel">
+        <strong>Room:</strong>
+        <span id="room-id">{{ room.room_id }}</span>
+
+        <br><br>
+
+        <strong>Players</strong>
+
+        <div id="players-list" class="players-list">
+            {% for player in room.players.values() %}
+            <div class="player">
+                {{ player.display_name }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% elif multiplayer %}
+
+    <div class="room-panel">
+        <div style="text-align:center">
+            <h2>👥 Multiplayer Game</h2>
+
+            <p>
+                Create a room to play with other players.
+            </p>
+
+            <form
+                method="POST"
+                action="{{ url_for(
+                    'real_games.create_game_room',
+                    game_id=game.game_id
+                ) }}"
+            >
+                <button type="submit">
+                    ➕ CREATE GAME ROOM
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% endif %}
 
     <div class="game-shell">
 
@@ -367,38 +427,43 @@ button.secondary {
         <div id="game-container"></div>
 
         <div class="controls">
-
-            <button onclick="restartGame()">
+            <button id="restart-button">
                 🔄 Restart
             </button>
-
         </div>
 
     </div>
 
     <div class="instructions">
-
         <strong>How to Play</strong>
-
         <div id="instructions-text">
             Loading instructions...
         </div>
-
     </div>
 
 </div>
 
 <script>
+"use strict";
 
 /* ==========================================================
    GAME INFORMATION
    ========================================================== */
 
-const GAME_ID =
-    {{ game.game_id | tojson }};
+const GAME_ID = {{ game.game_id | tojson }};
+const GAME_NAME = {{ game.name | tojson }};
 
-const GAME_NAME =
-    {{ game.name | tojson }};
+const ROOM_ID =
+{% if room %}
+    {{ room.room_id | tojson }};
+{% else %}
+    null;
+{% endif %}
+
+
+/* ==========================================================
+   DOM
+   ========================================================== */
 
 const GAME_CONTAINER =
     document.getElementById("game-container");
@@ -409,11 +474,22 @@ const STATUS =
 const SCOREBOARD =
     document.getElementById("scoreboard");
 
+const INSTRUCTIONS =
+    document.getElementById("instructions-text");
+
+const RESTART_BUTTON =
+    document.getElementById("restart-button");
+
+
+/* ==========================================================
+   GLOBAL GAME STATE
+   ========================================================== */
+
 let CURRENT_GAME = null;
 
 
 /* ==========================================================
-   HELPERS
+   COMMON FUNCTIONS
    ========================================================== */
 
 function setStatus(text) {
@@ -421,58 +497,103 @@ function setStatus(text) {
 }
 
 function setInstructions(text) {
-    document.getElementById(
-        "instructions-text"
-    ).textContent = text;
+    INSTRUCTIONS.textContent = text;
+}
+
+function clearGame() {
+    GAME_CONTAINER.innerHTML = "";
+    SCOREBOARD.innerHTML = "";
 }
 
 function setScore(label, value) {
-
     SCOREBOARD.innerHTML = `
         <div class="score">
-            ${label}
+            <div class="score-label">${label}</div>
             <strong>${value}</strong>
         </div>
     `;
 }
 
-function clearGame() {
-
-    GAME_CONTAINER.innerHTML = "";
-
+function setScores(items) {
     SCOREBOARD.innerHTML = "";
 
+    items.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "score";
+
+        div.innerHTML = `
+            <div class="score-label">${item.label}</div>
+            <strong>${item.value}</strong>
+        `;
+
+        SCOREBOARD.appendChild(div);
+    });
+}
+
+function makeButton(text, callback, className = "") {
+    const b = document.createElement("button");
+
+    b.textContent = text;
+
+    if (className) {
+        b.className = className;
+    }
+
+    b.addEventListener("click", callback);
+
+    return b;
+}
+
+function addMobileControls(callbacks) {
+    const controls =
+        document.createElement("div");
+
+    controls.className =
+        "mobile-controls";
+
+    const up =
+        makeButton("▲", callbacks.up);
+
+    up.className = "up";
+
+    const left =
+        makeButton("◀", callbacks.left);
+
+    left.className = "left";
+
+    const down =
+        makeButton("▼", callbacks.down);
+
+    down.className = "down";
+
+    const right =
+        makeButton("▶", callbacks.right);
+
+    right.className = "right";
+
+    controls.appendChild(up);
+    controls.appendChild(left);
+    controls.appendChild(down);
+    controls.appendChild(right);
+
+    GAME_CONTAINER.appendChild(controls);
 }
 
 function restartGame() {
-
     if (
         CURRENT_GAME &&
         typeof CURRENT_GAME.restart === "function"
     ) {
-
         CURRENT_GAME.restart();
-
     } else {
-
         location.reload();
-
     }
-
 }
 
-function createButton(text, callback) {
-
-    const b =
-        document.createElement("button");
-
-    b.textContent = text;
-
-    b.onclick = callback;
-
-    return b;
-
-}
+RESTART_BUTTON.addEventListener(
+    "click",
+    restartGame
+);
 
 
 /* ==========================================================
@@ -480,18 +601,19 @@ function createButton(text, callback) {
    ========================================================== */
 
 function loadSnake() {
-
     CURRENT_GAME = {
         restart: startSnake
     };
 
     startSnake();
-
 }
 
 function startSnake() {
 
     clearGame();
+
+    let timer = null;
+    let keyHandler = null;
 
     const canvas =
         document.createElement("canvas");
@@ -511,28 +633,24 @@ function startSnake() {
     let food;
     let dx;
     let dy;
+    let nextDx;
+    let nextDy;
     let score;
     let running;
-    let timer;
 
     function randomFood() {
 
         let position;
 
         do {
-
             position = {
-                x:
-                    Math.floor(
-                        Math.random() * GRID
-                    ),
-
-                y:
-                    Math.floor(
-                        Math.random() * GRID
-                    )
+                x: Math.floor(
+                    Math.random() * GRID
+                ),
+                y: Math.floor(
+                    Math.random() * GRID
+                )
             };
-
         } while (
             snake.some(
                 part =>
@@ -542,7 +660,6 @@ function startSnake() {
         );
 
         return position;
-
     }
 
     function draw() {
@@ -556,60 +673,47 @@ function startSnake() {
             canvas.height
         );
 
-        ctx.strokeStyle = "#151515";
+        ctx.strokeStyle = "#111";
 
         for (
-            let i = 0;
-            i <= GRID;
-            i++
+            let x = 0;
+            x <= canvas.width;
+            x += SIZE
         ) {
-
             ctx.beginPath();
-
-            ctx.moveTo(
-                i * SIZE,
-                0
-            );
-
-            ctx.lineTo(
-                i * SIZE,
-                canvas.height
-            );
-
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
             ctx.stroke();
+        }
 
+        for (
+            let y = 0;
+            y <= canvas.height;
+            y += SIZE
+        ) {
             ctx.beginPath();
-
-            ctx.moveTo(
-                0,
-                i * SIZE
-            );
-
-            ctx.lineTo(
-                canvas.width,
-                i * SIZE
-            );
-
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
             ctx.stroke();
-
         }
 
         ctx.fillStyle = "#fff";
 
-        snake.forEach(
-            (part, index) => {
+        snake.forEach((part, index) => {
 
-                ctx.fillRect(
-                    part.x * SIZE + 1,
-                    part.y * SIZE + 1,
-                    SIZE - 2,
-                    SIZE - 2
-                );
+            ctx.fillRect(
+                part.x * SIZE + 1,
+                part.y * SIZE + 1,
+                SIZE - 2,
+                SIZE - 2
+            );
 
+            if (index === 0) {
+                ctx.fillStyle = "#ddd";
             }
-        );
+        });
 
-        ctx.fillStyle = "#e33";
+        ctx.fillStyle = "#e53935";
 
         ctx.fillRect(
             food.x * SIZE + 2,
@@ -618,23 +722,20 @@ function startSnake() {
             SIZE - 4
         );
 
-        setScore(
-            "Score",
-            score
-        );
-
+        setScore("Score", score);
     }
 
-    function endGame() {
+    function gameOver() {
 
         running = false;
 
-        clearInterval(timer);
+        if (timer) {
+            clearInterval(timer);
+        }
 
         setStatus(
             "💀 Game Over — Score: " + score
         );
-
     }
 
     function tick() {
@@ -642,6 +743,9 @@ function startSnake() {
         if (!running) {
             return;
         }
+
+        dx = nextDx;
+        dy = nextDy;
 
         const head = {
             x: snake[0].x + dx,
@@ -654,45 +758,83 @@ function startSnake() {
             head.y < 0 ||
             head.y >= GRID
         ) {
-
-            endGame();
+            gameOver();
             return;
-
         }
 
+        const eating =
+            head.x === food.x &&
+            head.y === food.y;
+
+        const bodyToCheck =
+            eating
+            ? snake
+            : snake.slice(0, -1);
+
         if (
-            snake.some(
+            bodyToCheck.some(
                 part =>
                     part.x === head.x &&
                     part.y === head.y
             )
         ) {
-
-            endGame();
+            gameOver();
             return;
-
         }
 
         snake.unshift(head);
 
-        if (
-            head.x === food.x &&
-            head.y === food.y
-        ) {
-
+        if (eating) {
             score++;
-
             food = randomFood();
-
         } else {
-
             snake.pop();
-
         }
 
         draw();
-
     }
+
+    keyHandler = function(e) {
+
+        const key = e.key;
+
+        if (
+            key === "ArrowUp" &&
+            dy !== 1
+        ) {
+            nextDx = 0;
+            nextDy = -1;
+        }
+
+        if (
+            key === "ArrowDown" &&
+            dy !== -1
+        ) {
+            nextDx = 0;
+            nextDy = 1;
+        }
+
+        if (
+            key === "ArrowLeft" &&
+            dx !== 1
+        ) {
+            nextDx = -1;
+            nextDy = 0;
+        }
+
+        if (
+            key === "ArrowRight" &&
+            dx !== -1
+        ) {
+            nextDx = 1;
+            nextDy = 0;
+        }
+    };
+
+    document.addEventListener(
+        "keydown",
+        keyHandler
+    );
 
     snake = [
         {x: 12, y: 12},
@@ -702,72 +844,49 @@ function startSnake() {
 
     dx = 1;
     dy = 0;
+    nextDx = 1;
+    nextDy = 0;
+
     score = 0;
     running = true;
 
     food = randomFood();
 
-    document.onkeydown =
-        function(event) {
-
-            if (
-                event.key === "ArrowUp" &&
-                dy !== 1
-            ) {
-
-                dx = 0;
-                dy = -1;
-
+    addMobileControls({
+        up: () => {
+            if (dy !== 1) {
+                nextDx = 0;
+                nextDy = -1;
             }
-
-            if (
-                event.key === "ArrowDown" &&
-                dy !== -1
-            ) {
-
-                dx = 0;
-                dy = 1;
-
+        },
+        down: () => {
+            if (dy !== -1) {
+                nextDx = 0;
+                nextDy = 1;
             }
-
-            if (
-                event.key === "ArrowLeft" &&
-                dx !== 1
-            ) {
-
-                dx = -1;
-                dy = 0;
-
+        },
+        left: () => {
+            if (dx !== 1) {
+                nextDx = -1;
+                nextDy = 0;
             }
-
-            if (
-                event.key === "ArrowRight" &&
-                dx !== -1
-            ) {
-
-                dx = 1;
-                dy = 0;
-
+        },
+        right: () => {
+            if (dx !== -1) {
+                nextDx = 1;
+                nextDy = 0;
             }
+        }
+    });
 
-        };
-
-    setStatus(
-        "🐍 Snake — Go!"
-    );
-
+    setStatus("🐍 Snake");
     setInstructions(
-        "Use the arrow keys. Eat the red food and avoid the walls and yourself."
+        "Use the arrow keys or mobile controls. Eat the red food and avoid the walls and yourself."
     );
 
     draw();
 
-    timer =
-        setInterval(
-            tick,
-            100
-        );
-
+    timer = setInterval(tick, 110);
 }
 
 
@@ -776,13 +895,11 @@ function startSnake() {
    ========================================================== */
 
 function loadPong() {
-
     CURRENT_GAME = {
         restart: startPong
     };
 
     startPong();
-
 }
 
 function startPong() {
@@ -803,11 +920,17 @@ function startPong() {
     let playerY = 160;
     let cpuY = 160;
 
-    let ball;
+    let ball = {
+        x: 350,
+        y: 200,
+        vx: 5,
+        vy: 3
+    };
+
     let playerScore = 0;
     let cpuScore = 0;
-
     let running = true;
+    let animationId = null;
 
     function resetBall(direction) {
 
@@ -816,23 +939,16 @@ function startPong() {
             y: 200,
             vx: 5 * direction,
             vy:
-                Math.random() > .5
-                ? 3
-                : -3
+                Math.random() < .5
+                ? -3
+                : 3
         };
-
     }
 
     function draw() {
 
         ctx.fillStyle = "#000";
-
-        ctx.fillRect(
-            0,
-            0,
-            700,
-            400
-        );
+        ctx.fillRect(0, 0, 700, 400);
 
         ctx.fillStyle = "#fff";
 
@@ -862,22 +978,36 @@ function startPong() {
 
         ctx.fill();
 
-        setScore(
-            "You " +
-            playerScore +
-            " — CPU " +
-            cpuScore,
-            ""
-        );
+        ctx.setLineDash([8, 8]);
 
+        ctx.beginPath();
+        ctx.moveTo(350, 0);
+        ctx.lineTo(350, 400);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        setScores([
+            {
+                label: "You",
+                value: playerScore
+            },
+            {
+                label: "CPU",
+                value: cpuScore
+            }
+        ]);
     }
 
     function finish(message) {
 
         running = false;
 
-        setStatus(message);
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+        }
 
+        setStatus(message);
     }
 
     function update() {
@@ -890,17 +1020,15 @@ function startPong() {
         ball.y += ball.vy;
 
         if (
-            ball.y <= 10 ||
-            ball.y >= 390
+            ball.y <= 9 ||
+            ball.y >= 391
         ) {
-
             ball.vy *= -1;
-
         }
 
         cpuY +=
-            (ball.y - (cpuY + 40)) *
-            .075;
+            (ball.y - 40 - cpuY) *
+            0.07;
 
         cpuY =
             Math.max(
@@ -912,121 +1040,101 @@ function startPong() {
             );
 
         if (
-            ball.x <= 35 &&
+            ball.x - 9 <= 35 &&
             ball.y >= playerY &&
             ball.y <= playerY + 80
         ) {
-
             ball.vx =
                 Math.abs(ball.vx);
-
         }
 
         if (
-            ball.x >= 650 &&
+            ball.x + 9 >= 665 &&
             ball.y >= cpuY &&
             ball.y <= cpuY + 80
         ) {
-
             ball.vx =
                 -Math.abs(ball.vx);
-
         }
 
-        if (ball.x < 0) {
+        if (ball.x < -20) {
 
             cpuScore++;
 
-            resetBall(1);
+            if (cpuScore >= 10) {
+                draw();
+                finish("💀 CPU wins!");
+                return;
+            }
 
+            resetBall(1);
         }
 
-        if (ball.x > 700) {
+        if (ball.x > 720) {
 
             playerScore++;
 
+            if (playerScore >= 10) {
+                draw();
+                finish("🏆 You win!");
+                return;
+            }
+
             resetBall(-1);
-
-        }
-
-        if (playerScore >= 10) {
-
-            finish(
-                "🏆 You Win!"
-            );
-
-            return;
-
-        }
-
-        if (cpuScore >= 10) {
-
-            finish(
-                "💀 CPU Wins!"
-            );
-
-            return;
-
         }
 
         draw();
 
-        requestAnimationFrame(
-            update
-        );
-
+        animationId =
+            requestAnimationFrame(update);
     }
 
-    document.onkeydown =
-        function(event) {
+    function moveUp() {
+        playerY =
+            Math.max(
+                0,
+                playerY - 30
+            );
+    }
 
-            if (
-                event.key === "ArrowUp" ||
-                event.key.toLowerCase() === "w"
-            ) {
+    function moveDown() {
+        playerY =
+            Math.min(
+                320,
+                playerY + 30
+            );
+    }
 
-                playerY -= 25;
+    document.onkeydown = function(e) {
 
-            }
+        if (
+            e.key === "ArrowUp" ||
+            e.key.toLowerCase() === "w"
+        ) {
+            moveUp();
+        }
 
-            if (
-                event.key === "ArrowDown" ||
-                event.key.toLowerCase() === "s"
-            ) {
+        if (
+            e.key === "ArrowDown" ||
+            e.key.toLowerCase() === "s"
+        ) {
+            moveDown();
+        }
+    };
 
-                playerY += 25;
+    addMobileControls({
+        up: moveUp,
+        down: moveDown,
+        left: () => {},
+        right: () => {}
+    });
 
-            }
-
-            playerY =
-                Math.max(
-                    0,
-                    Math.min(
-                        320,
-                        playerY
-                    )
-                );
-
-        };
-
-    setStatus(
-        "🏓 Pong"
-    );
-
+    setStatus("🏓 Pong");
     setInstructions(
-        "Move your paddle with W/S or Arrow Up/Down. First to 10 wins."
+        "Move your paddle with W/S or the arrow keys. First to 10 wins."
     );
-
-    resetBall(
-        Math.random() > .5
-        ? 1
-        : -1
-    );
-
-    draw();
 
     update();
-
 }
 
 
@@ -1035,13 +1143,11 @@ function startPong() {
    ========================================================== */
 
 function loadBreakout() {
-
     CURRENT_GAME = {
         restart: startBreakout
     };
 
     startBreakout();
-
 }
 
 function startBreakout() {
@@ -1068,48 +1174,24 @@ function startBreakout() {
         vy: -4
     };
 
+    let bricks = [];
     let score = 0;
     let lives = 3;
     let running = true;
+    let animationId;
 
-    const bricks = [];
+    for (let row = 0; row < 5; row++) {
 
-    for (
-        let row = 0;
-        row < 5;
-        row++
-    ) {
-
-        for (
-            let col = 0;
-            col < 10;
-            col++
-        ) {
+        for (let col = 0; col < 10; col++) {
 
             bricks.push({
-                x: col * 68 + 8,
+                x: col * 69 + 10,
                 y: row * 30 + 30,
-                width: 60,
+                width: 59,
                 height: 20,
                 alive: true
             });
-
         }
-
-    }
-
-    function resetBall() {
-
-        ball = {
-            x: 350,
-            y: 430,
-            vx:
-                Math.random() > .5
-                ? 4
-                : -4,
-            vy: -4
-        };
-
     }
 
     function draw() {
@@ -1144,28 +1226,54 @@ function startBreakout() {
 
         ctx.fill();
 
-        bricks.forEach(
-            brick => {
+        bricks.forEach(brick => {
 
-                if (!brick.alive) {
-                    return;
-                }
-
-                ctx.fillRect(
-                    brick.x,
-                    brick.y,
-                    brick.width,
-                    brick.height
-                );
-
+            if (!brick.alive) {
+                return;
             }
-        );
 
-        setScore(
-            "Score",
-            score
-        );
+            ctx.fillRect(
+                brick.x,
+                brick.y,
+                brick.width,
+                brick.height
+            );
+        });
 
+        setScores([
+            {
+                label: "Score",
+                value: score
+            },
+            {
+                label: "Lives",
+                value: lives
+            }
+        ]);
+    }
+
+    function resetBall() {
+
+        ball = {
+            x: 350,
+            y: 430,
+            vx:
+                Math.random() < .5
+                ? 4
+                : -4,
+            vy: -4
+        };
+    }
+
+    function finish(text) {
+
+        running = false;
+
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+        }
+
+        setStatus(text);
     }
 
     function update() {
@@ -1181,74 +1289,64 @@ function startBreakout() {
             ball.x <= 8 ||
             ball.x >= 692
         ) {
-
             ball.vx *= -1;
-
         }
 
         if (ball.y <= 8) {
-
             ball.vy *= -1;
-
         }
 
         if (
             ball.y + 8 >= 470 &&
+            ball.y <= 485 &&
             ball.x >= paddleX &&
             ball.x <= paddleX + 100
         ) {
 
+            const hit =
+                (ball.x - paddleX) / 100;
+
+            ball.vx =
+                (hit - .5) * 8;
+
             ball.vy =
                 -Math.abs(ball.vy);
-
         }
 
-        for (
-            const brick of bricks
-        ) {
+        bricks.forEach(brick => {
 
             if (!brick.alive) {
-                continue;
+                return;
             }
 
             if (
-                ball.x >= brick.x &&
-                ball.x <=
-                    brick.x +
-                    brick.width &&
-                ball.y >= brick.y &&
-                ball.y <=
-                    brick.y +
-                    brick.height
+                ball.x + 8 >= brick.x &&
+                ball.x - 8 <=
+                    brick.x + brick.width &&
+                ball.y + 8 >= brick.y &&
+                ball.y - 8 <=
+                    brick.y + brick.height
             ) {
 
                 brick.alive = false;
-
                 ball.vy *= -1;
-
                 score++;
-
-                break;
-
             }
-
-        }
+        });
 
         if (
             bricks.every(
-                brick =>
-                    !brick.alive
+                brick => !brick.alive
             )
         ) {
 
-            running = false;
+            draw();
 
-            setStatus(
-                "🏆 You cleared every brick!"
+            finish(
+                "🏆 You cleared every block!"
             );
 
             return;
-
         }
 
         if (ball.y > 510) {
@@ -1257,72 +1355,66 @@ function startBreakout() {
 
             if (lives <= 0) {
 
-                running = false;
+                draw();
 
-                setStatus(
+                finish(
                     "💀 Game Over — Score: " +
                     score
                 );
 
                 return;
-
             }
 
             resetBall();
-
         }
-
-        setStatus(
-            "🧱 Breakout — Lives: " +
-            lives
-        );
 
         draw();
 
-        requestAnimationFrame(
-            update
-        );
-
+        animationId =
+            requestAnimationFrame(update);
     }
 
-    document.onkeydown =
-        function(event) {
+    function moveLeft() {
+        paddleX =
+            Math.max(
+                0,
+                paddleX - 35
+            );
+    }
 
-            if (
-                event.key === "ArrowLeft"
-            ) {
+    function moveRight() {
+        paddleX =
+            Math.min(
+                600,
+                paddleX + 35
+            );
+    }
 
-                paddleX -= 35;
+    document.onkeydown = function(e) {
 
-            }
+        if (e.key === "ArrowLeft") {
+            moveLeft();
+        }
 
-            if (
-                event.key === "ArrowRight"
-            ) {
+        if (e.key === "ArrowRight") {
+            moveRight();
+        }
+    };
 
-                paddleX += 35;
+    addMobileControls({
+        up: () => {},
+        down: () => {},
+        left: moveLeft,
+        right: moveRight
+    });
 
-            }
-
-            paddleX =
-                Math.max(
-                    0,
-                    Math.min(
-                        600,
-                        paddleX
-                    )
-                );
-
-        };
+    setStatus("🧱 Breakout");
 
     setInstructions(
-        "Move the paddle with the left/right arrow keys and destroy all bricks."
+        "Move the paddle with the left and right arrow keys. Destroy every block."
     );
 
-    draw();
-
     update();
-
 }
 
 
@@ -1331,13 +1423,11 @@ function startBreakout() {
    ========================================================== */
 
 function load2048() {
-
     CURRENT_GAME = {
         restart: start2048
     };
 
     start2048();
-
 }
 
 function start2048() {
@@ -1350,7 +1440,7 @@ function start2048() {
     board.className = "board";
 
     board.style.gridTemplateColumns =
-        "repeat(4, 60px)";
+        "repeat(4, 70px)";
 
     GAME_CONTAINER.appendChild(board);
 
@@ -1361,43 +1451,25 @@ function start2048() {
         );
 
     let score = 0;
-    let running = true;
+    let over = false;
 
     function addTile() {
 
         const empty = [];
 
-        for (
-            let r = 0;
-            r < 4;
-            r++
-        ) {
-
-            for (
-                let c = 0;
-                c < 4;
-                c++
-            ) {
-
-                if (
-                    grid[r][c] === 0
-                ) {
-
-                    empty.push(
-                        [r, c]
-                    );
-
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+                if (!grid[r][c]) {
+                    empty.push([r, c]);
                 }
-
             }
-
         }
 
         if (!empty.length) {
-            return;
+            return false;
         }
 
-        const location =
+        const [r, c] =
             empty[
                 Math.floor(
                     Math.random() *
@@ -1405,23 +1477,19 @@ function start2048() {
                 )
             ];
 
-        grid[
-            location[0]
-        ][
-            location[1]
-        ] =
+        grid[r][c] =
             Math.random() < .9
             ? 2
             : 4;
 
+        return true;
     }
 
-    function compress(row) {
+    function slide(row) {
 
-        const values =
+        let values =
             row.filter(
-                value =>
-                    value !== 0
+                value => value !== 0
             );
 
         const result = [];
@@ -1433,16 +1501,14 @@ function start2048() {
         ) {
 
             if (
-                values[i] ===
-                values[i + 1]
+                i + 1 < values.length &&
+                values[i] === values[i + 1]
             ) {
 
                 const merged =
                     values[i] * 2;
 
-                result.push(
-                    merged
-                );
+                result.push(merged);
 
                 score += merged;
 
@@ -1450,27 +1516,18 @@ function start2048() {
 
             } else {
 
-                result.push(
-                    values[i]
-                );
-
+                result.push(values[i]);
             }
-
         }
 
-        while (
-            result.length < 4
-        ) {
-
+        while (result.length < 4) {
             result.push(0);
-
         }
 
         return result;
-
     }
 
-    function rotateRight() {
+    function rotate() {
 
         const result =
             Array.from(
@@ -1478,32 +1535,19 @@ function start2048() {
                 () => Array(4).fill(0)
             );
 
-        for (
-            let r = 0;
-            r < 4;
-            r++
-        ) {
-
-            for (
-                let c = 0;
-                c < 4;
-                c++
-            ) {
-
-                result[c][3-r] =
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+                result[c][3 - r] =
                     grid[r][c];
-
             }
-
         }
 
         grid = result;
-
     }
 
     function move(direction) {
 
-        if (!running) {
+        if (over) {
             return;
         }
 
@@ -1514,136 +1558,152 @@ function start2048() {
             down: 1
         };
 
-        const count =
+        const turns =
             rotations[direction];
 
         for (
             let i = 0;
-            i < count;
+            i < turns;
             i++
         ) {
-
-            rotateRight();
-
+            rotate();
         }
 
-        for (
-            let r = 0;
-            r < 4;
-            r++
-        ) {
+        const before =
+            JSON.stringify(grid);
 
-            grid[r] =
-                compress(
-                    grid[r]
-                );
-
+        for (let r = 0; r < 4; r++) {
+            grid[r] = slide(grid[r]);
         }
 
         for (
             let i = 0;
-            i < (4 - count) % 4;
+            i < (4 - turns) % 4;
             i++
         ) {
-
-            rotateRight();
-
+            rotate();
         }
 
-        addTile();
+        const after =
+            JSON.stringify(grid);
+
+        if (before !== after) {
+            addTile();
+        }
 
         render();
 
-        if (
-            grid.some(
-                row =>
-                    row.includes(2048)
-            )
-        ) {
+        if (grid.flat().includes(2048)) {
 
-            running = false;
+            over = true;
 
             setStatus(
                 "🏆 You reached 2048!"
             );
 
+            return;
         }
 
+        if (!canMove()) {
+
+            over = true;
+
+            setStatus(
+                "💀 Game Over — Score: " +
+                score
+            );
+        }
+    }
+
+    function canMove() {
+
+        for (let r = 0; r < 4; r++) {
+
+            for (let c = 0; c < 4; c++) {
+
+                if (!grid[r][c]) {
+                    return true;
+                }
+
+                if (
+                    c < 3 &&
+                    grid[r][c] ===
+                    grid[r][c + 1]
+                ) {
+                    return true;
+                }
+
+                if (
+                    r < 3 &&
+                    grid[r][c] ===
+                    grid[r + 1][c]
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     function render() {
 
         board.innerHTML = "";
 
-        grid.forEach(
-            row => {
+        grid.forEach(row => {
 
-                row.forEach(
-                    value => {
+            row.forEach(value => {
 
-                        const cell =
-                            document.createElement(
-                                "div"
-                            );
+                const cell =
+                    document.createElement(
+                        "div"
+                    );
 
-                        cell.className =
-                            "cell";
+                cell.className =
+                    "cell";
 
-                        cell.textContent =
-                            value || "";
+                cell.style.width = "70px";
+                cell.style.height = "70px";
 
-                        board.appendChild(
-                            cell
-                        );
+                cell.textContent =
+                    value || "";
 
-                    }
-                );
+                board.appendChild(cell);
+            });
+        });
 
-            }
-        );
-
-        setScore(
-            "Score",
-            score
-        );
-
+        setScore("Score", score);
     }
 
-    document.onkeydown =
-        function(event) {
+    document.onkeydown = function(e) {
 
-            const keys = {
-                ArrowLeft: "left",
-                ArrowRight: "right",
-                ArrowUp: "up",
-                ArrowDown: "down"
-            };
+        if (e.key === "ArrowLeft") {
+            move("left");
+        }
 
-            if (
-                keys[event.key]
-            ) {
+        if (e.key === "ArrowRight") {
+            move("right");
+        }
 
-                move(
-                    keys[event.key]
-                );
+        if (e.key === "ArrowUp") {
+            move("up");
+        }
 
-            }
+        if (e.key === "ArrowDown") {
+            move("down");
+        }
+    };
 
-        };
-
-    setStatus(
-        "🔢 2048"
-    );
+    setStatus("🔢 2048");
 
     setInstructions(
-        "Use the arrow keys to combine matching numbers and reach 2048."
+        "Use the arrow keys to combine matching tiles. Reach 2048."
     );
 
     addTile();
     addTile();
 
     render();
-
 }
 
 
@@ -1652,13 +1712,11 @@ function start2048() {
    ========================================================== */
 
 function loadMemory() {
-
     CURRENT_GAME = {
         restart: startMemory
     };
 
     startMemory();
-
 }
 
 function startMemory() {
@@ -1671,9 +1729,7 @@ function startMemory() {
     grid.className =
         "card-grid";
 
-    GAME_CONTAINER.appendChild(
-        grid
-    );
+    GAME_CONTAINER.appendChild(grid);
 
     const symbols = [
         "🍎",
@@ -1689,8 +1745,7 @@ function startMemory() {
     const cards =
         [...symbols, ...symbols]
         .sort(
-            () =>
-                Math.random() - .5
+            () => Math.random() - .5
         );
 
     let first = null;
@@ -1698,133 +1753,121 @@ function startMemory() {
     let matches = 0;
     let moves = 0;
 
-    cards.forEach(
-        symbol => {
+    function finish() {
 
-            const card =
-                document.createElement(
-                    "div"
+        setStatus(
+            "🏆 You won in " +
+            moves +
+            " moves!"
+        );
+    }
+
+    cards.forEach(symbol => {
+
+        const card =
+            document.createElement("div");
+
+        card.className = "card";
+
+        card.textContent = "❓";
+
+        card.addEventListener(
+            "click",
+            () => {
+
+                if (
+                    locked ||
+                    card.classList.contains(
+                        "matched"
+                    ) ||
+                    card === first
+                ) {
+                    return;
+                }
+
+                card.textContent = symbol;
+
+                card.classList.add(
+                    "flipped"
                 );
 
-            card.className =
-                "card";
+                if (!first) {
 
-            card.textContent =
-                "❓";
+                    first = card;
 
-            card.onclick =
-                function() {
+                    return;
+                }
 
-                    if (
-                        locked ||
-                        card === first ||
-                        card.classList.contains(
-                            "matched"
-                        )
-                    ) {
+                moves++;
 
-                        return;
+                if (
+                    first.textContent ===
+                    card.textContent
+                ) {
 
-                    }
-
-                    card.textContent =
-                        symbol;
-
-                    card.classList.add(
-                        "flipped"
+                    first.classList.add(
+                        "matched"
                     );
 
-                    if (!first) {
+                    card.classList.add(
+                        "matched"
+                    );
 
-                        first = card;
+                    first = null;
 
-                        return;
-
-                    }
-
-                    moves++;
+                    matches++;
 
                     if (
-                        first.textContent ===
-                        card.textContent
+                        matches ===
+                        symbols.length
                     ) {
+                        finish();
+                    }
 
-                        first.classList.add(
-                            "matched"
+                } else {
+
+                    locked = true;
+
+                    const previous =
+                        first;
+
+                    setTimeout(() => {
+
+                        previous.textContent =
+                            "❓";
+
+                        card.textContent =
+                            "❓";
+
+                        previous.classList.remove(
+                            "flipped"
                         );
 
-                        card.classList.add(
-                            "matched"
+                        card.classList.remove(
+                            "flipped"
                         );
 
                         first = null;
+                        locked = false;
 
-                        matches++;
+                    }, 700);
+                }
 
-                        if (
-                            matches ===
-                            symbols.length
-                        ) {
+                setScore(
+                    "Moves",
+                    moves
+                );
+            }
+        );
 
-                            setStatus(
-                                "🏆 You won in " +
-                                moves +
-                                " moves!"
-                            );
+        grid.appendChild(card);
+    });
 
-                        }
-
-                    } else {
-
-                        locked = true;
-
-                        const previous =
-                            first;
-
-                        setTimeout(
-                            function() {
-
-                                previous.textContent =
-                                    "❓";
-
-                                card.textContent =
-                                    "❓";
-
-                                previous.classList.remove(
-                                    "flipped"
-                                );
-
-                                card.classList.remove(
-                                    "flipped"
-                                );
-
-                                first = null;
-
-                                locked = false;
-
-                            },
-                            700
-                        );
-
-                    }
-
-                };
-
-            grid.appendChild(
-                card
-            );
-
-        }
-    );
-
-    setStatus(
-        "🧠 Memory Match"
-    );
+    setStatus("🧠 Memory Match");
 
     setInstructions(
-        "Flip two cards and find all eight matching pairs."
+        "Flip two cards at a time and match every pair."
     );
-
 }
 
 
@@ -1833,13 +1876,11 @@ function startMemory() {
    ========================================================== */
 
 function loadTicTacToe() {
-
     CURRENT_GAME = {
         restart: startTicTacToe
     };
 
     startTicTacToe();
-
 }
 
 function startTicTacToe() {
@@ -1852,140 +1893,123 @@ function startTicTacToe() {
     board.className = "board";
 
     board.style.gridTemplateColumns =
-        "repeat(3, 70px)";
+        "repeat(3, 80px)";
 
-    GAME_CONTAINER.appendChild(
-        board
-    );
+    GAME_CONTAINER.appendChild(board);
 
-    const cells =
-        Array(9).fill("");
+    const cells = Array(9).fill("");
 
     let turn = "X";
-    let running = true;
+    let finished = false;
 
-    const wins = [
-        [0,1,2],
-        [3,4,5],
-        [6,7,8],
-        [0,3,6],
-        [1,4,7],
-        [2,5,8],
-        [0,4,8],
-        [2,4,6]
-    ];
+    function checkWinner() {
 
-    function winner() {
+        const wins = [
+            [0,1,2],
+            [3,4,5],
+            [6,7,8],
+            [0,3,6],
+            [1,4,7],
+            [2,5,8],
+            [0,4,8],
+            [2,4,6]
+        ];
 
         for (
-            const combo of wins
+            const [a,b,c] of wins
         ) {
-
-            const [a,b,c] =
-                combo;
 
             if (
                 cells[a] &&
                 cells[a] === cells[b] &&
                 cells[a] === cells[c]
             ) {
-
                 return cells[a];
-
             }
-
         }
 
         if (
             cells.every(
-                value => value
+                value => value !== ""
             )
         ) {
-
             return "draw";
-
         }
 
         return null;
-
     }
 
-    cells.forEach(
-        (_, index) => {
+    cells.forEach((_, index) => {
 
-            const cell =
-                document.createElement(
-                    "div"
-                );
+        const cell =
+            document.createElement("div");
 
-            cell.className =
-                "cell";
+        cell.className = "cell";
 
-            cell.onclick =
-                function() {
+        cell.style.width = "80px";
+        cell.style.height = "80px";
 
-                    if (
-                        !running ||
-                        cells[index]
-                    ) {
+        cell.addEventListener(
+            "click",
+            () => {
 
-                        return;
+                if (
+                    finished ||
+                    cells[index]
+                ) {
+                    return;
+                }
 
-                    }
+                cells[index] = turn;
 
-                    cells[index] =
-                        turn;
+                cell.textContent = turn;
 
-                    cell.textContent =
-                        turn;
+                const winner =
+                    checkWinner();
 
-                    const result =
-                        winner();
+                if (winner) {
 
-                    if (result) {
+                    finished = true;
 
-                        running = false;
+                    if (winner === "draw") {
 
                         setStatus(
-                            result === "draw"
-                            ? "🤝 Draw!"
-                            : "🏆 " +
-                              result +
-                              " wins!"
+                            "🤝 It's a draw!"
                         );
 
-                        return;
+                    } else {
 
+                        setStatus(
+                            "🏆 " +
+                            winner +
+                            " wins!"
+                        );
                     }
 
-                    turn =
-                        turn === "X"
-                        ? "O"
-                        : "X";
+                    return;
+                }
 
-                    setStatus(
-                        "Player " +
-                        turn +
-                        "'s turn"
-                    );
+                turn =
+                    turn === "X"
+                    ? "O"
+                    : "X";
 
-                };
+                setStatus(
+                    "Player " +
+                    turn +
+                    "'s turn"
+                );
+            }
+        );
 
-            board.appendChild(
-                cell
-            );
+        board.appendChild(cell);
+    });
 
-        }
-    );
-
-    setStatus(
-        "⭕ Tic-Tac-Toe"
-    );
+    setStatus("⭕ Tic-Tac-Toe");
 
     setInstructions(
-        "Click an empty square. Get three in a row."
+        "Click an empty square. Get three of your symbols in a row."
     );
-
 }
 
 
@@ -1994,13 +2018,11 @@ function startTicTacToe() {
    ========================================================== */
 
 function loadConnectFour() {
-
     CURRENT_GAME = {
         restart: startConnectFour
     };
 
     startConnectFour();
-
 }
 
 function startConnectFour() {
@@ -2013,11 +2035,9 @@ function startConnectFour() {
     board.className = "board";
 
     board.style.gridTemplateColumns =
-        "repeat(7, 50px)";
+        "repeat(7, 55px)";
 
-    GAME_CONTAINER.appendChild(
-        board
-    );
+    GAME_CONTAINER.appendChild(board);
 
     const grid =
         Array.from(
@@ -2026,12 +2046,9 @@ function startConnectFour() {
         );
 
     let turn = "🔴";
-    let running = true;
+    let finished = false;
 
-    function checkWin(
-        row,
-        col
-    ) {
+    function checkWin(row, col) {
 
         const player =
             grid[row][col];
@@ -2044,25 +2061,23 @@ function startConnectFour() {
         ];
 
         for (
-            const [
-                dr,
-                dc
-            ] of directions
+            const [dr, dc]
+            of directions
         ) {
 
             let count = 1;
 
             for (
-                let step = 1;
-                step < 4;
-                step++
+                let d = 1;
+                d < 4;
+                d++
             ) {
 
                 const r =
-                    row + dr * step;
+                    row + dr * d;
 
                 const c =
-                    col + dc * step;
+                    col + dc * d;
 
                 if (
                     r < 0 ||
@@ -2071,26 +2086,23 @@ function startConnectFour() {
                     c >= 7 ||
                     grid[r][c] !== player
                 ) {
-
                     break;
-
                 }
 
                 count++;
-
             }
 
             for (
-                let step = 1;
-                step < 4;
-                step++
+                let d = 1;
+                d < 4;
+                d++
             ) {
 
                 const r =
-                    row - dr * step;
+                    row - dr * d;
 
                 const c =
-                    col - dc * step;
+                    col - dc * d;
 
                 if (
                     r < 0 ||
@@ -2099,33 +2111,23 @@ function startConnectFour() {
                     c >= 7 ||
                     grid[r][c] !== player
                 ) {
-
                     break;
-
                 }
 
                 count++;
-
             }
 
             if (count >= 4) {
-
                 return true;
-
             }
-
         }
 
         return false;
-
     }
 
     function render() {
 
-        const cells =
-            board.children;
-
-        let index = 0;
+        board.innerHTML = "";
 
         for (
             let r = 0;
@@ -2139,113 +2141,106 @@ function startConnectFour() {
                 c++
             ) {
 
-                cells[index].textContent =
+                const cell =
+                    document.createElement(
+                        "div"
+                    );
+
+                cell.className = "cell";
+
+                cell.style.width = "55px";
+                cell.style.height = "55px";
+
+                cell.textContent =
                     grid[r][c];
 
-                index++;
-
-            }
-
-        }
-
-    }
-
-    for (
-        let r = 0;
-        r < 6;
-        r++
-    ) {
-
-        for (
-            let c = 0;
-            c < 7;
-            c++
-        ) {
-
-            const cell =
-                document.createElement(
-                    "div"
+                cell.addEventListener(
+                    "click",
+                    () => drop(c)
                 );
 
-            cell.className =
-                "cell";
-
-            cell.onclick =
-                function() {
-
-                    if (!running) {
-                        return;
-                    }
-
-                    for (
-                        let row = 5;
-                        row >= 0;
-                        row--
-                    ) {
-
-                        if (
-                            !grid[row][c]
-                        ) {
-
-                            grid[row][c] =
-                                turn;
-
-                            render();
-
-                            if (
-                                checkWin(
-                                    row,
-                                    c
-                                )
-                            ) {
-
-                                running = false;
-
-                                setStatus(
-                                    "🏆 " +
-                                    turn +
-                                    " wins!"
-                                );
-
-                            } else {
-
-                                turn =
-                                    turn ===
-                                    "🔴"
-                                    ? "🟡"
-                                    : "🔴";
-
-                                setStatus(
-                                    turn +
-                                    " turn"
-                                );
-
-                            }
-
-                            break;
-
-                        }
-
-                    }
-
-                };
-
-            board.appendChild(
-                cell
-            );
-
+                board.appendChild(cell);
+            }
         }
-
     }
 
-    setStatus(
-        "🔴 Connect Four"
-    );
+    function drop(column) {
+
+        if (finished) {
+            return;
+        }
+
+        for (
+            let row = 5;
+            row >= 0;
+            row--
+        ) {
+
+            if (!grid[row][column]) {
+
+                grid[row][column] =
+                    turn;
+
+                render();
+
+                if (
+                    checkWin(
+                        row,
+                        column
+                    )
+                ) {
+
+                    finished = true;
+
+                    setStatus(
+                        "🏆 " +
+                        turn +
+                        " wins!"
+                    );
+
+                    return;
+                }
+
+                if (
+                    grid.every(
+                        row =>
+                            row.every(
+                                cell => cell
+                            )
+                    )
+                ) {
+
+                    finished = true;
+
+                    setStatus(
+                        "🤝 Board full — draw!"
+                    );
+
+                    return;
+                }
+
+                turn =
+                    turn === "🔴"
+                    ? "🟡"
+                    : "🔴";
+
+                setStatus(
+                    turn +
+                    " turn"
+                );
+
+                return;
+            }
+        }
+    }
+
+    setStatus("🔴 Connect Four");
 
     setInstructions(
-        "Click a column to drop your piece. Connect four before your opponent."
+        "Click a column to drop your piece. Connect four pieces in a row."
     );
 
+    render();
 }
 
 
@@ -2254,44 +2249,34 @@ function startConnectFour() {
    ========================================================== */
 
 function loadRPS() {
-
     CURRENT_GAME = {
         restart: startRPS
     };
 
     startRPS();
-
 }
 
 function startRPS() {
 
     clearGame();
 
-    let playerScore = 0;
-    let cpuScore = 0;
+    const title =
+        document.createElement("div");
 
-    const area =
-        document.createElement(
-            "div"
-        );
-
-    area.className =
+    title.className =
         "big-message";
 
-    area.innerHTML =
-        "<div style='font-size:80px'>✊ ✋ ✌️</div>";
+    title.innerHTML =
+        `<div class="emoji">✊ ✋ ✌️</div>`;
 
-    GAME_CONTAINER.appendChild(
-        area
-    );
+    GAME_CONTAINER.appendChild(title);
 
     const controls =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
-    controls.className =
-        "controls";
+    controls.className = "controls";
+
+    GAME_CONTAINER.appendChild(controls);
 
     const choices = [
         "Rock",
@@ -2299,23 +2284,8 @@ function startRPS() {
         "Scissors"
     ];
 
-    choices.forEach(
-        choice => {
-
-            controls.appendChild(
-                createButton(
-                    choice,
-                    () =>
-                        play(choice)
-                )
-            );
-
-        }
-    );
-
-    GAME_CONTAINER.appendChild(
-        controls
-    );
+    let playerScore = 0;
+    let cpuScore = 0;
 
     function play(player) {
 
@@ -2329,12 +2299,9 @@ function startRPS() {
 
         let result;
 
-        if (
-            player === cpu
-        ) {
+        if (player === cpu) {
 
-            result =
-                "🤝 Draw!";
+            result = "🤝 Draw!";
 
         } else if (
             (
@@ -2353,16 +2320,13 @@ function startRPS() {
 
             playerScore++;
 
-            result =
-                "🏆 You win!";
+            result = "🏆 You win!";
 
         } else {
 
             cpuScore++;
 
-            result =
-                "💀 CPU wins!";
-
+            result = "💀 CPU wins!";
         }
 
         setStatus(
@@ -2373,23 +2337,33 @@ function startRPS() {
             cpu
         );
 
-        setScore(
-            "Score",
-            playerScore +
-            " - " +
-            cpuScore
-        );
-
+        setScores([
+            {
+                label: "You",
+                value: playerScore
+            },
+            {
+                label: "CPU",
+                value: cpuScore
+            }
+        ]);
     }
 
-    setStatus(
-        "✊ Rock Paper Scissors"
-    );
+    choices.forEach(choice => {
+
+        controls.appendChild(
+            makeButton(
+                choice,
+                () => play(choice)
+            )
+        );
+    });
+
+    setStatus("✊ Rock Paper Scissors");
 
     setInstructions(
-        "Choose Rock, Paper, or Scissors."
+        "Choose Rock, Paper, or Scissors. The first to 10 points wins the match."
     );
-
 }
 
 
@@ -2398,13 +2372,11 @@ function startRPS() {
    ========================================================== */
 
 function loadTargetShooter() {
-
     CURRENT_GAME = {
         restart: startTargetShooter
     };
 
     startTargetShooter();
-
 }
 
 function startTargetShooter() {
@@ -2412,16 +2384,12 @@ function startTargetShooter() {
     clearGame();
 
     const canvas =
-        document.createElement(
-            "canvas"
-        );
+        document.createElement("canvas");
 
     canvas.width = 700;
     canvas.height = 500;
 
-    GAME_CONTAINER.appendChild(
-        canvas
-    );
+    GAME_CONTAINER.appendChild(canvas);
 
     const ctx =
         canvas.getContext("2d");
@@ -2431,24 +2399,21 @@ function startTargetShooter() {
     let shots = 0;
     let time = 20;
     let running = true;
-    let timer;
+    let timer = null;
 
     function newTarget() {
 
         target = {
             x:
-                50 +
-                Math.random() *
-                600,
+                45 +
+                Math.random() * 610,
 
             y:
-                50 +
-                Math.random() *
-                400,
+                45 +
+                Math.random() * 410,
 
-            radius: 25
+            radius: 27
         };
-
     }
 
     function draw() {
@@ -2462,6 +2427,12 @@ function startTargetShooter() {
             500
         );
 
+        if (!running) {
+            return;
+        }
+
+        ctx.strokeStyle = "#fff";
+
         ctx.beginPath();
 
         ctx.arc(
@@ -2472,33 +2443,49 @@ function startTargetShooter() {
             Math.PI * 2
         );
 
-        ctx.fillStyle = "#fff";
-
-        ctx.fill();
+        ctx.stroke();
 
         ctx.beginPath();
 
         ctx.arc(
             target.x,
             target.y,
-            9,
+            16,
             0,
             Math.PI * 2
         );
 
-        ctx.fillStyle = "#000";
+        ctx.stroke();
+
+        ctx.beginPath();
+
+        ctx.arc(
+            target.x,
+            target.y,
+            5,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle = "#fff";
 
         ctx.fill();
 
-        setScore(
-            "Hits",
-            score
-        );
-
+        setScores([
+            {
+                label: "Hits",
+                value: score
+            },
+            {
+                label: "Time",
+                value: time
+            }
+        ]);
     }
 
-    canvas.onclick =
-        function(event) {
+    canvas.addEventListener(
+        "pointerdown",
+        event => {
 
             if (!running) {
                 return;
@@ -2516,16 +2503,12 @@ function startTargetShooter() {
                 rect.height;
 
             const x =
-                (
-                    event.clientX -
-                    rect.left
-                ) * scaleX;
+                (event.clientX - rect.left) *
+                scaleX;
 
             const y =
-                (
-                    event.clientY -
-                    rect.top
-                ) * scaleY;
+                (event.clientY - rect.top) *
+                scaleY;
 
             shots++;
 
@@ -2543,53 +2526,52 @@ function startTargetShooter() {
                 score++;
 
                 newTarget();
-
             }
 
             draw();
+        }
+    );
 
-        };
+    timer = setInterval(() => {
 
-    timer =
-        setInterval(
-            function() {
+        if (!running) {
+            return;
+        }
 
-                time--;
+        time--;
 
-                setStatus(
-                    "🎯 Time remaining: " +
-                    time +
-                    " seconds"
-                );
+        if (time <= 0) {
 
-                if (time <= 0) {
+            running = false;
 
-                    running = false;
+            clearInterval(timer);
 
-                    clearInterval(timer);
+            setStatus(
+                "🏆 Time! You hit " +
+                score +
+                " of " +
+                shots +
+                " targets."
+            );
 
-                    setStatus(
-                        "🏆 Finished — " +
-                        score +
-                        " hits from " +
-                        shots +
-                        " shots!"
-                    );
+            draw();
 
-                }
+            return;
+        }
 
-            },
-            1000
-        );
+        draw();
+
+    }, 1000);
 
     newTarget();
 
+    setStatus("🎯 Target Shooter");
+
     setInstructions(
-        "Click the target as quickly and accurately as possible."
+        "Click or tap the target as quickly as possible. You have 20 seconds."
     );
 
     draw();
-
 }
 
 
@@ -2598,13 +2580,11 @@ function startTargetShooter() {
    ========================================================== */
 
 function loadDodge() {
-
     CURRENT_GAME = {
         restart: startDodge
     };
 
     startDodge();
-
 }
 
 function startDodge() {
@@ -2612,65 +2592,101 @@ function startDodge() {
     clearGame();
 
     const canvas =
-        document.createElement(
-            "canvas"
-        );
+        document.createElement("canvas");
 
     canvas.width = 600;
     canvas.height = 500;
 
-    GAME_CONTAINER.appendChild(
-        canvas
-    );
+    GAME_CONTAINER.appendChild(canvas);
 
     const ctx =
         canvas.getContext("2d");
 
-    const player = {
+    let player = {
         x: 285,
         y: 440,
-        width: 30,
-        height: 30,
-        speed: 7
+        size: 30
     };
 
     let enemies = [];
-    let score = 0;
     let running = true;
+    let score = 0;
+    let animationId;
     let spawnTimer;
 
-    function spawnEnemy() {
+    function moveLeft() {
+        player.x =
+            Math.max(
+                0,
+                player.x - 30
+            );
+    }
+
+    function moveRight() {
+        player.x =
+            Math.min(
+                570,
+                player.x + 30
+            );
+    }
+
+    document.onkeydown = function(e) {
+
+        if (e.key === "ArrowLeft") {
+            moveLeft();
+        }
+
+        if (e.key === "ArrowRight") {
+            moveRight();
+        }
+    };
+
+    function spawn() {
+
+        if (!running) {
+            return;
+        }
 
         enemies.push({
             x:
-                Math.random() *
-                570,
+                Math.random() * 570,
 
             y: -30,
 
-            width: 30,
-            height: 30,
+            size: 30,
 
             speed:
                 2 +
                 Math.random() * 3
         });
-
     }
 
-    function collision(a,b) {
+    function collision(a, b) {
 
         return (
-            a.x <
-                b.x + b.width &&
-            a.x + a.width >
-                b.x &&
-            a.y <
-                b.y + b.height &&
-            a.y + a.height >
-                b.y
+            a.x < b.x + b.size &&
+            a.x + a.size > b.x &&
+            a.y < b.y + b.size &&
+            a.y + a.size > b.y
         );
+    }
 
+    function finish() {
+
+        running = false;
+
+        clearInterval(spawnTimer);
+
+        if (animationId) {
+            cancelAnimationFrame(
+                animationId
+            );
+        }
+
+        setStatus(
+            "💀 Game Over — Survival: " +
+            Math.floor(score / 10)
+        );
     }
 
     function update() {
@@ -2693,47 +2709,30 @@ function startDodge() {
         ctx.fillRect(
             player.x,
             player.y,
-            player.width,
-            player.height
+            player.size,
+            player.size
         );
 
-        enemies.forEach(
-            enemy => {
+        enemies.forEach(enemy => {
 
-                enemy.y +=
-                    enemy.speed;
+            enemy.y += enemy.speed;
 
-                ctx.fillRect(
-                    enemy.x,
-                    enemy.y,
-                    enemy.width,
-                    enemy.height
-                );
+            ctx.fillRect(
+                enemy.x,
+                enemy.y,
+                enemy.size,
+                enemy.size
+            );
 
-                if (
-                    collision(
-                        player,
-                        enemy
-                    )
-                ) {
-
-                    running = false;
-
-                    clearInterval(
-                        spawnTimer
-                    );
-
-                    setStatus(
-                        "💀 Game Over — Score: " +
-                        Math.floor(
-                            score / 10
-                        )
-                    );
-
-                }
-
+            if (
+                collision(
+                    player,
+                    enemy
+                )
+            ) {
+                finish();
             }
-        );
+        });
 
         enemies =
             enemies.filter(
@@ -2745,69 +2744,33 @@ function startDodge() {
 
         setScore(
             "Survival",
-            Math.floor(
-                score / 10
-            )
+            Math.floor(score / 10)
         );
 
-        if (running) {
-
-            requestAnimationFrame(
-                update
-            );
-
-        }
-
+        animationId =
+            requestAnimationFrame(update);
     }
 
-    document.onkeydown =
-        function(event) {
+    addMobileControls({
+        up: () => {},
+        down: () => {},
+        left: moveLeft,
+        right: moveRight
+    });
 
-            if (
-                event.key === "ArrowLeft"
-            ) {
+    setStatus("🥊 Dodge Battle");
 
-                player.x -=
-                    player.speed;
-
-            }
-
-            if (
-                event.key === "ArrowRight"
-            ) {
-
-                player.x +=
-                    player.speed;
-
-            }
-
-            player.x =
-                Math.max(
-                    0,
-                    Math.min(
-                        570,
-                        player.x
-                    )
-                );
-
-        };
+    setInstructions(
+        "Move left and right to avoid the falling blocks. Survive as long as possible."
+    );
 
     spawnTimer =
         setInterval(
-            spawnEnemy,
+            spawn,
             650
         );
 
-    setStatus(
-        "🥊 Dodge"
-    );
-
-    setInstructions(
-        "Use the left and right arrow keys to dodge the falling blocks."
-    );
-
     update();
-
 }
 
 
@@ -2816,13 +2779,11 @@ function startDodge() {
    ========================================================== */
 
 function loadTrivia() {
-
     CURRENT_GAME = {
         restart: startTrivia
     };
 
     startTrivia();
-
 }
 
 function startTrivia() {
@@ -2831,19 +2792,18 @@ function startTrivia() {
 
     const questions = [
         {
-            q: "What planet do humans live on?",
-            answers: [
-                "Mars",
+            q: "What planet do we live on?",
+            a: [
                 "Earth",
+                "Mars",
                 "Venus",
                 "Jupiter"
             ],
-            correct: 1
+            correct: 0
         },
-
         {
             q: "How many days are in a week?",
-            answers: [
+            a: [
                 "5",
                 "6",
                 "7",
@@ -2851,32 +2811,29 @@ function startTrivia() {
             ],
             correct: 2
         },
-
         {
             q: "What is 5 + 5?",
-            answers: [
+            a: [
                 "8",
                 "9",
                 "10",
-                "12"
+                "15"
             ],
             correct: 2
         },
-
         {
             q: "Which animal is known as man's best friend?",
-            answers: [
+            a: [
                 "Cat",
                 "Dog",
                 "Horse",
-                "Rabbit"
+                "Bird"
             ],
             correct: 1
         },
-
         {
             q: "Which ocean is the largest?",
-            answers: [
+            a: [
                 "Atlantic",
                 "Indian",
                 "Pacific",
@@ -2884,52 +2841,67 @@ function startTrivia() {
             ],
             correct: 2
         },
-
         {
-            q: "How many sides does a triangle have?",
-            answers: [
-                "2",
-                "3",
-                "4",
-                "5"
+            q: "How many continents are there?",
+            a: [
+                "5",
+                "6",
+                "7",
+                "8"
+            ],
+            correct: 2
+        },
+        {
+            q: "What is the fastest land animal?",
+            a: [
+                "Lion",
+                "Cheetah",
+                "Horse",
+                "Tiger"
             ],
             correct: 1
         },
-
         {
-            q: "What color do you get by mixing red and blue?",
-            answers: [
-                "Green",
-                "Orange",
+            q: "What color do you get by mixing blue and yellow?",
+            a: [
                 "Purple",
-                "Yellow"
+                "Orange",
+                "Green",
+                "Red"
             ],
             correct: 2
         },
-
         {
             q: "How many hours are in a day?",
-            answers: [
+            a: [
                 "12",
                 "18",
                 "24",
-                "48"
+                "30"
             ],
             correct: 2
+        },
+        {
+            q: "Which instrument has black and white keys?",
+            a: [
+                "Guitar",
+                "Piano",
+                "Drums",
+                "Trumpet"
+            ],
+            correct: 1
         }
     ];
 
-    let current = 0;
+    let index = 0;
     let score = 0;
+    let answered = false;
 
     function render() {
 
         GAME_CONTAINER.innerHTML = "";
 
-        if (
-            current >=
-            questions.length
-        ) {
+        if (index >= questions.length) {
 
             setStatus(
                 "🏆 Trivia Complete!"
@@ -2937,63 +2909,57 @@ function startTrivia() {
 
             GAME_CONTAINER.innerHTML = `
                 <div class="big-message">
-                    <div>Final Score</div>
+                    <div class="emoji">🏆</div>
+                    <h2>Final Score</h2>
                     <strong>
-                        ${score}/${questions.length}
+                        ${score} / ${questions.length}
                     </strong>
                 </div>
             `;
 
-            setScore(
-                "Score",
-                score
-            );
-
             return;
-
         }
 
+        answered = false;
+
         const question =
-            questions[current];
+            questions[index];
 
         const box =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
-        box.className =
-            "question";
+        box.className = "question";
 
         const heading =
-            document.createElement(
-                "h2"
-            );
+            document.createElement("h2");
 
         heading.textContent =
             question.q;
 
-        box.appendChild(
-            heading
-        );
+        box.appendChild(heading);
 
         const answers =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
         answers.className =
             "answers";
 
-        question.answers.forEach(
-            (answer, index) => {
+        question.a.forEach(
+            (answer, choiceIndex) => {
 
                 const b =
-                    createButton(
+                    makeButton(
                         answer,
-                        function() {
+                        () => {
+
+                            if (answered) {
+                                return;
+                            }
+
+                            answered = true;
 
                             if (
-                                index ===
+                                choiceIndex ===
                                 question.correct
                             ) {
 
@@ -3006,178 +2972,273 @@ function startTrivia() {
                             } else {
 
                                 setStatus(
-                                    "❌ Incorrect!"
+                                    "❌ Incorrect! Correct answer: " +
+                                    question.a[
+                                        question.correct
+                                    ]
                                 );
-
                             }
 
-                            current++;
-
-                            setTimeout(
-                                render,
-                                500
+                            setScore(
+                                "Score",
+                                score
                             );
 
+                            setTimeout(() => {
+
+                                index++;
+
+                                render();
+
+                            }, 700);
                         }
                     );
 
-                answers.appendChild(
-                    b
-                );
-
+                answers.appendChild(b);
             }
         );
 
-        box.appendChild(
-            answers
-        );
+        box.appendChild(answers);
 
-        GAME_CONTAINER.appendChild(
-            box
-        );
+        GAME_CONTAINER.appendChild(box);
 
-        setScore(
-            "Score",
-            score
-        );
+        setScores([
+            {
+                label: "Score",
+                value: score
+            },
+            {
+                label: "Question",
+                value:
+                    (index + 1) +
+                    "/" +
+                    questions.length
+            }
+        ]);
 
         setStatus(
-            "🧠 Trivia — Question " +
-            (current + 1) +
-            "/" +
-            questions.length
+            "🧠 Trivia"
         );
-
     }
 
     setInstructions(
-        "Select the correct answer for each question."
+        "Choose the correct answer. Answer all 10 questions."
     );
 
     render();
-
 }
 
 
 /* ==========================================================
-   IMPORTANT:
-   ONLY THESE GAME IDs ARE ACTUALLY IMPLEMENTED.
+   GAME REGISTRY
+   ONLY REAL ENGINES ARE ALLOWED HERE.
    ========================================================== */
 
-const PLAYABLE_GAMES = {
+const GAME_ENGINES = {
 
-    snake:
-        loadSnake,
+    snake: loadSnake,
 
-    pong:
-        loadPong,
+    pong: loadPong,
 
-    breakout:
-        loadBreakout,
+    breakout: loadBreakout,
 
-    "2048":
-        load2048,
+    "2048": load2048,
 
-    memory:
-        loadMemory,
+    memory: loadMemory,
 
-    tic_tac_toe:
-        loadTicTacToe,
+    tic_tac_toe: loadTicTacToe,
 
-    connect_four:
-        loadConnectFour,
+    connect_four: loadConnectFour,
 
-    rock_paper_scissors:
-        loadRPS,
+    rock_paper_scissors: loadRPS,
 
-    rps:
-        loadRPS,
+    rps: loadRPS,
 
-    target_shooter:
-        loadTargetShooter,
+    target_shooter: loadTargetShooter,
 
-    dodge:
-        loadDodge,
+    dodge_battle: loadDodge,
 
-    dodge_battle:
-        loadDodge,
+    trivia: loadTrivia,
 
-    trivia:
-        loadTrivia,
+    quick_quiz: loadTrivia,
 
-    quick_quiz:
-        loadTrivia
-
+    word_challenge: loadTrivia
 };
 
 
 /* ==========================================================
-   LAUNCH ONLY REAL ENGINES
+   LAUNCHER
    ========================================================== */
 
 function launchGame() {
 
     const engine =
-        PLAYABLE_GAMES[GAME_ID];
+        GAME_ENGINES[GAME_ID];
 
-    if (
-        typeof engine !==
-        "function"
-    ) {
+    if (!engine) {
 
-        GAME_CONTAINER.innerHTML = `
-            <div class="error-box">
-
-                <div style="font-size:60px">
-                    🎮
-                </div>
-
-                <h2>
-                    Game Not Available
-                </h2>
-
-                <p>
-                    <strong>
-                        ${GAME_NAME}
-                    </strong>
-                    is registered in the games database,
-                    but it does not have a playable game
-                    engine yet.
-                </p>
-
-                <p>
-                    It has intentionally been disabled
-                    instead of showing a fake or
-                    placeholder game.
-                </p>
-
-                <br>
-
-                <a
-                    class="back"
-                    href="{{ url_for('real_games.real_games_home') }}"
-                >
-                    ← Return to Games
-                </a>
-
-            </div>
-        `;
+        clearGame();
 
         setStatus(
             "⚠️ Game engine unavailable"
         );
 
         setInstructions(
-            "Return to the Games page and choose a game with a real engine."
+            "This game is not enabled yet because it does not have a verified playable engine."
         );
 
-        return;
+        GAME_CONTAINER.innerHTML = `
+            <div class="big-message">
+                <div class="emoji">🎮</div>
+                <h2>${GAME_NAME}</h2>
+                <p>
+                    This game has not been enabled
+                    until its real engine is ready.
+                </p>
+            </div>
+        `;
 
+        return;
     }
 
-    engine();
+    try {
 
+        engine();
+
+    } catch (error) {
+
+        console.error(
+            "Game engine error:",
+            error
+        );
+
+        clearGame();
+
+        setStatus(
+            "❌ Game failed to start"
+        );
+
+        setInstructions(
+            "The game engine encountered an error. Check the browser console for details."
+        );
+
+        GAME_CONTAINER.innerHTML = `
+            <div class="big-message">
+                <div class="emoji">⚠️</div>
+                <h2>Game Error</h2>
+                <p>
+                    ${GAME_NAME} could not be started.
+                </p>
+            </div>
+        `;
+    }
 }
+
+
+/* ==========================================================
+   MULTIPLAYER ROOM POLLING
+   ========================================================== */
+
+let roomPolling = null;
+
+function startRoomPolling() {
+
+    if (!ROOM_ID) {
+        return;
+    }
+
+    if (roomPolling) {
+        clearInterval(roomPolling);
+    }
+
+    roomPolling =
+        setInterval(
+            async () => {
+
+                try {
+
+                    const response =
+                        await fetch(
+                            `/real-games/api/room/${encodeURIComponent(ROOM_ID)}`
+                        );
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const data =
+                        await response.json();
+
+                    if (!data.ok) {
+                        return;
+                    }
+
+                    const list =
+                        document.getElementById(
+                            "players-list"
+                        );
+
+                    if (!list) {
+                        return;
+                    }
+
+                    list.innerHTML = "";
+
+                    if (
+                        data.room &&
+                        Array.isArray(
+                            data.room.players
+                        )
+                    ) {
+
+                        data.room.players.forEach(
+                            player => {
+
+                                const div =
+                                    document.createElement(
+                                        "div"
+                                    );
+
+                                div.className =
+                                    "player";
+
+                                div.textContent =
+                                    player.display_name;
+
+                                list.appendChild(div);
+                            }
+                        );
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "Room polling error:",
+                        error
+                    );
+                }
+
+            },
+            2000
+        );
+}
+
+
+/* ==========================================================
+   CLEANUP
+   ========================================================== */
+
+window.addEventListener(
+    "beforeunload",
+    () => {
+
+        if (roomPolling) {
+            clearInterval(roomPolling);
+        }
+
+        document.onkeydown = null;
+    }
+);
 
 
 /* ==========================================================
@@ -3186,10 +3247,11 @@ function launchGame() {
 
 document.addEventListener(
     "DOMContentLoaded",
-    function() {
+    () => {
 
         launchGame();
 
+        startRoomPolling();
     }
 );
 
