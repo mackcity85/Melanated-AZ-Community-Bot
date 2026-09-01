@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        {{ game.name }} • Melanated AZ
+    </title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+
+            background:
+                radial-gradient(
+                    circle at top,
+                    #292929 0%,
+                    #111 48%,
+                    #080808 100%
+                );
+
+            color: #fff;
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+
+            margin: 0 auto;
+
+            padding: 25px;
+        }
+
+        /* ==================================================
+           TOP NAV
+        ================================================== */
+
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            gap: 10px;
+
+            margin-bottom: 30px;
+        }
+
+        .back {
+            display: inline-block;
+
+            padding: 10px 15px;
+
+            background: #222;
+
+            border: 1px solid #3a3a3a;
+
+            border-radius: 10px;
+
+            color: #fff;
+
+            text-decoration: none;
+
+            font-size: 14px;
+
+            font-weight: bold;
+        }
+
+        .back:hover {
+            background: #333;
+        }
+
+        .brand {
+            color: #777;
+
+            font-size: 12px;
+
+            font-weight: bold;
+
+            text-transform: uppercase;
+        }
+
+        /* ==================================================
+           GAME HEADER
+        ================================================== */
+
+        .game-header {
+            text-align: center;
+
+            margin-bottom: 30px;
+        }
+
+        .game-icon {
+            width: 100px;
+            height: 100px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            margin: 0 auto 15px;
+
+            background: #181818;
+
+            border: 1px solid #3b3b3b;
+
+            border-radius: 24px;
+
+            font-size: 58px;
+
+            box-shadow:
+                0 12px 35px rgba(0, 0, 0, .35);
+        }
+
+        .game-header h1 {
+            margin: 0 0 10px;
+
+            font-size: clamp(
+                30px,
+                6vw,
+                46px
+            );
+        }
+
+        .game-description {
+            max-width: 650px;
+
+            margin: 0 auto;
+
+            color: #aaa;
+
+            font-size: 15px;
+
+            line-height: 1.6;
+        }
+
+        /* ==================================================
+           GAME PANEL
+        ================================================== */
+
+        .game-panel {
+            padding: 25px;
+
+            background: #181818;
+
+            border: 1px solid #333;
+
+            border-radius: 18px;
+
+            box-shadow:
+                0 15px 40px rgba(0, 0, 0, .3);
+        }
+
+        /* ==================================================
+           INFO
+        ================================================== */
+
+        .info-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    auto-fit,
+                    minmax(150px, 1fr)
+                );
+
+            gap: 12px;
+
+            margin-bottom: 25px;
+        }
+
+        .info {
+            padding: 14px;
+
+            background: #222;
+
+            border: 1px solid #333;
+
+            border-radius: 12px;
+
+            text-align: center;
+        }
+
+        .info-label {
+            display: block;
+
+            margin-bottom: 5px;
+
+            color: #777;
+
+            font-size: 11px;
+
+            font-weight: bold;
+
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            color: #fff;
+
+            font-size: 14px;
+
+            font-weight: bold;
+        }
+
+        /* ==================================================
+           SOLO GAME
+        ================================================== */
+
+        .solo-section {
+            text-align: center;
+
+            padding: 25px 10px;
+        }
+
+        .solo-section h2 {
+            margin-top: 0;
+
+            font-size: 24px;
+        }
+
+        .solo-section p {
+            color: #999;
+
+            line-height: 1.6;
+        }
+
+        /* ==================================================
+           MULTIPLAYER
+        ================================================== */
+
+        .multiplayer-section {
+            text-align: center;
+
+            padding: 20px 10px;
+        }
+
+        .multiplayer-section h2 {
+            margin-top: 0;
+
+            font-size: 24px;
+        }
+
+        .multiplayer-section p {
+            color: #999;
+
+            line-height: 1.6;
+        }
+
+        /* ==================================================
+           BUTTONS
+        ================================================== */
+
+        .actions {
+            display: flex;
+
+            justify-content: center;
+
+            flex-wrap: wrap;
+
+            gap: 10px;
+
+            margin-top: 25px;
+        }
+
+        .button {
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            min-width: 180px;
+
+            padding: 13px 20px;
+
+            border-radius: 11px;
+
+            border: 0;
+
+            background: #fff;
+
+            color: #111;
+
+            text-decoration: none;
+
+            font-size: 14px;
+
+            font-weight: 800;
+
+            cursor: pointer;
+        }
+
+        .button:hover {
+            opacity: .88;
+        }
+
+        .button.secondary {
+            background: #333;
+
+            border: 1px solid #4a4a4a;
+
+            color: #fff;
+        }
+
+        form {
+            margin: 0;
+        }
+
+        /* ==================================================
+           GAME CANVAS / GAME AREA
+        ================================================== */
+
+        .game-area {
+            display: none;
+
+            margin-top: 25px;
+
+            min-height: 350px;
+
+            padding: 20px;
+
+            background: #0d0d0d;
+
+            border: 1px solid #333;
+
+            border-radius: 15px;
+
+            text-align: center;
+        }
+
+        .game-area.active {
+            display: block;
+        }
+
+        .game-message {
+            color: #999;
+
+            margin-top: 100px;
+
+            line-height: 1.6;
+        }
+
+        /* ==================================================
+           FOOTER
+        ================================================== */
+
+        footer {
+            padding: 25px 0;
+
+            text-align: center;
+
+            color: #666;
+
+            font-size: 12px;
+        }
+
+        /* ==================================================
+           MOBILE
+        ================================================== */
+
+        @media (max-width: 600px) {
+
+            .container {
+                padding: 18px;
+            }
+
+            .top-nav {
+                align-items: flex-start;
+
+                flex-direction: column;
+            }
+
+            .back {
+                width: 100%;
+
+                text-align: center;
+            }
+
+            .game-panel {
+                padding: 18px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .button,
+            form {
+                width: 100%;
+            }
+
+            form .button {
+                width: 100%;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- ==================================================
+         NAVIGATION
+    ================================================== -->
+
+    <div class="top-nav">
+
+        <a
+            class="back"
+            href="{{ url_for('real_games.real_games_home') }}"
+        >
+            ← Back to Real Games
+        </a>
+
+        <div class="brand">
+            Melanated AZ
+        </div>
+
+    </div>
+
+
+    <!-- ==================================================
+         GAME HEADER
+    ================================================== -->
+
+    <header class="game-header">
+
+        <div class="game-icon">
+            {{ game.icon or "🎮" }}
+        </div>
+
+        <h1>
+            {{ game.name }}
+        </h1>
+
+        <p class="game-description">
+            {{ game.description }}
+        </p>
+
+    </header>
+
+
+    <!-- ==================================================
+         GAME PANEL
+    ================================================== -->
+
+    <main class="game-panel">
+
+
+        <!-- ==================================================
+             GAME INFORMATION
+        ================================================== -->
+
+        <div class="info-grid">
+
+            <div class="info">
+
+                <span class="info-label">
+                    Category
+                </span>
+
+                <span class="info-value">
+                    {{ game.category }}
+                </span>
+
+            </div>
+
+
+            <div class="info">
+
+                <span class="info-label">
+                    Mode
+                </span>
+
+                <span class="info-value">
+
+                    {% if game.mode == "solo" %}
+
+                        Solo
+
+                    {% elif game.mode == "multiplayer" %}
+
+                        Multiplayer
+
+                    {% else %}
+
+                        Solo / Multiplayer
+
+                    {% endif %}
+
+                </span>
+
+            </div>
+
+
+            <div class="info">
+
+                <span class="info-label">
+                    Players
+                </span>
+
+                <span class="info-value">
+
+                    {% if game.min_players == game.max_players %}
+
+                        {{ game.max_players }}
+
+                    {% else %}
+
+                        {{ game.min_players }}
+                        -
+                        {{ game.max_players }}
+
+                    {% endif %}
+
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- ==================================================
+             SOLO GAME
+        ================================================== -->
+
+        {% if not game.uses_rooms %}
+
+        <section class="solo-section">
+
+            <h2>
+                🎮 Ready to Play?
+            </h2>
+
+            <p>
+                This is a solo game.
+                Start playing when you're ready.
+            </p>
+
+            <div class="actions">
+
+                <button
+                    type="button"
+                    class="button"
+                    onclick="startGame()"
+                >
+                    ▶️ START GAME
+                </button>
+
+            </div>
+
+        </section>
+
+        {% endif %}
+
+
+        <!-- ==================================================
+             MULTIPLAYER GAME
+        ================================================== -->
+
+        {% if game.uses_rooms %}
+
+        <section class="multiplayer-section">
+
+            <h2>
+                👥 Multiplayer Game
+            </h2>
+
+            <p>
+
+                Create a game room and invite
+                other players to join.
+
+            </p>
+
+            <p>
+
+                Minimum players:
+                <strong>
+                    {{ game.min_players }}
+                </strong>
+
+                <br>
+
+                Maximum players:
+                <strong>
+                    {{ game.max_players }}
+                </strong>
+
+            </p>
+
+
+            <div class="actions">
+
+                <form
+                    method="POST"
+                    action="{{ url_for(
+                        'real_games.create_game_room',
+                        game_id=game.game_id
+                    ) }}"
+                >
+
+                    <button
+                        type="submit"
+                        class="button"
+                    >
+                        ➕ CREATE GAME ROOM
+                    </button>
+
+                </form>
+
+            </div>
+
+        </section>
+
+        {% endif %}
+
+
+        <!-- ==================================================
+             GAME AREA
+        ================================================== -->
+
+        <section
+            id="gameArea"
+            class="game-area"
+        >
+
+            <div class="game-message">
+
+                <h2>
+                    {{ game.icon or "🎮" }}
+                    {{ game.name }}
+                </h2>
+
+                <p>
+                    The game engine for this game
+                    will load here.
+                </p>
+
+                <p>
+                    Game ID:
+                    <strong>
+                        {{ game.game_id }}
+                    </strong>
+                </p>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ==================================================
+         FOOTER
+    ================================================== -->
+
+    <footer>
+
+        Melanated AZ Real Games
+
+        <br>
+
+        Real games • Real players • Real gameplay
+
+    </footer>
+
+</div>
+
+
+<script>
+
+    function startGame() {
+
+        const gameArea =
+            document.getElementById(
+                "gameArea"
+            );
+
+        if (!gameArea) {
+            return;
+        }
+
+        gameArea.classList.add(
+            "active"
+        );
+
+        gameArea.scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+        });
+
+    }
+
+</script>
+
+</body>
+</html>
