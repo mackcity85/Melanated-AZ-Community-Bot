@@ -11,7 +11,7 @@
 #   - DOES NOT reset the database.
 #   - DOES NOT replace the database.
 #   - raffle_callback() is the ONLY owner of raffle callbacks.
-#   - Supports BOTH current and legacy raffle callbacks.
+#   - Supports CURRENT, LEGACY, and OLD NO-ID callbacks.
 #
 # CURRENT CALLBACKS:
 #   raffle_approve_
@@ -28,10 +28,19 @@
 #   bonus_
 #   remove_
 #
-# LEGACY CALLBACKS ALSO SUPPORTED:
+# LEGACY CALLBACKS:
 #   raffle_enter_
 #   raffle_pay_cashapp_
 #   raffle_pay_zelle_
+#
+# OLD BUTTON CALLBACKS:
+#   raffle_enter
+#   raffle_pay_cashapp
+#   raffle_pay_zelle
+#
+# OLD NO-ID BUTTONS ARE RESOLVED AGAINST THE CURRENT
+# ACTIVE RAFFLE. THIS ALLOWS EXISTING RAFFLE POSTS TO
+# CONTINUE WORKING WITHOUT CREATING A NEW RAFFLE.
 #
 # FEATURES:
 #   - Raffle creation
@@ -109,6 +118,7 @@ def is_raffle_admin(user_id):
     """
 
     try:
+
         if user_id is None:
             return False
 
@@ -120,6 +130,7 @@ def is_raffle_admin(user_id):
         return int(user_id) in admin_ids
 
     except Exception:
+
         return False
 
 
@@ -162,9 +173,11 @@ def is_free_raffle(price):
         return True
 
     try:
+
         return float(value) == 0
 
     except (TypeError, ValueError):
+
         return False
 
 
@@ -212,6 +225,7 @@ def format_expiration(value):
         return "Unknown"
 
     try:
+
         return datetime.fromisoformat(
             str(value)
         ).strftime(
@@ -219,6 +233,7 @@ def format_expiration(value):
         )
 
     except Exception:
+
         return str(value)
 
 
@@ -252,6 +267,7 @@ async def safe_answer(
             )
 
     except TelegramError:
+
         pass
 
 
@@ -571,9 +587,11 @@ async def publish_raffle(
         )
 
     # ------------------------------------------------------
-    # RAFFLE BUTTONS
-    #
     # NEW BUTTON FORMAT
+    #
+    # New raffles use the raffle ID.
+    # Existing old raffle buttons are also supported
+    # by raffle_callback().
     # ------------------------------------------------------
 
     keyboard = InlineKeyboardMarkup(
@@ -724,6 +742,7 @@ async def approve_raffle_callback(
         )
 
     except TelegramError:
+
         pass
 
     published = await publish_raffle(
@@ -741,6 +760,7 @@ async def approve_raffle_callback(
             )
 
         except TelegramError:
+
             pass
 
     else:
@@ -759,6 +779,7 @@ async def approve_raffle_callback(
             )
 
         except TelegramError:
+
             pass
 
 
@@ -835,6 +856,7 @@ async def cancel_raffle_callback(
         )
 
     except TelegramError:
+
         pass
 
 
@@ -1556,6 +1578,7 @@ async def deny_entry_callback(
         )
 
     except TelegramError:
+
         pass
 
     # ------------------------------------------------------
@@ -1645,6 +1668,7 @@ async def manual_raffle_entry(
             )
 
         except TelegramError:
+
             pass
 
         return False
@@ -1751,6 +1775,7 @@ async def manual_raffle_entry(
                     )
 
                 except TelegramError:
+
                     pass
 
                 return False
@@ -1759,6 +1784,7 @@ async def manual_raffle_entry(
             TypeError,
             ValueError,
         ):
+
             continue
 
     # ------------------------------------------------------
@@ -1850,6 +1876,7 @@ async def manual_raffle_entry(
             )
 
         except TelegramError:
+
             pass
 
         return False
@@ -1948,10 +1975,17 @@ async def raffle_callback(
     """
     SINGLE OWNER OF ALL RAFFLE CALLBACKS.
 
-    Supports current and legacy raffle buttons.
+    Supports:
+
+        raffle_enter
+        raffle_enter_123
+        enter_123
+
+    and all other current/legacy raffle callbacks.
 
     IMPORTANT:
-        This router does NOT require the user to be an admin.
+
+        NO ADMIN CHECK IS DONE HERE.
 
     Individual handlers perform their own permission checks.
     """
@@ -1980,17 +2014,132 @@ async def raffle_callback(
     )
 
     # ======================================================
+    # OLD NO-ID ENTER RAFFLE BUTTON
+    #
+    # IMPORTANT:
+    #
+    # Your current failing button sends:
+    #
+    #     raffle_enter
+    #
+    # There is NO raffle ID attached.
+    #
+    # We resolve it against the current active raffle.
+    # This allows the EXISTING BUTTON to keep working.
+    # ======================================================
+
+    if data == "raffle_enter":
+
+        logger.info(
+            "OLD NO-ID ENTER CALLBACK RECEIVED"
+        )
+
+        raffle = get_active_raffle()
+
+        if not raffle:
+
+            logger.warning(
+                "OLD NO-ID ENTER FAILED: "
+                "no active raffle exists."
+            )
+
+            await safe_answer(
+                query,
+                "There is no active raffle.",
+                True,
+            )
+
+            return
+
+        logger.info(
+            "OLD NO-ID ENTER RESOLVED | raffle=%s",
+            raffle["id"],
+        )
+
+        await enter_raffle(
+            update,
+            context,
+            int(raffle["id"]),
+        )
+
+        return
+
+    # ======================================================
+    # OLD NO-ID CASH APP BUTTON
+    # ======================================================
+
+    if data == "raffle_pay_cashapp":
+
+        logger.info(
+            "OLD NO-ID CASH APP CALLBACK RECEIVED"
+        )
+
+        raffle = get_active_raffle()
+
+        if not raffle:
+
+            await safe_answer(
+                query,
+                "There is no active raffle.",
+                True,
+            )
+
+            return
+
+        logger.info(
+            "OLD NO-ID CASH APP RESOLVED | raffle=%s",
+            raffle["id"],
+        )
+
+        await payment_method(
+            update,
+            context,
+            int(raffle["id"]),
+            "cashapp",
+        )
+
+        return
+
+    # ======================================================
+    # OLD NO-ID ZELLE BUTTON
+    # ======================================================
+
+    if data == "raffle_pay_zelle":
+
+        logger.info(
+            "OLD NO-ID ZELLE CALLBACK RECEIVED"
+        )
+
+        raffle = get_active_raffle()
+
+        if not raffle:
+
+            await safe_answer(
+                query,
+                "There is no active raffle.",
+                True,
+            )
+
+            return
+
+        logger.info(
+            "OLD NO-ID ZELLE RESOLVED | raffle=%s",
+            raffle["id"],
+        )
+
+        await payment_method(
+            update,
+            context,
+            int(raffle["id"]),
+            "zelle",
+        )
+
+        return
+
+    # ======================================================
     # LEGACY ENTER RAFFLE BUTTON
     #
-    # Older raffle posts may contain:
-    #
-    #     raffle_enter_123
-    #
-    # New raffle posts use:
-    #
-    #     enter_123
-    #
-    # Both are supported.
+    # raffle_enter_123
     # ======================================================
 
     if data.startswith("raffle_enter_"):
@@ -2024,6 +2173,8 @@ async def raffle_callback(
 
     # ======================================================
     # LEGACY CASH APP BUTTON
+    #
+    # raffle_pay_cashapp_123
     # ======================================================
 
     if data.startswith("raffle_pay_cashapp_"):
@@ -2058,6 +2209,8 @@ async def raffle_callback(
 
     # ======================================================
     # LEGACY ZELLE BUTTON
+    #
+    # raffle_pay_zelle_123
     # ======================================================
 
     if data.startswith("raffle_pay_zelle_"):
@@ -2204,6 +2357,8 @@ async def raffle_callback(
 
     # ======================================================
     # CURRENT ENTER RAFFLE BUTTON
+    #
+    # enter_123
     # ======================================================
 
     if data.startswith("enter_"):
@@ -2919,6 +3074,7 @@ async def cancel_raffle(
             )
 
         except TelegramError:
+
             pass
 
 
