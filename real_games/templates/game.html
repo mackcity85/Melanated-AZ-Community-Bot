@@ -5,7 +5,7 @@
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1"
+        content="width=device-width, initial-scale=1, maximum-scale=1"
     >
 
     <title>
@@ -18,8 +18,13 @@
             box-sizing: border-box;
         }
 
+        html,
         body {
             margin: 0;
+            min-height: 100%;
+        }
+
+        body {
             min-height: 100vh;
 
             background:
@@ -44,21 +49,22 @@
 
             margin: 0 auto;
 
-            padding: 25px;
+            padding: 20px;
         }
 
         /* ==================================================
-           TOP NAV
+           NAVIGATION
         ================================================== */
 
         .top-nav {
             display: flex;
-            justify-content: space-between;
+
             align-items: center;
+            justify-content: space-between;
 
             gap: 10px;
 
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .back {
@@ -96,174 +102,227 @@
         }
 
         /* ==================================================
-           GAME HEADER
+           COMMON GAME HEADER
         ================================================== */
 
         .game-header {
             text-align: center;
 
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .game-icon {
-            width: 100px;
-            height: 100px;
+            font-size: 48px;
 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            margin: 0 auto 15px;
-
-            background: #181818;
-
-            border: 1px solid #3b3b3b;
-
-            border-radius: 24px;
-
-            font-size: 58px;
-
-            box-shadow:
-                0 12px 35px rgba(0, 0, 0, .35);
+            margin-bottom: 5px;
         }
 
         .game-header h1 {
-            margin: 0 0 10px;
+            margin: 0;
 
             font-size: clamp(
-                30px,
+                28px,
                 6vw,
-                46px
+                42px
             );
         }
 
         .game-description {
-            max-width: 650px;
+            margin: 8px auto 0;
 
-            margin: 0 auto;
+            max-width: 650px;
 
             color: #aaa;
 
-            font-size: 15px;
+            font-size: 14px;
 
-            line-height: 1.6;
+            line-height: 1.5;
         }
 
         /* ==================================================
-           GAME PANEL
+           SNAKE GAME
         ================================================== */
 
-        .game-panel {
-            padding: 25px;
+        .snake-wrapper {
+            width: 100%;
+
+            max-width: 600px;
+
+            margin: 0 auto;
+        }
+
+        .snake-panel {
+            padding: 18px;
 
             background: #181818;
 
-            border: 1px solid #333;
+            border: 1px solid #383838;
 
             border-radius: 18px;
 
             box-shadow:
-                0 15px 40px rgba(0, 0, 0, .3);
+                0 15px 45px rgba(0, 0, 0, .35);
         }
 
-        /* ==================================================
-           INFO
-        ================================================== */
+        .score-row {
+            display: flex;
 
-        .info-grid {
-            display: grid;
+            align-items: center;
+            justify-content: space-between;
 
-            grid-template-columns:
-                repeat(
-                    auto-fit,
-                    minmax(150px, 1fr)
-                );
+            gap: 10px;
 
-            gap: 12px;
-
-            margin-bottom: 25px;
+            margin-bottom: 14px;
         }
 
-        .info {
-            padding: 14px;
+        .score-box {
+            flex: 1;
+
+            padding: 12px;
 
             background: #222;
 
             border: 1px solid #333;
 
-            border-radius: 12px;
+            border-radius: 10px;
 
             text-align: center;
         }
 
-        .info-label {
+        .score-label {
             display: block;
 
-            margin-bottom: 5px;
+            margin-bottom: 3px;
 
             color: #777;
 
-            font-size: 11px;
+            font-size: 10px;
 
             font-weight: bold;
 
             text-transform: uppercase;
         }
 
-        .info-value {
-            color: #fff;
+        .score-value {
+            font-size: 22px;
+
+            font-weight: 800;
+        }
+
+        #snakeCanvas {
+            display: block;
+
+            width: 100%;
+
+            max-width: 560px;
+
+            height: auto;
+
+            margin: 0 auto;
+
+            background: #090909;
+
+            border: 2px solid #333;
+
+            border-radius: 10px;
+
+            touch-action: none;
+
+        }
+
+        .status {
+            min-height: 24px;
+
+            margin-top: 12px;
+
+            color: #aaa;
+
+            text-align: center;
 
             font-size: 14px;
 
             font-weight: bold;
         }
 
+        .status.game-over {
+            color: #fff;
+        }
+
         /* ==================================================
-           SOLO GAME
+           CONTROLS
         ================================================== */
 
-        .solo-section {
-            text-align: center;
+        .controls {
+            display: grid;
 
-            padding: 25px 10px;
+            grid-template-columns:
+                repeat(3, 70px);
+
+            grid-template-rows:
+                repeat(2, 60px);
+
+            justify-content: center;
+
+            gap: 8px;
+
+            margin-top: 18px;
+
+            user-select: none;
         }
 
-        .solo-section h2 {
-            margin-top: 0;
+        .control-button {
+            display: flex;
 
-            font-size: 24px;
+            align-items: center;
+            justify-content: center;
+
+            background: #292929;
+
+            border: 1px solid #444;
+
+            border-radius: 12px;
+
+            color: #fff;
+
+            font-size: 25px;
+
+            font-weight: bold;
+
+            cursor: pointer;
+
+            touch-action: manipulation;
+
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .solo-section p {
-            color: #999;
+        .control-button:active {
+            transform: scale(.95);
 
-            line-height: 1.6;
+            background: #3a3a3a;
+        }
+
+        .up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .down {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .right {
+            grid-column: 3;
+            grid-row: 2;
         }
 
         /* ==================================================
-           MULTIPLAYER
-        ================================================== */
-
-        .multiplayer-section {
-            text-align: center;
-
-            padding: 20px 10px;
-        }
-
-        .multiplayer-section h2 {
-            margin-top: 0;
-
-            font-size: 24px;
-        }
-
-        .multiplayer-section p {
-            color: #999;
-
-            line-height: 1.6;
-        }
-
-        /* ==================================================
-           BUTTONS
+           ACTIONS
         ================================================== */
 
         .actions {
@@ -275,29 +334,21 @@
 
             gap: 10px;
 
-            margin-top: 25px;
+            margin-top: 18px;
         }
 
         .button {
-            display: inline-flex;
+            min-width: 170px;
 
-            align-items: center;
-
-            justify-content: center;
-
-            min-width: 180px;
-
-            padding: 13px 20px;
-
-            border-radius: 11px;
+            padding: 12px 18px;
 
             border: 0;
+
+            border-radius: 10px;
 
             background: #fff;
 
             color: #111;
-
-            text-decoration: none;
 
             font-size: 14px;
 
@@ -313,45 +364,71 @@
         .button.secondary {
             background: #333;
 
-            border: 1px solid #4a4a4a;
+            border: 1px solid #484848;
 
             color: #fff;
         }
 
-        form {
-            margin: 0;
-        }
-
         /* ==================================================
-           GAME CANVAS / GAME AREA
+           INSTRUCTIONS
         ================================================== */
 
-        .game-area {
-            display: none;
+        .instructions {
+            margin-top: 18px;
 
-            margin-top: 25px;
+            padding: 14px;
 
-            min-height: 350px;
-
-            padding: 20px;
-
-            background: #0d0d0d;
+            background: #202020;
 
             border: 1px solid #333;
 
-            border-radius: 15px;
+            border-radius: 12px;
+
+            color: #999;
+
+            text-align: center;
+
+            font-size: 12px;
+
+            line-height: 1.6;
+        }
+
+        .instructions strong {
+            color: #ddd;
+        }
+
+        /* ==================================================
+           NON-SNAKE GAMES
+        ================================================== */
+
+        .placeholder {
+            max-width: 700px;
+
+            margin: 30px auto;
+
+            padding: 30px;
+
+            background: #181818;
+
+            border: 1px solid #333;
+
+            border-radius: 18px;
 
             text-align: center;
         }
 
-        .game-area.active {
-            display: block;
+        .placeholder-icon {
+            font-size: 55px;
+
+            margin-bottom: 12px;
         }
 
-        .game-message {
-            color: #999;
+        .placeholder h2 {
+            margin: 0 0 10px;
+        }
 
-            margin-top: 100px;
+        .placeholder p {
+            color: #999;
 
             line-height: 1.6;
         }
@@ -363,9 +440,9 @@
         footer {
             padding: 25px 0;
 
-            text-align: center;
-
             color: #666;
+
+            text-align: center;
 
             font-size: 12px;
         }
@@ -377,35 +454,40 @@
         @media (max-width: 600px) {
 
             .container {
-                padding: 18px;
+                padding: 14px;
             }
 
             .top-nav {
-                align-items: flex-start;
-
                 flex-direction: column;
+
+                align-items: stretch;
             }
 
             .back {
-                width: 100%;
-
                 text-align: center;
             }
 
-            .game-panel {
-                padding: 18px;
+            .brand {
+                text-align: center;
+            }
+
+            .snake-panel {
+                padding: 12px;
+            }
+
+            .controls {
+                grid-template-columns:
+                    repeat(3, 64px);
+
+                grid-template-rows:
+                    repeat(2, 56px);
             }
 
             .actions {
                 flex-direction: column;
             }
 
-            .button,
-            form {
-                width: 100%;
-            }
-
-            form .button {
+            .button {
                 width: 100%;
             }
         }
@@ -431,7 +513,7 @@
         </a>
 
         <div class="brand">
-            Melanated AZ
+            Melanated AZ Games
         </div>
 
     </div>
@@ -459,208 +541,156 @@
 
 
     <!-- ==================================================
-         GAME PANEL
+         SNAKE
     ================================================== -->
 
-    <main class="game-panel">
+    {% if game.game_id == "snake" %}
+
+    <main class="snake-wrapper">
+
+        <section class="snake-panel">
+
+            <!-- SCORE -->
+
+            <div class="score-row">
+
+                <div class="score-box">
+
+                    <span class="score-label">
+                        Score
+                    </span>
+
+                    <span
+                        id="score"
+                        class="score-value"
+                    >
+                        0
+                    </span>
+
+                </div>
 
 
-        <!-- ==================================================
-             GAME INFORMATION
-        ================================================== -->
+                <div class="score-box">
 
-        <div class="info-grid">
+                    <span class="score-label">
+                        Best
+                    </span>
 
-            <div class="info">
+                    <span
+                        id="best"
+                        class="score-value"
+                    >
+                        0
+                    </span>
 
-                <span class="info-label">
-                    Category
-                </span>
-
-                <span class="info-value">
-                    {{ game.category }}
-                </span>
-
-            </div>
-
-
-            <div class="info">
-
-                <span class="info-label">
-                    Mode
-                </span>
-
-                <span class="info-value">
-
-                    {% if game.mode == "solo" %}
-
-                        Solo
-
-                    {% elif game.mode == "multiplayer" %}
-
-                        Multiplayer
-
-                    {% else %}
-
-                        Solo / Multiplayer
-
-                    {% endif %}
-
-                </span>
+                </div>
 
             </div>
 
 
-            <div class="info">
+            <!-- CANVAS -->
 
-                <span class="info-label">
-                    Players
-                </span>
+            <canvas
+                id="snakeCanvas"
+                width="560"
+                height="560"
+                aria-label="Snake game board"
+            ></canvas>
 
-                <span class="info-value">
 
-                    {% if game.min_players == game.max_players %}
+            <!-- STATUS -->
 
-                        {{ game.max_players }}
-
-                    {% else %}
-
-                        {{ game.min_players }}
-                        -
-                        {{ game.max_players }}
-
-                    {% endif %}
-
-                </span>
-
+            <div
+                id="status"
+                class="status"
+            >
+                Press START GAME to begin.
             </div>
 
-        </div>
 
-
-        <!-- ==================================================
-             SOLO GAME
-        ================================================== -->
-
-        {% if not game.uses_rooms %}
-
-        <section class="solo-section">
-
-            <h2>
-                🎮 Ready to Play?
-            </h2>
-
-            <p>
-                This is a solo game.
-                Start playing when you're ready.
-            </p>
+            <!-- ACTION -->
 
             <div class="actions">
 
                 <button
-                    type="button"
+                    id="startButton"
                     class="button"
-                    onclick="startGame()"
+                    type="button"
                 >
                     ▶️ START GAME
                 </button>
 
+                <button
+                    id="pauseButton"
+                    class="button secondary"
+                    type="button"
+                >
+                    ⏸️ PAUSE
+                </button>
+
             </div>
 
-        </section>
 
-        {% endif %}
+            <!-- TOUCH CONTROLS -->
+
+            <div class="controls">
+
+                <button
+                    class="control-button up"
+                    type="button"
+                    data-direction="up"
+                    aria-label="Move up"
+                >
+                    ▲
+                </button>
+
+                <button
+                    class="control-button left"
+                    type="button"
+                    data-direction="left"
+                    aria-label="Move left"
+                >
+                    ◀
+                </button>
+
+                <button
+                    class="control-button down"
+                    type="button"
+                    data-direction="down"
+                    aria-label="Move down"
+                >
+                    ▼
+                </button>
+
+                <button
+                    class="control-button right"
+                    type="button"
+                    data-direction="right"
+                    aria-label="Move right"
+                >
+                    ▶
+                </button>
+
+            </div>
 
 
-        <!-- ==================================================
-             MULTIPLAYER GAME
-        ================================================== -->
+            <!-- INSTRUCTIONS -->
 
-        {% if game.uses_rooms %}
+            <div class="instructions">
 
-        <section class="multiplayer-section">
-
-            <h2>
-                👥 Multiplayer Game
-            </h2>
-
-            <p>
-
-                Create a game room and invite
-                other players to join.
-
-            </p>
-
-            <p>
-
-                Minimum players:
-                <strong>
-                    {{ game.min_players }}
-                </strong>
+                <strong>Desktop:</strong>
+                Use the Arrow Keys or WASD.
 
                 <br>
 
-                Maximum players:
-                <strong>
-                    {{ game.max_players }}
-                </strong>
+                <strong>Mobile:</strong>
+                Use the controls above.
 
-            </p>
+                <br>
 
-
-            <div class="actions">
-
-                <form
-                    method="POST"
-                    action="{{ url_for(
-                        'real_games.create_game_room',
-                        game_id=game.game_id
-                    ) }}"
-                >
-
-                    <button
-                        type="submit"
-                        class="button"
-                    >
-                        ➕ CREATE GAME ROOM
-                    </button>
-
-                </form>
-
-            </div>
-
-        </section>
-
-        {% endif %}
-
-
-        <!-- ==================================================
-             GAME AREA
-        ================================================== -->
-
-        <section
-            id="gameArea"
-            class="game-area"
-        >
-
-            <div class="game-message">
-
-                <h2>
-                    {{ game.icon or "🎮" }}
-                    {{ game.name }}
-                </h2>
-
-                <p>
-                    The game engine for this game
-                    will load here.
-                </p>
-
-                <p>
-                    Game ID:
-                    <strong>
-                        {{ game.game_id }}
-                    </strong>
-                </p>
+                Eat the food 🍎,
+                grow the snake,
+                and don't hit the wall or yourself.
 
             </div>
 
@@ -670,8 +700,48 @@
 
 
     <!-- ==================================================
-         FOOTER
+         OTHER GAMES
     ================================================== -->
+
+    {% else %}
+
+    <section class="placeholder">
+
+        <div class="placeholder-icon">
+            {{ game.icon or "🎮" }}
+        </div>
+
+        <h2>
+            {{ game.name }}
+        </h2>
+
+        <p>
+            The launcher is working, but the actual game
+            engine for this game has not been installed yet.
+        </p>
+
+        <p>
+            Game ID:
+            <strong>
+                {{ game.game_id }}
+            </strong>
+        </p>
+
+        <div class="actions">
+
+            <a
+                class="button"
+                href="{{ url_for('real_games.real_games_home') }}"
+            >
+                ← MORE GAMES
+            </a>
+
+        </div>
+
+    </section>
+
+    {% endif %}
+
 
     <footer>
 
@@ -686,31 +756,1071 @@
 </div>
 
 
+<!-- ======================================================
+     SNAKE ENGINE
+====================================================== -->
+
+{% if game.game_id == "snake" %}
+
 <script>
 
-    function startGame() {
+(function () {
 
-        const gameArea =
-            document.getElementById(
-                "gameArea"
-            );
+    "use strict";
 
-        if (!gameArea) {
-            return;
-        }
 
-        gameArea.classList.add(
-            "active"
+    /* ==================================================
+       ELEMENTS
+    ================================================== */
+
+    const canvas =
+        document.getElementById(
+            "snakeCanvas"
         );
 
-        gameArea.scrollIntoView({
-            behavior: "smooth",
-            block: "center"
-        });
+    const ctx =
+        canvas.getContext("2d");
+
+    const scoreElement =
+        document.getElementById(
+            "score"
+        );
+
+    const bestElement =
+        document.getElementById(
+            "best"
+        );
+
+    const statusElement =
+        document.getElementById(
+            "status"
+        );
+
+    const startButton =
+        document.getElementById(
+            "startButton"
+        );
+
+    const pauseButton =
+        document.getElementById(
+            "pauseButton"
+        );
+
+
+    /* ==================================================
+       GAME SETTINGS
+    ================================================== */
+
+    const GRID_SIZE = 28;
+
+    const CELL_SIZE =
+        canvas.width / GRID_SIZE;
+
+    const START_SPEED = 125;
+
+    const MIN_SPEED = 55;
+
+    const SPEED_STEP = 3;
+
+
+    /* ==================================================
+       GAME STATE
+    ================================================== */
+
+    let snake = [];
+
+    let food = {
+        x: 0,
+        y: 0
+    };
+
+    let direction = {
+        x: 1,
+        y: 0
+    };
+
+    let nextDirection = {
+        x: 1,
+        y: 0
+    };
+
+    let score = 0;
+
+    let best =
+        Number(
+            localStorage.getItem(
+                "melanatedAZ_snake_best"
+            ) || 0
+        );
+
+    let timer = null;
+
+    let running = false;
+
+    let paused = false;
+
+    let gameOver = false;
+
+    let speed = START_SPEED;
+
+
+    bestElement.textContent = best;
+
+
+    /* ==================================================
+       INITIAL SNAKE
+    ================================================== */
+
+    function resetSnake() {
+
+        snake = [
+
+            {
+                x: 14,
+                y: 14
+            },
+
+            {
+                x: 13,
+                y: 14
+            },
+
+            {
+                x: 12,
+                y: 14
+            },
+
+            {
+                x: 11,
+                y: 14
+            }
+
+        ];
 
     }
 
+
+    /* ==================================================
+       RANDOM FOOD
+    ================================================== */
+
+    function placeFood() {
+
+        let valid = false;
+
+        while (!valid) {
+
+            food = {
+                x: Math.floor(
+                    Math.random() *
+                    GRID_SIZE
+                ),
+
+                y: Math.floor(
+                    Math.random() *
+                    GRID_SIZE
+                )
+            };
+
+            valid =
+                !snake.some(
+                    segment =>
+                        segment.x === food.x &&
+                        segment.y === food.y
+                );
+
+        }
+
+    }
+
+
+    /* ==================================================
+       RESET GAME
+    ================================================== */
+
+    function resetGame() {
+
+        stopTimer();
+
+        resetSnake();
+
+        direction = {
+            x: 1,
+            y: 0
+        };
+
+        nextDirection = {
+            x: 1,
+            y: 0
+        };
+
+        score = 0;
+
+        speed = START_SPEED;
+
+        running = false;
+
+        paused = false;
+
+        gameOver = false;
+
+        scoreElement.textContent = "0";
+
+        statusElement.textContent =
+            "Press START GAME to begin.";
+
+        statusElement.classList.remove(
+            "game-over"
+        );
+
+        pauseButton.textContent =
+            "⏸️ PAUSE";
+
+        placeFood();
+
+        draw();
+
+    }
+
+
+    /* ==================================================
+       START GAME
+    ================================================== */
+
+    function startGame() {
+
+        if (running && !paused) {
+            return;
+        }
+
+
+        if (gameOver) {
+            resetGame();
+        }
+
+
+        running = true;
+
+        paused = false;
+
+        gameOver = false;
+
+        statusElement.textContent =
+            "Game running!";
+
+        pauseButton.textContent =
+            "⏸️ PAUSE";
+
+        startTimer();
+
+    }
+
+
+    /* ==================================================
+       PAUSE GAME
+    ================================================== */
+
+    function togglePause() {
+
+        if (!running || gameOver) {
+            return;
+        }
+
+
+        if (paused) {
+
+            paused = false;
+
+            statusElement.textContent =
+                "Game running!";
+
+            pauseButton.textContent =
+                "⏸️ PAUSE";
+
+            startTimer();
+
+        } else {
+
+            paused = true;
+
+            stopTimer();
+
+            statusElement.textContent =
+                "Game paused.";
+
+            pauseButton.textContent =
+                "▶️ RESUME";
+
+        }
+
+    }
+
+
+    /* ==================================================
+       TIMER
+    ================================================== */
+
+    function startTimer() {
+
+        stopTimer();
+
+        timer = setInterval(
+            update,
+            speed
+        );
+
+    }
+
+
+    function stopTimer() {
+
+        if (timer !== null) {
+
+            clearInterval(timer);
+
+            timer = null;
+
+        }
+
+    }
+
+
+    /* ==================================================
+       UPDATE GAME
+    ================================================== */
+
+    function update() {
+
+        if (
+            !running ||
+            paused ||
+            gameOver
+        ) {
+            return;
+        }
+
+
+        direction =
+            nextDirection;
+
+
+        const head = snake[0];
+
+
+        const newHead = {
+
+            x:
+                head.x +
+                direction.x,
+
+            y:
+                head.y +
+                direction.y
+
+        };
+
+
+        /* ==============================================
+           WALL COLLISION
+        ============================================== */
+
+        if (
+
+            newHead.x < 0 ||
+
+            newHead.x >= GRID_SIZE ||
+
+            newHead.y < 0 ||
+
+            newHead.y >= GRID_SIZE
+
+        ) {
+
+            endGame();
+
+            return;
+
+        }
+
+
+        /* ==============================================
+           SELF COLLISION
+        ============================================== */
+
+        const eating =
+            newHead.x === food.x &&
+            newHead.y === food.y;
+
+
+        const bodyToCheck =
+            eating
+                ? snake
+                : snake.slice(
+                    0,
+                    snake.length - 1
+                );
+
+
+        if (
+
+            bodyToCheck.some(
+                segment =>
+                    segment.x === newHead.x &&
+                    segment.y === newHead.y
+            )
+
+        ) {
+
+            endGame();
+
+            return;
+
+        }
+
+
+        /* ==============================================
+           ADD HEAD
+        ============================================== */
+
+        snake.unshift(
+            newHead
+        );
+
+
+        /* ==============================================
+           FOOD
+        ============================================== */
+
+        if (eating) {
+
+            score += 10;
+
+            scoreElement.textContent =
+                score;
+
+
+            if (score > best) {
+
+                best = score;
+
+                bestElement.textContent =
+                    best;
+
+                localStorage.setItem(
+                    "melanatedAZ_snake_best",
+                    best
+                );
+
+            }
+
+
+            placeFood();
+
+
+            if (
+                speed > MIN_SPEED
+            ) {
+
+                speed -=
+                    SPEED_STEP;
+
+                startTimer();
+
+            }
+
+        } else {
+
+            snake.pop();
+
+        }
+
+
+        draw();
+
+    }
+
+
+    /* ==================================================
+       END GAME
+    ================================================== */
+
+    function endGame() {
+
+        running = false;
+
+        paused = false;
+
+        gameOver = true;
+
+        stopTimer();
+
+        statusElement.textContent =
+            "💀 Game Over! Score: " +
+            score +
+            ". Press START GAME to play again.";
+
+        statusElement.classList.add(
+            "game-over"
+        );
+
+        pauseButton.textContent =
+            "⏸️ PAUSE";
+
+        draw();
+
+    }
+
+
+    /* ==================================================
+       DRAW BOARD
+    ================================================== */
+
+    function draw() {
+
+        drawBackground();
+
+        drawGrid();
+
+        drawFood();
+
+        drawSnake();
+
+    }
+
+
+    /* ==================================================
+       BACKGROUND
+    ================================================== */
+
+    function drawBackground() {
+
+        ctx.fillStyle =
+            "#090909";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+    }
+
+
+    /* ==================================================
+       GRID
+    ================================================== */
+
+    function drawGrid() {
+
+        ctx.strokeStyle =
+            "#151515";
+
+        ctx.lineWidth = 1;
+
+        for (
+            let i = 0;
+            i <= GRID_SIZE;
+            i++
+        ) {
+
+            const position =
+                i * CELL_SIZE;
+
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                position,
+                0
+            );
+
+            ctx.lineTo(
+                position,
+                canvas.height
+            );
+
+            ctx.stroke();
+
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                0,
+                position
+            );
+
+            ctx.lineTo(
+                canvas.width,
+                position
+            );
+
+            ctx.stroke();
+
+        }
+
+    }
+
+
+    /* ==================================================
+       FOOD
+    ================================================== */
+
+    function drawFood() {
+
+        const centerX =
+            food.x *
+            CELL_SIZE +
+            CELL_SIZE / 2;
+
+        const centerY =
+            food.y *
+            CELL_SIZE +
+            CELL_SIZE / 2;
+
+        const radius =
+            CELL_SIZE * .34;
+
+
+        ctx.fillStyle =
+            "#ffffff";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            centerX,
+            centerY,
+            radius,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+
+        ctx.fillStyle =
+            "#111";
+
+        ctx.font =
+            Math.floor(
+                CELL_SIZE * .55
+            ) +
+            "px Arial";
+
+        ctx.textAlign =
+            "center";
+
+        ctx.textBaseline =
+            "middle";
+
+        ctx.fillText(
+            "🍎",
+            centerX,
+            centerY
+        );
+
+    }
+
+
+    /* ==================================================
+       SNAKE
+    ================================================== */
+
+    function drawSnake() {
+
+        snake.forEach(
+            (segment, index) => {
+
+                const padding =
+                    2;
+
+                const x =
+                    segment.x *
+                    CELL_SIZE +
+                    padding;
+
+                const y =
+                    segment.y *
+                    CELL_SIZE +
+                    padding;
+
+                const size =
+                    CELL_SIZE -
+                    padding * 2;
+
+
+                ctx.fillStyle =
+                    index === 0
+                        ? "#ffffff"
+                        : "#bdbdbd";
+
+
+                ctx.beginPath();
+
+                ctx.roundRect(
+                    x,
+                    y,
+                    size,
+                    size,
+                    5
+                );
+
+                ctx.fill();
+
+
+                /* ======================================
+                   EYES
+                ====================================== */
+
+                if (index === 0) {
+
+                    ctx.fillStyle =
+                        "#111";
+
+                    const eyeSize =
+                        Math.max(
+                            2,
+                            CELL_SIZE * .08
+                        );
+
+
+                    let eye1;
+                    let eye2;
+
+
+                    if (
+                        direction.x > 0
+                    ) {
+
+                        eye1 = {
+                            x:
+                                x +
+                                size * .72,
+
+                            y:
+                                y +
+                                size * .30
+                        };
+
+                        eye2 = {
+                            x:
+                                x +
+                                size * .72,
+
+                            y:
+                                y +
+                                size * .70
+                        };
+
+                    } else if (
+                        direction.x < 0
+                    ) {
+
+                        eye1 = {
+                            x:
+                                x +
+                                size * .28,
+
+                            y:
+                                y +
+                                size * .30
+                        };
+
+                        eye2 = {
+                            x:
+                                x +
+                                size * .28,
+
+                            y:
+                                y +
+                                size * .70
+                        };
+
+                    } else if (
+                        direction.y < 0
+                    ) {
+
+                        eye1 = {
+                            x:
+                                x +
+                                size * .30,
+
+                            y:
+                                y +
+                                size * .28
+                        };
+
+                        eye2 = {
+                            x:
+                                x +
+                                size * .70,
+
+                            y:
+                                y +
+                                size * .28
+                        };
+
+                    } else {
+
+                        eye1 = {
+                            x:
+                                x +
+                                size * .30,
+
+                            y:
+                                y +
+                                size * .72
+                        };
+
+                        eye2 = {
+                            x:
+                                x +
+                                size * .70,
+
+                            y:
+                                y +
+                                size * .72
+                        };
+
+                    }
+
+
+                    ctx.fillRect(
+                        eye1.x -
+                        eyeSize / 2,
+
+                        eye1.y -
+                        eyeSize / 2,
+
+                        eyeSize,
+                        eyeSize
+                    );
+
+
+                    ctx.fillRect(
+                        eye2.x -
+                        eyeSize / 2,
+
+                        eye2.y -
+                        eyeSize / 2,
+
+                        eyeSize,
+                        eyeSize
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* ==================================================
+       CHANGE DIRECTION
+    ================================================== */
+
+    function changeDirection(
+        newDirection
+    ) {
+
+        if (
+            newDirection === "up" &&
+            direction.y !== 1
+        ) {
+
+            nextDirection = {
+                x: 0,
+                y: -1
+            };
+
+        }
+
+
+        if (
+            newDirection === "down" &&
+            direction.y !== -1
+        ) {
+
+            nextDirection = {
+                x: 0,
+                y: 1
+            };
+
+        }
+
+
+        if (
+            newDirection === "left" &&
+            direction.x !== 1
+        ) {
+
+            nextDirection = {
+                x: -1,
+                y: 0
+            };
+
+        }
+
+
+        if (
+            newDirection === "right" &&
+            direction.x !== -1
+        ) {
+
+            nextDirection = {
+                x: 1,
+                y: 0
+            };
+
+        }
+
+    }
+
+
+    /* ==================================================
+       KEYBOARD CONTROLS
+    ================================================== */
+
+    document.addEventListener(
+        "keydown",
+        function (event) {
+
+            const key =
+                event.key.toLowerCase();
+
+
+            if (
+                [
+                    "arrowup",
+                    "arrowdown",
+                    "arrowleft",
+                    "arrowright",
+                    "w",
+                    "a",
+                    "s",
+                    "d",
+                    " "
+                ].includes(key)
+            ) {
+
+                event.preventDefault();
+
+            }
+
+
+            if (
+                key === "arrowup" ||
+                key === "w"
+            ) {
+
+                changeDirection(
+                    "up"
+                );
+
+            }
+
+
+            if (
+                key === "arrowdown" ||
+                key === "s"
+            ) {
+
+                changeDirection(
+                    "down"
+                );
+
+            }
+
+
+            if (
+                key === "arrowleft" ||
+                key === "a"
+            ) {
+
+                changeDirection(
+                    "left"
+                );
+
+            }
+
+
+            if (
+                key === "arrowright" ||
+                key === "d"
+            ) {
+
+                changeDirection(
+                    "right"
+                );
+
+            }
+
+
+            if (key === " ") {
+
+                togglePause();
+
+            }
+
+        }
+    );
+
+
+    /* ==================================================
+       MOBILE BUTTONS
+    ================================================== */
+
+    document
+        .querySelectorAll(
+            ".control-button"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "pointerdown",
+                    function (event) {
+
+                        event.preventDefault();
+
+                        changeDirection(
+                            button.dataset.direction
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+    /* ==================================================
+       BUTTON EVENTS
+    ================================================== */
+
+    startButton.addEventListener(
+        "click",
+        startGame
+    );
+
+    pauseButton.addEventListener(
+        "click",
+        togglePause
+    );
+
+
+    /* ==================================================
+       INITIALIZE
+    ================================================== */
+
+    resetGame();
+
+})();
+
 </script>
+
+{% endif %}
 
 </body>
 </html>
