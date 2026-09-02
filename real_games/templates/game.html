@@ -54,13 +54,138 @@ function loadFlappy(){CURRENT_GAME={restart:startFlappy};startFlappy()}
 function startFlappy(){clearGame();const c=document.createElement('canvas');c.width=600;c.height=500;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let bird={x:120,y:250,r:16,v:0},pipes=[],score=0,running=true,started=false;function flap(){if(running){started=true;bird.v=-7}}function spawn(){if(running){const top=60+Math.random()*220;pipes.push({x:600,top,bottom:top+150,w:70,passed:false})}}function hit(){return bird.y-bird.r<=0||bird.y+bird.r>=500||pipes.some(p=>bird.x+bird.r>p.x&&bird.x-bird.r<p.x+p.w&&(bird.y-bird.r<p.top||bird.y+bird.r>p.bottom))}function draw(){x.fillStyle='#000';x.fillRect(0,0,600,500);x.fillStyle='#fff';pipes.forEach(p=>{x.fillRect(p.x,0,p.w,p.top);x.fillRect(p.x,p.bottom,p.w,500-p.bottom)});x.beginPath();x.arc(bird.x,bird.y,bird.r,0,Math.PI*2);x.fill();setScore('Score',score)}function update(){if(!running){draw();return}if(started){bird.v+=.35;bird.y+=bird.v;pipes.forEach(p=>{p.x-=3;if(!p.passed&&p.x+p.w<bird.x){p.passed=true;score++}});pipes=pipes.filter(p=>p.x+p.w>0);if(hit()){running=false;setStatus('💀 Game Over — Score: '+score)}}draw();if(running)gameFrame(update)}setKeyHandler(e=>{if(e.code==='Space'||e.key==='ArrowUp'){e.preventDefault();flap()}});c.addEventListener('pointerdown',flap);setStatus('🐦 Flappy — Tap or press Space!');setInstructions('Tap/click the game or press Space/Arrow Up to flap. Fly through the pipes without hitting them.');gameInterval(spawn,1500);draw();update()}
 
 function loadSpaceInvaders(){CURRENT_GAME={restart:startSpaceInvaders};startSpaceInvaders()}
-function startSpaceInvaders(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=600;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let player={x:325,y:550,w:50,h:20,s:7},bullets=[],enemies=[],score=0,lives=3,dir=1,running=true,lastShot=0;function make(){enemies=[];for(let r=0;r<4;r++)for(let z=0;z<10;z++)enemies.push({x:55+z*60,y:50+r*45,w:35,h:25})}function shoot(){if(running)bullets.push({x:player.x+23,y:player.y,w:4,h:12})}function draw(){x.fillStyle='#000';x.fillRect(0,0,700,600);x.fillStyle='#fff';x.fillRect(player.x,player.y,player.w,player.h);bullets.forEach(b=>x.fillRect(b.x,b.y,b.w,b.h));enemies.forEach(e=>x.fillRect(e.x,e.y,e.w,e.h));setScores([{label:'Score',value:score},{label:'Lives',value:lives}])}function update(){if(!running)return;enemies.forEach(e=>e.x+=dir*.6);let min=Math.min(...enemies.map(e=>e.x)),max=Math.max(...enemies.map(e=>e.x+e.w));if(min<=10||max>=690){dir*=-1;enemies.forEach(e=>e.y+=20)}bullets.forEach(b=>b.y-=9);bullets=bullets.filter(b=>b.y>-20);bullets.forEach(b=>{for(let i=enemies.length-1;i>=0;i--){let e=enemies[i];if(b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){enemies.splice(i,1);b.y=-100;score+=10;break}}});if(enemies.some(e=>e.y+e.h>=player.y)){running=false;setStatus('💀 The invaders reached you!')}else if(!enemies.length){running=false;setStatus('🏆 You defeated the invaders!')}draw();if(running)gameFrame(update)}setKeyHandler(e=>{if(e.key==='ArrowLeft')player.x-=player.s;if(e.key==='ArrowRight')player.x+=player.s;if(e.code==='Space'){e.preventDefault();shoot()}player.x=Math.max(0,Math.min(650,player.x))});setStatus('👾 Space Invaders');setInstructions('Move with Arrow Left/Right. Press Space to fire. Destroy every invader.');make();draw();update()}
+function startSpaceInvaders(){
+clearGame();
+const c=document.createElement('canvas');c.width=700;c.height=600;GAME_CONTAINER.appendChild(c);
+const ctx=c.getContext('2d');
+const W=700,H=600;
+let player={x:325,y:550,w:50,h:18,speed:8};
+let bullets=[],enemies=[],score=0,lives=3,running=true,dir=1,moveTimer=0,shootCooldown=0;
+function reset(){
+ player.x=325; bullets=[]; enemies=[]; score=0; lives=3; running=true; dir=1; moveTimer=0; shootCooldown=0;
+ for(let r=0;r<4;r++)for(let col=0;col<10;col++)enemies.push({x:55+col*60,y:55+r*42,w:36,h:24});
+ draw();
+}
+function shoot(){if(!running||shootCooldown>0)return;bullets.push({x:player.x+player.w/2-2,y:player.y-12,w:4,h:12,speed:10});shootCooldown=10}
+function draw(){
+ ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';
+ ctx.fillRect(player.x,player.y,player.w,player.h);
+ ctx.fillRect(player.x+20,player.y-8,10,8);
+ bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));
+ enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.w,e.h));
+ setScores([{label:'Score',value:score},{label:'Lives',value:lives}]);
+}
+function update(){
+ if(!running)return;
+ if(shootCooldown>0)shootCooldown--;
+ moveTimer++;
+ if(moveTimer>=8){
+  moveTimer=0;
+  let minX=Infinity,maxX=-Infinity;
+  enemies.forEach(e=>{e.x+=dir*5;minX=Math.min(minX,e.x);maxX=Math.max(maxX,e.x+e.w)});
+  if(minX<=10||maxX>=W-10){dir*=-1;enemies.forEach(e=>e.y+=18)}
+ }
+ bullets.forEach(b=>b.y-=b.speed);
+ for(let i=bullets.length-1;i>=0;i--){
+  let b=bullets[i];
+  let hit=false;
+  for(let j=enemies.length-1;j>=0;j--){let e=enemies[j];if(b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){enemies.splice(j,1);bullets.splice(i,1);score+=10;hit=true;break}}
+  if(hit)continue;
+ }
+ bullets=bullets.filter(b=>b.y>-20);
+ if(enemies.some(e=>e.y+e.h>=player.y)){running=false;setStatus('💀 The invaders reached you! Score: '+score)}
+ else if(enemies.length===0){running=false;setStatus('🏆 You defeated every invader! Score: '+score)}
+ draw();
+}
+setKeyHandler(e=>{
+ if(e.key==='ArrowLeft'||e.key==='ArrowRight'||e.code==='Space')e.preventDefault();
+ if(e.key==='ArrowLeft')player.x-=player.speed;
+ if(e.key==='ArrowRight')player.x+=player.speed;
+ if(e.code==='Space')shoot();
+ player.x=Math.max(0,Math.min(W-player.w,player.x));
+});
+setStatus('👾 Space Invaders — Ready!');
+setInstructions('Move with Arrow Left/Right. Press Space to fire. Destroy all invaders before they reach you.');
+reset();gameInterval(update,40);
+}
 
 function loadAsteroids(){CURRENT_GAME={restart:startAsteroids};startAsteroids()}
-function startAsteroids(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=600;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let ship={x:350,y:300,a:-Math.PI/2,vx:0,vy:0,r:14},bullets=[],asteroids=[],score=0,lives=3,running=true;function make(){asteroids=[];for(let i=0;i<8;i++){let px,py;do{px=Math.random()*700;py=Math.random()*600}while(Math.hypot(px-350,py-300)<120);asteroids.push({x:px,y:py,r:20+Math.random()*20,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2})}}function wrap(o){if(o.x<0)o.x=700;if(o.x>700)o.x=0;if(o.y<0)o.y=600;if(o.y>600)o.y=0}function shoot(){bullets.push({x:ship.x+Math.cos(ship.a)*ship.r,y:ship.y+Math.sin(ship.a)*ship.r,vx:Math.cos(ship.a)*8,vy:Math.sin(ship.a)*8,life:70})}function draw(){x.fillStyle='#000';x.fillRect(0,0,700,600);x.strokeStyle='#fff';x.beginPath();x.moveTo(ship.x+Math.cos(ship.a)*20,ship.y+Math.sin(ship.a)*20);x.lineTo(ship.x+Math.cos(ship.a+2.5)*15,ship.y+Math.sin(ship.a+2.5)*15);x.lineTo(ship.x+Math.cos(ship.a-2.5)*15,ship.y+Math.sin(ship.a-2.5)*15);x.closePath();x.stroke();bullets.forEach(b=>x.fillRect(b.x-2,b.y-2,4,4));asteroids.forEach(a=>{x.beginPath();x.arc(a.x,a.y,a.r,0,Math.PI*2);x.stroke()});setScores([{label:'Score',value:score},{label:'Lives',value:lives}])}function update(){if(!running)return;ship.x+=ship.vx;ship.y+=ship.vy;ship.vx*=.99;ship.vy*=.99;wrap(ship);bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;wrap(b)});bullets=bullets.filter(b=>b.life>0);asteroids.forEach(a=>{a.x+=a.vx;a.y+=a.vy;wrap(a)});for(let i=asteroids.length-1;i>=0;i--)for(let j=bullets.length-1;j>=0;j--){if(Math.hypot(asteroids[i].x-bullets[j].x,asteroids[i].y-bullets[j].y)<asteroids[i].r){asteroids.splice(i,1);bullets.splice(j,1);score+=10;break}}for(const a of asteroids)if(Math.hypot(a.x-ship.x,a.y-ship.y)<a.r+ship.r){lives--;ship.x=350;ship.y=300;ship.vx=ship.vy=0;if(lives<=0){running=false;setStatus('💀 Game Over — Score: '+score)}break}if(!asteroids.length){running=false;setStatus('🏆 Asteroid field cleared!')}draw();if(running)gameFrame(update)}setKeyHandler(e=>{if(e.key==='ArrowLeft')ship.a-=.12;if(e.key==='ArrowRight')ship.a+=.12;if(e.key==='ArrowUp'){ship.vx+=Math.cos(ship.a)*.15;ship.vy+=Math.sin(ship.a)*.15}if(e.code==='Space'){e.preventDefault();shoot()}});setStatus('☄️ Asteroids');setInstructions('Arrow Left/Right rotate. Arrow Up thrusts. Space fires. Destroy every asteroid.');make();draw();update()}
+function startAsteroids(){
+clearGame();
+const c=document.createElement('canvas');c.width=700;c.height=600;GAME_CONTAINER.appendChild(c);
+const ctx=c.getContext('2d');const W=700,H=600;
+let ship,bullets,asteroids,score,lives,running,fireCooldown;
+function wrap(o){if(o.x<0)o.x+=W;if(o.x>=W)o.x-=W;if(o.y<0)o.y+=H;if(o.y>=H)o.y-=H}
+function spawnField(){
+ asteroids=[];
+ for(let i=0;i<8;i++){
+  let a;
+  do{a={x:Math.random()*W,y:Math.random()*H,r:22+Math.random()*16,vx:(Math.random()-.5)*2.2,vy:(Math.random()-.5)*2.2}}
+  while(Math.hypot(a.x-W/2,a.y-H/2)<140);
+  asteroids.push(a);
+ }
+}
+function resetShip(){ship={x:W/2,y:H/2,a:-Math.PI/2,vx:0,vy:0,r:14}}
+function shoot(){if(!running||fireCooldown>0)return;bullets.push({x:ship.x+Math.cos(ship.a)*20,y:ship.y+Math.sin(ship.a)*20,vx:Math.cos(ship.a)*8,vy:Math.sin(ship.a)*8,life:70});fireCooldown=8}
+function draw(){
+ ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#fff';ctx.lineWidth=2;
+ ctx.beginPath();ctx.moveTo(ship.x+Math.cos(ship.a)*22,ship.y+Math.sin(ship.a)*22);ctx.lineTo(ship.x+Math.cos(ship.a+2.5)*17,ship.y+Math.sin(ship.a+2.5)*17);ctx.lineTo(ship.x+Math.cos(ship.a-2.5)*17,ship.y+Math.sin(ship.a-2.5)*17);ctx.closePath();ctx.stroke();
+ ctx.fillStyle='#fff';bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-2,4,4));
+ asteroids.forEach(a=>{ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.stroke()});
+ setScores([{label:'Score',value:score},{label:'Lives',value:lives}]);
+}
+function update(){
+ if(!running)return;
+ if(fireCooldown>0)fireCooldown--;
+ ship.x+=ship.vx;ship.y+=ship.vy;ship.vx*=.985;ship.vy*=.985;wrap(ship);
+ bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;wrap(b)});bullets=bullets.filter(b=>b.life>0);
+ asteroids.forEach(a=>{a.x+=a.vx;a.y+=a.vy;wrap(a)});
+ for(let i=asteroids.length-1;i>=0;i--){
+  let destroyed=false;
+  for(let j=bullets.length-1;j>=0;j--){if(Math.hypot(asteroids[i].x-bullets[j].x,asteroids[i].y-bullets[j].y)<asteroids[i].r+4){asteroids.splice(i,1);bullets.splice(j,1);score+=10;destroyed=true;break}}
+  if(destroyed)continue;
+ }
+ for(const a of asteroids){if(Math.hypot(a.x-ship.x,a.y-ship.y)<a.r+ship.r){lives--;resetShip();if(lives<=0){running=false;setStatus('💀 Game Over — Score: '+score)}break}}
+ if(running&&asteroids.length===0){running=false;setStatus('🏆 Asteroid field cleared! Score: '+score)}
+ draw();
+}
+setKeyHandler(e=>{
+ if(['ArrowLeft','ArrowRight','ArrowUp'].includes(e.key)||e.code==='Space')e.preventDefault();
+ if(e.key==='ArrowLeft')ship.a-=0.12;
+ if(e.key==='ArrowRight')ship.a+=0.12;
+ if(e.key==='ArrowUp'){ship.vx+=Math.cos(ship.a)*0.18;ship.vy+=Math.sin(ship.a)*0.18}
+ if(e.code==='Space')shoot();
+});
+setStatus('☄️ Asteroids — Ready!');
+setInstructions('Arrow Left/Right rotate. Arrow Up thrusts. Space fires. Destroy all asteroids and avoid collisions.');
+score=0;lives=3;running=true;fireCooldown=0;bullets=[];resetShip();spawnField();draw();gameInterval(update,30);
+}
 
 function loadPacman(){CURRENT_GAME={restart:startPacman};startPacman()}
-function startPacman(){clearGame();const c=document.createElement('canvas');GAME_CONTAINER.appendChild(c);const x=c.getContext('2d'),T=25,map=['####################','#..................#','#.####.#####.####..#','#..................#','#.##.#.#####.#.##..#','#....#...   .#.....#','####.###.###.###.##','#......     ...... #','####.###.###.###.##','#....#.......#.....#','#.##.#.#####.#.##..#','#..................#','#.####.#####.####..#','#..................#','####################'];const R=map.length,C=20;c.width=C*T;c.height=R*T;let p={x:1,y:1,dx:0,dy:0,ndx:0,ndy:0},ghosts=[{x:9,y:7},{x:10,y:7}],pellets=new Set(),score=0,running=true;function wall(a,b){return a<0||a>=C||b<0||b>=R||map[b][a]==='#'}function init(){pellets.clear();for(let y=0;y<R;y++)for(let z=0;z<C;z++)if(map[y][z]==='.')pellets.add(z+','+y)}function draw(){x.fillStyle='#000';x.fillRect(0,0,c.width,c.height);for(let y=0;y<R;y++)for(let z=0;z<C;z++)if(map[y][z]==='#'){x.strokeStyle='#fff';x.strokeRect(z*T+2,y*T+2,T-4,T-4)}x.fillStyle='#fff';pellets.forEach(k=>{let [z,y]=k.split(',').map(Number);x.beginPath();x.arc(z*T+12.5,y*T+12.5,3,0,Math.PI*2);x.fill()});x.beginPath();x.arc(p.x*T+12.5,p.y*T+12.5,9,.25,Math.PI*2-.25);x.lineTo(p.x*T+12.5,p.y*T+12.5);x.fill();x.fillStyle='#aaa';ghosts.forEach(g=>{x.beginPath();x.arc(g.x*T+12.5,g.y*T+12.5,9,0,Math.PI*2);x.fill()});setScore('Score',score)}function move(){if(!wall(p.x+p.ndx,p.y+p.ndy)){p.dx=p.ndx;p.dy=p.ndy}if(!wall(p.x+p.dx,p.y+p.dy)){p.x+=p.dx;p.y+=p.dy}let k=p.x+','+p.y;if(pellets.delete(k))score+=10;if(!pellets.size){running=false;setStatus('🏆 You cleared the maze!')}}function ghostsMove(){ghosts.forEach(g=>{let opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(d=>!wall(g.x+d[0],g.y+d[1]));if(!opts.length)return;opts.sort((a,b)=>(Math.abs(g.x+a[0]-p.x)+Math.abs(g.y+a[1]-p.y))-(Math.abs(g.x+b[0]-p.x)+Math.abs(g.y+b[1]-p.y)));g.x+=opts[0][0];g.y+=opts[0][1]})}function update(){if(!running){draw();return}move();if(!running){draw();return}ghostsMove();if(ghosts.some(g=>g.x===p.x&&g.y===p.y)){running=false;setStatus('💀 Pac-Man caught you! Score: '+score)}draw();if(running)gameTimeout(update,180)}setKeyHandler(e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d){e.preventDefault();p.ndx=d[0];p.ndy=d[1]}});setStatus('🟡 Pac-Man');setInstructions('Use the Arrow Keys to move through the maze. Eat all pellets while avoiding the ghosts.');init();draw();update()}
+function startPacman(){
+clearGame();
+const c=document.createElement('canvas');GAME_CONTAINER.appendChild(c);const ctx=c.getContext('2d'),T=25;
+const map=['####################','#..................#','#.####.#####.####..#','#..................#','#.##.#.#####.#.##..#','#....#...   .#.....#','####.###.###.###.##','#......     ...... #','####.###.###.###.##','#....#.......#.....#','#.##.#.#####.#.##..#','#..................#','#.####.#####.####..#','#..................#','####################'];
+const R=map.length,C=20;c.width=C*T;c.height=R*T;
+let p,ghosts,pellets,score,running,nextMoveTimer;
+function wall(x,y){return x<0||x>=C||y<0||y>=R||map[y][x]==='#'}
+function init(){
+ p={x:1,y:1,dx:0,dy:0,ndx:0,ndy:0};ghosts=[{x:9,y:7},{x:10,y:7}];pellets=new Set();score=0;running=true;nextMoveTimer=0;
+ for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(map[y][x]==='.')pellets.add(x+','+y);
+}
+function draw(){
+ ctx.fillStyle='#000';ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle='#fff';
+ for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(map[y][x]==='#')ctx.strokeRect(x*T+3,y*T+3,T-6,T-6);
+ ctx.fillStyle='#fff';pellets.forEach(k=>{const [x,y]=k.split(',').map(Number);ctx.beginPath();ctx.arc(x*T+T/2,y*T+T/2,3,0,Math.PI*2);ctx.fill()});
+ ctx.beginPath();ctx.arc(p.x*T+T/2,p.y*T+T/2,9,0.25,Math.PI*2-0.25);ctx.lineTo(p.x*T+T/2,p.y*T+T/2);ctx.fill();
+ ctx.fillStyle='#aaa';ghosts.forEach(g=>{ctx.beginPath();ctx.arc(g.x*T+T/2,g.y*T+T/2,9,0,Math.PI*2);ctx.fill()});setScore('Score',score);
+}
+function movePlayer(){if(!wall(p.x+p.ndx,p.y+p.ndy)){p.dx=p.ndx;p.dy=p.ndy}if(!wall(p.x+p.dx,p.y+p.dy)){p.x+=p.dx;p.y+=p.dy}const k=p.x+','+p.y;if(pellets.delete(k))score+=10;if(!pellets.size){running=false;setStatus('🏆 You cleared the maze! Score: '+score)}}
+function moveGhosts(){ghosts.forEach(g=>{const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(d=>!wall(g.x+d[0],g.y+d[1]));if(!opts.length)return;opts.sort((a,b)=>(Math.abs(g.x+a[0]-p.x)+Math.abs(g.y+a[1]-p.y))-(Math.abs(g.x+b[0]-p.x)+Math.abs(g.y+b[1]-p.y)));g.x+=opts[0][0];g.y+=opts[0][1]})}
+function update(){if(!running)return;movePlayer();if(!running){draw();return}moveGhosts();if(ghosts.some(g=>g.x===p.x&&g.y===p.y)){running=false;setStatus('💀 Pac-Man caught you! Score: '+score)}draw()}
+setKeyHandler(e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d){e.preventDefault();p.ndx=d[0];p.ndy=d[1]}});
+setStatus('🟡 Pac-Man — Ready!');setInstructions('Use Arrow Keys to move. Eat all pellets and avoid the ghosts. Pac-Man moves at a slower arcade pace.');init();draw();gameInterval(update,260);
+}
 
 function load2048(){CURRENT_GAME={restart:start2048};start2048()}
 function start2048(){clearGame();const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(4,70px)';GAME_CONTAINER.appendChild(b);let g=Array.from({length:4},()=>Array(4).fill(0)),score=0,over=false;function add(){let e=[];for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(!g[r][c])e.push([r,c]);if(e.length){let q=e[Math.floor(Math.random()*e.length)];g[q[0]][q[1]]=Math.random()<.9?2:4}}function slide(row){let a=row.filter(Boolean);for(let i=0;i<a.length-1;i++)if(a[i]===a[i+1]){a[i]*=2;score+=a[i];a.splice(i+1,1)}while(a.length<4)a.push(0);return a}function rot(){g=g[0].map((_,c)=>g.map(r=>r[c]).reverse())}function move(dir){if(over)return;const rotN={left:0,up:3,right:2,down:1}[dir];for(let i=0;i<rotN;i++)rot();const before=JSON.stringify(g);for(let r=0;r<4;r++)g[r]=slide(g[r]);for(let i=0;i<(4-rotN)%4;i++)rot();if(before!==JSON.stringify(g))add();render();if(g.some(r=>r.includes(2048))){over=true;setStatus('🏆 You reached 2048!')}else if(!moves()){over=true;setStatus('💀 Game Over — Score: '+score)}}function moves(){for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(!g[r][c]||(c<3&&g[r][c]===g[r][c+1])||(r<3&&g[r][c]===g[r+1][c]))return true;return false}function render(){b.innerHTML='';g.forEach(r=>r.forEach(v=>{let d=document.createElement('div');d.className='cell';d.textContent=v||'';b.appendChild(d)}));setScore('Score',score)}setKeyHandler(e=>{const m={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};if(m[e.key]){e.preventDefault();move(m[e.key])}});setStatus('🔢 2048');setInstructions('Use the arrow keys to combine matching numbers. Reach 2048.');add();add();render()}
