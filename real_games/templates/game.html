@@ -207,8 +207,31 @@ function startChess(){clearGame();
  setStatus('♟️ Chess — White starts');setInstructions('Click a piece, then a destination. This is a simplified two-player chess game with legal basic piece movement and captures.');render()}
 
 function loadCheckers(){CURRENT_GAME={restart:startCheckers};startCheckers()}
-function startCheckers(){clearGame();const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(8,55px)';GAME_CONTAINER.appendChild(b);let g=Array.from({length:8},()=>Array(8).fill('')),turn='🔴',done=false,selected=null;for(let r=0;r<3;r++)for(let c=0;c<8;c++)if((r+c)%2)g[r][c]='⚫';for(let r=5;r<8;r++)for(let c=0;c<8;c++)if((r+c)%2)g[r][c]='🔴';function mine(p){return p===turn}function render(){b.innerHTML='';for(let r=0;r<8;r++)for(let c=0;c<8;c++){const d=document.createElement('div');d.className='cell';d.style.width='55px';d.style.height='55px';d.style.background=((r+c)%2?'#333':'#777');d.textContent=g[r][c];d.onclick=()=>{if(done)return;if(selected){const [sr,sc]=selected,dr=r-sr,dc=c-sc;if(!g[r][c]&&Math.abs(dc)===1&&Math.abs(dr)===1&&((turn==='🔴'&&dr===-1)||(turn==='⚫'&&dr===1))){g[r][c]=g[sr][sc];g[sr][sc]='';turn=turn==='🔴'?'⚫':'🔴';selected=null;setStatus(turn+' turn')}else selected=null;render()}else if(mine(g[r][c])){selected=[r,c];d.style.outline='3px solid #fff'}};b.appendChild(d)}}setStatus('⛀ Checkers — 🔴 starts');setInstructions('Click a piece, then a diagonally adjacent empty square. Basic movement is supported; captures and kings are intentionally simplified.');render()}
-
+function startCheckers(){
+ clearGame();
+ const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(8,55px)';b.style.maxWidth='440px';GAME_CONTAINER.appendChild(b);
+ let g=Array.from({length:8},()=>Array(8).fill(null)),turn='r',selected=null,forced=null,done=false;
+ for(let r=0;r<3;r++)for(let c=0;c<8;c++)if((r+c)%2)g[r][c]='b';
+ for(let r=5;r<8;r++)for(let c=0;c<8;c++)if((r+c)%2)g[r][c]='r';
+ function enemy(p){return p&&p.toLowerCase()!=='x'&&p.toLowerCase()!==turn}
+ function color(p){return p?p.toLowerCase():null}
+ function isKing(p){return p&&p===p.toUpperCase()}
+ function dirs(p){const d=isKing(p)?[-1,1]:(color(p)==='r'?[-1]:[1]);let a=[];d.forEach(dr=>a.push([dr,-1],[dr,1]));return a}
+ function inside(r,c){return r>=0&&r<8&&c>=0&&c<8}
+ function movesFor(r,c,captureOnly=false){const p=g[r][c],out=[];if(!p||color(p)!==turn)return out;for(const [dr,dc] of dirs(p)){const r1=r+dr,c1=c+dc,r2=r+2*dr,c2=c+2*dc;if(inside(r1,c1)&&!g[r1][c1]&&!captureOnly)out.push({r:r1,c:c1,jump:false});if(inside(r2,c2)&&!g[r2][c2]&&enemy(g[r1]?.[c1]))out.push({r:r2,c:c2,jump:true,cr:r1,cc:c1})}return out}
+ function anyCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(g[r][c]&&color(g[r][c])===turn&&movesFor(r,c,true).length)return true;return false}
+ function playerHasMove(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(g[r][c]&&color(g[r][c])===turn&&movesFor(r,c).length)return true;return false}
+ function countPieces(side){let n=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(g[r][c]&&color(g[r][c])===side)n++;return n}
+ function finishTurn(){const other=turn==='r'?'b':'r';if(countPieces(other)===0||!playerHasMoveFor(other)){done=true;setStatus('🏆 '+(turn==='r'?'🔴 Red':'⚫ Black')+' wins!');return}turn=other;selected=null;forced=null;if(anyCapture())setStatus((turn==='r'?'🔴 Red':'⚫ Black')+' turn — capture required');else setStatus((turn==='r'?'🔴 Red':'⚫ Black')+' turn')}
+ function playerHasMoveFor(side){const old=turn;turn=side;const ok=playerHasMove();turn=old;return ok}
+ function move(sr,sc,nr,nc){const opts=movesFor(sr,sc);const cap=anyCapture();const m=opts.find(x=>x.r===nr&&x.c===nc);if(!m|| (cap&&!m.jump))return false;const p=g[sr][sc];g[sr][sc]=null;g[nr][nc]=p;if(m.jump)g[m.cr][m.cc]=null;
+   let np=p;if(!isKing(np)&&((color(np)==='r'&&nr===0)||(color(np)==='b'&&nr===7))){np=np.toUpperCase();g[nr][nc]=np;setStatus('👑 King promoted!')}
+   if(m.jump){const more=movesFor(nr,nc,true);if(more.length){forced=[nr,nc];selected=forced;setStatus('🔄 Multiple jump available — continue capturing');return true}}
+   finishTurn();return true
+ }
+ function render(){b.innerHTML='';for(let r=0;r<8;r++)for(let c=0;c<8;c++){const d=document.createElement('div');d.className='cell';d.style.width='55px';d.style.height='55px';d.style.boxSizing='border-box';d.style.background=((r+c)%2?'#333':'#777');const p=g[r][c];d.textContent=p?(color(p)==='r'?'🔴':'⚫'):'';if(selected&&selected[0]===r&&selected[1]===c)d.style.outline='3px solid #fff';if(p&&isKing(p))d.textContent=color(p)==='r'?'👑':'♛';d.onclick=()=>{if(done)return;if(selected){if(r===selected[0]&&c===selected[1]&&!forced){selected=null;render();return}if(move(selected[0],selected[1],r,c)){render();return}if(!forced&&p&&color(p)===turn){selected=[r,c];render();return}setStatus('🚫 Illegal move');render();return}if(p&&color(p)===turn){if(anyCapture()&&movesFor(r,c,true).length===0){setStatus('⚠️ A capture is available — choose a capturing piece.');return}selected=[r,c];render()}};b.appendChild(d)}}
+ setStatus('⛀ Checkers — 🔴 Red starts');setInstructions('Click a piece, then a diagonal square. Jump over an opponent to capture it. Captures are mandatory, multiple jumps continue automatically, and pieces become kings on the far side.');render()
+}
 function loadBattleship(){CURRENT_GAME={restart:startBattleship};startBattleship()}
 function startBattleship(){clearGame();const box=document.createElement('div');box.style.maxWidth='600px';box.style.margin='auto';GAME_CONTAINER.appendChild(box);const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(8,45px)';box.appendChild(b);let ships=new Set();while(ships.size<10)ships.add(Math.floor(Math.random()*64));let shots=new Set(),hits=0,done=false;function render(){b.innerHTML='';for(let i=0;i<64;i++){const d=document.createElement('div');d.className='cell';d.style.width='45px';d.style.height='45px';d.style.fontSize='22px';d.textContent=shots.has(i)?(ships.has(i)?'💥':'•'):'?';d.onclick=()=>{if(done||shots.has(i))return;shots.add(i);if(ships.has(i))hits++;if(hits===10){done=true;setStatus('🏆 You sank the fleet!')}else setStatus(ships.has(i)?'💥 Hit!':'🌊 Miss!');render()};b.appendChild(d)}}setStatus('🚢 Battleship — Find 10 hidden ship spaces');setInstructions('Click squares to fire. Sink all 10 hidden ship spaces to win.');render()}
 
