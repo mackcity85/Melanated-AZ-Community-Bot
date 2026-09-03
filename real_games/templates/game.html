@@ -1,290 +1,2999 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>{{ game.name }} — Melanated AZ Real Games</title>
+
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#080808;color:#fff;font-family:Arial,Helvetica,sans-serif}body{padding:20px}.wrapper{width:100%;max-width:1200px;margin:auto}.topbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:20px;flex-wrap:wrap}.brand{font-size:18px;font-weight:bold}.back{display:inline-block;background:#252525;color:#fff;text-decoration:none;padding:10px 15px;border-radius:10px}.back:hover{background:#3a3a3a}.game-header{text-align:center;margin-bottom:20px}.game-icon{font-size:58px}.game-title{margin:5px 0;font-size:36px}.game-description{color:#aaa}.game-shell{background:#141414;border:1px solid #333;border-radius:18px;padding:20px;min-height:500px}.status{text-align:center;padding:12px;margin-bottom:15px;background:#202020;border-radius:10px;color:#ddd;min-height:42px}.scoreboard{display:flex;justify-content:center;gap:15px;flex-wrap:wrap;margin-bottom:15px}.score{background:#202020;padding:10px 20px;border-radius:10px;min-width:120px;text-align:center}.score strong{display:block;font-size:22px;margin-top:4px}canvas{display:block;margin:0 auto;max-width:100%;background:#000;border:2px solid #444;border-radius:10px;touch-action:none}button,.game-button{border:0;border-radius:10px;padding:11px 17px;background:#fff;color:#111;font-weight:bold;cursor:pointer;font-size:15px}button:hover,.game-button:hover{opacity:.85}button.secondary{background:#333;color:#fff}.controls{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:18px}.instructions{margin-top:20px;background:#1b1b1b;border-radius:12px;padding:15px;color:#bbb}.big-message{text-align:center;font-size:25px;padding:30px}.question{max-width:800px;margin:25px auto;text-align:center}.answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:20px}.answers button{min-height:55px}.board{margin:20px auto;display:grid;gap:5px;justify-content:center}.cell{width:55px;height:55px;background:#252525;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;user-select:none}.cell:hover{background:#333}.card-grid{display:grid;grid-template-columns:repeat(4,minmax(65px,100px));max-width:500px;margin:20px auto;gap:10px;justify-content:center}.card{min-height:100px;background:#252525;border:2px solid #444;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;user-select:none}.card.flipped{background:#eee;color:#111}.card.matched{background:#333;opacity:.6;cursor:default}.choice-buttons{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:25px}.choice-buttons button{min-width:130px;min-height:55px;font-size:18px}.mobile-controls{width:190px;margin:20px auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mobile-controls button{height:50px;padding:0}.mobile-controls .up{grid-column:2}.mobile-controls .left{grid-column:1}.mobile-controls .down{grid-column:2}.mobile-controls .right{grid-column:3}.room-panel{background:#1b1b1b;border-radius:12px;padding:15px;margin-bottom:20px}.players-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.player{background:#292929;padding:8px 12px;border-radius:8px}@media(max-width:600px){body{padding:10px}.game-shell{padding:12px}.game-title{font-size:28px}.cell{width:48px;height:48px;font-size:23px}.card-grid{grid-template-columns:repeat(4,65px);gap:7px}.card{min-height:75px;font-size:25px}}
+*{box-sizing:border-box}
+
+html,body{
+    margin:0;
+    padding:0;
+    min-height:100%;
+    background:#080808;
+    color:#fff;
+    font-family:Arial,Helvetica,sans-serif;
+    overscroll-behavior:none;
+}
+
+body{
+    padding:12px;
+    touch-action:manipulation;
+}
+
+.wrapper{
+    width:100%;
+    max-width:1000px;
+    margin:auto;
+}
+
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.brand{
+    font-size:18px;
+    font-weight:800;
+}
+
+.back{
+    color:#fff;
+    text-decoration:none;
+    background:#222;
+    border:1px solid #444;
+    border-radius:10px;
+    padding:9px 13px;
+    white-space:nowrap;
+}
+
+.game-header{
+    text-align:center;
+    margin-bottom:12px;
+}
+
+.game-icon{
+    font-size:48px;
+}
+
+.game-title{
+    margin:4px 0;
+    font-size:28px;
+}
+
+.game-description{
+    color:#bbb;
+    font-size:14px;
+}
+
+.game-shell{
+    background:#111;
+    border:1px solid #333;
+    border-radius:16px;
+    padding:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+
+.status{
+    text-align:center;
+    min-height:24px;
+    color:#ddd;
+    font-weight:700;
+    margin-bottom:8px;
+}
+
+.scoreboard{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:8px;
+    margin-bottom:10px;
+}
+
+.score{
+    min-width:90px;
+    background:#1d1d1d;
+    border:1px solid #333;
+    border-radius:10px;
+    padding:7px 12px;
+    text-align:center;
+    font-size:12px;
+    color:#aaa;
+}
+
+.score strong{
+    display:block;
+    color:#fff;
+    font-size:20px;
+    margin-top:2px;
+}
+
+#game-container{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+}
+
+canvas{
+    display:block;
+    width:min(100%,700px);
+    height:auto;
+    max-height:70vh;
+    background:#050505;
+    border:2px solid #333;
+    border-radius:12px;
+    touch-action:none;
+}
+
+.controls{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:8px;
+    margin-top:12px;
+}
+
+button{
+    border:1px solid #555;
+    background:#222;
+    color:#fff;
+    border-radius:10px;
+    padding:12px 16px;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    touch-action:manipulation;
+    min-height:46px;
+}
+
+button:active{
+    transform:scale(.97);
+}
+
+.primary{
+    background:#fff;
+    color:#000;
+}
+
+.instructions{
+    margin-top:12px;
+    background:#111;
+    border:1px solid #333;
+    border-radius:12px;
+    padding:12px;
+    line-height:1.5;
+    color:#ccc;
+    text-align:center;
+}
+
+.instructions strong{
+    color:#fff;
+    display:block;
+    margin-bottom:4px;
+}
+
+.big-message{
+    text-align:center;
+    padding:20px;
+    font-size:22px;
+    font-weight:800;
+}
+
+.choice-row{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:10px;
+}
+
+.choice-button{
+    min-width:120px;
+    min-height:60px;
+    font-size:18px;
+}
+
+.question{
+    width:100%;
+    max-width:700px;
+    text-align:center;
+    font-size:22px;
+    font-weight:800;
+    margin:8px 0 12px;
+}
+
+.answers{
+    width:100%;
+    max-width:700px;
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+}
+
+.answer{
+    min-height:60px;
+}
+
+.word{
+    font-size:42px;
+    font-weight:900;
+    letter-spacing:7px;
+    text-align:center;
+    margin:15px;
+}
+
+input{
+    width:min(100%,500px);
+    padding:14px;
+    border-radius:10px;
+    border:1px solid #555;
+    background:#181818;
+    color:#fff;
+    font-size:20px;
+    text-align:center;
+}
+
+.mobile-pad{
+    display:grid;
+    grid-template-columns:repeat(3,70px);
+    gap:7px;
+    justify-content:center;
+}
+
+.mobile-pad button{
+    width:70px;
+    height:58px;
+    padding:0;
+}
+
+@media(max-width:600px){
+    body{padding:8px}
+    .brand{font-size:15px}
+    .game-title{font-size:24px}
+    .game-icon{font-size:40px}
+    canvas{
+        max-height:58vh;
+        border-radius:9px;
+    }
+    .answers{
+        grid-template-columns:1fr;
+    }
+    button{
+        font-size:15px;
+        padding:11px 14px;
+    }
+}
+
+/* prevent accidental selection while playing */
+#game-container,
+canvas,
+button{
+    -webkit-user-select:none;
+    user-select:none;
+}
 </style>
+
 </head>
+
 <body>
+
 <div class="wrapper">
-<div class="topbar"><div class="brand">👑 Melanated AZ Real Games</div><a class="back" href="{{ url_for('real_games.real_games_home') }}">← Games</a></div>
-<div class="game-header"><div class="game-icon">{{ game.icon }}</div><h1 class="game-title">{{ game.name }}</h1><div class="game-description">{{ game.description }}</div></div>
-{% if multiplayer and room %}<div class="room-panel"><strong>Room:</strong> <span id="room-id">{{ room.room_id }}</span><br><br><strong>Players</strong><div id="players-list" class="players-list">{% for player in room.players.values() %}<div class="player">{{ player.display_name }}</div>{% endfor %}</div></div>{% elif multiplayer %}<div class="room-panel"><div style="text-align:center"><h2>👥 Multiplayer Game</h2><p>Create a room to play with other players.</p><form method="POST" action="{{ url_for('real_games.create_game_room', game_id=game.game_id) }}"><button type="submit">➕ CREATE GAME ROOM</button></form></div></div>{% endif %}
-<div class="game-shell"><div id="status" class="status">Loading game...</div><div id="scoreboard" class="scoreboard"></div><div id="game-container"></div><div class="controls"><button onclick="restartGame()">🔄 Restart</button></div></div>
-<div class="instructions"><strong>How to Play</strong><div id="instructions-text">Loading instructions...</div></div>
+
+```
+<div class="topbar">
+    <div class="brand">👑 Melanated AZ Real Games</div>
+    <a class="back" href="{{ url_for('real_games.real_games_home') }}">← Games</a>
 </div>
+
+<div class="game-header">
+    <div class="game-icon">{{ game.icon }}</div>
+    <h1 class="game-title">{{ game.name }}</h1>
+    <div class="game-description">{{ game.description }}</div>
+</div>
+
+<div class="game-shell">
+    <div id="status" class="status">Loading game...</div>
+    <div id="scoreboard" class="scoreboard"></div>
+    <div id="game-container"></div>
+
+    <div class="controls">
+        <button onclick="restartGame()">🔄 Restart</button>
+    </div>
+</div>
+
+<div class="instructions">
+    <strong>How to Play</strong>
+    <div id="instructions-text">Loading instructions...</div>
+</div>
+```
+
+</div>
+
 <script>
 const GAME_ID={{ game.game_id|tojson }};
 const GAME_NAME={{ game.name|tojson }};
-const ROOM_ID={% if room %}{{ room.room_id|tojson }}{% else %}null{% endif %};
-const GAME_CONTAINER=document.getElementById('game-container');
-const STATUS=document.getElementById('status');
-const SCOREBOARD=document.getElementById('scoreboard');
-let CURRENT_GAME=null,ACTIVE_INTERVALS=[],ACTIVE_TIMEOUTS=[],KEY_HANDLER=null,ANIMATION_FRAMES=[];
-function cleanupGame(){ACTIVE_INTERVALS.forEach(clearInterval);ACTIVE_INTERVALS=[];ACTIVE_TIMEOUTS.forEach(clearTimeout);ACTIVE_TIMEOUTS=[];ANIMATION_FRAMES.forEach(cancelAnimationFrame);ANIMATION_FRAMES=[];if(KEY_HANDLER)document.removeEventListener('keydown',KEY_HANDLER);KEY_HANDLER=null}
-function gameInterval(fn,ms){const id=setInterval(fn,ms);ACTIVE_INTERVALS.push(id);return id}
-function gameTimeout(fn,ms){const id=setTimeout(fn,ms);ACTIVE_TIMEOUTS.push(id);return id}
-function gameFrame(fn){const id=requestAnimationFrame(fn);ANIMATION_FRAMES.push(id);return id}
-function setKeyHandler(fn){if(KEY_HANDLER)document.removeEventListener('keydown',KEY_HANDLER);KEY_HANDLER=fn;document.addEventListener('keydown',KEY_HANDLER)}
-function setStatus(t){STATUS.textContent=t}
-function setInstructions(t){document.getElementById('instructions-text').textContent=t}
-function setScore(label,value){SCOREBOARD.innerHTML=`<div class="score">${label}<strong>${value}</strong></div>`}
-function setScores(items){SCOREBOARD.innerHTML=items.map(i=>`<div class="score">${i.label}<strong>${i.value}</strong></div>`).join('')}
-function clearGame(){cleanupGame();GAME_CONTAINER.innerHTML='';SCOREBOARD.innerHTML=''}
-function createButton(text,callback,className=''){const b=document.createElement('button');b.textContent=text;if(className)b.className=className;b.addEventListener('click',callback);return b}
-function restartGame(){if(CURRENT_GAME&&typeof CURRENT_GAME.restart==='function')CURRENT_GAME.restart();else launchGame()}
 
-/* ==================== ARCADE ==================== */
-function loadSnake(){CURRENT_GAME={restart:startSnake};startSnake()}
-function startSnake(){clearGame();const c=document.createElement('canvas');c.width=c.height=500;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d'),N=25,S=20;let snake,food,dx,dy,score,running;function newFood(){let p;do{p={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}}while(snake.some(q=>q.x===p.x&&q.y===p.y));return p}function reset(){snake=[{x:12,y:12},{x:11,y:12},{x:10,y:12}];dx=1;dy=0;score=0;running=true;food=newFood();setStatus('🐍 Snake — Go!');draw()}function draw(){x.fillStyle='#000';x.fillRect(0,0,500,500);x.fillStyle='#fff';snake.forEach(p=>x.fillRect(p.x*S,p.y*S,S-2,S-2));x.fillStyle='#f00';x.fillRect(food.x*S,food.y*S,S-2,S-2);setScore('Score',score)}function tick(){if(!running)return;const h={x:snake[0].x+dx,y:snake[0].y+dy};if(h.x<0||h.x>=N||h.y<0||h.y>=N||snake.some(p=>p.x===h.x&&p.y===h.y)){running=false;setStatus('💀 Game Over — Score: '+score);return}snake.unshift(h);if(h.x===food.x&&h.y===food.y){score++;food=newFood()}else snake.pop();draw()}setKeyHandler(e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();if(e.key==='ArrowUp'&&dy!==1){dx=0;dy=-1}if(e.key==='ArrowDown'&&dy!==-1){dx=0;dy=1}if(e.key==='ArrowLeft'&&dx!==1){dx=-1;dy=0}if(e.key==='ArrowRight'&&dx!==-1){dx=1;dy=0}});const controls=document.createElement('div');controls.className='mobile-controls';[['⬆️','up',()=>{if(dy!==1){dx=0;dy=-1}}],['⬅️','left',()=>{if(dx!==1){dx=-1;dy=0}}],['⬇️','down',()=>{if(dy!==-1){dx=0;dy=1}}],['➡️','right',()=>{if(dx!==-1){dx=1;dy=0}}]].forEach(a=>{const b=createButton(a[0],a[2],a[1]);controls.appendChild(b)});GAME_CONTAINER.appendChild(controls);setInstructions('Use Arrow Keys or the mobile controls. Eat the red food and avoid the walls and yourself.');reset();gameInterval(tick,110)}
+const GAME_CONTAINER=document.getElementById("game-container");
+const STATUS=document.getElementById("status");
+const SCOREBOARD=document.getElementById("scoreboard");
 
-function loadPong(){CURRENT_GAME={restart:startPong};startPong()}
-function startPong(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=400;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let py=160,cy=160,ball={x:350,y:200,vx:5,vy:3},ps=0,cs=0,running=true;function resetBall(d){ball={x:350,y:200,vx:5*d,vy:Math.random()<.5?-3:3}}function draw(){x.fillStyle='#000';x.fillRect(0,0,700,400);x.strokeStyle='#444';x.setLineDash([10,10]);x.beginPath();x.moveTo(350,0);x.lineTo(350,400);x.stroke();x.setLineDash([]);x.fillStyle='#fff';x.fillRect(20,py,15,80);x.fillRect(665,cy,15,80);x.beginPath();x.arc(ball.x,ball.y,10,0,Math.PI*2);x.fill();setScores([{label:'You',value:ps},{label:'CPU',value:cs}])}function update(){if(!running)return;ball.x+=ball.vx;ball.y+=ball.vy;if(ball.y<=10||ball.y>=390)ball.vy*=-1;cy+=((ball.y-(cy+40))*.075);cy=Math.max(0,Math.min(320,cy));if(ball.x<=35&&ball.y>=py&&ball.y<=py+80&&ball.vx<0){ball.vx=Math.abs(ball.vx)}if(ball.x>=650&&ball.y>=cy&&ball.y<=cy+80&&ball.vx>0){ball.vx=-Math.abs(ball.vx)}if(ball.x<0){cs++;if(cs>=10){running=false;setStatus('💀 CPU wins 10–'+ps);draw();return}resetBall(1)}if(ball.x>700){ps++;if(ps>=10){running=false;setStatus('🏆 You win '+ps+'–'+cs);draw();return}resetBall(-1)}draw();if(running)gameFrame(update)}setKeyHandler(e=>{if(e.key==='ArrowUp'||e.key.toLowerCase()==='w')py-=25;if(e.key==='ArrowDown'||e.key.toLowerCase()==='s')py+=25;py=Math.max(0,Math.min(320,py))});setStatus('🏓 Pong');setInstructions('Move your paddle with W/S or Arrow Up/Down. First to 10 wins.');draw();update()}
+let CURRENT_GAME=null;
+let ACTIVE_INTERVALS=[];
+let ACTIVE_TIMEOUTS=[];
+let ANIMATION_FRAMES=[];
+let KEY_HANDLER=null;
 
-function loadBreakout(){CURRENT_GAME={restart:startBreakout};startBreakout()}
-function startBreakout(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=500;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let paddle=300,ball={x:350,y:430,vx:4,vy:-4},bricks=[],score=0,running=true;function make(){bricks=[];for(let r=0;r<5;r++)for(let col=0;col<10;col++)bricks.push({x:col*68+10,y:r*30+30,w:58,h:20,alive:true})}function draw(){x.fillStyle='#000';x.fillRect(0,0,700,500);x.fillStyle='#fff';bricks.forEach(b=>{if(b.alive)x.fillRect(b.x,b.y,b.w,b.h)});x.fillRect(paddle,470,100,15);x.beginPath();x.arc(ball.x,ball.y,8,0,Math.PI*2);x.fill();setScore('Score',score)}function update(){if(!running)return;ball.x+=ball.vx;ball.y+=ball.vy;if(ball.x<=8||ball.x>=692)ball.vx*=-1;if(ball.y<=8)ball.vy*=-1;if(ball.y>=455&&ball.x>=paddle&&ball.x<=paddle+100&&ball.vy>0){ball.vy=-Math.abs(ball.vy);ball.vx=((ball.x-(paddle+50))/50)*5}bricks.forEach(b=>{if(!b.alive)return;if(ball.x+8>=b.x&&ball.x-8<=b.x+b.w&&ball.y+8>=b.y&&ball.y-8<=b.y+b.h){b.alive=false;score++;ball.vy*=-1}});if(bricks.every(b=>!b.alive)){running=false;setStatus('🏆 You cleared every block!')}else if(ball.y>510){running=false;setStatus('💀 Game Over — Score: '+score)}draw();if(running)gameFrame(update)}setKeyHandler(e=>{if(e.key==='ArrowLeft')paddle-=30;if(e.key==='ArrowRight')paddle+=30;paddle=Math.max(0,Math.min(600,paddle))});make();setStatus('🧱 Breakout');setInstructions('Use Arrow Left and Arrow Right to move the paddle. Break every block.');draw();update()}
+function cleanupGame(){
+    ACTIVE_INTERVALS.forEach(clearInterval);
+    ACTIVE_INTERVALS=[];
 
-function loadTetris(){CURRENT_GAME={restart:startTetris};startTetris()}
-function startTetris(){clearGame();const c=document.createElement('canvas');c.width=300;c.height=600;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d'),COLS=10,ROWS=20,S=30;const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[0,1,1],[1,1,0]],[[1,1,0],[0,1,1]]];let board,piece,score,lines,over;function reset(){board=Array.from({length:ROWS},()=>Array(COLS).fill(0));piece=newPiece();score=0;lines=0;over=false;setStatus('🟦 Tetris — Go!');draw()}function newPiece(){const sh=SHAPES[Math.floor(Math.random()*SHAPES.length)].map(r=>[...r]);return{shape:sh,x:Math.floor((COLS-sh[0].length)/2),y:0}}function hit(p,ox=0,oy=0,shape=p.shape){for(let y=0;y<shape.length;y++)for(let z=0;z<shape[y].length;z++)if(shape[y][z]){const nx=p.x+z+ox,ny=p.y+y+oy;if(nx<0||nx>=COLS||ny>=ROWS)return true;if(ny>=0&&board[ny][nx])return true}return false}function merge(){piece.shape.forEach((r,y)=>r.forEach((v,z)=>{if(v)board[piece.y+y][piece.x+z]=1}))}function rotate(){const old=piece.shape,rot=old[0].map((_,i)=>old.map(r=>r[i]).reverse());if(!hit(piece,0,0,rot))piece.shape=rot}function clearLines(){let n=0;for(let y=ROWS-1;y>=0;y--)if(board[y].every(Boolean)){board.splice(y,1);board.unshift(Array(COLS).fill(0));n++;y++}if(n){lines+=n;score+=[0,100,300,500,800][n]}}function drop(){if(over)return;if(!hit(piece,0,1))piece.y++;else{merge();clearLines();piece=newPiece();if(hit(piece))over=true}draw();if(over)setStatus('💀 Game Over — Score: '+score)}function draw(){x.fillStyle='#000';x.fillRect(0,0,300,600);x.fillStyle='#fff';board.forEach((r,y)=>r.forEach((v,z)=>{if(v)x.fillRect(z*S,y*S,S-1,S-1)}));if(!over)piece.shape.forEach((r,y)=>r.forEach((v,z)=>{if(v)x.fillRect((piece.x+z)*S,(piece.y+y)*S,S-1,S-1)}));setScores([{label:'Score',value:score},{label:'Lines',value:lines}])}setKeyHandler(e=>{if(over)return;if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'&&!hit(piece,-1,0))piece.x--;if(e.key==='ArrowRight'&&!hit(piece,1,0))piece.x++;if(e.key==='ArrowDown')drop();if(e.key==='ArrowUp')rotate();if(e.key===' '){while(!hit(piece,0,1))piece.y++;drop()}draw()});setInstructions('Arrow Left/Right to move. Arrow Up to rotate. Arrow Down to drop. Space hard-drops the piece.');reset();gameInterval(drop,600)}
+    ACTIVE_TIMEOUTS.forEach(clearTimeout);
+    ACTIVE_TIMEOUTS=[];
 
-function loadFlappy(){CURRENT_GAME={restart:startFlappy};startFlappy()}
-function startFlappy(){clearGame();const c=document.createElement('canvas');c.width=600;c.height=500;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let bird={x:120,y:250,r:16,v:0},pipes=[],score=0,running=true,started=false;function flap(){if(running){started=true;bird.v=-7}}function spawn(){if(running){const top=60+Math.random()*220;pipes.push({x:600,top,bottom:top+150,w:70,passed:false})}}function hit(){return bird.y-bird.r<=0||bird.y+bird.r>=500||pipes.some(p=>bird.x+bird.r>p.x&&bird.x-bird.r<p.x+p.w&&(bird.y-bird.r<p.top||bird.y+bird.r>p.bottom))}function draw(){x.fillStyle='#000';x.fillRect(0,0,600,500);x.fillStyle='#fff';pipes.forEach(p=>{x.fillRect(p.x,0,p.w,p.top);x.fillRect(p.x,p.bottom,p.w,500-p.bottom)});x.beginPath();x.arc(bird.x,bird.y,bird.r,0,Math.PI*2);x.fill();setScore('Score',score)}function update(){if(!running){draw();return}if(started){bird.v+=.35;bird.y+=bird.v;pipes.forEach(p=>{p.x-=3;if(!p.passed&&p.x+p.w<bird.x){p.passed=true;score++}});pipes=pipes.filter(p=>p.x+p.w>0);if(hit()){running=false;setStatus('💀 Game Over — Score: '+score)}}draw();if(running)gameFrame(update)}setKeyHandler(e=>{if(e.code==='Space'||e.key==='ArrowUp'){e.preventDefault();flap()}});c.addEventListener('pointerdown',flap);setStatus('🐦 Flappy — Tap or press Space!');setInstructions('Tap/click the game or press Space/Arrow Up to flap. Fly through the pipes without hitting them.');gameInterval(spawn,1500);draw();update()}
+    ANIMATION_FRAMES.forEach(cancelAnimationFrame);
+    ANIMATION_FRAMES=[];
 
-function loadSpaceInvaders(){CURRENT_GAME={restart:startSpaceInvaders};startSpaceInvaders()}
-function startSpaceInvaders(){
-clearGame();
-const c=document.createElement('canvas');c.width=700;c.height=600;GAME_CONTAINER.appendChild(c);
-const ctx=c.getContext('2d');
-const W=700,H=600;
-let player={x:325,y:550,w:50,h:18,speed:8};
-let bullets=[],enemies=[],score=0,lives=3,running=true,dir=1,moveTimer=0,shootCooldown=0;
-function reset(){
- player.x=325; bullets=[]; enemies=[]; score=0; lives=3; running=true; dir=1; moveTimer=0; shootCooldown=0;
- for(let r=0;r<4;r++)for(let col=0;col<10;col++)enemies.push({x:55+col*60,y:55+r*42,w:36,h:24});
- draw();
-}
-function shoot(){if(!running||shootCooldown>0)return;bullets.push({x:player.x+player.w/2-2,y:player.y-12,w:4,h:12,speed:10});shootCooldown=10}
-function draw(){
- ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';
- ctx.fillRect(player.x,player.y,player.w,player.h);
- ctx.fillRect(player.x+20,player.y-8,10,8);
- bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));
- enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.w,e.h));
- setScores([{label:'Score',value:score},{label:'Lives',value:lives}]);
-}
-function update(){
- if(!running)return;
- if(shootCooldown>0)shootCooldown--;
- moveTimer++;
- if(moveTimer>=8){
-  moveTimer=0;
-  let minX=Infinity,maxX=-Infinity;
-  enemies.forEach(e=>{e.x+=dir*5;minX=Math.min(minX,e.x);maxX=Math.max(maxX,e.x+e.w)});
-  if(minX<=10||maxX>=W-10){dir*=-1;enemies.forEach(e=>e.y+=18)}
- }
- bullets.forEach(b=>b.y-=b.speed);
- for(let i=bullets.length-1;i>=0;i--){
-  let b=bullets[i];
-  let hit=false;
-  for(let j=enemies.length-1;j>=0;j--){let e=enemies[j];if(b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){enemies.splice(j,1);bullets.splice(i,1);score+=10;hit=true;break}}
-  if(hit)continue;
- }
- bullets=bullets.filter(b=>b.y>-20);
- if(enemies.some(e=>e.y+e.h>=player.y)){running=false;setStatus('💀 The invaders reached you! Score: '+score)}
- else if(enemies.length===0){running=false;setStatus('🏆 You defeated every invader! Score: '+score)}
- draw();
-}
-setKeyHandler(e=>{
- if(e.key==='ArrowLeft'||e.key==='ArrowRight'||e.code==='Space')e.preventDefault();
- if(e.key==='ArrowLeft')player.x-=player.speed;
- if(e.key==='ArrowRight')player.x+=player.speed;
- if(e.code==='Space')shoot();
- player.x=Math.max(0,Math.min(W-player.w,player.x));
-});
-setStatus('👾 Space Invaders — Ready!');
-setInstructions('Move with Arrow Left/Right. Press Space to fire. Destroy all invaders before they reach you.');
-reset();gameInterval(update,40);
+    if(KEY_HANDLER){
+        document.removeEventListener("keydown",KEY_HANDLER);
+        KEY_HANDLER=null;
+    }
 }
 
-function loadAsteroids(){CURRENT_GAME={restart:startAsteroids};startAsteroids()}
-function startAsteroids(){
-clearGame();
-const c=document.createElement('canvas');c.width=700;c.height=600;GAME_CONTAINER.appendChild(c);
-const ctx=c.getContext('2d');const W=700,H=600;
-let ship,bullets,asteroids,score,lives,running,fireCooldown;
-function wrap(o){if(o.x<0)o.x+=W;if(o.x>=W)o.x-=W;if(o.y<0)o.y+=H;if(o.y>=H)o.y-=H}
-function spawnField(){
- asteroids=[];
- for(let i=0;i<8;i++){
-  let a;
-  do{a={x:Math.random()*W,y:Math.random()*H,r:22+Math.random()*16,vx:(Math.random()-.5)*2.2,vy:(Math.random()-.5)*2.2}}
-  while(Math.hypot(a.x-W/2,a.y-H/2)<140);
-  asteroids.push(a);
- }
-}
-function resetShip(){ship={x:W/2,y:H/2,a:-Math.PI/2,vx:0,vy:0,r:14}}
-function shoot(){if(!running||fireCooldown>0)return;bullets.push({x:ship.x+Math.cos(ship.a)*20,y:ship.y+Math.sin(ship.a)*20,vx:Math.cos(ship.a)*8,vy:Math.sin(ship.a)*8,life:70});fireCooldown=8}
-function draw(){
- ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#fff';ctx.lineWidth=2;
- ctx.beginPath();ctx.moveTo(ship.x+Math.cos(ship.a)*22,ship.y+Math.sin(ship.a)*22);ctx.lineTo(ship.x+Math.cos(ship.a+2.5)*17,ship.y+Math.sin(ship.a+2.5)*17);ctx.lineTo(ship.x+Math.cos(ship.a-2.5)*17,ship.y+Math.sin(ship.a-2.5)*17);ctx.closePath();ctx.stroke();
- ctx.fillStyle='#fff';bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-2,4,4));
- asteroids.forEach(a=>{ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.stroke()});
- setScores([{label:'Score',value:score},{label:'Lives',value:lives}]);
-}
-function update(){
- if(!running)return;
- if(fireCooldown>0)fireCooldown--;
- ship.x+=ship.vx;ship.y+=ship.vy;ship.vx*=.985;ship.vy*=.985;wrap(ship);
- bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;wrap(b)});bullets=bullets.filter(b=>b.life>0);
- asteroids.forEach(a=>{a.x+=a.vx;a.y+=a.vy;wrap(a)});
- for(let i=asteroids.length-1;i>=0;i--){
-  let destroyed=false;
-  for(let j=bullets.length-1;j>=0;j--){if(Math.hypot(asteroids[i].x-bullets[j].x,asteroids[i].y-bullets[j].y)<asteroids[i].r+4){asteroids.splice(i,1);bullets.splice(j,1);score+=10;destroyed=true;break}}
-  if(destroyed)continue;
- }
- for(const a of asteroids){if(Math.hypot(a.x-ship.x,a.y-ship.y)<a.r+ship.r){lives--;resetShip();if(lives<=0){running=false;setStatus('💀 Game Over — Score: '+score)}break}}
- if(running&&asteroids.length===0){running=false;setStatus('🏆 Asteroid field cleared! Score: '+score)}
- draw();
-}
-setKeyHandler(e=>{
- if(['ArrowLeft','ArrowRight','ArrowUp'].includes(e.key)||e.code==='Space')e.preventDefault();
- if(e.key==='ArrowLeft')ship.a-=0.12;
- if(e.key==='ArrowRight')ship.a+=0.12;
- if(e.key==='ArrowUp'){ship.vx+=Math.cos(ship.a)*0.18;ship.vy+=Math.sin(ship.a)*0.18}
- if(e.code==='Space')shoot();
-});
-setStatus('☄️ Asteroids — Ready!');
-setInstructions('Arrow Left/Right rotate. Arrow Up thrusts. Space fires. Destroy all asteroids and avoid collisions.');
-score=0;lives=3;running=true;fireCooldown=0;bullets=[];resetShip();spawnField();draw();gameInterval(update,30);
+function gameInterval(fn,ms){
+    const id=setInterval(fn,ms);
+    ACTIVE_INTERVALS.push(id);
+    return id;
 }
 
-function loadPacman(){CURRENT_GAME={restart:startPacman};startPacman()}
-function startPacman(){
-clearGame();
-const c=document.createElement('canvas');GAME_CONTAINER.appendChild(c);const ctx=c.getContext('2d'),T=25;
-const map=['####################','#..................#','#.####.#####.####..#','#..................#','#.##.#.#####.#.##..#','#....#...   .#.....#','####.###.###.###.##','#......     ...... #','####.###.###.###.##','#....#.......#.....#','#.##.#.#####.#.##..#','#..................#','#.####.#####.####..#','#..................#','####################'];
-const R=map.length,C=20;c.width=C*T;c.height=R*T;
-let p,ghosts,pellets,score,running,nextMoveTimer;
-function wall(x,y){return x<0||x>=C||y<0||y>=R||map[y][x]==='#'}
-function init(){
- p={x:1,y:1,dx:0,dy:0,ndx:0,ndy:0};ghosts=[{x:9,y:7},{x:10,y:7}];pellets=new Set();score=0;running=true;nextMoveTimer=0;
- for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(map[y][x]==='.')pellets.add(x+','+y);
-}
-function draw(){
- ctx.fillStyle='#000';ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle='#fff';
- for(let y=0;y<R;y++)for(let x=0;x<C;x++)if(map[y][x]==='#')ctx.strokeRect(x*T+3,y*T+3,T-6,T-6);
- ctx.fillStyle='#fff';pellets.forEach(k=>{const [x,y]=k.split(',').map(Number);ctx.beginPath();ctx.arc(x*T+T/2,y*T+T/2,3,0,Math.PI*2);ctx.fill()});
- ctx.beginPath();ctx.arc(p.x*T+T/2,p.y*T+T/2,9,0.25,Math.PI*2-0.25);ctx.lineTo(p.x*T+T/2,p.y*T+T/2);ctx.fill();
- ctx.fillStyle='#aaa';ghosts.forEach(g=>{ctx.beginPath();ctx.arc(g.x*T+T/2,g.y*T+T/2,9,0,Math.PI*2);ctx.fill()});setScore('Score',score);
-}
-function movePlayer(){if(!wall(p.x+p.ndx,p.y+p.ndy)){p.dx=p.ndx;p.dy=p.ndy}if(!wall(p.x+p.dx,p.y+p.dy)){p.x+=p.dx;p.y+=p.dy}const k=p.x+','+p.y;if(pellets.delete(k))score+=10;if(!pellets.size){running=false;setStatus('🏆 You cleared the maze! Score: '+score)}}
-function moveGhosts(){ghosts.forEach(g=>{const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(d=>!wall(g.x+d[0],g.y+d[1]));if(!opts.length)return;opts.sort((a,b)=>(Math.abs(g.x+a[0]-p.x)+Math.abs(g.y+a[1]-p.y))-(Math.abs(g.x+b[0]-p.x)+Math.abs(g.y+b[1]-p.y)));g.x+=opts[0][0];g.y+=opts[0][1]})}
-function update(){if(!running)return;movePlayer();if(!running){draw();return}moveGhosts();if(ghosts.some(g=>g.x===p.x&&g.y===p.y)){running=false;setStatus('💀 Pac-Man caught you! Score: '+score)}draw()}
-setKeyHandler(e=>{const d={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];if(d){e.preventDefault();p.ndx=d[0];p.ndy=d[1]}});
-setStatus('🟡 Pac-Man — Ready!');setInstructions('Use Arrow Keys to move. Eat all pellets and avoid the ghosts. Pac-Man moves at a slower arcade pace.');init();draw();gameInterval(update,260);
+function gameTimeout(fn,ms){
+    const id=setTimeout(fn,ms);
+    ACTIVE_TIMEOUTS.push(id);
+    return id;
 }
 
-function load2048(){CURRENT_GAME={restart:start2048};start2048()}
-function start2048(){clearGame();const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(4,70px)';GAME_CONTAINER.appendChild(b);let g=Array.from({length:4},()=>Array(4).fill(0)),score=0,over=false;function add(){let e=[];for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(!g[r][c])e.push([r,c]);if(e.length){let q=e[Math.floor(Math.random()*e.length)];g[q[0]][q[1]]=Math.random()<.9?2:4}}function slide(row){let a=row.filter(Boolean);for(let i=0;i<a.length-1;i++)if(a[i]===a[i+1]){a[i]*=2;score+=a[i];a.splice(i+1,1)}while(a.length<4)a.push(0);return a}function rot(){g=g[0].map((_,c)=>g.map(r=>r[c]).reverse())}function move(dir){if(over)return;const rotN={left:0,up:3,right:2,down:1}[dir];for(let i=0;i<rotN;i++)rot();const before=JSON.stringify(g);for(let r=0;r<4;r++)g[r]=slide(g[r]);for(let i=0;i<(4-rotN)%4;i++)rot();if(before!==JSON.stringify(g))add();render();if(g.some(r=>r.includes(2048))){over=true;setStatus('🏆 You reached 2048!')}else if(!moves()){over=true;setStatus('💀 Game Over — Score: '+score)}}function moves(){for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(!g[r][c]||(c<3&&g[r][c]===g[r][c+1])||(r<3&&g[r][c]===g[r+1][c]))return true;return false}function render(){b.innerHTML='';g.forEach(r=>r.forEach(v=>{let d=document.createElement('div');d.className='cell';d.textContent=v||'';b.appendChild(d)}));setScore('Score',score)}setKeyHandler(e=>{const m={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};if(m[e.key]){e.preventDefault();move(m[e.key])}});setStatus('🔢 2048');setInstructions('Use the arrow keys to combine matching numbers. Reach 2048.');add();add();render()}
-
-function loadMemory(){CURRENT_GAME={restart:startMemory};startMemory()}
-function startMemory(){clearGame();const grid=document.createElement('div');grid.className='card-grid';GAME_CONTAINER.appendChild(grid);const symbols=['🍎','🍌','🍇','🍉','🍒','🥝','🍋','🍊'],cards=[...symbols,...symbols].sort(()=>Math.random()-.5);let first=null,locked=false,matches=0,moves=0;cards.forEach(sym=>{const card=document.createElement('div');card.className='card';card.textContent='❓';card.onclick=()=>{if(locked||card===first||card.classList.contains('matched'))return;card.textContent=sym;card.classList.add('flipped');if(!first){first=card;return}moves++;const second=card;if(first.textContent===second.textContent){first.classList.add('matched');second.classList.add('matched');first=null;matches++;if(matches===symbols.length)setStatus('🏆 You won in '+moves+' moves!')}else{locked=true;const prev=first;gameTimeout(()=>{prev.textContent='❓';second.textContent='❓';prev.classList.remove('flipped');second.classList.remove('flipped');first=null;locked=false},700)}setScore('Moves',moves)};grid.appendChild(card)});setStatus('🧠 Memory Match');setInstructions('Flip two cards at a time and match every pair.')}
-
-/* ==================== BOARD GAMES ==================== */
-function loadChess(){CURRENT_GAME={restart:startChess};startChess()}
-function startChess(){clearGame();
- const wrap=document.createElement('div');wrap.style.maxWidth='520px';wrap.style.margin='auto';GAME_CONTAINER.appendChild(wrap);
- const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(8,1fr)';b.style.maxWidth='480px';wrap.appendChild(b);
- const pieces={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
- let board=[['r','n','b','q','k','b','n','r'],Array(8).fill('p'),...Array(4).fill(0).map(()=>Array(8).fill('')),Array(8).fill('P'),['R','N','B','Q','K','B','N','R']],turn='w',selected=null,done=false;
- function color(p){return p&&p===p.toUpperCase()?'w':'b'} function inside(r,c){return r>=0&&r<8&&c>=0&&c<8}
- function clearPath(r,c,nr,nc){let dr=Math.sign(nr-r),dc=Math.sign(nc-c),y=r+dr,x=c+dc;while(y!==nr||x!==nc){if(board[y][x])return false;y+=dr;x+=dc}return true}
- function legal(r,c,nr,nc){const p=board[r][c];if(!p||!inside(nr,nc)||color(p)!==turn)return false;const t=board[nr][nc];if(t&&color(t)===turn)return false;const dr=nr-r,dc=nc-c,a=p.toLowerCase();if(a==='p'){const d=turn==='w'?-1:1;if(dc===0&&!t&&(dr===d||(dr===2*d&&((turn==='w'&&r===6)||(turn==='b'&&r===1))&& !board[r+d][c])))return true;return Math.abs(dc)===1&&dr===d&&!!t&&color(t)!==turn}if(a==='n')return (Math.abs(dr)===2&&Math.abs(dc)===1)||(Math.abs(dr)===1&&Math.abs(dc)===2);if(a==='k')return Math.max(Math.abs(dr),Math.abs(dc))===1;if(a==='r')return (dr===0||dc===0)&&clearPath(r,c,nr,nc);if(a==='b')return Math.abs(dr)===Math.abs(dc)&&clearPath(r,c,nr,nc);if(a==='q')return (dr===0||dc===0||Math.abs(dr)===Math.abs(dc))&&clearPath(r,c,nr,nc);return false}
- function render(){b.innerHTML='';for(let r=0;r<8;r++)for(let c=0;c<8;c++){const d=document.createElement('div');d.className='cell';d.style.width='55px';d.style.height='55px';d.style.fontSize='34px';d.style.background=((r+c)%2?'#333':'#777');d.textContent=pieces[board[r][c]]||'';d.onclick=()=>{if(done)return;const p=board[r][c];if(selected){if(legal(selected[0],selected[1],r,c)){board[r][c]=board[selected[0]][selected[1]];board[selected[0]][selected[1]]='';if(p==='k'||p==='K'){done=true;setStatus('🏆 Checkmate! '+(turn==='w'?'White':'Black')+' wins!')}else{turn=turn==='w'?'b':'w';setStatus((turn==='w'?'White':'Black')+' turn')}}selected=null;render()}else if(p&&color(p)===turn){selected=[r,c];d.style.outline='3px solid #fff'}};b.appendChild(d)}}
- setStatus('♟️ Chess — White starts');setInstructions('Click a piece, then a destination. This is a simplified two-player chess game with legal basic piece movement and captures.');render()}
-
-function loadCheckers(){CURRENT_GAME={restart:startCheckers};startCheckers()}
-function startCheckers(){
- clearGame();
- const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(8,55px)';b.style.maxWidth='440px';GAME_CONTAINER.appendChild(b);
- let g=Array.from({length:8},()=>Array(8).fill(null)),turn='r',selected=null,forced=null,done=false;
- for(let r=0;r<3;r++)for(let c=0;c<8;c++)if((r+c)%2)g[r][c]='b';
- for(let r=5;r<8;r++)for(let c=0;c<8;c++)if((r+c)%2)g[r][c]='r';
- function enemy(p){return p&&p.toLowerCase()!=='x'&&p.toLowerCase()!==turn}
- function color(p){return p?p.toLowerCase():null}
- function isKing(p){return p&&p===p.toUpperCase()}
- function dirs(p){const d=isKing(p)?[-1,1]:(color(p)==='r'?[-1]:[1]);let a=[];d.forEach(dr=>a.push([dr,-1],[dr,1]));return a}
- function inside(r,c){return r>=0&&r<8&&c>=0&&c<8}
- function movesFor(r,c,captureOnly=false){const p=g[r][c],out=[];if(!p||color(p)!==turn)return out;for(const [dr,dc] of dirs(p)){const r1=r+dr,c1=c+dc,r2=r+2*dr,c2=c+2*dc;if(inside(r1,c1)&&!g[r1][c1]&&!captureOnly)out.push({r:r1,c:c1,jump:false});if(inside(r2,c2)&&!g[r2][c2]&&enemy(g[r1]?.[c1]))out.push({r:r2,c:c2,jump:true,cr:r1,cc:c1})}return out}
- function anyCapture(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(g[r][c]&&color(g[r][c])===turn&&movesFor(r,c,true).length)return true;return false}
- function playerHasMove(){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(g[r][c]&&color(g[r][c])===turn&&movesFor(r,c).length)return true;return false}
- function countPieces(side){let n=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(g[r][c]&&color(g[r][c])===side)n++;return n}
- function finishTurn(){const other=turn==='r'?'b':'r';if(countPieces(other)===0||!playerHasMoveFor(other)){done=true;setStatus('🏆 '+(turn==='r'?'🔴 Red':'⚫ Black')+' wins!');return}turn=other;selected=null;forced=null;if(anyCapture())setStatus((turn==='r'?'🔴 Red':'⚫ Black')+' turn — capture required');else setStatus((turn==='r'?'🔴 Red':'⚫ Black')+' turn')}
- function playerHasMoveFor(side){const old=turn;turn=side;const ok=playerHasMove();turn=old;return ok}
- function move(sr,sc,nr,nc){const opts=movesFor(sr,sc);const cap=anyCapture();const m=opts.find(x=>x.r===nr&&x.c===nc);if(!m|| (cap&&!m.jump))return false;const p=g[sr][sc];g[sr][sc]=null;g[nr][nc]=p;if(m.jump)g[m.cr][m.cc]=null;
-   let np=p;if(!isKing(np)&&((color(np)==='r'&&nr===0)||(color(np)==='b'&&nr===7))){np=np.toUpperCase();g[nr][nc]=np;setStatus('👑 King promoted!')}
-   if(m.jump){const more=movesFor(nr,nc,true);if(more.length){forced=[nr,nc];selected=forced;setStatus('🔄 Multiple jump available — continue capturing');return true}}
-   finishTurn();return true
- }
- function render(){b.innerHTML='';for(let r=0;r<8;r++)for(let c=0;c<8;c++){const d=document.createElement('div');d.className='cell';d.style.width='55px';d.style.height='55px';d.style.boxSizing='border-box';d.style.background=((r+c)%2?'#333':'#777');const p=g[r][c];d.textContent=p?(color(p)==='r'?'🔴':'⚫'):'';if(selected&&selected[0]===r&&selected[1]===c)d.style.outline='3px solid #fff';if(p&&isKing(p))d.textContent=color(p)==='r'?'👑':'♛';d.onclick=()=>{if(done)return;if(selected){if(r===selected[0]&&c===selected[1]&&!forced){selected=null;render();return}if(move(selected[0],selected[1],r,c)){render();return}if(!forced&&p&&color(p)===turn){selected=[r,c];render();return}setStatus('🚫 Illegal move');render();return}if(p&&color(p)===turn){if(anyCapture()&&movesFor(r,c,true).length===0){setStatus('⚠️ A capture is available — choose a capturing piece.');return}selected=[r,c];render()}};b.appendChild(d)}}
- setStatus('⛀ Checkers — 🔴 Red starts');setInstructions('Click a piece, then a diagonal square. Jump over an opponent to capture it. Captures are mandatory, multiple jumps continue automatically, and pieces become kings on the far side.');render()
+function gameFrame(fn){
+    const id=requestAnimationFrame(fn);
+    ANIMATION_FRAMES.push(id);
+    return id;
 }
-function loadBattleship(){CURRENT_GAME={restart:startBattleship};startBattleship()}
-function startBattleship(){clearGame();const box=document.createElement('div');box.style.maxWidth='600px';box.style.margin='auto';GAME_CONTAINER.appendChild(box);const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(8,45px)';box.appendChild(b);let ships=new Set();while(ships.size<10)ships.add(Math.floor(Math.random()*64));let shots=new Set(),hits=0,done=false;function render(){b.innerHTML='';for(let i=0;i<64;i++){const d=document.createElement('div');d.className='cell';d.style.width='45px';d.style.height='45px';d.style.fontSize='22px';d.textContent=shots.has(i)?(ships.has(i)?'💥':'•'):'?';d.onclick=()=>{if(done||shots.has(i))return;shots.add(i);if(ships.has(i))hits++;if(hits===10){done=true;setStatus('🏆 You sank the fleet!')}else setStatus(ships.has(i)?'💥 Hit!':'🌊 Miss!');render()};b.appendChild(d)}}setStatus('🚢 Battleship — Find 10 hidden ship spaces');setInstructions('Click squares to fire. Sink all 10 hidden ship spaces to win.');render()}
 
-function loadRisk(){CURRENT_GAME={restart:startRisk};startRisk()}
-function startRisk(){clearGame();const box=document.createElement('div');box.style.maxWidth='760px';box.style.margin='auto';GAME_CONTAINER.appendChild(box);const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(4,120px)';box.appendChild(b);const names=['North','South','East','West','Central','Coast','Plains','Mountains','Desert','Forest','Island','Capital'];let army=20,enemy=20,turn='you',done=false;function render(){b.innerHTML='';names.forEach((n,i)=>{const d=document.createElement('div');d.className='cell';d.style.width='120px';d.style.height='75px';d.style.fontSize='15px';d.textContent=n;d.onclick=()=>attack(i);b.appendChild(d)});setScores([{label:'Your Armies',value:army},{label:'Enemy Armies',value:enemy}])}function attack(i){if(done)return;const roll=Math.floor(Math.random()*6)+1,def=Math.floor(Math.random()*6)+1;if(roll>=def)enemy=Math.max(0,enemy-1);else army=Math.max(0,army-1);setStatus('⚔️ Territory '+names[i]+': you rolled '+roll+', enemy '+def+'.');if(enemy===0){done=true;setStatus('🏆 You conquered the map!')}else if(army===0){done=true;setStatus('💀 Your army was defeated.')}else{const enemyRoll=Math.floor(Math.random()*6)+1,enemyDef=Math.floor(Math.random()*6)+1;if(enemyRoll>enemyDef)army=Math.max(0,army-1);else enemy=Math.max(0,enemy-1);if(enemy===0){done=true;setStatus('🏆 You conquered the map!')}else if(army===0){done=true;setStatus('💀 Your army was defeated.')}}render()}setStatus('⚔️ Risk — Conquer territories');setInstructions('Click a territory to attack. Dice determine each battle; reduce the enemy army to zero to win.');render()}
+function setKeyHandler(fn){
+    if(KEY_HANDLER){
+        document.removeEventListener("keydown",KEY_HANDLER);
+    }
 
-function loadYahtzee(){CURRENT_GAME={restart:startYahtzee};startYahtzee()}
-function startYahtzee(){clearGame();const box=document.createElement('div');box.style.textAlign='center';GAME_CONTAINER.appendChild(box);let dice=[1,1,1,1,1],rolls=0,score=0,done=false;const diceBox=document.createElement('div');diceBox.style.display='flex';diceBox.style.justifyContent='center';diceBox.style.gap='10px';diceBox.style.flexWrap='wrap';box.appendChild(diceBox);const roll=createButton('🎲 Roll Dice',()=>{if(done||rolls>=3)return;rolls++;dice=dice.map(()=>1+Math.floor(Math.random()*6));const counts=dice.reduce((a,v)=>(a[v]=(a[v]||0)+1,a),{});score=Object.values(counts).sort((a,b)=>b-a).reduce((s,v)=>s+v*v,0);setScore('Score',score);setStatus(rolls<3?'Roll again or score this hand.':'Hand complete!');render()});box.appendChild(roll);const finish=createButton('🏆 Keep Score',()=>{done=true;setStatus('🏆 Final Yahtzee score: '+score);});finish.style.marginLeft='8px';box.appendChild(finish);function render(){diceBox.innerHTML='';dice.forEach(v=>{const d=document.createElement('div');d.style.fontSize='60px';d.textContent=['','⚀','⚁','⚂','⚃','⚄','⚅'][v];diceBox.appendChild(d)})}setStatus('🎲 Yahtzee');setInstructions('Roll up to three times. Your score rewards matching dice; keep the hand when ready.');render()}
+    KEY_HANDLER=fn;
+    document.addEventListener("keydown",KEY_HANDLER);
+}
 
-function loadLudo(){CURRENT_GAME={restart:startLudo};startLudo()}
-function startLudo(){clearGame();const box=document.createElement('div');box.style.textAlign='center';GAME_CONTAINER.appendChild(box);let pos=0,goal=30,rolls=0,done=false;const track=document.createElement('div');track.className='board';track.style.gridTemplateColumns='repeat(6,55px)';box.appendChild(track);function render(){track.innerHTML='';for(let i=0;i<goal;i++){const d=document.createElement('div');d.className='cell';d.style.width='55px';d.style.height='55px';d.textContent=i===pos?'🔴':(i+1);track.appendChild(d)}}const roll=createButton('🎲 Roll',()=>{if(done)return;const n=1+Math.floor(Math.random()*6);rolls++;pos=Math.min(goal-1,pos+n);setStatus('You rolled '+n+'.');if(pos>=goal-1){done=true;setStatus('🏆 You reached home!')}render()});box.appendChild(roll);setStatus('🟢 Ludo — Race to home');setInstructions('Roll the die and move your piece along the track. Reach the final space to win.');render()}
+function setStatus(text){
+    STATUS.textContent=text;
+}
 
-function loadMonopoly(){CURRENT_GAME={restart:startMonopoly};startMonopoly()}
-function startMonopoly(){clearGame();const box=document.createElement('div');box.style.maxWidth='800px';box.style.margin='auto';GAME_CONTAINER.appendChild(box);const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(4,120px)';box.appendChild(b);const spaces=['GO','Baltic','Tax','Reading','Jail','Electric','States','Virginia','Parking','St James','Water','Tennessee','Free','Kentucky','Indiana','Illinois'];let money=1500,pos=0,turn=0,owned=new Set(),done=false;function render(){b.innerHTML='';spaces.forEach((s,i)=>{const d=document.createElement('div');d.className='cell';d.style.width='120px';d.style.height='80px';d.style.fontSize='14px';d.textContent=s+(owned.has(i)?' 🏠':'');d.onclick=()=>buy(i);b.appendChild(d)});setScore('Cash','$'+money)}function buy(i){if(done)return;const price=100+(i%5)*50;if(i===0){money+=200;setStatus('💵 Passed GO! +$200');render();return}if(owned.has(i)){money+=50;setStatus('🏠 Rent collected: +$50');render();return}if(money>=price){money-=price;owned.add(i);setStatus('🏦 Bought '+spaces[i]+' for $'+price)}else{money-=100;setStatus('💸 You landed on a fee and paid $100')}if(money<=0){done=true;setStatus('💀 Bankrupt!')}render()}const roll=createButton('🎲 Roll Dice',()=>{if(done)return;const n=2+Math.floor(Math.random()*11);pos=(pos+n)%spaces.length;setStatus('Rolled '+n+' — landed on '+spaces[pos]+'. Click the space to resolve it.');render()});box.appendChild(roll);setStatus('🏦 Monopoly — Roll and build your properties');setInstructions('Roll the dice, land on spaces, buy properties, collect rent, and try not to go bankrupt. This is a simplified playable Monopoly-style game.');render()}
+function setInstructions(text){
+    document.getElementById("instructions-text").textContent=text;
+}
 
-/* ==================== OUTDOOR GAMES ==================== */
-function loadArchery(){CURRENT_GAME={restart:startArchery};startArchery()}
-function startArchery(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=500;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let score=0,shots=0,time=30,running=true,target;function next(){const r=28;return{x:100+r+Math.random()*(700-2*r-200),y:r+40+Math.random()*(500-2*r-80),r}}function draw(){x.fillStyle='#000';x.fillRect(0,0,700,500);if(running&&target){x.strokeStyle='#fff';x.lineWidth=5;[target.r,target.r*.66,target.r*.33].forEach(rr=>{x.beginPath();x.arc(target.x,target.y,rr,0,Math.PI*2);x.stroke()});x.beginPath();x.arc(target.x,target.y,5,0,Math.PI*2);x.fill()}setScores([{label:'Score',value:score},{label:'Shots',value:shots},{label:'Time',value:time}])}c.addEventListener('pointerdown',e=>{if(!running)return;const r=c.getBoundingClientRect(),sx=c.width/r.width,sy=c.height/r.height,px=(e.clientX-r.left)*sx,py=(e.clientY-r.top)*sy;shots++;const d=Math.hypot(px-target.x,py-target.y);if(d<=target.r*.33)score+=10;else if(d<=target.r*.66)score+=5;else if(d<=target.r)score+=2;target=next();setStatus('🏹 Shot '+shots+' — '+score+' points');draw()});gameInterval(()=>{if(!running)return;time--;if(time<=0){running=false;setStatus('🏆 Archery complete — '+score+' points from '+shots+' shots.')}draw()},1000);target=next();setStatus('🏹 Archery — Aim for the center!');setInstructions('Tap or click the target. Hit the center for 10 points, middle ring for 5, outer ring for 2.');draw()}
+function setScore(label,value){
+    SCOREBOARD.innerHTML=
+        `<div class="score">${label}<strong>${value}</strong></div>`;
+}
 
-function loadFishing(){CURRENT_GAME={restart:startFishing};startFishing()}
-function startFishing(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=450;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let score=0,catches=0,time=30,running=true,fish=[];function spawn(){if(running)fish.push({x:30+Math.random()*640,y:160+Math.random()*230,r:14+Math.random()*10,vx:(Math.random()<.5?-1:1)*(1+Math.random()*2)})}function draw(){x.fillStyle='#000';x.fillRect(0,0,700,450);x.fillStyle='#fff';x.fillRect(0,110,700,2);fish.forEach(f=>{x.beginPath();x.arc(f.x,f.y,f.r,0,Math.PI*2);x.fill();x.beginPath();x.moveTo(f.x-f.r,f.y);x.lineTo(f.x-f.r-12,f.y-8);x.lineTo(f.x-f.r-12,f.y+8);x.closePath();x.fill()});setScores([{label:'Fish',value:catches},{label:'Score',value:score},{label:'Time',value:time}])}c.addEventListener('pointerdown',e=>{if(!running)return;const r=c.getBoundingClientRect(),px=(e.clientX-r.left)*c.width/r.width,py=(e.clientY-r.top)*c.height/r.height;let best=-1,bd=40;fish.forEach((f,i)=>{const d=Math.hypot(px-f.x,py-f.y);if(d<bd){bd=d;best=i}});if(best>=0){fish.splice(best,1);catches++;score+=10;setStatus('🎣 Nice catch!');}else setStatus('🌊 No bite — cast again!');draw()});gameInterval(()=>{if(!running)return;time--;fish.forEach(f=>{f.x+=f.vx;if(f.x<-30)f.x=730;if(f.x>730)f.x=-30});if(time<=0){running=false;setStatus('🏆 Fishing complete — '+catches+' fish caught!')}draw()},1000);gameInterval(spawn,900);for(let i=0;i<4;i++)spawn();setStatus('🎣 Fishing — Catch as many fish as you can!');setInstructions('Tap or click a fish to catch it. You have 30 seconds.');draw()}
+function setScores(items){
+    SCOREBOARD.innerHTML=items.map(x=>
+        `<div class="score">${x.label}<strong>${x.value}</strong></div>`
+    ).join("");
+}
 
-function loadCamping(){CURRENT_GAME={restart:startCamping};startCamping()}
-function startCamping(){clearGame();const box=document.createElement('div');box.style.maxWidth='700px';box.style.margin='auto';GAME_CONTAINER.appendChild(box);const title=document.createElement('div');title.className='big-message';title.innerHTML='🏕️ <h2>Camp Setup Challenge</h2><p>Complete the campsite before nightfall.</p>';box.appendChild(title);const items=[['⛺','Pitch Tent'],['🔥','Build Fire'],['💧','Collect Water'],['🥫','Pack Food'],['🪵','Gather Wood'],['🔦','Set Lantern']];let done=0,seconds=45,running=true;const grid=document.createElement('div');grid.style.display='grid';grid.style.gridTemplateColumns='repeat(auto-fit,minmax(160px,1fr))';grid.style.gap='12px';box.appendChild(grid);items.forEach(([icon,name])=>{const b=createButton(icon+' '+name,()=>{if(!running||b.dataset.done)return;b.dataset.done='1';b.textContent='✅ '+name;done++;setStatus(done===items.length?'🏆 Campsite ready!':done+' of '+items.length+' tasks complete');if(done===items.length)running=false}) ;b.style.minHeight='70px';grid.appendChild(b)});const timer=gameInterval(()=>{if(!running)return;seconds--;setStatus('🏕️ '+done+'/'+items.length+' tasks complete — '+seconds+'s left');if(seconds<=0){running=false;if(done<items.length)setStatus('🌙 Night fell — campsite incomplete.')}},1000);setStatus('🏕️ Camping — Set up camp before time runs out!');setInstructions('Complete all six campsite tasks before the 45-second timer reaches zero.')}
+function clearGame(){
+    cleanupGame();
+    GAME_CONTAINER.innerHTML="";
+    SCOREBOARD.innerHTML="";
+}
 
-function loadDiscGolf(){CURRENT_GAME={restart:startDiscGolf};startDiscGolf()}
-function startDiscGolf(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=450;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let hole=1,strokes=0,total=0,disc={x:80,y:360},basket={x:620,y:90},moving=false,dx=0,dy=0;function draw(){x.fillStyle='#000';x.fillRect(0,0,700,450);x.strokeStyle='#fff';x.lineWidth=2;x.beginPath();x.moveTo(basket.x,basket.y);x.lineTo(basket.x,basket.y+55);x.stroke();x.beginPath();x.arc(basket.x,basket.y,22,0,Math.PI*2);x.stroke();x.beginPath();x.arc(disc.x,disc.y,12,0,Math.PI*2);x.stroke();setScores([{label:'Hole',value:hole+'/5'},{label:'Strokes',value:strokes},{label:'Total',value:total}])}function throwDisc(tx,ty){if(moving)return;strokes++;const vx=(tx-disc.x)*.08,vy=(ty-disc.y)*.08;dx=vx;dy=vy;moving=true;const id=gameInterval(()=>{disc.x+=dx;disc.y+=dy;dx*=.88;dy*=.88;if(Math.hypot(disc.x-basket.x,disc.y-basket.y)<24||Math.hypot(dx,dy)<.35){clearInterval(id);ACTIVE_INTERVALS=ACTIVE_INTERVALS.filter(v=>v!==id);moving=false;if(Math.hypot(disc.x-basket.x,disc.y-basket.y)<24){total+=strokes;setStatus(hole===5?'🏆 Course complete — '+total+' total strokes!':'⛳ Hole '+hole+' complete in '+strokes+' strokes!');if(hole<5){hole++;strokes=0;disc={x:80,y:360};basket={x:450+Math.random()*180,y:70+Math.random()*260}}else return}draw()}draw()},30);ACTIVE_INTERVALS.push(id)}c.addEventListener('pointerdown',e=>{if(hole>5||moving)return;const r=c.getBoundingClientRect(),tx=(e.clientX-r.left)*c.width/r.width,ty=(e.clientY-r.top)*c.height/r.height;throwDisc(tx,ty)});setStatus('🥏 Disc Golf — Throw toward the basket!');setInstructions('Click/tap where you want the disc to travel. Land near the basket to finish each hole.');draw()}
+function restartGame(){
+    if(CURRENT_GAME && typeof CURRENT_GAME.restart==="function"){
+        CURRENT_GAME.restart();
+    }else{
+        launchGame();
+    }
+}
 
-function loadTrailExplorer(){CURRENT_GAME={restart:startTrailExplorer};startTrailExplorer()}
-function startTrailExplorer(){clearGame();const box=document.createElement('div');box.style.maxWidth='700px';box.style.margin='auto';GAME_CONTAINER.appendChild(box);let energy=10,points=0,step=0,done=false;const choices=[['🥾 Hike uphill','-2','+3'],['💧 Drink water','+2','+1'],['🌲 Explore trail','-2','+4'],['📸 Take photo','-1','+2'],['🪨 Climb overlook','-3','+5'],['🏕️ Rest','+3','0']];const info=document.createElement('div');info.className='big-message';box.appendChild(info);const controls=document.createElement('div');controls.className='choice-buttons';box.appendChild(controls);function render(){info.innerHTML='<h2>🥾 Trail Explorer</h2><p>Choose actions and reach the summit with energy remaining.</p>';controls.innerHTML='';choices.forEach(([name,e,p])=>{const b=createButton(name,()=>{if(done)return;energy+=Number(e);points+=Number(p);step++;setStatus('Trail action complete.');if(energy<=0){done=true;setStatus('💀 You ran out of energy.')}else if(step>=8){done=true;setStatus('🏆 Summit reached! '+points+' trail points.')}render()});controls.appendChild(b)});setScores([{label:'Energy',value:energy},{label:'Trail Points',value:points},{label:'Steps',value:step+'/8'}])}setStatus('🥾 Trail Explorer — Choose your route');setInstructions('Choose trail actions wisely. Reach 8 actions without running out of energy.');render()}
+function button(text,fn,cls=""){
+    const b=document.createElement("button");
+    b.textContent=text;
+    if(cls)b.className=cls;
+    b.addEventListener("click",fn);
+    return b;
+}
 
-/* ==================== EXISTING NON-ARCADE ENGINES ==================== */
-function loadTicTacToe(){CURRENT_GAME={restart:startTicTacToe};startTicTacToe()}
-function startTicTacToe(){clearGame();const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(3,70px)';GAME_CONTAINER.appendChild(b);let a=Array(9).fill(''),turn='X',done=false;function win(){const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];for(const [i,j,k] of w)if(a[i]&&a[i]===a[j]&&a[i]===a[k])return a[i];return a.every(Boolean)?'draw':null}a.forEach((_,i)=>{const c=document.createElement('div');c.className='cell';c.onclick=()=>{if(done||a[i])return;a[i]=turn;c.textContent=turn;const r=win();if(r){done=true;setStatus(r==='draw'?'🤝 Draw!':'🏆 '+r+' wins!');return}turn=turn==='X'?'O':'X';setStatus('Player '+turn+"'s turn")};b.appendChild(c)});setStatus('⭕ Tic-Tac-Toe — X goes first');setInstructions('Click an empty square. Get three of your symbols in a row.')}
-function loadConnectFour(){CURRENT_GAME={restart:startConnectFour};startConnectFour()}
-function startConnectFour(){clearGame();const b=document.createElement('div');b.className='board';b.style.gridTemplateColumns='repeat(7,55px)';GAME_CONTAINER.appendChild(b);const R=6,C=7,g=Array.from({length:R},()=>Array(C).fill(''));let turn='🔴',done=false;function check(r,c){const p=g[r][c],ds=[[0,1],[1,0],[1,1],[1,-1]];for(const [dr,dc] of ds){let n=1;for(let d=1;d<4;d++){let y=r+dr*d,z=c+dc*d;if(y<0||y>=R||z<0||z>=C||g[y][z]!==p)break;n++}for(let d=1;d<4;d++){let y=r-dr*d,z=c-dc*d;if(y<0||y>=R||z<0||z>=C||g[y][z]!==p)break;n++}if(n>=4)return true}return false}function render(){b.innerHTML='';for(let r=0;r<R;r++)for(let c=0;c<C;c++){let d=document.createElement('div');d.className='cell';d.textContent=g[r][c];d.onclick=()=>{if(done)return;let pr=-1;for(let rr=R-1;rr>=0;rr--)if(!g[rr][c]){g[rr][c]=turn;pr=rr;break}if(pr<0)return;render();if(check(pr,c)){done=true;setStatus('🏆 '+turn+' wins!');return}if(g.every(row=>row.every(Boolean))){done=true;setStatus('🤝 Draw!');return}turn=turn==='🔴'?'🟡':'🔴';setStatus(turn+' turn')};b.appendChild(d)}}setStatus('🔴 Connect Four');setInstructions('Click a column to drop your piece. Connect four before your opponent.');render()}
-function loadRPS(){CURRENT_GAME={restart:startRPS};startRPS()}
-function startRPS(){clearGame();const a=document.createElement('div');a.className='big-message';a.innerHTML='<div style="font-size:80px">✊ ✋ ✌️</div><h2>Rock Paper Scissors</h2>';GAME_CONTAINER.appendChild(a);const controls=document.createElement('div');controls.className='choice-buttons';GAME_CONTAINER.appendChild(controls);const choices=['Rock','Paper','Scissors'],icons={Rock:'✊',Paper:'✋',Scissors:'✌️'};let ps=0,cs=0;choices.forEach(ch=>controls.appendChild(createButton(icons[ch]+' '+ch,()=>{const cpu=choices[Math.floor(Math.random()*3)];let result;if(ch===cpu)result='🤝 Draw!';else if((ch==='Rock'&&cpu==='Scissors')||(ch==='Paper'&&cpu==='Rock')||(ch==='Scissors'&&cpu==='Paper')){ps++;result='🏆 You win!'}else{cs++;result='💀 CPU wins!'}setStatus(result+' You chose '+ch+'. CPU chose '+cpu+'.');setScores([{label:'You',value:ps},{label:'CPU',value:cs}])})));setStatus('✊ Rock Paper Scissors');setInstructions('Choose Rock, Paper, or Scissors.')}
-function loadTargetShooter(){CURRENT_GAME={restart:startTargetShooter};startTargetShooter()}
-function startTargetShooter(){clearGame();const c=document.createElement('canvas');c.width=700;c.height=500;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d');let score=0,shots=0,time=20,running=true,target;function next(){return{x:45+Math.random()*610,y:45+Math.random()*410,r:28}}function draw(){x.fillStyle='#000';x.fillRect(0,0,700,500);if(running){x.fillStyle='#fff';x.beginPath();x.arc(target.x,target.y,target.r,0,Math.PI*2);x.fill();x.fillStyle='#000';x.beginPath();x.arc(target.x,target.y,9,0,Math.PI*2);x.fill()}setScores([{label:'Hits',value:score},{label:'Shots',value:shots}])}c.addEventListener('pointerdown',e=>{if(!running)return;const r=c.getBoundingClientRect(),sx=c.width/r.width,sy=c.height/r.height,px=(e.clientX-r.left)*sx,py=(e.clientY-r.top)*sy;shots++;if(Math.hypot(px-target.x,py-target.y)<=target.r){score++;target=next()}draw()});gameInterval(()=>{if(!running)return;time--;setStatus('🎯 Time remaining: '+time+' seconds');if(time<=0){running=false;setStatus('🏆 Finished! '+score+' hits from '+shots+' shots.')}draw()},1000);target=next();setStatus('🎯 Target Shooter');setInstructions('Click or tap the target as quickly as possible before time runs out.');draw()}
-function loadDodge(){CURRENT_GAME={restart:startDodge};startDodge()}
-function startDodge(){clearGame();const c=document.createElement('canvas');c.width=600;c.height=500;GAME_CONTAINER.appendChild(c);const x=c.getContext('2d'),p={x:285,y:440,size:30};let enemies=[],score=0,running=true;function spawn(){if(running)enemies.push({x:Math.random()*570,y:-30,size:30,speed:2+Math.random()*3})}function hit(a,b){return a.x<b.x+b.size&&a.x+a.size>b.x&&a.y<b.y+b.size&&a.y+a.size>b.y}function draw(){x.fillStyle='#000';x.fillRect(0,0,600,500);x.fillStyle='#fff';x.fillRect(p.x,p.y,p.size,p.size);enemies.forEach(e=>x.fillRect(e.x,e.y,e.size,e.size));setScore('Survival',Math.floor(score/10))}function update(){if(!running)return;enemies.forEach(e=>{e.y+=e.speed;if(hit(p,e)){running=false;setStatus('💀 Game Over! Survival: '+Math.floor(score/10))}});enemies=enemies.filter(e=>e.y<550);score++;draw();if(running)gameFrame(update)}setKeyHandler(e=>{if(e.key==='ArrowLeft')p.x-=25;if(e.key==='ArrowRight')p.x+=25;p.x=Math.max(0,Math.min(570,p.x))});setStatus('🥊 Dodge');setInstructions('Use Arrow Left and Arrow Right to dodge the falling blocks.');gameInterval(spawn,650);draw();update()}
-function loadTrivia(){CURRENT_GAME={restart:startTrivia};startTrivia()}
-function startTrivia(){clearGame();const qs=[['What planet do humans live on?',['Earth','Mars','Venus','Jupiter'],0],['How many days are in a week?',['5','6','7','8'],2],['What is 5 + 5?',['8','9','10','15'],2],['Which animal is known as man\'s best friend?',['Cat','Dog','Horse','Bird'],1],['Which ocean is the largest?',['Atlantic','Indian','Pacific','Arctic'],2],['How many continents are there?',['5','6','7','8'],2],['What gas do humans need to breathe?',['Oxygen','Helium','Hydrogen','Carbon dioxide'],0],['What is the largest land animal?',['Lion','Elephant','Giraffe','Rhino'],1],['How many sides does a triangle have?',['2','3','4','5'],1],['What color do you get by mixing red and blue?',['Green','Orange','Purple','Yellow'],2]];let i=0,score=0;function render(){GAME_CONTAINER.innerHTML='';if(i>=qs.length){setStatus('🏆 Trivia Complete!');GAME_CONTAINER.innerHTML='<div class="big-message"><div style="font-size:70px">🏆</div><h2>Final Score</h2><strong>'+score+'/'+qs.length+'</strong></div>';setScore('Final Score',score+'/'+qs.length);return}const q=qs[i],box=document.createElement('div');box.className='question';const h=document.createElement('h2');h.textContent=q[0];box.appendChild(h);const ans=document.createElement('div');ans.className='answers';q[1].forEach((v,n)=>ans.appendChild(createButton(v,()=>{if(n===q[2]){score++;setStatus('✅ Correct!')}else setStatus('❌ Incorrect! Correct answer: '+q[1][q[2]]);setScore('Score',score);gameTimeout(()=>{i++;render()},800)})));box.appendChild(ans);GAME_CONTAINER.appendChild(box);setScore('Score',score);setStatus('🧠 Trivia — Question '+(i+1)+'/'+qs.length)}setInstructions('Choose the correct answer.');render()}
+function canvas(width,height){
+    const c=document.createElement("canvas");
+    c.width=width;
+    c.height=height;
+    GAME_CONTAINER.appendChild(c);
+    return c;
+}
+
+function pointerPosition(c,e){
+    const r=c.getBoundingClientRect();
+    return {
+        x:(e.clientX-r.left)*(c.width/r.width),
+        y:(e.clientY-r.top)*(c.height/r.height)
+    };
+}
+
+/* =========================================================
+   SNAKE
+========================================================= */
+
+function loadSnake(){
+    clearGame();
+
+    const c=canvas(420,420);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Use the arrow keys or swipe the game area. Eat the food and avoid yourself.");
+
+    let snake,food,dir,nextDir,score,gameOver;
+
+    function reset(){
+        snake=[
+            {x:10,y:10},
+            {x:9,y:10},
+            {x:8,y:10}
+        ];
+        food=randomFood();
+        dir={x:1,y:0};
+        nextDir={x:1,y:0};
+        score=0;
+        gameOver=false;
+        setScore("Score",score);
+    }
+
+    function randomFood(){
+        return {
+            x:Math.floor(Math.random()*21),
+            y:Math.floor(Math.random()*21)
+        };
+    }
+
+    function change(x,y){
+        if(x===-dir.x && y===-dir.y)return;
+        nextDir={x,y};
+    }
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowUp")change(0,-1);
+        if(e.key==="ArrowDown")change(0,1);
+        if(e.key==="ArrowLeft")change(-1,0);
+        if(e.key==="ArrowRight")change(1,0);
+    });
+
+    let sx=0,sy=0;
+
+    c.addEventListener("touchstart",e=>{
+        const t=e.touches[0];
+        sx=t.clientX;
+        sy=t.clientY;
+    },{passive:true});
+
+    c.addEventListener("touchend",e=>{
+        const t=e.changedTouches[0];
+        const dx=t.clientX-sx;
+        const dy=t.clientY-sy;
+
+        if(Math.abs(dx)>Math.abs(dy)){
+            change(dx>0?1:-1,0);
+        }else{
+            change(0,dy>0?1:-1);
+        }
+    },{passive:true});
+
+    function tick(){
+        if(gameOver)return;
+
+        dir=nextDir;
+
+        const head={
+            x:snake[0].x+dir.x,
+            y:snake[0].y+dir.y
+        };
+
+        if(
+            head.x<0 ||
+            head.y<0 ||
+            head.x>=21 ||
+            head.y>=21 ||
+            snake.some(p=>p.x===head.x&&p.y===head.y)
+        ){
+            gameOver=true;
+            setStatus("Game Over — press Restart");
+            return;
+        }
+
+        snake.unshift(head);
+
+        if(head.x===food.x&&head.y===food.y){
+            score++;
+            food=randomFood();
+            setScore("Score",score);
+        }else{
+            snake.pop();
+        }
+
+        draw();
+    }
+
+    function draw(){
+        ctx.clearRect(0,0,420,420);
+
+        ctx.fillStyle="#080808";
+        ctx.fillRect(0,0,420,420);
+
+        ctx.fillStyle="#fff";
+        ctx.fillRect(food.x*20+2,food.y*20+2,16,16);
+
+        ctx.fillStyle="#777";
+        snake.forEach(p=>{
+            ctx.fillRect(p.x*20+2,p.y*20+2,16,16);
+        });
+    }
+
+    reset();
+    setStatus("Playing");
+    gameInterval(tick,120);
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadSnake();
+        }
+    };
+}
+
+/* =========================================================
+   PONG
+========================================================= */
+
+function loadPong(){
+    clearGame();
+
+    const c=canvas(700,420);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Move your paddle with W/S, Arrow Up/Down, or touch/drag on the right side.");
+
+    let py=170;
+    let ai=170;
+    let bx=350,by=210;
+    let vx=5,vy=3;
+    let playerScore=0,aiScore=0;
+
+    function resetBall(direction){
+        bx=350;
+        by=210;
+        vx=5*direction;
+        vy=(Math.random()-.5)*6;
+    }
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowUp"||e.key.toLowerCase()==="w")py-=28;
+        if(e.key==="ArrowDown"||e.key.toLowerCase()==="s")py+=28;
+        py=Math.max(0,Math.min(340,py));
+    });
+
+    c.addEventListener("pointermove",e=>{
+        const p=pointerPosition(c,e);
+        py=p.y-45;
+        py=Math.max(0,Math.min(340,py));
+    });
+
+    function tick(){
+        bx+=vx;
+        by+=vy;
+
+        if(by<8||by>412)vy*=-1;
+
+        ai+=(by-45-ai)*.075;
+
+        if(
+            bx<40 &&
+            bx>25 &&
+            by>py &&
+            by<py+90
+        ){
+            vx=Math.abs(vx);
+        }
+
+        if(
+            bx>660 &&
+            bx<675 &&
+            by>ai &&
+            by<ai+90
+        ){
+            vx=-Math.abs(vx);
+        }
+
+        if(bx<0){
+            aiScore++;
+            resetBall(1);
+        }
+
+        if(bx>700){
+            playerScore++;
+            resetBall(-1);
+        }
+
+        setScores([
+            {label:"You",value:playerScore},
+            {label:"CPU",value:aiScore}
+        ]);
+
+        draw();
+    }
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,700,420);
+
+        ctx.setLineDash([8,10]);
+        ctx.strokeStyle="#444";
+        ctx.beginPath();
+        ctx.moveTo(350,0);
+        ctx.lineTo(350,420);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle="#fff";
+        ctx.fillRect(20,py,20,90);
+        ctx.fillRect(660,ai,20,90);
+        ctx.beginPath();
+        ctx.arc(bx,by,10,0,Math.PI*2);
+        ctx.fill();
+    }
+
+    setStatus("Playing");
+    gameInterval(tick,16);
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadPong();
+        }
+    };
+}
+
+/* =========================================================
+   BREAKOUT
+========================================================= */
+
+function loadBreakout(){
+    clearGame();
+
+    const c=canvas(700,500);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Move the paddle with Arrow Keys or touch/drag. Break every block.");
+
+    let paddleX=300;
+    let ball={x:350,y:430,vx:4,vy:-4};
+    let score=0;
+    let over=false;
+
+    const bricks=[];
+
+    for(let r=0;r<5;r++){
+        for(let col=0;col<10;col++){
+            bricks.push({
+                x:10+col*68,
+                y:30+r*30,
+                w:58,
+                h:20,
+                alive:true
+            });
+        }
+    }
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowLeft")paddleX-=35;
+        if(e.key==="ArrowRight")paddleX+=35;
+        paddleX=Math.max(0,Math.min(600,paddleX));
+    });
+
+    c.addEventListener("pointermove",e=>{
+        paddleX=pointerPosition(c,e).x-50;
+        paddleX=Math.max(0,Math.min(600,paddleX));
+    });
+
+    function tick(){
+        if(over)return;
+
+        ball.x+=ball.vx;
+        ball.y+=ball.vy;
+
+        if(ball.x<8||ball.x>692)ball.vx*=-1;
+        if(ball.y<8)ball.vy*=-1;
+
+        if(
+            ball.y>450 &&
+            ball.x>paddleX &&
+            ball.x<paddleX+100 &&
+            ball.vy>0
+        ){
+            ball.vy=-Math.abs(ball.vy);
+            ball.vx+=(ball.x-(paddleX+50))/25;
+        }
+
+        for(const b of bricks){
+            if(
+                b.alive &&
+                ball.x>b.x &&
+                ball.x<b.x+b.w &&
+                ball.y>b.y &&
+                ball.y<b.y+b.h
+            ){
+                b.alive=false;
+                ball.vy*=-1;
+                score++;
+                break;
+            }
+        }
+
+        if(ball.y>500){
+            over=true;
+            setStatus("Game Over — press Restart");
+        }
+
+        if(score===bricks.length){
+            over=true;
+            setStatus("🏆 You cleared the board!");
+        }
+
+        setScore("Blocks",score);
+        draw();
+    }
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,700,500);
+
+        bricks.forEach(b=>{
+            if(b.alive){
+                ctx.fillStyle="#fff";
+                ctx.fillRect(b.x,b.y,b.w,b.h);
+            }
+        });
+
+        ctx.fillStyle="#aaa";
+        ctx.fillRect(paddleX,465,100,15);
+
+        ctx.fillStyle="#fff";
+        ctx.beginPath();
+        ctx.arc(ball.x,ball.y,8,0,Math.PI*2);
+        ctx.fill();
+    }
+
+    setStatus("Playing");
+    gameInterval(tick,16);
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadBreakout();
+        }
+    };
+}
+
+/* =========================================================
+   TETRIS
+========================================================= */
+
+function loadTetris(){
+    clearGame();
+
+    const c=canvas(300,600);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Use Arrow Keys or the mobile buttons. Swipe left/right to move, swipe down to drop.");
+
+    const W=10,H=20;
+    const board=Array.from({length:H},()=>Array(W).fill(0));
+
+    const shapes=[
+        [[1,1,1,1]],
+        [[1,1],[1,1]],
+        [[0,1,0],[1,1,1]],
+        [[1,0,0],[1,1,1]],
+        [[0,0,1],[1,1,1]],
+        [[1,1,0],[0,1,1]],
+        [[0,1,1],[1,1,0]]
+    ];
+
+    let piece=null;
+    let x=3,y=0;
+    let score=0;
+    let over=false;
+
+    function newPiece(){
+        piece=shapes[Math.floor(Math.random()*shapes.length)].map(r=>r.slice());
+        x=3;
+        y=0;
+
+        if(collides(x,y,piece)){
+            over=true;
+            setStatus("Game Over — press Restart");
+        }
+    }
+
+    function collides(px,py,p){
+        for(let r=0;r<p.length;r++){
+            for(let col=0;col<p[r].length;col++){
+                if(!p[r][col])continue;
+
+                const xx=px+col;
+                const yy=py+r;
+
+                if(xx<0||xx>=W||yy>=H)return true;
+                if(yy>=0&&board[yy][xx])return true;
+            }
+        }
+        return false;
+    }
+
+    function merge(){
+        piece.forEach((row,r)=>{
+            row.forEach((v,col)=>{
+                if(v)board[y+r][x+col]=1;
+            });
+        });
+    }
+
+    function clearLines(){
+        let lines=0;
+
+        for(let r=H-1;r>=0;r--){
+            if(board[r].every(Boolean)){
+                board.splice(r,1);
+                board.unshift(Array(W).fill(0));
+                lines++;
+                r++;
+            }
+        }
+
+        score+=lines*100;
+    }
+
+    function rotate(){
+        const p=piece;
+        const rotated=p[0].map((_,i)=>p.map(row=>row[i]).reverse());
+
+        if(!collides(x,y,rotated)){
+            piece=rotated;
+        }
+    }
+
+    function drop(){
+        if(over)return;
+
+        if(!collides(x,y+1,piece)){
+            y++;
+        }else{
+            merge();
+            clearLines();
+            newPiece();
+        }
+
+        setScore("Score",score);
+        draw();
+    }
+
+    setKeyHandler(e=>{
+        if(over)return;
+
+        if(e.key==="ArrowLeft"&&!collides(x-1,y,piece))x--;
+        if(e.key==="ArrowRight"&&!collides(x+1,y,piece))x++;
+        if(e.key==="ArrowDown")drop();
+        if(e.key==="ArrowUp")rotate();
+        if(e.key===" ")while(!collides(x,y+1,piece))y++;
+    });
+
+    const controls=document.createElement("div");
+    controls.className="mobile-pad";
+
+    controls.append(
+        button("↺",rotate),
+        button("⬇",drop),
+        button("↻",rotate),
+        button("⬅",()=>{
+            if(!collides(x-1,y,piece))x--;
+        }),
+        button("⏬",()=>{
+            while(!collides(x,y+1,piece))y++;
+            drop();
+        }),
+        button("➡",()=>{
+            if(!collides(x+1,y,piece))x++;
+        })
+    );
+
+    GAME_CONTAINER.appendChild(controls);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,300,600);
+
+        const cell=30;
+
+        for(let r=0;r<H;r++){
+            for(let col=0;col<W;col++){
+                if(board[r][col]){
+                    ctx.fillStyle="#fff";
+                    ctx.fillRect(col*cell+1,r*cell+1,28,28);
+                }
+            }
+        }
+
+        if(piece){
+            piece.forEach((row,r)=>{
+                row.forEach((v,col)=>{
+                    if(v){
+                        ctx.fillStyle="#aaa";
+                        ctx.fillRect((x+col)*cell+1,(y+r)*cell+1,28,28);
+                    }
+                });
+            });
+        }
+    }
+
+    newPiece();
+    setStatus("Playing");
+    gameInterval(drop,600);
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadTetris();
+        }
+    };
+}
+
+/* =========================================================
+   FLAPPY
+========================================================= */
+
+function loadFlappy(){
+    clearGame();
+
+    const c=canvas(400,600);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Tap the screen, click, or press Space to flap through the gaps.");
+
+    let birdY=300;
+    let velocity=0;
+    let pipes=[];
+    let score=0;
+    let dead=false;
+
+    function flap(){
+        if(dead)return;
+        velocity=-7;
+    }
+
+    setKeyHandler(e=>{
+        if(e.code==="Space")flap();
+    });
+
+    c.addEventListener("pointerdown",flap);
+
+    function addPipe(){
+        const gap=155;
+        const top=80+Math.random()*260;
+
+        pipes.push({
+            x:400,
+            top,
+            gap,
+            passed:false
+        });
+    }
+
+    addPipe();
+
+    gameInterval(()=>{
+        if(dead)return;
+
+        velocity+=.35;
+        birdY+=velocity;
+
+        pipes.forEach(p=>{
+            p.x-=3;
+
+            if(!p.passed&&p.x<70){
+                p.passed=true;
+                score++;
+            }
+
+            if(
+                65>p.x &&
+                35<p.x+55 &&
+                (birdY<p.top || birdY>p.top+p.gap)
+            ){
+                dead=true;
+            }
+        });
+
+        pipes=pipes.filter(p=>p.x>-70);
+
+        if(pipes.length<3)addPipe();
+
+        if(birdY<0||birdY>600)dead=true;
+
+        setScore("Score",score);
+
+        if(dead){
+            setStatus("Game Over — tap Restart");
+        }
+
+        draw();
+    },20);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,400,600);
+
+        ctx.fillStyle="#777";
+
+        pipes.forEach(p=>{
+            ctx.fillRect(p.x,0,55,p.top);
+            ctx.fillRect(
+                p.x,
+                p.top+p.gap,
+                55,
+                600-(p.top+p.gap)
+            );
+        });
+
+        ctx.fillStyle="#fff";
+        ctx.beginPath();
+        ctx.arc(55,birdY,15,0,Math.PI*2);
+        ctx.fill();
+    }
+
+    setStatus("Playing");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadFlappy();
+        }
+    };
+}
+
+/* =========================================================
+   SPACE INVADERS
+========================================================= */
+
+function loadSpaceInvaders(){
+    clearGame();
+
+    const c=canvas(600,500);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Move with Arrow Keys or A/D. Tap the screen to shoot.");
+
+    let playerX=280;
+    let bullets=[];
+    let enemies=[];
+    let score=0;
+    let over=false;
+
+    for(let r=0;r<4;r++){
+        for(let col=0;col<8;col++){
+            enemies.push({
+                x:70+col*60,
+                y:50+r*45,
+                alive:true
+            });
+        }
+    }
+
+    let enemyDirection=1;
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")
+            playerX-=25;
+
+        if(e.key==="ArrowRight"||e.key.toLowerCase()==="d")
+            playerX+=25;
+
+        if(e.code==="Space")shoot();
+
+        playerX=Math.max(20,Math.min(530,playerX));
+    });
+
+    c.addEventListener("pointerdown",shoot);
+
+    function shoot(){
+        if(over)return;
+        bullets.push({x:playerX+20,y:450});
+    }
+
+    gameInterval(()=>{
+        if(over)return;
+
+        bullets.forEach(b=>b.y-=8);
+
+        const living=enemies.filter(e=>e.alive);
+
+        if(living.length){
+            const min=Math.min(...living.map(e=>e.x));
+            const max=Math.max(...living.map(e=>e.x));
+
+            if(max>560||min<20){
+                enemyDirection*=-1;
+                living.forEach(e=>e.y+=20);
+            }
+
+            living.forEach(e=>e.x+=enemyDirection);
+        }
+
+        bullets.forEach(b=>{
+            enemies.forEach(e=>{
+                if(
+                    e.alive &&
+                    b.x>e.x &&
+                    b.x<e.x+35 &&
+                    b.y>e.y &&
+                    b.y<e.y+25
+                ){
+                    e.alive=false;
+                    b.y=-100;
+                    score++;
+                }
+            });
+        });
+
+        if(enemies.some(e=>e.alive&&e.y>430)){
+            over=true;
+            setStatus("Invaders reached you!");
+        }
+
+        if(enemies.every(e=>!e.alive)){
+            over=true;
+            setStatus("🏆 You defeated the invaders!");
+        }
+
+        setScore("Score",score);
+        draw();
+    },30);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,600,500);
+
+        ctx.fillStyle="#fff";
+
+        enemies.forEach(e=>{
+            if(e.alive)ctx.fillRect(e.x,e.y,35,25);
+        });
+
+        bullets.forEach(b=>{
+            ctx.fillRect(b.x,b.y,4,15);
+        });
+
+        ctx.fillRect(playerX,465,40,18);
+    }
+
+    setStatus("Playing");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadSpaceInvaders();
+        }
+    };
+}
+
+/* =========================================================
+   ASTEROIDS
+========================================================= */
+
+function loadAsteroids(){
+    clearGame();
+
+    const c=canvas(600,500);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Arrow Left/Right rotate, Up thrusts, Space shoots. On mobile use the buttons.");
+
+    let ship={
+        x:300,y:250,a:-Math.PI/2,
+        vx:0,vy:0
+    };
+
+    let bullets=[];
+    let rocks=[];
+    let score=0;
+
+    for(let i=0;i<8;i++){
+        rocks.push({
+            x:Math.random()*600,
+            y:Math.random()*500,
+            vx:(Math.random()-.5)*2,
+            vy:(Math.random()-.5)*2,
+            r:20
+        });
+    }
+
+    let left=false,right=false,thrust=false;
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowLeft")left=true;
+        if(e.key==="ArrowRight")right=true;
+        if(e.key==="ArrowUp")thrust=true;
+        if(e.code==="Space")shoot();
+
+        if(e.type==="keyup"){
+            if(e.key==="ArrowLeft")left=false;
+            if(e.key==="ArrowRight")right=false;
+            if(e.key==="ArrowUp")thrust=false;
+        }
+    });
+
+    function shoot(){
+        bullets.push({
+            x:ship.x,
+            y:ship.y,
+            vx:Math.cos(ship.a)*7,
+            vy:Math.sin(ship.a)*7
+        });
+    }
+
+    const controls=document.createElement("div");
+    controls.className="choice-row";
+
+    const L=button("⬅",()=>left=true);
+    const T=button("🔥",()=>thrust=true);
+    const R=button("➡",()=>right=true);
+    const S=button("🚀",shoot,"primary");
+
+    function release(){
+        left=false;
+        right=false;
+        thrust=false;
+    }
+
+    [L,T,R].forEach(b=>{
+        b.addEventListener("pointerdown",()=>{});
+        b.addEventListener("pointerup",release);
+        b.addEventListener("pointercancel",release);
+    });
+
+    controls.append(L,T,R,S);
+    GAME_CONTAINER.appendChild(controls);
+
+    function wrap(o){
+        if(o.x<0)o.x=600;
+        if(o.x>600)o.x=0;
+        if(o.y<0)o.y=500;
+        if(o.y>500)o.y=0;
+    }
+
+    gameInterval(()=>{
+        if(left)ship.a-=.08;
+        if(right)ship.a+=.08;
+
+        if(thrust){
+            ship.vx+=Math.cos(ship.a)*.12;
+            ship.vy+=Math.sin(ship.a)*.12;
+        }
+
+        ship.x+=ship.vx;
+        ship.y+=ship.vy;
+
+        ship.vx*=.99;
+        ship.vy*=.99;
+
+        wrap(ship);
+
+        bullets.forEach(b=>{
+            b.x+=b.vx;
+            b.y+=b.vy;
+            wrap(b);
+        });
+
+        rocks.forEach(r=>{
+            r.x+=r.vx;
+            r.y+=r.vy;
+            wrap(r);
+        });
+
+        bullets=bullets.filter(b=>!b.hit);
+
+        bullets.forEach(b=>{
+            rocks.forEach(r=>{
+                const d=Math.hypot(b.x-r.x,b.y-r.y);
+
+                if(d<r.r){
+                    b.hit=true;
+                    r.hit=true;
+                    score++;
+                }
+            });
+        });
+
+        rocks=rocks.filter(r=>!r.hit);
+
+        if(rocks.length===0){
+            setStatus("🏆 Sector cleared!");
+        }
+
+        setScore("Asteroids",score);
+        draw();
+    },20);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,600,500);
+
+        ctx.fillStyle="#fff";
+
+        rocks.forEach(r=>{
+            ctx.beginPath();
+            ctx.arc(r.x,r.y,r.r,0,Math.PI*2);
+            ctx.stroke();
+        });
+
+        bullets.forEach(b=>{
+            ctx.fillRect(b.x,b.y,4,4);
+        });
+
+        ctx.save();
+        ctx.translate(ship.x,ship.y);
+        ctx.rotate(ship.a);
+
+        ctx.beginPath();
+        ctx.moveTo(18,0);
+        ctx.lineTo(-15,-11);
+        ctx.lineTo(-10,0);
+        ctx.lineTo(-15,11);
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    setStatus("Playing");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadAsteroids();
+        }
+    };
+}
+
+/* =========================================================
+   PAC-MAN STYLE
+========================================================= */
+
+function loadPacman(){
+    clearGame();
+
+    const c=canvas(420,420);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Use Arrow Keys or swipe. Eat all dots and avoid the ghost.");
+
+    const size=21;
+    const grid=Array.from({length:size},()=>Array(size).fill(1));
+
+    for(let y=1;y<size-1;y++){
+        for(let x=1;x<size-1;x++){
+            grid[y][x]=0;
+        }
+    }
+
+    for(let i=2;i<19;i+=2){
+        for(let y=2;y<19;y++){
+            if(y!==10)grid[y][i]=1;
+        }
+    }
+
+    let player={x:1,y:1};
+    let ghost={x:19,y:19};
+    let dir={x:1,y:0};
+    let score=0;
+
+    function change(x,y){
+        const nx=player.x+x;
+        const ny=player.y+y;
+
+        if(grid[ny]&&grid[ny][nx]===0){
+            dir={x,y};
+        }
+    }
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowUp")change(0,-1);
+        if(e.key==="ArrowDown")change(0,1);
+        if(e.key==="ArrowLeft")change(-1,0);
+        if(e.key==="ArrowRight")change(1,0);
+    });
+
+    let sx,sy;
+
+    c.addEventListener("touchstart",e=>{
+        sx=e.touches[0].clientX;
+        sy=e.touches[0].clientY;
+    },{passive:true});
+
+    c.addEventListener("touchend",e=>{
+        const t=e.changedTouches[0];
+        const dx=t.clientX-sx;
+        const dy=t.clientY-sy;
+
+        if(Math.abs(dx)>Math.abs(dy))
+            change(dx>0?1:-1,0);
+        else
+            change(0,dy>0?1:-1);
+    },{passive:true});
+
+    let dots=0;
+
+    for(let y=0;y<size;y++){
+        for(let x=0;x<size;x++){
+            if(grid[y][x]===0)dots++;
+        }
+    }
+
+    gameInterval(()=>{
+        const nx=player.x+dir.x;
+        const ny=player.y+dir.y;
+
+        if(grid[ny]&&grid[ny][nx]===0){
+            player.x=nx;
+            player.y=ny;
+
+            if(grid[ny][nx]===0){
+                grid[ny][nx]=2;
+                score++;
+                dots--;
+            }
+        }
+
+        const choices=[
+            {x:1,y:0},
+            {x:-1,y:0},
+            {x:0,y:1},
+            {x:0,y:-1}
+        ].filter(d=>{
+            const x=ghost.x+d.x;
+            const y=ghost.y+d.y;
+            return grid[y]&&grid[y][x]===0;
+        });
+
+        if(choices.length){
+            choices.sort((a,b)=>{
+                const da=Math.abs((ghost.x+a.x)-player.x)+Math.abs((ghost.y+a.y)-player.y);
+                const db=Math.abs((ghost.x+b.x)-player.x)+Math.abs((ghost.y+b.y)-player.y);
+                return da-db;
+            });
+
+            const g=choices[0];
+            ghost.x+=g.x;
+            ghost.y+=g.y;
+        }
+
+        if(player.x===ghost.x&&player.y===ghost.y){
+            setStatus("👻 Caught! Press Restart");
+            cleanupGame();
+        }
+
+        if(dots<=0){
+            setStatus("🏆 You cleared the maze!");
+            cleanupGame();
+        }
+
+        setScore("Dots",score);
+        draw();
+    },180);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,420,420);
+
+        const cell=20;
+
+        for(let y=0;y<size;y++){
+            for(let x=0;x<size;x++){
+                if(grid[y][x]===1){
+                    ctx.fillStyle="#444";
+                    ctx.fillRect(x*cell,y*cell,cell,cell);
+                }else if(grid[y][x]===0){
+                    ctx.fillStyle="#fff";
+                    ctx.fillRect(x*cell+8,y*cell+8,4,4);
+                }
+            }
+        }
+
+        ctx.fillStyle="#fff";
+        ctx.beginPath();
+        ctx.arc(player.x*cell+10,player.y*cell+10,7,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle="#aaa";
+        ctx.beginPath();
+        ctx.arc(ghost.x*cell+10,ghost.y*cell+10,8,0,Math.PI*2);
+        ctx.fill();
+    }
+
+    setStatus("Playing");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadPacman();
+        }
+    };
+}
+
+/* =========================================================
+   2048
+========================================================= */
+
+function load2048(){
+    clearGame();
+
+    setInstructions("Swipe or use Arrow Keys to combine matching numbers. Reach 2048.");
+
+    const board=Array.from({length:4},()=>Array(4).fill(0));
+    let score=0;
+
+    const area=document.createElement("div");
+    area.style.width="min(100%,420px)";
+    area.style.display="grid";
+    area.style.gridTemplateColumns="repeat(4,1fr)";
+    area.style.gap="7px";
+    area.style.background="#222";
+    area.style.padding="7px";
+    area.style.borderRadius="12px";
+
+    const cells=[];
+
+    for(let i=0;i<16;i++){
+        const d=document.createElement("div");
+        d.style.aspectRatio="1";
+        d.style.display="flex";
+        d.style.alignItems="center";
+        d.style.justifyContent="center";
+        d.style.background="#333";
+        d.style.borderRadius="8px";
+        d.style.fontSize="clamp(22px,7vw,38px)";
+        d.style.fontWeight="900";
+        cells.push(d);
+        area.appendChild(d);
+    }
+
+    GAME_CONTAINER.appendChild(area);
+
+    function add(){
+        const empty=[];
+
+        for(let r=0;r<4;r++)
+            for(let c=0;c<4;c++)
+                if(!board[r][c])empty.push([r,c]);
+
+        if(!empty.length)return;
+
+        const [r,c]=empty[Math.floor(Math.random()*empty.length)];
+        board[r][c]=Math.random()<.9?2:4;
+    }
+
+    function slideLine(line){
+        line=line.filter(Boolean);
+
+        for(let i=0;i<line.length-1;i++){
+            if(line[i]===line[i+1]){
+                line[i]*=2;
+                score+=line[i];
+                line.splice(i+1,1);
+            }
+        }
+
+        while(line.length<4)line.push(0);
+
+        return line;
+    }
+
+    function move(direction){
+        const before=JSON.stringify(board);
+
+        if(direction==="left"){
+            for(let r=0;r<4;r++)
+                board[r]=slideLine(board[r]);
+        }
+
+        if(direction==="right"){
+            for(let r=0;r<4;r++)
+                board[r]=slideLine(board[r].reverse()).reverse();
+        }
+
+        if(direction==="up"){
+            for(let c=0;c<4;c++){
+                const line=[];
+                for(let r=0;r<4;r++)line.push(board[r][c]);
+
+                const out=slideLine(line);
+
+                for(let r=0;r<4;r++)board[r][c]=out[r];
+            }
+        }
+
+        if(direction==="down"){
+            for(let c=0;c<4;c++){
+                const line=[];
+                for(let r=0;r<4;r++)line.push(board[r][c]);
+
+                const out=slideLine(line.reverse()).reverse();
+
+                for(let r=0;r<4;r++)board[r][c]=out[r];
+            }
+        }
+
+        if(JSON.stringify(board)!==before){
+            add();
+            draw();
+        }
+    }
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowLeft")move("left");
+        if(e.key==="ArrowRight")move("right");
+        if(e.key==="ArrowUp")move("up");
+        if(e.key==="ArrowDown")move("down");
+    });
+
+    let sx,sy;
+
+    area.addEventListener("touchstart",e=>{
+        sx=e.touches[0].clientX;
+        sy=e.touches[0].clientY;
+    },{passive:true});
+
+    area.addEventListener("touchend",e=>{
+        const t=e.changedTouches[0];
+        const dx=t.clientX-sx;
+        const dy=t.clientY-sy;
+
+        if(Math.max(Math.abs(dx),Math.abs(dy))<25)return;
+
+        if(Math.abs(dx)>Math.abs(dy))
+            move(dx>0?"right":"left");
+        else
+            move(dy>0?"down":"up");
+    },{passive:true});
+
+    function draw(){
+        cells.forEach((cell,i)=>{
+            const r=Math.floor(i/4);
+            const c=i%4;
+            const value=board[r][c];
+
+            cell.textContent=value||"";
+            cell.style.background=value?"#555":"#333";
+        });
+
+        setScore("Score",score);
+    }
+
+    add();
+    add();
+    setStatus("Playing");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            load2048();
+        }
+    };
+}
+
+/* =========================================================
+   MEMORY
+========================================================= */
+
+function loadMemory(){
+    clearGame();
+
+    setInstructions("Tap two cards to find matching pairs.");
+
+    const values=["🍎","🍊","🍇","🍉","🍒","🥝","🍋","🥥"];
+    const cards=[...values,...values].sort(()=>Math.random()-.5);
+
+    const area=document.createElement("div");
+    area.style.width="min(100%,500px)";
+    area.style.display="grid";
+    area.style.gridTemplateColumns="repeat(4,1fr)";
+    area.style.gap="8px";
+
+    GAME_CONTAINER.appendChild(area);
+
+    let first=null;
+    let lock=false;
+    let matches=0;
+    let moves=0;
+
+    cards.forEach((value,i)=>{
+        const card=document.createElement("button");
+        card.textContent="❓";
+        card.style.aspectRatio="1";
+        card.style.fontSize="clamp(25px,8vw,45px)";
+
+        card.addEventListener("click",()=>{
+            if(lock||card.dataset.done==="1"||card===first)return;
+
+            card.textContent=value;
+            moves++;
+
+            if(!first){
+                first=card;
+                return;
+            }
+
+            if(first.textContent===card.textContent){
+                first.dataset.done="1";
+                card.dataset.done="1";
+                first=null;
+                matches++;
+
+                if(matches===values.length){
+                    setStatus("🏆 All pairs matched!");
+                }
+            }else{
+                lock=true;
+
+                const old=first;
+
+                gameTimeout(()=>{
+                    old.textContent="❓";
+                    card.textContent="❓";
+                    first=null;
+                    lock=false;
+                },650);
+            }
+
+            setScores([
+                {label:"Pairs",value:matches},
+                {label:"Moves",value:moves}
+            ]);
+        });
+
+        area.appendChild(card);
+    });
+
+    setStatus("Find the pairs");
+
+    return {
+        restart(){
+            clearGame();
+            loadMemory();
+        }
+    };
+}
+
+/* =========================================================
+   SOLO — ROCK PAPER SCISSORS
+========================================================= */
+
+function loadRPS(){
+    clearGame();
+
+    setInstructions("Choose Rock, Paper, or Scissors. You play against the computer.");
+
+    const choices=[
+        ["🪨","Rock"],
+        ["📄","Paper"],
+        ["✂️","Scissors"]
+    ];
+
+    let wins=0;
+    let losses=0;
+    let draws=0;
+
+    const row=document.createElement("div");
+    row.className="choice-row";
+
+    choices.forEach(([icon,name])=>{
+        row.appendChild(
+            button(`${icon} ${name}`,()=>play(name),"choice-button")
+        );
+    });
+
+    GAME_CONTAINER.appendChild(row);
+
+    const result=document.createElement("div");
+    result.className="big-message";
+    GAME_CONTAINER.appendChild(result);
+
+    function play(player){
+        const cpu=choices[Math.floor(Math.random()*3)][1];
+
+        let outcome="";
+
+        if(player===cpu){
+            draws++;
+            outcome=`Draw — both chose ${cpu}`;
+        }else if(
+            (player==="Rock"&&cpu==="Scissors")||
+            (player==="Paper"&&cpu==="Rock")||
+            (player==="Scissors"&&cpu==="Paper")
+        ){
+            wins++;
+            outcome=`You win! ${player} beats ${cpu}`;
+        }else{
+            losses++;
+            outcome=`CPU wins! ${cpu} beats ${player}`;
+        }
+
+        result.textContent=outcome;
+
+        setScores([
+            {label:"Wins",value:wins},
+            {label:"Losses",value:losses},
+            {label:"Draws",value:draws}
+        ]);
+    }
+
+    setStatus("Choose your move");
+
+    return {
+        restart(){
+            clearGame();
+            loadRPS();
+        }
+    };
+}
+
+/* =========================================================
+   SOLO — DODGE
+========================================================= */
+
+function loadDodge(){
+    clearGame();
+
+    const c=canvas(420,600);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Move left and right with Arrow Keys/A-D or drag your finger. Avoid falling blocks.");
+
+    let playerX=190;
+    let blocks=[];
+    let score=0;
+    let over=false;
+
+    setKeyHandler(e=>{
+        if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")playerX-=25;
+        if(e.key==="ArrowRight"||e.key.toLowerCase()==="d")playerX+=25;
+
+        playerX=Math.max(10,Math.min(370,playerX));
+    });
+
+    c.addEventListener("pointermove",e=>{
+        if(e.buttons||e.pointerType==="touch"){
+            playerX=pointerPosition(c,e).x-20;
+            playerX=Math.max(10,Math.min(370,playerX));
+        }
+    });
+
+    gameInterval(()=>{
+        if(over)return;
+
+        if(Math.random()<.08){
+            blocks.push({
+                x:Math.random()*380,
+                y:-30,
+                size:25,
+                speed:3+Math.random()*3
+            });
+        }
+
+        blocks.forEach(b=>b.y+=b.speed);
+
+        blocks=blocks.filter(b=>b.y<620);
+
+        if(blocks.some(b=>
+            b.x<playerX+40 &&
+            b.x+b.size>playerX &&
+            b.y<560 &&
+            b.y+b.size>530
+        )){
+            over=true;
+            setStatus("💥 Hit! Press Restart");
+        }
+
+        score++;
+        setScore("Score",Math.floor(score/10));
+        draw();
+    },30);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,420,600);
+
+        ctx.fillStyle="#fff";
+        ctx.fillRect(playerX,530,40,30);
+
+        ctx.fillStyle="#777";
+        blocks.forEach(b=>{
+            ctx.fillRect(b.x,b.y,b.size,b.size);
+        });
+    }
+
+    setStatus("Survive!");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadDodge();
+        }
+    };
+}
+
+/* =========================================================
+   SOLO — TRIVIA
+========================================================= */
+
+function loadTrivia(){
+    clearGame();
+
+    setInstructions("Choose the correct answer. Get as many right as possible.");
+
+    const questions=[
+        {
+            q:"What planet is known as the Red Planet?",
+            a:["Earth","Mars","Venus","Jupiter"],
+            c:1
+        },
+        {
+            q:"How many days are in a leap year?",
+            a:["364","365","366","367"],
+            c:2
+        },
+        {
+            q:"Which ocean is the largest?",
+            a:["Atlantic","Indian","Pacific","Arctic"],
+            c:2
+        },
+        {
+            q:"How many sides does a hexagon have?",
+            a:["5","6","7","8"],
+            c:1
+        },
+        {
+            q:"What is 12 × 12?",
+            a:["124","144","154","164"],
+            c:1
+        },
+        {
+            q:"Which animal is known as the king of the jungle?",
+            a:["Tiger","Lion","Bear","Wolf"],
+            c:1
+        },
+        {
+            q:"Which gas do humans need to breathe?",
+            a:["Oxygen","Helium","Hydrogen","Neon"],
+            c:0
+        },
+        {
+            q:"How many continents are commonly recognized?",
+            a:["5","6","7","8"],
+            c:2
+        },
+        {
+            q:"Which shape has three sides?",
+            a:["Square","Triangle","Circle","Pentagon"],
+            c:1
+        },
+        {
+            q:"What is the fastest land animal?",
+            a:["Lion","Horse","Cheetah","Wolf"],
+            c:2
+        }
+    ];
+
+    let index=0;
+    let score=0;
+
+    const q=document.createElement("div");
+    q.className="question";
+
+    const answers=document.createElement("div");
+    answers.className="answers";
+
+    GAME_CONTAINER.append(q,answers);
+
+    function show(){
+        if(index>=questions.length){
+            q.textContent=`Final Score: ${score}/${questions.length}`;
+            answers.innerHTML="";
+            setStatus("🏆 Quiz complete!");
+            return;
+        }
+
+        const item=questions[index];
+
+        q.textContent=item.q;
+        answers.innerHTML="";
+
+        item.a.forEach((answer,i)=>{
+            const b=button(answer,()=>{
+                if(i===item.c){
+                    score++;
+                    setStatus("✅ Correct!");
+                }else{
+                    setStatus("❌ Incorrect");
+                }
+
+                index++;
+                setScores([
+                    {label:"Question",value:index},
+                    {label:"Score",value:score}
+                ]);
+
+                gameTimeout(show,500);
+            },"answer");
+
+            answers.appendChild(b);
+        });
+
+        setScores([
+            {label:"Question",value:index+1},
+            {label:"Score",value:score}
+        ]);
+    }
+
+    setStatus("Question 1");
+    show();
+
+    return {
+        restart(){
+            clearGame();
+            loadTrivia();
+        }
+    };
+}
+
+/* =========================================================
+   SOLO — QUICK QUIZ
+========================================================= */
+
+function loadQuickQuiz(){
+    clearGame();
+
+    setInstructions("Fast five-question quiz. Answer quickly.");
+
+    const questions=[
+        ["What is 5 + 7?",["10","11","12","13"],2],
+        ["Which is a mammal?",["Shark","Dolphin","Trout","Tuna"],1],
+        ["What color do you get by mixing red and blue?",["Green","Purple","Orange","Yellow"],1],
+        ["How many minutes are in an hour?",["30","45","60","90"],2],
+        ["Which direction does the sun rise?",["North","South","East","West"],2]
+    ];
+
+    let index=0;
+    let score=0;
+    let time=10;
+    let timer=null;
+
+    const q=document.createElement("div");
+    q.className="question";
+
+    const answers=document.createElement("div");
+    answers.className="answers";
+
+    GAME_CONTAINER.append(q,answers);
+
+    const timerDisplay=document.createElement("div");
+    timerDisplay.className="big-message";
+    GAME_CONTAINER.appendChild(timerDisplay);
+
+    function finish(){
+        if(timer){
+            clearInterval(timer);
+            timer=null;
+        }
+
+        q.textContent=`Final Score: ${score}/${questions.length}`;
+        answers.innerHTML="";
+        timerDisplay.textContent="🏁 Quiz Complete";
+        setStatus("Finished");
+    }
+
+    function next(){
+        if(index>=questions.length){
+            finish();
+            return;
+        }
+
+        time=10;
+
+        const item=questions[index];
+
+        q.textContent=item[0];
+        answers.innerHTML="";
+
+        item[1].forEach((answer,i)=>{
+            answers.appendChild(
+                button(answer,()=>{
+                    if(i===item[2])score++;
+                    index++;
+                    next();
+                },"answer")
+            );
+        });
+    }
+
+    timer=setInterval(()=>{
+        time--;
+        timerDisplay.textContent=`⏱️ ${time}`;
+
+        if(time<=0){
+            index++;
+            next();
+        }
+    },1000);
+
+    next();
+
+    return {
+        restart(){
+            if(timer)clearInterval(timer);
+            clearGame();
+            loadQuickQuiz();
+        }
+    };
+}
+
+/* =========================================================
+   SOLO — WORD CHALLENGE
+========================================================= */
+
+function loadWordChallenge(){
+    clearGame();
+
+    setInstructions("Unscramble the letters. Type the word and press Submit.");
+
+    const words=[
+        "TIGER",
+        "APPLE",
+        "HOUSE",
+        "MUSIC",
+        "RIVER",
+        "PHONE",
+        "SPORT",
+        "PLANT",
+        "BEACH",
+        "SMILE"
+    ];
+
+    let index=0;
+    let score=0;
+
+    const scrambled=document.createElement("div");
+    scrambled.className="word";
+
+    const input=document.createElement("input");
+    input.placeholder="Type your answer";
+    input.autocomplete="off";
+    input.autocapitalize="characters";
+
+    const submit=button("Submit",check,"primary");
+
+    GAME_CONTAINER.append(scrambled,input,submit);
+
+    input.addEventListener("keydown",e=>{
+        if(e.key==="Enter")check();
+    });
+
+    function shuffle(word){
+        return word.split("").sort(()=>Math.random()-.5).join("");
+    }
+
+    function show(){
+        if(index>=words.length){
+            scrambled.textContent=`Score: ${score}/${words.length}`;
+            input.remove();
+            submit.remove();
+            setStatus("🏆 Word Challenge complete!");
+            return;
+        }
+
+        scrambled.textContent=shuffle(words[index]);
+        input.value="";
+        input.focus();
+
+        setScores([
+            {label:"Word",value:index+1},
+            {label:"Score",value:score}
+        ]);
+    }
+
+    function check(){
+        const answer=input.value.trim().toUpperCase();
+
+        if(answer===words[index]){
+            score++;
+            setStatus("✅ Correct!");
+        }else{
+            setStatus(`❌ The word was ${words[index]}`);
+        }
+
+        index++;
+        gameTimeout(show,500);
+    }
+
+    setStatus("Unscramble the word");
+    show();
+
+    return {
+        restart(){
+            clearGame();
+            loadWordChallenge();
+        }
+    };
+}
+
+/* =========================================================
+   SPORTS — BASKETBALL
+========================================================= */
+
+function loadBasketball(){
+    clearGame();
+
+    const c=canvas(600,450);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Tap/click the hoop area to shoot. Score as many baskets as possible in 30 seconds.");
+
+    let score=0;
+    let shots=0;
+    let time=30;
+    let ball=null;
+    let hoopX=470;
+    let hoopY=180;
+
+    function shoot(e){
+        if(ball)return;
+
+        const p=e?pointerPosition(c,e):{x:hoopX,y:hoopY};
+
+        shots++;
+
+        ball={
+            x:100,
+            y:390,
+            tx:p.x,
+            ty:p.y,
+            progress:0
+        };
+    }
+
+    c.addEventListener("pointerdown",shoot);
+
+    const aim=document.createElement("div");
+    aim.className="choice-row";
+    aim.appendChild(button("🏀 SHOOT",()=>shoot(null),"primary"));
+    GAME_CONTAINER.appendChild(aim);
+
+    const timer=gameInterval(()=>{
+        time--;
+        setScores([
+            {label:"Score",value:score},
+            {label:"Shots",value:shots},
+            {label:"Time",value:time}
+        ]);
+
+        if(time<=0){
+            setStatus(`🏁 Final score: ${score}`);
+            cleanupGame();
+        }
+    },1000);
+
+    gameInterval(()=>{
+        hoopX=470+Math.sin(Date.now()/700)*70;
+
+        if(ball){
+            ball.progress+=.035;
+
+            const t=ball.progress;
+            ball.x=100+(ball.tx-100)*t;
+            ball.y=390+(ball.ty-390)*t-120*Math.sin(Math.PI*t);
+
+            if(t>=1){
+                const distance=Math.hypot(ball.tx-hoopX,ball.ty-hoopY);
+
+                if(distance<65){
+                    score++;
+                    setStatus("🏀 SWISH!");
+                }else{
+                    setStatus("Miss!");
+                }
+
+                ball=null;
+            }
+        }
+
+        draw();
+    },30);
+
+    function draw(){
+        ctx.fillStyle="#111";
+        ctx.fillRect(0,0,600,450);
+
+        ctx.fillStyle="#555";
+        ctx.fillRect(0,400,600,50);
+
+        ctx.strokeStyle="#fff";
+        ctx.lineWidth=5;
+
+        ctx.strokeRect(hoopX,hoopY,70,10);
+
+        ctx.beginPath();
+        ctx.arc(hoopX+35,hoopY+25,25,0,Math.PI*2);
+        ctx.stroke();
+
+        ctx.fillStyle="#fff";
+        ctx.fillRect(90,350,12,50);
+
+        ctx.beginPath();
+        ctx.arc(96,340,35,0,Math.PI*2);
+        ctx.fill();
+
+        if(ball){
+            ctx.beginPath();
+            ctx.arc(ball.x,ball.y,14,0,Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    setStatus("🏀 Shoot!");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadBasketball();
+        }
+    };
+}
+
+/* =========================================================
+   SPORTS — FOOTBALL
+========================================================= */
+
+function loadFootball(){
+    clearGame();
+
+    const c=canvas(700,420);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Tap a receiver to throw the football. Hit the receiver to score a touchdown.");
+
+    let score=0;
+    let attempts=0;
+    let receiver={x:550,y:210};
+    let ball=null;
+
+    c.addEventListener("pointerdown",e=>{
+        if(ball)return;
+
+        const p=pointerPosition(c,e);
+
+        attempts++;
+
+        ball={
+            x:100,
+            y:210,
+            tx:p.x,
+            ty:p.y,
+            t:0
+        };
+    });
+
+    gameInterval(()=>{
+        receiver.y=210+Math.sin(Date.now()/500)*100;
+
+        if(ball){
+            ball.t+=.035;
+
+            const t=ball.t;
+
+            ball.x=100+(ball.tx-100)*t;
+            ball.y=210+(ball.ty-210)*t-80*Math.sin(Math.PI*t);
+
+            if(t>=1){
+                const d=Math.hypot(
+                    ball.tx-receiver.x,
+                    ball.ty-receiver.y
+                );
+
+                if(d<65){
+                    score+=7;
+                    setStatus("🏈 TOUCHDOWN!");
+                }else{
+                    setStatus("Incomplete pass!");
+                }
+
+                ball=null;
+            }
+        }
+
+        setScores([
+            {label:"Points",value:score},
+            {label:"Passes",value:attempts}
+        ]);
+
+        draw();
+    },30);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,700,420);
+
+        ctx.strokeStyle="#777";
+        ctx.lineWidth=2;
+
+        for(let x=0;x<700;x+=70){
+            ctx.beginPath();
+            ctx.moveTo(x,0);
+            ctx.lineTo(x,420);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle="#fff";
+        ctx.fillRect(90,195,30,30);
+
+        ctx.fillStyle="#aaa";
+        ctx.beginPath();
+        ctx.arc(receiver.x,receiver.y,22,0,Math.PI*2);
+        ctx.fill();
+
+        if(ball){
+            ctx.fillStyle="#fff";
+            ctx.beginPath();
+            ctx.ellipse(ball.x,ball.y,15,8,0,0,Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    setStatus("🏈 Pass the ball!");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadFootball();
+        }
+    };
+}
+
+/* =========================================================
+   SPORTS — SOCCER
+========================================================= */
+
+function loadSoccer(){
+    clearGame();
+
+    const c=canvas(600,450);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Tap inside the goal to shoot. Beat the moving goalkeeper. Five shots.");
+
+    let shot=0;
+    let goals=0;
+    let ball=null;
+    let keeperX=280;
+
+    c.addEventListener("pointerdown",e=>{
+        if(ball||shot>=5)return;
+
+        const p=pointerPosition(c,e);
+
+        if(p.y<170){
+            ball={
+                x:300,
+                y:380,
+                tx:p.x,
+                ty:p.y,
+                t:0
+            };
+
+            shot++;
+        }
+    });
+
+    gameInterval(()=>{
+        keeperX=280+Math.sin(Date.now()/450)*120;
+
+        if(ball){
+            ball.t+=.04;
+
+            const t=ball.t;
+
+            ball.x=300+(ball.tx-300)*t;
+            ball.y=380+(ball.ty-380)*t;
+
+            if(t>=1){
+                const blocked=
+                    Math.abs(ball.tx-keeperX)<55;
+
+                if(!blocked){
+                    goals++;
+                    setStatus("⚽ GOAL!");
+                }else{
+                    setStatus("🧤 Saved!");
+                }
+
+                ball=null;
+
+                if(shot>=5){
+                    gameTimeout(()=>{
+                        setStatus(`🏁 Final: ${goals}/5 goals`);
+                    },100);
+                }
+            }
+        }
+
+        setScores([
+            {label:"Goals",value:goals},
+            {label:"Shots",value:`${shot}/5`}
+        ]);
+
+        draw();
+    },30);
+
+    function draw(){
+        ctx.fillStyle="#111";
+        ctx.fillRect(0,0,600,450);
+
+        ctx.strokeStyle="#fff";
+        ctx.lineWidth=4;
+        ctx.strokeRect(120,40,360,130);
+
+        ctx.fillStyle="#aaa";
+        ctx.fillRect(keeperX,120,70,15);
+
+        ctx.fillStyle="#fff";
+        ctx.beginPath();
+        ctx.arc(300,390,14,0,Math.PI*2);
+        ctx.fill();
+
+        if(ball){
+            ctx.beginPath();
+            ctx.arc(ball.x,ball.y,12,0,Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    setStatus("⚽ Penalty Shootout");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadSoccer();
+        }
+    };
+}
+
+/* =========================================================
+   SPORTS — BOWLING
+========================================================= */
+
+function loadBowling(){
+    clearGame();
+
+    const c=canvas(500,600);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Tap ROLL when the moving power marker is in the green zone.");
+
+    let frame=1;
+    let total=0;
+    let power=0;
+    let direction=1;
+    let rolling=false;
+
+    const rollButton=button("🎳 ROLL","");
+
+    GAME_CONTAINER.appendChild(rollButton);
+
+    rollButton.addEventListener("click",()=>{
+        if(rolling||frame>10)return;
+
+        rolling=true;
+
+        const pins=Math.max(
+            0,
+            Math.min(10,Math.round(power/10))
+        );
+
+        total+=pins;
+
+        setStatus(`${pins} pins knocked down!`);
+
+        gameTimeout(()=>{
+            frame++;
+
+            if(frame>10){
+                setStatus(`🏆 Game over — ${total} pins`);
+                rollButton.disabled=true;
+            }
+
+            rolling=false;
+        },700);
+    });
+
+    gameInterval(()=>{
+        if(rolling)return;
+
+        power+=direction*3;
+
+        if(power>=100){
+            power=100;
+            direction=-1;
+        }
+
+        if(power<=0){
+            power=0;
+            direction=1;
+        }
+
+        setScores([
+            {label:"Frame",value:Math.min(frame,10)},
+            {label:"Pins",value:total},
+            {label:"Power",value:power}
+        ]);
+
+        draw();
+    },40);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,500,600);
+
+        ctx.fillStyle="#777";
+        ctx.fillRect(100,20,300,560);
+
+        ctx.fillStyle="#fff";
+
+        for(let i=0;i<10;i++){
+            const row=Math.floor(i/4);
+            const col=i%4;
+
+            const px=250+(col-1.5)*35+(row%2)*10;
+            const py=100+row*45;
+
+            ctx.beginPath();
+            ctx.arc(px,py,13,0,Math.PI*2);
+            ctx.fill();
+        }
+
+        ctx.fillStyle="#aaa";
+        ctx.fillRect(245,520,10,50);
+
+        ctx.fillStyle="#fff";
+        ctx.fillRect(120,540,260*power/100,12);
+    }
+
+    setStatus("🎳 Choose your power");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadBowling();
+        }
+    };
+}
+
+/* =========================================================
+   SPORTS — CRICKET
+========================================================= */
+
+function loadCricket(){
+    clearGame();
+
+    const c=canvas(600,450);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Tap SWING when the ball reaches the bat. Score runs for good timing. Six balls.");
+
+    let ballX=80;
+    let ballY=220;
+    let speed=5;
+    let balls=0;
+    let runs=0;
+    let wickets=0;
+    let swing=false;
+
+    const swingButton=button("🏏 SWING","primary");
+
+    GAME_CONTAINER.appendChild(swingButton);
+
+    swingButton.addEventListener("click",()=>{
+        swing=true;
+    });
+
+    gameInterval(()=>{
+        ballX+=speed;
+
+        if(ballX>500){
+            balls++;
+
+            if(!swing){
+                wickets++;
+                setStatus("❌ Wicket!");
+            }
+
+            ballX=80;
+            swing=false;
+
+            if(balls>=6){
+                setStatus(`🏏 Innings over — ${runs} runs`);
+                cleanupGame();
+            }
+        }
+
+        if(swing && ballX>360&&ballX<440){
+            const timing=Math.abs(ballX-400);
+
+            if(timing<15){
+                runs+=6;
+                setStatus("🔥 SIX!");
+            }else if(timing<35){
+                runs+=4;
+                setStatus("🏏 FOUR!");
+            }else if(timing<65){
+                runs+=2;
+                setStatus("🏃 2 runs");
+            }else{
+                runs+=1;
+                setStatus("1 run");
+            }
+
+            swing=false;
+        }
+
+        setScores([
+            {label:"Runs",value:runs},
+            {label:"Balls",value:`${balls}/6`},
+            {label:"Wickets",value:wickets}
+        ]);
+
+        draw();
+    },30);
+
+    function draw(){
+        ctx.fillStyle="#111";
+        ctx.fillRect(0,0,600,450);
+
+        ctx.fillStyle="#555";
+        ctx.fillRect(70,80,460,290);
+
+        ctx.fillStyle="#aaa";
+        ctx.fillRect(390,150,20,180);
+
+        ctx.fillStyle="#fff";
+        ctx.beginPath();
+        ctx.arc(ballX,ballY,10,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle="#fff";
+        ctx.fillRect(430,170,12,100);
+    }
+
+    setStatus("🏏 Batting");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadCricket();
+        }
+    };
+}
+
+/* =========================================================
+   SHOOTING — TARGET SHOOTER
+========================================================= */
+
+function loadTargetShooter(){
+    clearGame();
+
+    const c=canvas(600,450);
+    const ctx=c.getContext("2d");
+
+    setInstructions("Tap the targets before they disappear. Ten targets.");
+
+    let target=null;
+    let score=0;
+    let shots=0;
+
+    function newTarget(){
+        target={
+            x:50+Math.random()*500,
+            y:50+Math.random()*350,
+            r:22
+        };
+    }
+
+    c.addEventListener("pointerdown",e=>{
+        if(!target)return;
+
+        const p=pointerPosition(c,e);
+
+        if(Math.hypot(p.x-target.x,p.y-target.y)<target.r){
+            score++;
+            setStatus("🎯 HIT!");
+            newTarget();
+        }else{
+            setStatus("Miss!");
+        }
+
+        shots++;
+
+        if(shots>=10){
+            setStatus(`🏁 Final score: ${score}/10`);
+            cleanupGame();
+        }
+    });
+
+    newTarget();
+
+    gameInterval(()=>{
+        setScores([
+            {label:"Hits",value:score},
+            {label:"Shots",value:shots}
+        ]);
+
+        draw();
+    },30);
+
+    function draw(){
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,600,450);
+
+        if(target){
+            ctx.strokeStyle="#fff";
+            ctx.lineWidth=5;
+
+            ctx.beginPath();
+            ctx.arc(target.x,target.y,target.r,0,Math.PI*2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(target.x,target.y,target.r/2,0,Math.PI*2);
+            ctx.stroke();
+
+            ctx.fillStyle="#fff";
+            ctx.beginPath();
+            ctx.arc(target.x,target.y,4,0,Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    setStatus("🎯 Fire!");
+    draw();
+
+    return {
+        restart(){
+            clearGame();
+            loadTargetShooter();
+        }
+    };
+}
+
+/* =========================================================
+   REGISTRY
+========================================================= */
 
 const PLAYABLE_GAMES={
- snake:loadSnake,pong:loadPong,breakout:loadBreakout,tetris:loadTetris,flappy:loadFlappy,space_invaders:loadSpaceInvaders,asteroids:loadAsteroids,pacman:loadPacman,'2048':load2048,memory:loadMemory,
- archery:loadArchery,fishing:loadFishing,camping:loadCamping,disc_golf:loadDiscGolf,trail_explorer:loadTrailExplorer,
- tic_tac_toe:loadTicTacToe,connect_four:loadConnectFour,chess:loadChess,checkers:loadCheckers,battleship:loadBattleship,risk:loadRisk,yahtzee:loadYahtzee,ludo:loadLudo,monopoly:loadMonopoly,rock_paper_scissors:loadRPS,rps:loadRPS,target_shooter:loadTargetShooter,dodge:loadDodge,dodge_battle:loadDodge,trivia:loadTrivia,quick_quiz:loadTrivia,word_challenge:loadTrivia
+
+    /* Arcade */
+    snake:loadSnake,
+    pong:loadPong,
+    breakout:loadBreakout,
+    tetris:loadTetris,
+    flappy:loadFlappy,
+    space_invaders:loadSpaceInvaders,
+    asteroids:loadAsteroids,
+    pacman:loadPacman,
+    "2048":load2048,
+    memory:loadMemory,
+
+    /* Solo */
+    rock_paper_scissors:loadRPS,
+    rps:loadRPS,
+    dodge:loadDodge,
+    dodge_battle:loadDodge,
+    trivia:loadTrivia,
+    quick_quiz:loadQuickQuiz,
+    word_challenge:loadWordChallenge,
+
+    /* Sports */
+    basketball:loadBasketball,
+    football:loadFootball,
+    soccer:loadSoccer,
+    bowling:loadBowling,
+    cricket:loadCricket,
+
+    /* Shooting */
+    target_shooter:loadTargetShooter
 };
-function launchGame(){cleanupGame();const engine=PLAYABLE_GAMES[GAME_ID];if(!engine){clearGame();setStatus('⚠️ This game does not have a verified playable engine yet.');GAME_CONTAINER.innerHTML='<div class="big-message"><div style="font-size:80px">🎮</div><h2>'+GAME_NAME+'</h2><p>This game is not being presented as playable until its game engine is added.</p><p>Game ID: <strong>'+GAME_ID+'</strong></p></div>';setInstructions('Return to the Games page and choose a game with a verified playable engine.');return}engine()}
-let roomPolling=null;function startRoomPolling(){if(!ROOM_ID)return;if(roomPolling)clearInterval(roomPolling);roomPolling=setInterval(async()=>{try{const r=await fetch('/real-games/api/room/'+encodeURIComponent(ROOM_ID));if(!r.ok)return;const d=await r.json(),list=document.getElementById('players-list');if(!d.ok||!d.room||!list)return;list.innerHTML='';(d.room.players||[]).forEach(p=>{const div=document.createElement('div');div.className='player';div.textContent=p.display_name||'Player';list.appendChild(div)})}catch(e){console.error('Room update error:',e)}},2000)}
-document.addEventListener('DOMContentLoaded',()=>{launchGame();startRoomPolling()});window.addEventListener('beforeunload',()=>{cleanupGame();if(roomPolling)clearInterval(roomPolling)});
+
+function launchGame(){
+
+    cleanupGame();
+
+    const loader=PLAYABLE_GAMES[GAME_ID];
+
+    if(!loader){
+        GAME_CONTAINER.innerHTML=`
+            <div class="big-message">
+                🚧 This game is not available yet.
+            </div>
+        `;
+
+        setStatus("Game unavailable");
+        setInstructions(
+            "This game has intentionally been hidden from the playable list until a real game engine is installed."
+        );
+
+        return;
+    }
+
+    try{
+        CURRENT_GAME=loader();
+    }catch(error){
+        console.error("Game launch error:",error);
+
+        GAME_CONTAINER.innerHTML=`
+            <div class="big-message">
+                ❌ Game failed to start.
+            </div>
+        `;
+
+        setStatus("Game error");
+        setInstructions("Please restart the game.");
+    }
+}
+
+document.addEventListener("DOMContentLoaded",launchGame);
+
+window.addEventListener("beforeunload",cleanupGame);
 </script>
+
 </body>
 </html>
