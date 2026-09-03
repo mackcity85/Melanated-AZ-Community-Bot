@@ -663,6 +663,56 @@ async def start_command(
 
 
 # ==========================================================
+# /STARTGAMES
+#
+# Opens the Real Games launcher with a large PLAY GAMES
+# button.
+# ==========================================================
+
+async def startgames_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    message = update.effective_message
+
+    if not message:
+        return
+
+    games_url = (
+        "https://melanatedaz.onrender.com/real-games/"
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎮 PLAY GAMES",
+                    url=games_url,
+                )
+            ]
+        ]
+    )
+
+    text = (
+        "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
+        "Ready to play?\n\n"
+        "Choose from our playable games:\n\n"
+        "🎮 <b>Arcade</b>\n"
+        "🎲 <b>Board Games</b>\n"
+        "🏀 <b>Sports</b>\n"
+        "🔫 <b>Shooting</b>\n\n"
+        "Tap the button below to enter the Game Center!"
+    )
+
+    await message.reply_text(
+        text,
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ==========================================================
 # /REALGAMES
 # ==========================================================
 
@@ -1434,6 +1484,11 @@ def build_application():
         (
             "start",
             start_command,
+        ),
+
+        (
+            "startgames",
+            startgames_command,
         ),
 
         (
