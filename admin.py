@@ -6,6 +6,7 @@
 #
 # Includes:
 #   - Raffle management
+#   - Repost active raffle
 #   - Manual raffle entry
 #   - Birthday management
 #   - Scrollable member selector for birthdays
@@ -35,6 +36,7 @@ from raffle import (
     cancel_raffle,
     draw_raffle,
     manual_raffle_entry,
+    repost_raffle,
 )
 
 from raffle_database import (
@@ -56,12 +58,14 @@ logger = logging.getLogger(__name__)
 def is_admin(user_id):
 
     try:
+
         return int(user_id) in [
             int(admin_id)
             for admin_id in ADMIN_IDS
         ]
 
     except (TypeError, ValueError):
+
         return False
 
 
@@ -97,6 +101,10 @@ def admin_main_keyboard():
                 InlineKeyboardButton(
                     "➕ Manual Raffle Entry",
                     callback_data="admin_manual_entry",
+                ),
+                InlineKeyboardButton(
+                    "🔄 Repost Raffle",
+                    callback_data="admin_repost_raffle",
                 ),
             ],
             [
@@ -163,7 +171,7 @@ def admin_menu_text():
 
         "🎟️ **RAFFLE**\n"
         "Start, review, monitor, manually enter members, "
-        "and draw raffles.\n\n"
+        "repost, and draw raffles.\n\n"
 
         "🎂 **BIRTHDAYS**\n"
         "Add, view, and remove member birthdays.\n\n"
@@ -275,6 +283,7 @@ async def admin_start_raffle(update, context):
     query = update.callback_query
 
     if query:
+
         await query.answer(
             "Starting raffle setup..."
         )
@@ -360,6 +369,68 @@ async def admin_draw(update, context):
         context,
         "Draw Winner",
     )
+
+
+# ==========================================================
+# REPOST ACTIVE RAFFLE
+# ==========================================================
+
+async def admin_repost_raffle(update, context):
+
+    query = update.callback_query
+
+    user = update.effective_user
+
+    if not user or not is_admin(user.id):
+
+        if query:
+
+            await query.answer(
+                "⛔ You are not authorized.",
+                show_alert=True,
+            )
+
+        return
+
+    if query:
+
+        try:
+
+            await query.answer(
+                "🔄 Reposting active raffle..."
+            )
+
+        except Exception:
+
+            pass
+
+    try:
+
+        await repost_raffle(
+            update,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Failed to repost active raffle."
+        )
+
+        if query and query.message:
+
+            try:
+
+                await query.message.reply_text(
+                    "❌ **Repost Failed**\n\n"
+                    "The active raffle could not be reposted.\n\n"
+                    "Please check the Render logs.",
+                    parse_mode="Markdown",
+                )
+
+            except Exception:
+
+                pass
 
 
 # ==========================================================
@@ -546,14 +617,11 @@ async def show_manual_raffle_member_selector(
 
     chat_id = query.message.chat_id
 
-    # Try the current admin-panel chat first.
     members = get_members(
         chat_id=chat_id,
         limit=1000,
     )
 
-    # If this is being opened from a private admin message,
-    # use the configured raffle chat.
     if not members:
 
         from config import RAFFLE_CHAT_ID
@@ -677,10 +745,13 @@ async def admin_manual_select(
         try:
 
             if int(item.get("user_id", 0)) == member_user_id:
+
                 member = item
+
                 break
 
         except (TypeError, ValueError):
+
             continue
 
     if not member:
@@ -718,10 +789,6 @@ async def admin_manual_select(
     await query.answer(
         "Member selected."
     )
-
-    # ------------------------------------------------------
-    # Show confirmation before adding the entry.
-    # ------------------------------------------------------
 
     keyboard = InlineKeyboardMarkup(
         [
@@ -809,6 +876,7 @@ async def admin_manual_confirm(
                 return
 
         except (TypeError, ValueError):
+
             pass
 
     await query.answer(
@@ -972,6 +1040,7 @@ async def admin_confirm_cancel(update, context):
     query = update.callback_query
 
     if query:
+
         await query.answer(
             "Cancelling raffle..."
         )
@@ -1046,6 +1115,7 @@ def birthday_member_keyboard(
 ):
 
     if not members:
+
         return InlineKeyboardMarkup(
             [
                 [
@@ -1282,6 +1352,7 @@ async def admin_birthday_select(
         return
 
     try:
+
         member_user_id = int(member_user_id)
 
     except (TypeError, ValueError):
@@ -1298,6 +1369,7 @@ async def admin_birthday_select(
     )
 
     if chat_id is None:
+
         chat_id = query.message.chat_id
 
     member = get_member(
@@ -1317,6 +1389,7 @@ async def admin_birthday_select(
             if int(item.get("user_id", 0)) == member_user_id:
 
                 member = item
+
                 break
 
     if not member:
@@ -1372,6 +1445,7 @@ async def admin_birthday_text_handler(
 ):
 
     message = update.effective_message
+
     user = update.effective_user
 
     if not message or not user:
@@ -1446,6 +1520,7 @@ async def admin_birthday_text_handler(
     )
 
     username = None
+
     display_name = selected_name
 
     if member:
@@ -2037,6 +2112,7 @@ async def admin_button(
         ]
 
         try:
+
             page = int(page_text)
 
         except (TypeError, ValueError):
@@ -2205,6 +2281,19 @@ async def admin_button(
 
         return
 
+    # ------------------------------------------------------
+    # REPOST RAFFLE
+    # ------------------------------------------------------
+
+    if data == "admin_repost_raffle":
+
+        await admin_repost_raffle(
+            update,
+            context,
+        )
+
+        return
+
     if data == "admin_completed":
 
         await admin_completed(
@@ -2283,6 +2372,7 @@ async def admin_button(
         ]
 
         try:
+
             page = int(page_text)
 
         except (TypeError, ValueError):
