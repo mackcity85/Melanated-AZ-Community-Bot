@@ -1,272 +1,246 @@
-# ==========================================================
-# Melanated AZ Real Games
-# real_games.py
-#
-# Mobile + PC compatible game system
-# ==========================================================
-
-from flask import Blueprint, render_template, jsonify, request
-import uuid
-
-
-real_games_bp = Blueprint(
-    "real_games",
-    __name__,
-    url_prefix="/real-games"
-)
-
-
-# ==========================================================
-# GAME REGISTRY
-# ONLY REAL PLAYABLE GAMES GO HERE
-# ==========================================================
-
-GAMES = [
-
-    # ------------------------------------------------------
-    # ARCADE
-    # ------------------------------------------------------
-
-    {
-        "game_id": "snake",
-        "name": "Snake",
-        "icon": "🐍",
-        "category": "Arcade",
-        "description": "Eat the food, grow longer, and don't hit yourself."
-    },
-
-    {
-        "game_id": "pong",
-        "name": "Pong",
-        "icon": "🏓",
-        "category": "Arcade",
-        "description": "Classic paddle battle against the computer."
-    },
-
-    {
-        "game_id": "breakout",
-        "name": "Breakout",
-        "icon": "🧱",
-        "category": "Arcade",
-        "description": "Break every block without losing the ball."
-    },
-
-    {
-        "game_id": "dodge",
-        "name": "Dodge",
-        "icon": "💥",
-        "category": "Arcade",
-        "description": "Move left and right and survive the falling blocks."
-    },
-
-    {
-        "game_id": "2048",
-        "name": "2048",
-        "icon": "🔢",
-        "category": "Arcade",
-        "description": "Combine matching numbers to reach 2048."
-    },
-
-    {
-        "game_id": "memory_match",
-        "name": "Memory Match",
-        "icon": "🧠",
-        "category": "Arcade",
-        "description": "Find all matching pairs."
-    },
-
-    {
-        "game_id": "reaction",
-        "name": "Reaction Test",
-        "icon": "⚡",
-        "category": "Arcade",
-        "description": "Test how fast you can react."
-    },
-
-    {
-        "game_id": "whack_a_mole",
-        "name": "Whack-a-Mole",
-        "icon": "🔨",
-        "category": "Arcade",
-        "description": "Tap the mole before it disappears."
-    },
-
-
-    # ------------------------------------------------------
-    # SPORTS
-    # ------------------------------------------------------
-
-    {
-        "game_id": "basketball",
-        "name": "Basketball",
-        "icon": "🏀",
-        "category": "Sports",
-        "description": "Shoot the ball and make as many baskets as possible."
-    },
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width,
+             initial-scale=1,
+             maximum-scale=1,
+             user-scalable=no,
+             viewport-fit=cover"
+>
+
+<title>🎮 Melanated AZ Real Games</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: #080808;
+    color: #ffffff;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+}
+
+body {
+    padding: 18px;
+}
+
+.page {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 28px;
+}
 
+.header h1 {
+    margin: 0;
+    font-size: clamp(28px, 6vw, 48px);
+}
+
+.header p {
+    margin: 10px 0 0;
+    color: #aaa;
+    font-size: 15px;
+}
+
+.category {
+    margin-bottom: 30px;
+}
 
-    # ------------------------------------------------------
-    # SHOOTING
-    # ------------------------------------------------------
+.category-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 
-    {
-        "game_id": "target_shooter",
-        "name": "Target Shooter",
-        "icon": "🎯",
-        "category": "Shooting",
-        "description": "Hit the targets before time runs out."
-    },
-]
+    margin: 0 0 14px;
 
+    font-size: 24px;
+}
 
-# ==========================================================
-# HELPERS
-# ==========================================================
+.game-grid {
+    display: grid;
 
-def get_game(game_id):
-    game_id = str(game_id).lower().strip()
+    grid-template-columns:
+        repeat(auto-fit, minmax(180px, 1fr));
 
-    for game in GAMES:
-        if game["game_id"].lower() == game_id:
-            return game
+    gap: 14px;
+}
 
-    return None
+.game-card {
+    display: block;
 
+    text-decoration: none;
+    color: #ffffff;
 
-def games_by_category():
-    categories = {}
+    background: #151515;
 
-    for game in GAMES:
-        category = game["category"]
+    border: 1px solid #292929;
+    border-radius: 18px;
 
-        if category not in categories:
-            categories[category] = []
+    padding: 20px;
 
-        categories[category].append(game)
+    min-height: 180px;
 
-    return categories
+    transition:
+        transform .15s ease,
+        background .15s ease,
+        border-color .15s ease;
+}
 
+.game-card:hover {
+    transform: translateY(-3px);
+    background: #1d1d1d;
+    border-color: #555;
+}
 
-# ==========================================================
-# REAL GAMES HOME
-# ==========================================================
+.game-card:active {
+    transform: scale(.97);
+}
 
-@real_games_bp.route("/")
-def real_games_home():
+.game-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
 
-    return render_template(
-        "real_games.html",
-        games=GAMES,
-        categories=games_by_category()
-    )
+.game-name {
+    font-size: 20px;
+    font-weight: 800;
 
+    margin-bottom: 8px;
+}
 
-# ==========================================================
-# GAME PAGE
-# ==========================================================
+.game-description {
+    color: #aaa;
+    font-size: 14px;
+    line-height: 1.45;
+}
 
-@real_games_bp.route("/play/<game_id>")
-def play_game(game_id):
+.play {
+    display: inline-block;
 
-    game = get_game(game_id)
+    margin-top: 14px;
 
-    if not game:
-        return (
-            render_template(
-                "real_games/game.html",
-                game={
-                    "game_id": "unknown",
-                    "name": "Game Not Found",
-                    "icon": "❌",
-                    "category": "Unknown",
-                    "description": "This game is not available."
-                }
-            ),
-            404
-        )
+    padding: 9px 14px;
 
-    return render_template(
-        "real_games/game.html",
-        game=game
-    )
+    background: #ffffff;
+    color: #000000;
 
+    border-radius: 999px;
 
-# ==========================================================
-# OPTIONAL GAME INFO API
-# ==========================================================
+    font-size: 13px;
+    font-weight: 800;
+}
 
-@real_games_bp.route("/api/games")
-def api_games():
+.footer {
+    text-align: center;
+    color: #777;
+    font-size: 12px;
+    margin-top: 35px;
+    padding-bottom: 20px;
+}
 
-    return jsonify({
-        "success": True,
-        "games": GAMES,
-        "categories": games_by_category()
-    })
+</style>
 
+</head>
 
-# ==========================================================
-# OPTIONAL ROOM SYSTEM
-#
-# Kept simple so the existing frontend can still call
-# create-room / room-info without breaking the blueprint.
-# ==========================================================
+<body>
 
-rooms = {}
+<div class="page">
 
+    <header class="header">
 
-@real_games_bp.route("/create-room", methods=["POST"])
-def create_room():
+        <h1>🎮 Real Games</h1>
 
-    data = request.get_json(silent=True) or {}
+        <p>
+            PC + Mobile compatible games
+        </p>
 
-    game_id = data.get("game_id", "")
+    </header>
 
-    game = get_game(game_id)
 
-    if not game:
-        return jsonify({
-            "success": False,
-            "error": "Game not found"
-        }), 404
+    {% for category, category_games in categories.items() %}
 
-    room_id = uuid.uuid4().hex[:8].upper()
+    <section class="category">
 
-    rooms[room_id] = {
-        "room_id": room_id,
-        "game_id": game_id,
-        "players": []
-    }
+        <h2 class="category-title">
 
-    return jsonify({
-        "success": True,
-        "room_id": room_id,
-        "game_id": game_id
-    })
+            {% if category == "Arcade" %}
+                🎮
+            {% elif category == "Sports" %}
+                🏀
+            {% elif category == "Shooting" %}
+                🎯
+            {% else %}
+                🎲
+            {% endif %}
 
+            {{ category }}
 
-@real_games_bp.route("/room/<room_id>")
-def room_info(room_id):
+        </h2>
 
-    room = rooms.get(room_id.upper())
 
-    if not room:
-        return jsonify({
-            "success": False,
-            "error": "Room not found"
-        }), 404
+        <div class="game-grid">
 
-    return jsonify({
-        "success": True,
-        "room": room
-    })
+            {% for game in category_games %}
 
+            <a
+                class="game-card"
+                href="{{ url_for(
+                    'real_games.play_game',
+                    game_id=game.game_id
+                ) }}"
+            >
 
-# ==========================================================
-# EXPORT
-# ==========================================================
+                <div class="game-icon">
+                    {{ game.icon }}
+                </div>
 
-__all__ = [
-    "real_games_bp",
-    "GAMES"
-]
+                <div class="game-name">
+                    {{ game.name }}
+                </div>
+
+                <div class="game-description">
+                    {{ game.description }}
+                </div>
+
+                <div class="play">
+                    PLAY
+                </div>
+
+            </a>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+    {% endfor %}
+
+
+    <div class="footer">
+        Melanated AZ Real Games
+    </div>
+
+</div>
+
+</body>
+</html>
