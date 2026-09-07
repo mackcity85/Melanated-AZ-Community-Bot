@@ -1,37 +1,20 @@
 """
 Melanated AZ Real Games
 Telegram Deep-Link Handler
-
-Supported game payload:
-
-    /start rg_snake
-    /start rg_pong
-    /start rg_breakout
-    /start rg_dodge
-    /start rg_2048
-    /start rg_memory_match
-    /start rg_reaction
-    /start rg_whack_a_mole
-    /start rg_basketball
-    /start rg_target_shooter
-
-Room payload:
-
-    /start rg_join_<ROOM_ID>
-
-This file intentionally contains NO Monopoly-specific routes.
 """
 
-import logging
+from __future__ import annotations
 
-from .real_games import GAMES, get_game
+import logging
+from urllib.parse import urlencode
+
+from .real_games import (
+    GAMES,
+    get_game,
+)
+from .game_manager import GAME_MANAGER
 
 logger = logging.getLogger(__name__)
-
-
-# ==========================================================
-# GAME IDS
-# ==========================================================
 
 VALID_GAME_IDS = {
     game["game_id"]
@@ -39,49 +22,85 @@ VALID_GAME_IDS = {
 }
 
 
-# ==========================================================
-# GAME LINK
-# ==========================================================
+def make_game_link(
+    bot_username,
+    game_id,
+):
 
-def make_game_link(bot_username, game_id):
-    """
-    Create a Telegram deep link that opens a specific Real Game.
-    """
-
-    game_id = str(game_id).strip().lower()
+    game_id = (
+        str(game_id)
+        .strip()
+        .lower()
+    )
 
     if game_id not in VALID_GAME_IDS:
-        raise ValueError(f"Unknown Real Game: {game_id}")
+        raise ValueError(
+            f"Unknown Real Game: {game_id}"
+        )
 
     return (
-        f"https://t.me/{bot_username}"
+        f"https://t.me/"
+        f"{bot_username}"
         f"?start=rg_{game_id}"
     )
 
 
-# ==========================================================
-# WEB GAME URL
-# ==========================================================
+def make_room_join_link(
+    bot_username,
+    room_id,
+):
 
-def make_web_game_url(base_url, game_id):
-    """
-    Create the actual playable Real Games URL.
-    """
+    return (
+        f"https://t.me/"
+        f"{bot_username}"
+        f"?start=rg_join_"
+        f"{room_id}"
+    )
 
-    base_url = (base_url or "").rstrip("/")
-    game_id = str(game_id).strip().lower()
+
+def make_web_game_url(
+    base_url,
+    game_id,
+    room_id=None,
+    player_key=None,
+):
+
+    base_url = (
+        base_url or ""
+    ).rstrip("/")
+
+    game_id = (
+        str(game_id)
+        .strip()
+        .lower()
+    )
 
     if game_id not in VALID_GAME_IDS:
         return None
 
-    return f"{base_url}/real-games/play/{game_id}"
+    url = (
+        f"{base_url}/real-games/"
+        f"play/{game_id}"
+    )
+
+    params = {}
+
+    if room_id:
+        params["room"] = room_id
+
+    if player_key:
+        params["player_key"] = player_key
+
+    if params:
+        url += "?" + urlencode(params)
+
+    return url
 
 
-# ==========================================================
-# TELEGRAM DEEP LINK HANDLER
-# ==========================================================
-
-async def handle_real_game_deep_link(update, context):
+async def handle_real_game_deep_link(
+    update,
+    context,
+):
 
     if not update.effective_user:
         return False
@@ -96,11 +115,11 @@ async def handle_real_game_deep_link(update, context):
     if not args:
         return False
 
-    payload = str(args[0]).strip().lower()
-
-    # ------------------------------------------------------
-    # ONLY HANDLE OUR REAL GAME PAYLOADS
-    # ------------------------------------------------------
+    payload = (
+        str(args[0])
+        .strip()
+        .lower()
+    )
 
     if not payload.startswith("rg_"):
         return False
@@ -108,16 +127,20 @@ async def handle_real_game_deep_link(update, context):
     user = update.effective_user
 
     logger.info(
-        "Real Games deep link received: payload=%s user=%s",
+        "Real Games deep link received: "
+        "payload=%s user=%s",
         payload,
         user.id,
     )
 
     # ======================================================
-    # OPEN A GAME
+    # NORMAL GAME
     # ======================================================
 
-    if payload.startswith("rg_") and not payload.startswith("rg_join_"):
+    if (
+        payload.startswith("rg_")
+        and not payload.startswith("rg_join_")
+    ):
 
         game_id = payload[3:]
 
@@ -126,16 +149,16 @@ async def handle_real_game_deep_link(update, context):
         if not game:
 
             await message.reply_text(
-                "❌ <b>Game Not Found</b>\n\n"
-                "That game is no longer available in the "
-                "Melanated AZ Real Games Center.",
+                "❌ <b>Game Not Found</b>",
                 parse_mode="HTML",
             )
 
             return True
 
         base_url = (
-            context.bot_data.get("PUBLIC_BASE_URL")
+            context.bot_data.get(
+                "PUBLIC_BASE_URL"
+            )
             or "https://melanatedaz.onrender.com"
         )
 
@@ -144,69 +167,46 @@ async def handle_real_game_deep_link(update, context):
             game_id,
         )
 
-        if not game_url:
-            await message.reply_text(
-                "❌ Unable to create the game link."
-            )
-
-            return True
-
         await message.reply_text(
-            f"{game['icon']} <b>{game['name']}</b>\n\n"
+            f"{game['icon']} "
+            f"<b>{game['name']}</b>\n\n"
             f"{game['description']}\n\n"
-            f"🎮 <a href=\"{game_url}\">PLAY {game['name'].upper()}</a>",
+            f"🎮 <a href=\"{game_url}\">"
+            f"PLAY {game['name'].upper()}"
+            f"</a>",
             parse_mode="HTML",
             disable_web_page_preview=False,
-        )
-
-        logger.info(
-            "Opened Real Game: %s for user %s",
-            game_id,
-            user.id,
         )
 
         return True
 
     # ======================================================
-    # JOIN ROOM
+    # JOIN MULTIPLAYER ROOM
     # ======================================================
 
     if payload.startswith("rg_join_"):
 
-        room_id = payload[len("rg_join_"):].strip()
+        room_id = payload[
+            len("rg_join_"):
+        ].strip().upper()
 
         if not room_id:
+
             await message.reply_text(
                 "❌ Invalid game room link."
             )
 
             return True
 
-        # --------------------------------------------------
-        # Import the game manager only when a room is used.
-        # --------------------------------------------------
+        room = GAME_MANAGER.get(
+            room_id
+        )
 
-        try:
-            from .game_manager import GAME_MANAGER
-        except ImportError:
-
-            logger.exception(
-                "Game manager could not be imported."
-            )
-
-            await message.reply_text(
-                "❌ Multiplayer rooms are temporarily unavailable."
-            )
-
-            return True
-
-        game = GAME_MANAGER.get(room_id)
-
-        if not game:
+        if not room:
 
             await message.reply_text(
                 "❌ <b>Game Room Not Found</b>\n\n"
-                "That room may have expired or no longer exists.",
+                "The room may have expired.",
                 parse_mode="HTML",
             )
 
@@ -214,9 +214,11 @@ async def handle_real_game_deep_link(update, context):
 
         try:
 
-            game.add_player(
+            player_key = room.add_player(
                 str(user.id),
-                user.full_name or user.first_name,
+                user.full_name
+                or user.first_name
+                or "Player",
             )
 
         except ValueError as exc:
@@ -227,71 +229,55 @@ async def handle_real_game_deep_link(update, context):
 
             return True
 
-        # --------------------------------------------------
-        # Determine which game the room belongs to.
-        # --------------------------------------------------
-
-        game_id = getattr(game, "game_id", None)
-
-        if not game_id:
-            game_id = getattr(game, "game_type", None)
-
-        if not game_id:
-            game_id = getattr(game, "name", None)
-
-        if game_id:
-            game_id = str(game_id).strip().lower()
-
-        selected_game = get_game(game_id) if game_id else None
+        selected_game = get_game(
+            room.game_id
+        )
 
         if not selected_game:
 
-            logger.warning(
-                "Room %s has unknown game_id=%s",
-                room_id,
-                game_id,
-            )
-
             await message.reply_text(
-                "❌ This room is connected to a game that "
-                "is no longer available."
+                "❌ Game configuration is missing."
             )
 
             return True
 
-        # --------------------------------------------------
-        # Create the correct web URL.
-        # --------------------------------------------------
-
         base_url = (
-            context.bot_data.get("PUBLIC_BASE_URL")
+            context.bot_data.get(
+                "PUBLIC_BASE_URL"
+            )
             or "https://melanatedaz.onrender.com"
         )
 
         game_url = make_web_game_url(
             base_url,
             selected_game["game_id"],
+            room.room_id,
+            player_key,
         )
 
-        player_count = len(
-            getattr(game, "players", {})
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎭 OPEN DIRTY MINDS",
+                        url=game_url,
+                    )
+                ]
+            ]
         )
 
         await message.reply_text(
             f"{selected_game['icon']} "
             f"<b>{selected_game['name'].upper()}</b>\n\n"
-            f"Room: <code>{room_id}</code>\n"
-            f"Players: {player_count}\n\n"
-            f"🎮 <a href=\"{game_url}\">OPEN GAME</a>",
+            f"You're in!\n\n"
+            f"Room: <code>{room.room_id}</code>\n"
+            f"Players: {room.player_count()}/"
+            f"{room.max_players}\n\n"
+            f"Tap below to enter the game room.",
             parse_mode="HTML",
-            disable_web_page_preview=False,
-        )
-
-        logger.info(
-            "User %s joined Real Game room %s (%s)",
-            user.id,
-            room_id,
-            selected_game["game_id"],
+            reply_markup=keyboard,
         )
 
         return True
