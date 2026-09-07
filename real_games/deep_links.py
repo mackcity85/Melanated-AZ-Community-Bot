@@ -6,35 +6,22 @@
 #
 # Supported:
 #
-#   /start rg_snake
-#   /start rg_pong
-#   /start rg_breakout
-#   /start rg_dodge
-#   /start rg_2048
-#   /start rg_memory_match
-#   /start rg_reaction
-#   /start rg_whack_a_mole
-#   /start rg_basketball
-#   /start rg_target_shooter
+#   /start rg_<GAME_ID>
+#   /start rg_join_<ROOM_ID>
 #
 # Dirty Minds:
 #
 #   /start rg_join_<ROOM_ID>
 #
-# The Dirty Minds JOIN link:
-#
-#   1. Finds the game room
-#   2. Adds the Telegram user to the room
-#   3. Creates a private player key
-#   4. Sends the user their personalized game link
-#
 # IMPORTANT:
-# Telegram user IDs are NEVER placed in the browser URL.
+# Telegram user IDs are NEVER placed in browser URLs.
+# A random player_key is used instead.
 # ==========================================================
 
 from __future__ import annotations
 
 import logging
+import os
 
 from telegram import (
     InlineKeyboardButton,
@@ -47,40 +34,26 @@ from telegram.ext import (
 )
 
 from .game_manager import GAME_MANAGER
-from .real_games import (
-    get_game,
-)
+from .real_games import get_game
 
 
-logger = logging.getLogger(
-    __name__
-)
+logger = logging.getLogger(__name__)
 
 
 # ==========================================================
 # CONFIGURATION
 # ==========================================================
 
-PUBLIC_BASE_URL = (
-    "https://melanatedaz.onrender.com"
-)
+PUBLIC_BASE_URL = "https://melanatedaz.onrender.com"
 
 
 # ==========================================================
-# WEB URL HELPERS
+# BASE URL
 # ==========================================================
 
-def make_web_game_url(
-    game_id: str,
-) -> str:
-    """
-    Create the normal URL for a single-player game.
-    """
-
-    base_url = (
-        __import__(
-            "os"
-        ).getenv(
+def _get_base_url() -> str:
+    return (
+        os.getenv(
             "PUBLIC_BASE_URL",
             PUBLIC_BASE_URL,
         )
@@ -88,8 +61,18 @@ def make_web_game_url(
         .rstrip("/")
     )
 
+
+# ==========================================================
+# WEB URL HELPERS
+# ==========================================================
+
+def make_web_game_url(game_id: str) -> str:
+    """
+    Create the normal URL for a Real Game.
+    """
+
     return (
-        f"{base_url}"
+        f"{_get_base_url()}"
         f"/real-games/play/"
         f"{game_id}"
     )
@@ -102,22 +85,11 @@ def make_dirty_minds_url(
     """
     Create a personalized Dirty Minds URL.
 
-    The player key is random and is NOT the Telegram ID.
+    The player_key is random and is NOT the Telegram ID.
     """
 
-    base_url = (
-        __import__(
-            "os"
-        ).getenv(
-            "PUBLIC_BASE_URL",
-            PUBLIC_BASE_URL,
-        )
-        .strip()
-        .rstrip("/")
-    )
-
     return (
-        f"{base_url}"
+        f"{_get_base_url()}"
         f"/real-games/play/dirty_minds"
         f"?room={room_id}"
         f"&player_key={player_key}"
@@ -125,7 +97,89 @@ def make_dirty_minds_url(
 
 
 # ==========================================================
-# TELEGRAM DEEP LINK HANDLER
+# REAL GAMES DEEP LINK ENTRY POINT
+# ==========================================================
+
+async def handle_real_game_deep_link(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> bool:
+    """
+    Main Real Games /start deep-link handler.
+
+    Returns:
+        True  = Real Games payload was handled.
+        False = This was not a Real Games payload.
+
+    Supported:
+
+        /start rg_snake
+        /start rg_pong
+        /start rg_dirty_minds
+        /start rg_join_AB12CD34
+    """
+
+    if not update.effective_user:
+        return False
+
+    args = context.args or []
+
+    # No payload means this is a normal /start.
+    if not args:
+        return False
+
+    payload = str(args[0]).strip()
+
+    if not payload:
+        return False
+
+    payload_lower = payload.lower()
+
+    # ------------------------------------------------------
+    # Dirty Minds room join
+    # ------------------------------------------------------
+
+    if payload_lower.startswith("rg_join_"):
+
+        room_id = payload[
+            len("rg_join_"):
+        ].strip().upper()
+
+        await handle_dirty_minds_join(
+            update,
+            context,
+            room_id,
+        )
+
+        return True
+
+    # ------------------------------------------------------
+    # Normal Real Game launch
+    # ------------------------------------------------------
+
+    if payload_lower.startswith("rg_"):
+
+        game_id = payload[
+            len("rg_"):
+        ].strip().lower()
+
+        await handle_game_launch(
+            update,
+            context,
+            game_id,
+        )
+
+        return True
+
+    # ------------------------------------------------------
+    # Not our deep link
+    # ------------------------------------------------------
+
+    return False
+
+
+# ==========================================================
+# TELEGRAM /START HANDLER
 # ==========================================================
 
 async def real_games_start(
@@ -133,19 +187,15 @@ async def real_games_start(
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
     """
-    Handle:
+    Standalone /start handler for Real Games.
 
-        /start rg_<GAME_ID>
-
-    and:
-
-        /start rg_join_<ROOM_ID>
+    This remains available for compatibility, but bot.py
+    should preferably use handle_real_game_deep_link()
+    before its normal /start handler.
     """
 
     if not update.effective_user:
         return
-
-    user = update.effective_user
 
     args = context.args or []
 
@@ -154,22 +204,23 @@ async def real_games_start(
     # ------------------------------------------------------
 
     if not args:
-        await _send_games_home(
-            update
-        )
+        await _send_games_home(update)
         return
 
-    payload = str(
-        args[0]
-    ).strip()
+    payload = str(args[0]).strip()
+
+    if not payload:
+        await _send_games_home(update)
+        return
+
+    payload_lower = payload.lower()
 
     # ------------------------------------------------------
     # Dirty Minds room join
     # ------------------------------------------------------
 
-    if payload.lower().startswith(
-        "rg_join_"
-    ):
+    if payload_lower.startswith("rg_join_"):
+
         room_id = payload[
             len("rg_join_"):
         ].strip().upper()
@@ -186,9 +237,8 @@ async def real_games_start(
     # Normal game launch
     # ------------------------------------------------------
 
-    if payload.lower().startswith(
-        "rg_"
-    ):
+    if payload_lower.startswith("rg_"):
+
         game_id = payload[
             len("rg_"):
         ].strip().lower()
@@ -205,9 +255,7 @@ async def real_games_start(
     # Unknown payload
     # ------------------------------------------------------
 
-    await _send_games_home(
-        update
-    )
+    await _send_games_home(update)
 
 
 # ==========================================================
@@ -223,28 +271,40 @@ async def handle_game_launch(
     Open a normal Real Games game.
     """
 
-    game = get_game(
-        game_id
-    )
+    game_id = str(game_id).strip().lower()
+
+    game = get_game(game_id)
 
     if not game:
-        await _send_games_home(
-            update
-        )
+
+        await _send_games_home(update)
+
         return
 
-    # Dirty Minds must always be entered
-    # through a room.
+    # ------------------------------------------------------
+    # Dirty Minds requires a room.
+    # ------------------------------------------------------
+
     if game_id == "dirty_minds":
+
         await update.effective_message.reply_text(
-            "🎭 Dirty Minds is a multiplayer game.\n\n"
+            "🎭 <b>Dirty Minds</b>\n\n"
+            "Dirty Minds is a multiplayer game.\n\n"
             "You need to join a Dirty Minds room "
-            "from the JOIN button."
+            "using the JOIN button from the game host.",
+            parse_mode="HTML",
         )
+
         return
 
-    game_url = make_web_game_url(
-        game_id
+    # ------------------------------------------------------
+    # Normal game
+    # ------------------------------------------------------
+
+    game_url = make_web_game_url(game_id)
+
+    games_url = (
+        f"{_get_base_url()}/real-games/"
     )
 
     keyboard = InlineKeyboardMarkup(
@@ -258,12 +318,7 @@ async def handle_game_launch(
             [
                 InlineKeyboardButton(
                     "🎮 ALL GAMES",
-                    url=(
-                        game_url.split(
-                            "/play/"
-                        )[0]
-                        + "/"
-                    ),
+                    url=games_url,
                 )
             ],
         ]
@@ -291,35 +346,53 @@ async def handle_dirty_minds_join(
     Add the Telegram user to a Dirty Minds room.
     """
 
+    if not update.effective_message:
+        return
+
     if not room_id:
+
         await update.effective_message.reply_text(
             "❌ Invalid Dirty Minds room."
         )
+
         return
 
-    room = GAME_MANAGER.get(
-        room_id
-    )
+    room_id = str(room_id).strip().upper()
+
+    room = GAME_MANAGER.get(room_id)
+
+    # ------------------------------------------------------
+    # Room does not exist
+    # ------------------------------------------------------
 
     if not room:
+
         await update.effective_message.reply_text(
             "❌ This Dirty Minds game room "
             "no longer exists.\n\n"
             "Ask the host to create a new game."
         )
+
         return
 
+    # ------------------------------------------------------
+    # Make sure this is actually Dirty Minds
+    # ------------------------------------------------------
+
     if room.game_id != "dirty_minds":
+
         await update.effective_message.reply_text(
             "❌ This is not a Dirty Minds room."
         )
+
         return
 
     user = update.effective_user
 
-    user_id = str(
-        user.id
-    )
+    if not user:
+        return
+
+    user_id = str(user.id)
 
     display_name = (
         user.full_name
@@ -328,49 +401,66 @@ async def handle_dirty_minds_join(
     )
 
     # ------------------------------------------------------
-    # Already in room
+    # Check whether user is already in room
     # ------------------------------------------------------
 
-    existing_player = room.get_player(
-        user_id
-    )
+    existing_player = room.get_player(user_id)
 
     if existing_player:
+
         player = existing_player
 
     else:
+
         # --------------------------------------------------
-        # Room full
+        # Check room capacity
         # --------------------------------------------------
 
         if room.player_count() >= room.max_players:
+
             await update.effective_message.reply_text(
                 "❌ This Dirty Minds room is full."
             )
+
             return
 
+        # --------------------------------------------------
+        # Add player
+        # --------------------------------------------------
+
         try:
+
             player = room.add_player(
                 user_id=user_id,
                 display_name=display_name,
             )
 
         except ValueError as exc:
+
             await update.effective_message.reply_text(
                 f"❌ {exc}"
             )
+
             return
 
-    player_key = player.get(
-        "player_key"
-    )
+    # ------------------------------------------------------
+    # Get private player key
+    # ------------------------------------------------------
+
+    player_key = player.get("player_key")
 
     if not player_key:
+
         await update.effective_message.reply_text(
             "❌ Your game session could not be created.\n\n"
             "Please ask the host to create a new game."
         )
+
         return
+
+    # ------------------------------------------------------
+    # Personalized game URL
+    # ------------------------------------------------------
 
     game_url = make_dirty_minds_url(
         room.room_id,
@@ -387,6 +477,7 @@ async def handle_dirty_minds_join(
         room.players.values(),
         start=1,
     ):
+
         name = room_player.get(
             "name",
             "Player",
@@ -424,6 +515,10 @@ async def handle_dirty_minds_join(
         ]
     )
 
+    # ------------------------------------------------------
+    # Send player their private game link
+    # ------------------------------------------------------
+
     await update.effective_message.reply_text(
         "🎭 <b>DIRTY MINDS</b>\n\n"
         f"Room: <code>{room.room_id}</code>\n\n"
@@ -439,17 +534,14 @@ async def handle_dirty_minds_join(
     )
 
     # ------------------------------------------------------
-    # Tell the group that someone joined.
-    #
-    # Only send this if the update came from a private
-    # chat. If the JOIN link was clicked from the group,
-    # Telegram normally opens the bot privately.
+    # Notify host
     # ------------------------------------------------------
 
     await _notify_host(
         context,
         room,
         display_name,
+        user_id,
     )
 
 
@@ -461,11 +553,10 @@ async def _notify_host(
     context: ContextTypes.DEFAULT_TYPE,
     room,
     player_name: str,
+    joining_user_id: str | None = None,
 ) -> None:
     """
     Notify the Telegram host that a new player joined.
-
-    This uses the host's Telegram user ID internally.
     """
 
     host_id = room.host_id
@@ -473,20 +564,29 @@ async def _notify_host(
     if not host_id:
         return
 
+    # ------------------------------------------------------
+    # Do not notify host about themselves.
+    # ------------------------------------------------------
+
+    if (
+        joining_user_id is not None
+        and str(host_id) == str(joining_user_id)
+    ):
+        return
+
     try:
-        host_id_int = int(
-            host_id
-        )
+
+        host_id_int = int(host_id)
+
     except (
         TypeError,
         ValueError,
     ):
+
         return
 
-    # Do not message the host about themselves.
-    # Telegram may still allow this, but it creates
-    # unnecessary notifications.
     try:
+
         await context.bot.send_message(
             chat_id=host_id_int,
             text=(
@@ -502,6 +602,7 @@ async def _notify_host(
         )
 
     except Exception:
+
         logger.exception(
             "Unable to notify Dirty Minds host."
         )
@@ -518,19 +619,11 @@ async def _send_games_home(
     Send a simple Real Games launcher link.
     """
 
-    base_url = (
-        __import__(
-            "os"
-        ).getenv(
-            "PUBLIC_BASE_URL",
-            PUBLIC_BASE_URL,
-        )
-        .strip()
-        .rstrip("/")
-    )
+    if not update.effective_message:
+        return
 
     games_url = (
-        f"{base_url}/real-games/"
+        f"{_get_base_url()}/real-games/"
     )
 
     keyboard = InlineKeyboardMarkup(
@@ -560,8 +653,10 @@ def get_real_games_handler():
     """
     Return the Telegram handler used by bot.py.
 
-    Register this handler before any generic /start
-    handler that might consume the same command.
+    NOTE:
+    If bot.py already handles /start and calls
+    handle_real_game_deep_link(), do not register this
+    handler separately or Telegram may process /start twice.
     """
 
     return CommandHandler(
