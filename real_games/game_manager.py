@@ -1,16 +1,13 @@
 """
-Melanated AZ Bot
-Real Games - Game Manager
+Melanated AZ Real Games
+Game Manager
 
-Central manager for all Real Games.
-
-This manager supports:
-- Single-player games
+Supports:
+- Single player games
 - Multiplayer rooms
 - Telegram deep links
+- Dirty Minds multiplayer
 - Room expiration
-- Player management
-- Game-specific state
 """
 
 from __future__ import annotations
@@ -21,33 +18,28 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-
 MAX_ROOM_AGE = 60 * 60 * 6  # 6 hours
 
 
 @dataclass
 class GameRoom:
-    """
-    A live Real Game room.
-    """
-
     game_id: str
     game_name: str
     room_id: str
 
-    max_players: int = 2
+    max_players: int = 20
     min_players: int = 1
 
     created_at: float = field(default_factory=time.time)
     last_activity: float = field(default_factory=time.time)
 
     players: dict[str, dict[str, Any]] = field(default_factory=dict)
-
     state: dict[str, Any] = field(default_factory=dict)
+
+    host_id: str | None = None
 
     started: bool = False
     finished: bool = False
-
     winner_id: str | None = None
 
     def touch(self):
@@ -57,27 +49,67 @@ class GameRoom:
         self,
         user_id: str,
         display_name: str,
-    ):
+    ) -> str:
+        """
+        Adds a player and returns their private room key.
+
+        The room key is intentionally separate from the Telegram
+        user ID so it is not exposed to LiveKit.
+        """
+
         self.touch()
+
+        user_id = str(user_id)
 
         if self.finished:
             raise ValueError("This game has already finished.")
 
         if user_id in self.players:
-            return
+            return self.players[user_id]["player_key"]
 
         if len(self.players) >= self.max_players:
             raise ValueError("This game room is full.")
 
+        player_key = uuid.uuid4().hex
+
         self.players[user_id] = {
             "user_id": user_id,
-            "name": display_name,
+            "name": display_name or "Player",
+            "player_key": player_key,
             "joined_at": time.time(),
+            "score": 0,
         }
+
+        if not self.host_id:
+            self.host_id = user_id
+
+        return player_key
+
+    def get_player_by_key(self, player_key: str):
+        if not player_key:
+            return None
+
+        player_key = str(player_key)
+
+        for player in self.players.values():
+            if player.get("player_key") == player_key:
+                return player
+
+        return None
+
+    def get_player(self, user_id: str):
+        return self.players.get(str(user_id))
 
     def remove_player(self, user_id: str):
         self.touch()
+
+        user_id = str(user_id)
+
         self.players.pop(user_id, None)
+
+        if self.host_id == user_id:
+            remaining = list(self.players.keys())
+            self.host_id = remaining[0] if remaining else None
 
     def player_count(self) -> int:
         return len(self.players)
@@ -104,23 +136,12 @@ class GameRoom:
 
 
 class GameManager:
-    """
-    Thread-safe manager for all Real Game rooms.
-    """
 
     def __init__(self):
         self.games: dict[str, GameRoom] = {}
         self.lock = threading.RLock()
 
-    # ------------------------------------------------------
-    # ROOM ID
-    # ------------------------------------------------------
-
     def create_id(self) -> str:
-        """
-        Create a short human-friendly room ID.
-        """
-
         while True:
             room_id = uuid.uuid4().hex[:8].upper()
 
@@ -128,15 +149,11 @@ class GameManager:
                 if room_id not in self.games:
                     return room_id
 
-    # ------------------------------------------------------
-    # CREATE
-    # ------------------------------------------------------
-
     def create(
         self,
         game_id: str,
         game_name: str,
-        max_players: int = 2,
+        max_players: int = 20,
         min_players: int = 1,
         state: dict[str, Any] | None = None,
     ) -> GameRoom:
@@ -157,13 +174,12 @@ class GameManager:
 
         return room
 
-    # ------------------------------------------------------
-    # GET
-    # ------------------------------------------------------
-
     def get(self, room_id: str) -> GameRoom | None:
 
-        room_id = room_id.upper()
+        if not room_id:
+            return None
+
+        room_id = str(room_id).strip().upper()
 
         with self.lock:
             room = self.games.get(room_id)
@@ -173,20 +189,15 @@ class GameManager:
 
             return room
 
-    # ------------------------------------------------------
-    # REMOVE
-    # ------------------------------------------------------
-
     def remove(self, room_id: str):
 
-        room_id = room_id.upper()
+        if not room_id:
+            return
+
+        room_id = str(room_id).strip().upper()
 
         with self.lock:
             self.games.pop(room_id, None)
-
-    # ------------------------------------------------------
-    # LIST
-    # ------------------------------------------------------
 
     def list_rooms(
         self,
@@ -194,7 +205,6 @@ class GameManager:
     ) -> list[GameRoom]:
 
         with self.lock:
-
             rooms = list(self.games.values())
 
             if game_id:
@@ -206,19 +216,14 @@ class GameManager:
 
             return rooms
 
-    # ------------------------------------------------------
-    # CLEANUP
-    # ------------------------------------------------------
-
     def cleanup(self):
 
         now = time.time()
-
         expired = []
 
         with self.lock:
 
-            for room_id, room in self.games.items():
+            for room_id, room in list(self.games.items()):
 
                 age = now - room.last_activity
 
