@@ -2,230 +2,184 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 
-<meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,
-    maximum-scale=1,user-scalable=no,viewport-fit=cover"
->
-
-<title>{{ game.name }} — Melanated AZ Real Games</title>
+<title>{{ game.name|default('Real Game') }} — Melanated AZ Real Games</title>
 
 <style>
-/* =========================================================
-   GLOBAL
-   ========================================================= */
-
 *{
     box-sizing:border-box;
     -webkit-tap-highlight-color:transparent;
 }
 
-html,
-body{
+html,body{
     margin:0;
     padding:0;
     min-height:100%;
     background:#080808;
     color:#fff;
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
+    font-family:Arial,Helvetica,sans-serif;
 }
 
 body{
-    overflow-x:hidden;
-}
-
-button{
-    font:inherit;
+    padding:
+        max(12px,env(safe-area-inset-top))
+        max(12px,env(safe-area-inset-right))
+        max(12px,env(safe-area-inset-bottom))
+        max(12px,env(safe-area-inset-left));
 }
 
 button,
-canvas,
-.game-board,
-.tap-target{
-    touch-action:none;
+input{
+    font:inherit;
 }
 
-a{
-    color:inherit;
-    text-decoration:none;
+button{
+    cursor:pointer;
+    border:0;
+    border-radius:12px;
+    padding:12px 16px;
+    background:#252525;
+    color:#fff;
+    font-weight:700;
 }
 
+button:hover{
+    background:#333;
+}
 
-/* =========================================================
-   PAGE
-   ========================================================= */
+button:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+input{
+    width:100%;
+    padding:13px;
+    border-radius:10px;
+    border:1px solid #444;
+    background:#111;
+    color:#fff;
+    outline:none;
+}
 
 .page{
     width:100%;
-    max-width:1100px;
+    max-width:900px;
     margin:0 auto;
-    padding:
-        max(12px,env(safe-area-inset-top))
-        12px
-        max(20px,env(safe-area-inset-bottom));
 }
 
 .header{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    margin-bottom:12px;
+    text-align:center;
+    margin-bottom:14px;
+}
+
+.header h1{
+    margin:4px 0;
+    font-size:clamp(24px,6vw,38px);
+}
+
+.header p{
+    margin:4px 0;
+    color:#aaa;
 }
 
 .back{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width:44px;
-    min-height:44px;
-    border-radius:12px;
-    background:#1b1b1b;
-    border:1px solid #333;
-    font-size:22px;
+    display:inline-block;
+    margin-bottom:8px;
+    text-decoration:none;
+    color:#fff;
+    background:#1c1c1c;
+    padding:9px 14px;
+    border-radius:10px;
 }
 
-.title-wrap{
-    min-width:0;
-    flex:1;
+#gameArea{
+    width:100%;
 }
 
-.title{
-    margin:0;
-    font-size:clamp(20px,5vw,32px);
-    line-height:1.1;
-}
-
-.subtitle{
-    margin:4px 0 0;
-    color:#aaa;
-    font-size:13px;
-}
-
-.card{
+.panel{
     background:#111;
     border:1px solid #292929;
     border-radius:18px;
-    padding:14px;
-    box-shadow:0 12px 40px rgba(0,0,0,.35);
+    padding:16px;
+    margin-bottom:14px;
+}
+
+.status{
+    text-align:center;
+    min-height:24px;
+    color:#ddd;
+    margin:8px 0 12px;
 }
 
 .controls{
     display:flex;
     flex-wrap:wrap;
-    align-items:center;
     justify-content:center;
     gap:8px;
-    margin-bottom:12px;
+    margin-top:12px;
 }
 
-.btn{
-    border:0;
-    border-radius:12px;
-    background:#272727;
-    color:#fff;
-    padding:12px 17px;
-    min-height:44px;
-    cursor:pointer;
-    font-weight:700;
+.primary{
+    background:#7c3aed;
 }
 
-.btn:active{
-    transform:scale(.97);
+.success{
+    background:#16803c;
 }
 
-.btn.primary{
-    background:#fff;
-    color:#000;
+.danger{
+    background:#9b2525;
 }
 
-.btn.danger{
-    background:#8d2020;
-}
-
-.scorebar{
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:center;
-    gap:10px;
-    margin-bottom:12px;
-}
-
-.stat{
-    background:#1a1a1a;
-    border:1px solid #303030;
-    border-radius:12px;
-    padding:8px 13px;
-    min-width:90px;
-    text-align:center;
-}
-
-.stat-label{
-    display:block;
-    color:#999;
-    font-size:11px;
-    text-transform:uppercase;
-    letter-spacing:.7px;
-}
-
-.stat-value{
-    display:block;
-    margin-top:2px;
-    font-size:20px;
-    font-weight:800;
-}
-
-.game-area{
-    width:100%;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    position:relative;
+.gold{
+    background:#9a7415;
 }
 
 canvas{
     display:block;
-    max-width:100%;
+    width:100%;
+    max-width:700px;
     height:auto;
+    margin:0 auto;
     background:#050505;
     border:1px solid #333;
     border-radius:14px;
+    touch-action:none;
 }
 
-.message{
+.game-title{
     text-align:center;
-    color:#bbb;
-    padding:20px;
+    font-size:22px;
+    font-weight:800;
+    margin-bottom:8px;
 }
 
-.hidden{
-    display:none!important;
+.score{
+    text-align:center;
+    font-size:18px;
+    margin:8px;
 }
 
-
-/* =========================================================
-   TOUCH CONTROLS
-   ========================================================= */
+.help{
+    color:#aaa;
+    text-align:center;
+    line-height:1.5;
+}
 
 .dpad{
-    width:180px;
-    margin:14px auto 0;
+    width:220px;
+    margin:12px auto;
     display:grid;
-    grid-template-columns:repeat(3,58px);
-    grid-template-rows:repeat(3,58px);
-    gap:3px;
-    justify-content:center;
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;
 }
 
 .dpad button{
-    border:1px solid #333;
-    background:#1d1d1d;
-    color:#fff;
-    border-radius:12px;
-    font-size:23px;
+    min-height:52px;
+    font-size:22px;
 }
 
 .dpad .up{
@@ -247,59 +201,44 @@ canvas{
     grid-row:2;
 }
 
-.control-hint{
-    text-align:center;
-    color:#777;
-    font-size:12px;
-    margin-top:8px;
-}
-
-
-/* =========================================================
+/* ==========================================================
    2048
-   ========================================================= */
+   ========================================================== */
 
-.board2048{
-    width:min(92vw,430px);
+.grid2048{
+    width:min(94vw,430px);
     aspect-ratio:1;
-    padding:8px;
-    background:#555;
-    border-radius:15px;
+    margin:auto;
     display:grid;
     grid-template-columns:repeat(4,1fr);
-    gap:8px;
-    touch-action:none;
+    gap:7px;
+    padding:7px;
+    background:#333;
+    border-radius:12px;
 }
 
 .tile2048{
     display:flex;
     align-items:center;
     justify-content:center;
-    border-radius:10px;
-    background:#777;
+    border-radius:8px;
+    background:#555;
+    font-size:clamp(20px,7vw,38px);
     font-weight:900;
-    font-size:clamp(22px,7vw,40px);
+    min-width:0;
 }
 
-.tile2048[data-value="2"]{background:#ddd;color:#111}
-.tile2048[data-value="4"]{background:#ccc;color:#111}
-.tile2048[data-value="8"]{background:#aaa;color:#111}
-.tile2048[data-value="16"]{background:#999}
-.tile2048[data-value="32"]{background:#888}
-.tile2048[data-value="64"]{background:#777}
-.tile2048[data-value="128"]{background:#666}
-.tile2048[data-value="256"]{background:#555}
-.tile2048[data-value="512"]{background:#444}
-.tile2048[data-value="1024"]{background:#333}
-.tile2048[data-value="2048"]{background:#fff;color:#000}
+.tile2048:not(:empty){
+    background:#8b5a2b;
+}
 
-
-/* =========================================================
+/* ==========================================================
    MEMORY
-   ========================================================= */
+   ========================================================== */
 
 .memory-grid{
-    width:min(92vw,500px);
+    width:min(94vw,480px);
+    margin:auto;
     display:grid;
     grid-template-columns:repeat(4,1fr);
     gap:8px;
@@ -307,271 +246,237 @@ canvas{
 
 .memory-card{
     aspect-ratio:1;
-    border:0;
     border-radius:12px;
-    background:#242424;
-    color:#fff;
-    font-size:clamp(25px,8vw,42px);
-    cursor:pointer;
+    background:#222;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:clamp(24px,8vw,42px);
+    border:2px solid #333;
 }
 
 .memory-card.flipped,
 .memory-card.matched{
-    background:#555;
+    background:#53338b;
 }
 
+/* ==========================================================
+   WHACK
+   ========================================================== */
 
-/* =========================================================
-   TRIVIA / DIRTY MINDS
-   ========================================================= */
-
-.trivia{
-    width:min(94vw,650px);
+.mole-grid{
+    width:min(94vw,450px);
     margin:auto;
-}
-
-.question-box{
-    background:#181818;
-    border:1px solid #333;
-    border-radius:18px;
-    padding:22px;
-    margin-bottom:15px;
-    text-align:center;
-}
-
-.question-number{
-    color:#888;
-    font-size:13px;
-    margin-bottom:10px;
-}
-
-.question-text{
-    font-size:clamp(21px,5vw,32px);
-    font-weight:800;
-    line-height:1.25;
-}
-
-.answers{
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:repeat(3,1fr);
     gap:10px;
 }
 
-.answer-btn{
-    min-height:58px;
-    border:1px solid #333;
-    background:#202020;
-    color:#fff;
-    border-radius:13px;
-    padding:12px;
-    font-weight:700;
+.hole{
+    aspect-ratio:1;
+    border-radius:50%;
+    background:#151515;
+    border:4px solid #292929;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(28px,10vw,60px);
 }
 
-.answer-btn.correct{
-    background:#235d32;
-}
+/* ==========================================================
+   CHESS / CHECKERS
+   ========================================================== */
 
-.answer-btn.wrong{
-    background:#702525;
-}
-
-.trivia-result{
-    text-align:center;
-    font-weight:800;
-    min-height:25px;
-    margin:12px 0;
-}
-
-
-/* =========================================================
-   CHESS
-   ========================================================= */
-
-.chess-board{
+.board{
     width:min(94vw,560px);
     aspect-ratio:1;
+    margin:auto;
     display:grid;
     grid-template-columns:repeat(8,1fr);
-    border:5px solid #333;
-    border-radius:8px;
-    overflow:hidden;
+    border:4px solid #333;
+    touch-action:manipulation;
+}
+
+.square{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    font-size:clamp(25px,8vw,58px);
     user-select:none;
 }
 
-.chess-square{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:clamp(27px,8vw,52px);
-    position:relative;
-}
-
 .chess-light{
-    background:#d9d9d9;
-    color:#111;
+    background:#d8b98c;
 }
 
 .chess-dark{
-    background:#555;
-    color:#fff;
+    background:#765433;
 }
 
-.chess-square.selected{
-    outline:4px solid #fff;
+.square.selected{
+    outline:4px solid #5ee7ff;
     outline-offset:-4px;
 }
 
-.chess-square.legal{
-    box-shadow:inset 0 0 0 5px rgba(255,255,255,.35);
+.square.move{
+    box-shadow:inset 0 0 0 5px rgba(80,220,120,.7);
 }
 
-
-/* =========================================================
-   CHECKERS
-   ========================================================= */
-
-.checkers-board{
-    width:min(94vw,560px);
-    aspect-ratio:1;
-    display:grid;
-    grid-template-columns:repeat(8,1fr);
-    border:5px solid #333;
-    border-radius:8px;
-    overflow:hidden;
+.square.capture{
+    box-shadow:inset 0 0 0 5px rgba(240,70,70,.8);
 }
 
-.check-square{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    position:relative;
-}
-
-.check-light{
-    background:#ddd;
-}
-
-.check-dark{
-    background:#555;
-}
-
-.piece{
-    width:72%;
-    height:72%;
-    border-radius:50%;
-    border:3px solid #222;
-    box-shadow:0 4px 8px rgba(0,0,0,.5);
-}
-
-.piece.red{
-    background:#d73535;
-}
-
-.piece.black{
+.checker-dark{
     background:#151515;
 }
 
-.piece.king::after{
-    content:"K";
-    color:#fff;
-    font-size:clamp(13px,4vw,22px);
-    font-weight:900;
-}
-
-.check-square.selected{
-    outline:4px solid #fff;
-    outline-offset:-4px;
-}
-
-
-/* =========================================================
-   MONOPOLY
-   ========================================================= */
-
-.mono{
-    width:min(96vw,700px);
-    margin:auto;
-}
-
-.mono-board{
-    display:grid;
-    grid-template-columns:repeat(5,1fr);
-    gap:5px;
-    background:#222;
-    border:5px solid #333;
-    border-radius:15px;
-    padding:5px;
-}
-
-.mono-cell{
-    min-height:75px;
-    background:#eee;
-    color:#111;
-    border-radius:8px;
-    padding:6px;
-    font-size:11px;
-    font-weight:700;
-    text-align:center;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    gap:3px;
-}
-
-.mono-cell.start{
-    background:#bbb;
-}
-
-.mono-cell.property{
+.checker-light{
     background:#ddd;
 }
 
-.mono-cell.player{
-    outline:4px solid #111;
+.checker-piece{
+    width:72%;
+    height:72%;
+    border-radius:50%;
+    border:4px solid #222;
+    box-shadow:0 4px 8px #0008;
 }
 
-.mono-log{
-    margin-top:12px;
-    background:#181818;
-    border:1px solid #333;
-    border-radius:12px;
-    padding:12px;
-    min-height:90px;
-    max-height:180px;
-    overflow:auto;
-    font-size:13px;
-    line-height:1.5;
+.checker-red{
+    background:#d52d2d;
 }
 
-.money{
-    font-size:18px;
+.checker-black{
+    background:#202020;
+}
+
+.checker-king::after{
+    content:"♛";
+    color:#ffd95a;
+    font-size:50%;
+}
+
+/* ==========================================================
+   MONOPOLY
+   ========================================================== */
+
+.mono-board{
+    width:min(96vw,620px);
+    aspect-ratio:1;
+    margin:auto;
+    display:grid;
+    grid-template-columns:repeat(11,1fr);
+    grid-template-rows:repeat(11,1fr);
+    gap:2px;
+    background:#222;
+    padding:3px;
+}
+
+.mono-space{
+    background:#ddd;
+    color:#111;
+    min-width:0;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    font-size:clamp(7px,1.7vw,11px);
+    padding:2px;
+}
+
+.mono-center{
+    grid-column:2/11;
+    grid-row:2/11;
+    background:#151515;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:10px;
+}
+
+.mono-token{
+    font-size:15px;
+    line-height:1;
+}
+
+/* ==========================================================
+   DIRTY MINDS
+   ========================================================== */
+
+.dm-lobby{
+    max-width:600px;
+    margin:auto;
+}
+
+.dm-question{
+    font-size:clamp(23px,5vw,34px);
+    line-height:1.35;
+    text-align:center;
+    font-weight:800;
+    padding:25px 12px;
+}
+
+.dm-answer{
+    text-align:center;
+    font-size:clamp(24px,6vw,36px);
     font-weight:900;
+    padding:20px;
+    background:#221733;
+    border-radius:14px;
+    margin:10px 0;
 }
 
+.dm-players{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    margin-top:12px;
+}
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
+.dm-player{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 12px;
+    background:#1a1a1a;
+    border-radius:10px;
+}
+
+.dm-player.me{
+    border:1px solid #7c3aed;
+}
+
+.dm-submitted{
+    color:#6ee7a0;
+    font-weight:700;
+}
+
+/* ==========================================================
+   MOBILE
+   ========================================================== */
 
 @media(max-width:600px){
 
-    .page{
-        padding-left:8px;
-        padding-right:8px;
+    body{
+        padding:10px;
     }
 
-    .card{
-        padding:9px;
+    .panel{
+        padding:11px;
         border-radius:14px;
     }
 
-    .answers{
-        grid-template-columns:1fr;
+    button{
+        padding:11px 13px;
     }
 
-    .mono-cell{
-        min-height:62px;
-        font-size:9px;
+    .controls button{
+        flex:1 1 auto;
     }
 }
 </style>
@@ -583,68 +488,22 @@ canvas{
 
     <div class="header">
 
-        <a
-            class="back"
-            href="{{ url_for('real_games.real_games_home') }}"
-            aria-label="Back to games"
-        >
-            ←
+        <a class="back" href="/real-games/">
+            ← Real Games
         </a>
 
-        <div class="title-wrap">
+        <h1>
+            {{ game.icon|default('🎮') }}
+            {{ game.name|default('Real Game') }}
+        </h1>
 
-            <h1 class="title">
-                {{ game.icon|default('🎮') }}
-                {{ game.name|default('Real Game') }}
-            </h1>
-
-            <p class="subtitle">
-                {{ game.description|default('Have fun!') }}
-            </p>
-
-        </div>
+        <p>
+            {{ game.description|default('Have fun!') }}
+        </p>
 
     </div>
 
-
-    <div class="card">
-
-        <div id="controls" class="controls">
-
-            <button
-                id="startBtn"
-                class="btn primary"
-                type="button"
-            >
-                ▶ Start
-            </button>
-
-            <button
-                id="restartBtn"
-                class="btn"
-                type="button"
-            >
-                ↻ Restart
-            </button>
-
-        </div>
-
-
-        <div id="scorebar" class="scorebar"></div>
-
-
-        <div id="gameArea" class="game-area">
-
-            <div
-                id="fallback"
-                class="message hidden"
-            >
-                This game is not available.
-            </div>
-
-        </div>
-
-    </div>
+    <div id="gameArea"></div>
 
 </div>
 
@@ -652,289 +511,197 @@ canvas{
 <script>
 "use strict";
 
-/* =========================================================
-   GAME INFORMATION FROM FLASK
-   ========================================================= */
+/* ==========================================================
+   GLOBAL GAME SYSTEM
+   ========================================================== */
 
 const GAME_ID =
-    "{{ game.game_id|default('unknown')|lower|replace(' ','_')|replace('-','_')|e }}";
+    {{ game.game_id|default('unknown')|tojson }};
 
+const gameArea =
+    document.getElementById("gameArea");
 
-/* =========================================================
-   GLOBAL GAME STATE
-   ========================================================= */
+let activeCleanup = null;
+let activeTimers = [];
+let activeIntervals = [];
+let activeFrames = [];
 
-let cleanupCurrentGame = null;
+function $(selector){
+    return document.querySelector(selector);
+}
 
-const gameArea = document.getElementById("gameArea");
-const scorebar = document.getElementById("scorebar");
-const startBtn = document.getElementById("startBtn");
-const restartBtn = document.getElementById("restartBtn");
+function clearGame(){
 
+    if(typeof activeCleanup === "function"){
+        try{
+            activeCleanup();
+        }catch(e){
+            console.error(e);
+        }
+    }
 
-/* =========================================================
-   HELPERS
-   ========================================================= */
+    activeCleanup = null;
 
-function clearGameArea(){
+    activeTimers.forEach(clearTimeout);
+    activeIntervals.forEach(clearInterval);
+    activeFrames.forEach(cancelAnimationFrame);
+
+    activeTimers = [];
+    activeIntervals = [];
+    activeFrames = [];
+
     gameArea.innerHTML = "";
 }
 
-function clearScore(){
-    scorebar.innerHTML = "";
+function timer(fn,ms){
+    const id = setTimeout(fn,ms);
+    activeTimers.push(id);
+    return id;
 }
 
-function addStat(label,value,id){
-    const box = document.createElement("div");
-    box.className = "stat";
-
-    box.innerHTML = `
-        <span class="stat-label">${label}</span>
-        <span class="stat-value" id="${id}">${value}</span>
-    `;
-
-    scorebar.appendChild(box);
-
-    return document.getElementById(id);
+function interval(fn,ms){
+    const id = setInterval(fn,ms);
+    activeIntervals.push(id);
+    return id;
 }
 
-function randomInt(min,max){
-    return Math.floor(Math.random()*(max-min+1))+min;
+function frame(fn){
+    const id = requestAnimationFrame(fn);
+    activeFrames.push(id);
+    return id;
 }
 
-function clamp(value,min,max){
-    return Math.max(min,Math.min(max,value));
+function html(content){
+    gameArea.innerHTML = content;
 }
 
-function shuffle(array){
-    for(let i=array.length-1;i>0;i--){
-        const j=Math.floor(Math.random()*(i+1));
-        [array[i],array[j]]=[array[j],array[i]];
-    }
-
-    return array;
-}
-
-function setMessage(text){
-    gameArea.innerHTML =
-        `<div class="message">${text}</div>`;
-}
-
-function createCanvas(width,height){
-    const canvas=document.createElement("canvas");
-
-    canvas.width=width;
-    canvas.height=height;
-
-    gameArea.appendChild(canvas);
-
-    return canvas;
-}
-
-function setStartText(text){
-    startBtn.textContent=text;
+function escapeHtml(value){
+    return String(value ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
 }
 
 
-/* =========================================================
-   GAME CLEANUP
-   ========================================================= */
-
-function stopCurrentGame(){
-
-    if(typeof cleanupCurrentGame==="function"){
-
-        try{
-            cleanupCurrentGame();
-        }catch(error){
-            console.error(
-                "Game cleanup error:",
-                error
-            );
-        }
-    }
-
-    cleanupCurrentGame=null;
-}
-
-
-/* =========================================================
-   START / RESTART
-   ========================================================= */
-
-startBtn.addEventListener("click",()=>{
-    if(typeof window.currentStart==="function"){
-        window.currentStart();
-    }
-});
-
-restartBtn.addEventListener("click",()=>{
-    loadGame(GAME_ID);
-});
-
-
-/* =========================================================
+/* ==========================================================
    SNAKE
-   ========================================================= */
+   ========================================================== */
 
 function snakeGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">🐍 Snake</div>
+            <div class="score">Score: <b id="snakeScore">0</b></div>
+            <canvas id="snakeCanvas"
+                    width="400"
+                    height="400"></canvas>
 
-    const canvas=createCanvas(420,420);
-    const ctx=canvas.getContext("2d");
+            <div class="dpad">
+                <button class="up" id="sUp">⬆️</button>
+                <button class="left" id="sLeft">⬅️</button>
+                <button class="down" id="sDown">⬇️</button>
+                <button class="right" id="sRight">➡️</button>
+            </div>
 
-    const scoreEl=addStat("Score","0","snakeScore");
-    const bestEl=addStat(
-        "Best",
-        localStorage.getItem("snakeBest")||"0",
-        "snakeBest"
-    );
+            <div class="controls">
+                <button id="snakeRestart" class="primary">
+                    Restart
+                </button>
+            </div>
+        </div>
+    `);
 
-    const grid=21;
-    const cell=20;
+    const canvas = $("#snakeCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const size = 20;
+    const cells = 20;
 
     let snake;
     let food;
-    let direction;
-    let nextDirection;
+    let dx;
+    let dy;
     let score;
-    let running=false;
-    let timer=null;
-
-    function placeFood(){
-
-        do{
-            food={
-                x:randomInt(0,grid-1),
-                y:randomInt(0,grid-1)
-            };
-        }while(
-            snake.some(
-                p=>p.x===food.x&&p.y===food.y
-            )
-        );
-    }
-
-    function draw(){
-
-        ctx.fillStyle="#050505";
-        ctx.fillRect(
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
-
-        ctx.strokeStyle="#111";
-
-        for(let i=0;i<=grid;i++){
-
-            ctx.beginPath();
-            ctx.moveTo(i*cell,0);
-            ctx.lineTo(i*cell,canvas.height);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(0,i*cell);
-            ctx.lineTo(canvas.width,i*cell);
-            ctx.stroke();
-        }
-
-        ctx.fillStyle="#fff";
-
-        ctx.fillRect(
-            food.x*cell+3,
-            food.y*cell+3,
-            cell-6,
-            cell-6
-        );
-
-        snake.forEach((p,index)=>{
-
-            ctx.fillStyle =
-                index===0 ? "#fff" : "#888";
-
-            ctx.fillRect(
-                p.x*cell+2,
-                p.y*cell+2,
-                cell-4,
-                cell-4
-            );
-        });
-    }
+    let running;
 
     function reset(){
 
-        snake=[
+        snake = [
             {x:10,y:10},
             {x:9,y:10},
             {x:8,y:10}
         ];
 
-        direction={x:1,y:0};
-        nextDirection={x:1,y:0};
+        food = spawnFood();
 
-        score=0;
-        running=false;
+        dx = 1;
+        dy = 0;
 
-        scoreEl.textContent="0";
+        score = 0;
+        running = true;
 
-        placeFood();
+        $("#snakeScore").textContent = score;
+
         draw();
-
-        setStartText("▶ Start");
     }
 
-    function end(){
+    function spawnFood(){
 
-        running=false;
+        let p;
 
-        clearInterval(timer);
-        timer=null;
+        do{
+            p = {
+                x:Math.floor(Math.random()*cells),
+                y:Math.floor(Math.random()*cells)
+            };
+        }while(
+            snake &&
+            snake.some(s=>s.x===p.x && s.y===p.y)
+        );
 
-        const oldBest=
-            Number(localStorage.getItem("snakeBest")||0);
-
-        if(score>oldBest){
-
-            localStorage.setItem(
-                "snakeBest",
-                String(score)
-            );
-
-            bestEl.textContent=score;
-        }
-
-        setStartText("▶ Start");
+        return p;
     }
 
-    function step(){
+    function change(nx,ny){
 
-        direction=nextDirection;
-
-        const head={
-            x:snake[0].x+direction.x,
-            y:snake[0].y+direction.y
-        };
-
-        if(
-            head.x<0 ||
-            head.x>=grid ||
-            head.y<0 ||
-            head.y>=grid
-        ){
-            end();
+        if(nx === -dx && ny === -dy){
             return;
         }
 
+        dx = nx;
+        dy = ny;
+    }
+
+    function tick(){
+
+        if(!running) return;
+
+        const head = {
+            x:snake[0].x + dx,
+            y:snake[0].y + dy
+        };
+
         if(
+            head.x < 0 ||
+            head.y < 0 ||
+            head.x >= cells ||
+            head.y >= cells ||
             snake.some(
-                p=>p.x===head.x&&p.y===head.y
+                s=>s.x===head.x && s.y===head.y
             )
         ){
-            end();
+
+            running = false;
+
+            setTimeout(()=>{
+                alert(
+                    "Game Over! Score: " + score
+                );
+            },20);
+
             return;
         }
 
@@ -946,855 +713,752 @@ function snakeGame(){
         ){
 
             score++;
-            scoreEl.textContent=score;
-
-            placeFood();
+            $("#snakeScore").textContent = score;
+            food = spawnFood();
 
         }else{
-
             snake.pop();
         }
 
         draw();
     }
 
-    function start(){
+    function draw(){
 
-        if(running)return;
+        ctx.fillStyle = "#050505";
+        ctx.fillRect(0,0,400,400);
 
-        running=true;
-
-        setStartText("⏸ Running");
-
-        timer=setInterval(
-            step,
-            115
+        ctx.fillStyle = "#e33";
+        ctx.fillRect(
+            food.x*size,
+            food.y*size,
+            size-1,
+            size-1
         );
+
+        ctx.fillStyle = "#39d98a";
+
+        snake.forEach(s=>{
+            ctx.fillRect(
+                s.x*size,
+                s.y*size,
+                size-1,
+                size-1
+            );
+        });
     }
 
     function key(e){
 
-        const keys={
-            ArrowUp:{x:0,y:-1},
-            w:{x:0,y:-1},
-            W:{x:0,y:-1},
-
-            ArrowDown:{x:0,y:1},
-            s:{x:0,y:1},
-            S:{x:0,y:1},
-
-            ArrowLeft:{x:-1,y:0},
-            a:{x:-1,y:0},
-            A:{x:-1,y:0},
-
-            ArrowRight:{x:1,y:0},
-            d:{x:1,y:0},
-            D:{x:1,y:0}
-        };
-
-        const move=keys[e.key];
-
-        if(!move)return;
-
-        e.preventDefault();
+        const k = e.key.toLowerCase();
 
         if(
-            move.x!==-direction.x ||
-            move.y!==-direction.y
+            ["arrowup","arrowdown","arrowleft","arrowright",
+             "w","a","s","d"].includes(k)
         ){
-            nextDirection=move;
-        }
-    }
-
-    function addDpad(){
-
-        const d=document.createElement("div");
-
-        d.className="dpad";
-
-        d.innerHTML=`
-            <button class="up">↑</button>
-            <button class="left">←</button>
-            <button class="down">↓</button>
-            <button class="right">→</button>
-        `;
-
-        gameArea.appendChild(d);
-
-        function bind(selector,move){
-
-            const b=d.querySelector(selector);
-
-            b.addEventListener("pointerdown",e=>{
-                e.preventDefault();
-
-                if(
-                    move.x!==-direction.x ||
-                    move.y!==-direction.y
-                ){
-                    nextDirection=move;
-                }
-            });
+            e.preventDefault();
         }
 
-        bind(".up",{x:0,y:-1});
-        bind(".down",{x:0,y:1});
-        bind(".left",{x:-1,y:0});
-        bind(".right",{x:1,y:0});
+        if(k==="arrowup" || k==="w") change(0,-1);
+        if(k==="arrowdown" || k==="s") change(0,1);
+        if(k==="arrowleft" || k==="a") change(-1,0);
+        if(k==="arrowright" || k==="d") change(1,0);
     }
-
-    window.currentStart=start;
 
     document.addEventListener("keydown",key);
 
-    addDpad();
+    $("#sUp").onclick=()=>change(0,-1);
+    $("#sDown").onclick=()=>change(0,1);
+    $("#sLeft").onclick=()=>change(-1,0);
+    $("#sRight").onclick=()=>change(1,0);
+    $("#snakeRestart").onclick=reset;
+
+    const loop = setInterval(tick,110);
+    activeIntervals.push(loop);
+
     reset();
 
-    cleanupCurrentGame=()=>{
-        clearInterval(timer);
-        document.removeEventListener(
-            "keydown",
-            key
-        );
-        window.currentStart=null;
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
     };
 }
 
 
-/* =========================================================
+/* ==========================================================
    PONG
-   ========================================================= */
+   ========================================================== */
 
 function pongGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">🏓 Pong</div>
+            <div class="score">
+                You <b id="pongPlayer">0</b>
+                —
+                <b id="pongCPU">0</b> CPU
+            </div>
 
-    const canvas=createCanvas(700,420);
+            <canvas id="pongCanvas"
+                    width="700"
+                    height="400"></canvas>
+
+            <div class="help">
+                Move your paddle with your mouse,
+                finger, or ↑ ↓ keys.
+            </div>
+
+            <div class="controls">
+                <button id="pongRestart" class="primary">
+                    Restart
+                </button>
+            </div>
+        </div>
+    `);
+
+    const canvas=$("#pongCanvas");
     const ctx=canvas.getContext("2d");
 
-    const playerScore=addStat(
-        "You",
-        "0",
-        "pongPlayer"
-    );
+    const W=700,H=400;
 
-    const cpuScore=addStat(
-        "CPU",
-        "0",
-        "pongCpu"
-    );
-
-    let playerY=175;
-    let cpuY=175;
-
+    let playerY=160;
+    let cpuY=160;
     let ball={
         x:350,
-        y:210,
+        y:200,
         vx:5,
         vy:3
     };
 
-    let pScore=0;
-    let cScore=0;
-    let running=false;
-    let frame=0;
+    let ps=0;
+    let cs=0;
+    let raf;
 
-    function resetBall(direction){
+    function resetBall(dir){
 
         ball={
-            x:350,
-            y:210,
-            vx:direction*5,
-            vy:randomInt(-3,3)||2
+            x:W/2,
+            y:H/2,
+            vx:dir*5,
+            vy:(Math.random()-.5)*6
         };
     }
 
-    function draw(){
+    function reset(){
 
-        ctx.fillStyle="#050505";
-        ctx.fillRect(0,0,700,420);
+        ps=0;
+        cs=0;
+        playerY=160;
+        cpuY=160;
 
-        ctx.strokeStyle="#333";
-        ctx.setLineDash([8,12]);
-        ctx.beginPath();
-        ctx.moveTo(350,0);
-        ctx.lineTo(350,420);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        $("#pongPlayer").textContent=0;
+        $("#pongCPU").textContent=0;
 
-        ctx.fillStyle="#fff";
-
-        ctx.fillRect(
-            18,
-            playerY,
-            14,
-            70
+        resetBall(
+            Math.random()<.5 ? -1 : 1
         );
-
-        ctx.fillRect(
-            668,
-            cpuY,
-            14,
-            70
-        );
-
-        ctx.beginPath();
-        ctx.arc(
-            ball.x,
-            ball.y,
-            8,
-            0,
-            Math.PI*2
-        );
-        ctx.fill();
-    }
-
-    function loop(){
-
-        if(!running)return;
-
-        ball.x+=ball.vx;
-        ball.y+=ball.vy;
-
-        if(ball.y<8 || ball.y>412){
-            ball.vy*=-1;
-        }
-
-        cpuY +=
-            (ball.y-35-cpuY)*.055;
-
-        cpuY=clamp(
-            cpuY,
-            0,
-            350
-        );
-
-        if(
-            ball.x<32 &&
-            ball.x>20 &&
-            ball.y>playerY &&
-            ball.y<playerY+70
-        ){
-            ball.vx=Math.abs(ball.vx)*1.03;
-        }
-
-        if(
-            ball.x>654 &&
-            ball.x<670 &&
-            ball.y>cpuY &&
-            ball.y<cpuY+70
-        ){
-            ball.vx=-Math.abs(ball.vx)*1.03;
-        }
-
-        if(ball.x<0){
-
-            cScore++;
-
-            cpuScore.textContent=cScore;
-
-            resetBall(1);
-        }
-
-        if(ball.x>700){
-
-            pScore++;
-
-            playerScore.textContent=pScore;
-
-            resetBall(-1);
-        }
-
-        draw();
-
-        frame=requestAnimationFrame(loop);
-    }
-
-    function start(){
-
-        if(running)return;
-
-        running=true;
-
-        setStartText("⏸ Running");
-
-        frame=requestAnimationFrame(loop);
     }
 
     function movePlayer(y){
 
-        playerY=clamp(
-            y-35,
+        const rect=canvas.getBoundingClientRect();
+
+        const scale=H/rect.height;
+
+        playerY =
+            (y-rect.top)*scale - 40;
+
+        playerY=Math.max(
             0,
-            350
+            Math.min(H-80,playerY)
         );
-    }
-
-    function pointer(e){
-
-        const r=canvas.getBoundingClientRect();
-
-        const y=
-            (e.clientY-r.top) *
-            canvas.height /
-            r.height;
-
-        movePlayer(y);
-    }
-
-    function key(e){
-
-        if(
-            e.key==="ArrowUp" ||
-            e.key==="ArrowDown"
-        ){
-            e.preventDefault();
-
-            playerY +=
-                e.key==="ArrowUp" ? -30 : 30;
-
-            playerY=clamp(
-                playerY,
-                0,
-                350
-            );
-        }
     }
 
     canvas.addEventListener(
         "pointermove",
-        pointer
+        e=>movePlayer(e.clientY)
     );
 
     canvas.addEventListener(
         "pointerdown",
-        pointer
+        e=>movePlayer(e.clientY)
     );
 
-    document.addEventListener(
-        "keydown",
-        key
-    );
+    function key(e){
 
-    window.currentStart=start;
-
-    draw();
-
-    cleanupCurrentGame=()=>{
-        running=false;
-        cancelAnimationFrame(frame);
-
-        canvas.removeEventListener(
-            "pointermove",
-            pointer
-        );
-
-        canvas.removeEventListener(
-            "pointerdown",
-            pointer
-        );
-
-        document.removeEventListener(
-            "keydown",
-            key
-        );
-
-        window.currentStart=null;
-    };
-}
-
-
-/* =========================================================
-   BREAKOUT
-   ========================================================= */
-
-function breakoutGame(){
-
-    clearGameArea();
-    clearScore();
-
-    const canvas=createCanvas(700,480);
-    const ctx=canvas.getContext("2d");
-
-    const scoreEl=addStat(
-        "Score",
-        "0",
-        "breakScore"
-    );
-
-    const livesEl=addStat(
-        "Lives",
-        "3",
-        "breakLives"
-    );
-
-    let paddleX=300;
-    let ball={
-        x:350,
-        y:420,
-        vx:4,
-        vy:-4
-    };
-
-    let score=0;
-    let lives=3;
-    let running=false;
-    let frame=0;
-
-    const bricks=[];
-
-    for(let row=0;row<5;row++){
-
-        for(let col=0;col<10;col++){
-
-            bricks.push({
-                x:15+col*68,
-                y:35+row*27,
-                w:60,
-                h:18,
-                alive:true
-            });
+        if(e.key==="ArrowUp"){
+            playerY-=30;
         }
-    }
 
-    function draw(){
+        if(e.key==="ArrowDown"){
+            playerY+=30;
+        }
 
-        ctx.fillStyle="#050505";
-        ctx.fillRect(0,0,700,480);
-
-        ctx.fillStyle="#fff";
-
-        bricks.forEach(b=>{
-
-            if(!b.alive)return;
-
-            ctx.fillRect(
-                b.x,
-                b.y,
-                b.w,
-                b.h
-            );
-        });
-
-        ctx.fillRect(
-            paddleX,
-            450,
-            100,
-            12
-        );
-
-        ctx.beginPath();
-
-        ctx.arc(
-            ball.x,
-            ball.y,
-            8,
+        playerY=Math.max(
             0,
-            Math.PI*2
+            Math.min(H-80,playerY)
         );
-
-        ctx.fill();
     }
 
-    function resetBall(){
-
-        ball={
-            x:350,
-            y:420,
-            vx:randomInt(-4,4)||3,
-            vy:-4
-        };
-    }
-
-    function end(){
-
-        running=false;
-
-        cancelAnimationFrame(frame);
-
-        setStartText("▶ Start");
-    }
+    document.addEventListener("keydown",key);
 
     function loop(){
 
-        if(!running)return;
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,W,H);
+
+        ctx.strokeStyle="#444";
+        ctx.setLineDash([8,8]);
+        ctx.beginPath();
+        ctx.moveTo(W/2,0);
+        ctx.lineTo(W/2,H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        cpuY +=
+            (ball.y - 40 - cpuY)*.045;
+
+        cpuY=Math.max(
+            0,
+            Math.min(H-80,cpuY)
+        );
 
         ball.x+=ball.vx;
         ball.y+=ball.vy;
 
-        if(ball.x<8 || ball.x>692){
-            ball.vx*=-1;
-        }
-
-        if(ball.y<8){
+        if(ball.y<10 || ball.y>H-10){
             ball.vy*=-1;
         }
 
         if(
-            ball.y>438 &&
-            ball.x>paddleX &&
-            ball.x<paddleX+100 &&
+            ball.x<40 &&
+            ball.x>25 &&
+            ball.y>playerY &&
+            ball.y<playerY+80
+        ){
+            ball.vx=Math.abs(ball.vx);
+            ball.vy +=
+                (ball.y-(playerY+40))*.08;
+        }
+
+        if(
+            ball.x>W-40 &&
+            ball.x<W-25 &&
+            ball.y>cpuY &&
+            ball.y<cpuY+80
+        ){
+            ball.vx=-Math.abs(ball.vx);
+            ball.vy +=
+                (ball.y-(cpuY+40))*.08;
+        }
+
+        if(ball.x<0){
+            cs++;
+            $("#pongCPU").textContent=cs;
+            resetBall(1);
+        }
+
+        if(ball.x>W){
+            ps++;
+            $("#pongPlayer").textContent=ps;
+            resetBall(-1);
+        }
+
+        ctx.fillStyle="#fff";
+
+        ctx.fillRect(
+            20,playerY,12,80
+        );
+
+        ctx.fillRect(
+            W-32,cpuY,12,80
+        );
+
+        ctx.beginPath();
+        ctx.arc(ball.x,ball.y,8,0,Math.PI*2);
+        ctx.fill();
+
+        raf=requestAnimationFrame(loop);
+        activeFrames.push(raf);
+    }
+
+    $("#pongRestart").onclick=reset;
+
+    reset();
+    loop();
+
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
+        cancelAnimationFrame(raf);
+    };
+}
+
+
+/* ==========================================================
+   BREAKOUT
+   ========================================================== */
+
+function breakoutGame(){
+
+    html(`
+        <div class="panel">
+            <div class="game-title">🧱 Breakout</div>
+            <div class="score">
+                Score: <b id="breakScore">0</b>
+            </div>
+
+            <canvas id="breakCanvas"
+                    width="600"
+                    height="450"></canvas>
+
+            <div class="help">
+                Move the paddle with your finger,
+                mouse, or arrow keys.
+            </div>
+
+            <div class="controls">
+                <button id="breakRestart" class="primary">
+                    Restart
+                </button>
+            </div>
+        </div>
+    `);
+
+    const canvas=$("#breakCanvas");
+    const ctx=canvas.getContext("2d");
+
+    const W=600,H=450;
+
+    let paddleX=250;
+    let ball;
+    let bricks;
+    let score=0;
+    let raf;
+
+    function reset(){
+
+        paddleX=250;
+        score=0;
+
+        $("#breakScore").textContent=0;
+
+        ball={
+            x:300,
+            y:350,
+            vx:4,
+            vy:-4,
+            r:8
+        };
+
+        bricks=[];
+
+        for(let r=0;r<5;r++){
+            for(let c=0;c<10;c++){
+
+                bricks.push({
+                    x:8+c*59,
+                    y:40+r*25,
+                    w:54,
+                    h:18,
+                    alive:true
+                });
+            }
+        }
+    }
+
+    function move(x){
+
+        const rect=canvas.getBoundingClientRect();
+
+        paddleX =
+            (x-rect.left) /
+            rect.width *
+            W - 60;
+
+        paddleX=Math.max(
+            0,
+            Math.min(W-120,paddleX)
+        );
+    }
+
+    canvas.addEventListener(
+        "pointermove",
+        e=>move(e.clientX)
+    );
+
+    canvas.addEventListener(
+        "pointerdown",
+        e=>move(e.clientX)
+    );
+
+    function key(e){
+
+        if(e.key==="ArrowLeft"){
+            paddleX-=30;
+        }
+
+        if(e.key==="ArrowRight"){
+            paddleX+=30;
+        }
+
+        paddleX=Math.max(
+            0,
+            Math.min(W-120,paddleX)
+        );
+    }
+
+    document.addEventListener("keydown",key);
+
+    function loop(){
+
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,W,H);
+
+        ball.x+=ball.vx;
+        ball.y+=ball.vy;
+
+        if(
+            ball.x<ball.r ||
+            ball.x>W-ball.r
+        ){
+            ball.vx*=-1;
+        }
+
+        if(ball.y<ball.r){
+            ball.vy*=-1;
+        }
+
+        if(
+            ball.y+ball.r>=380 &&
+            ball.x>=paddleX &&
+            ball.x<=paddleX+120 &&
             ball.vy>0
         ){
             ball.vy=-Math.abs(ball.vy);
+            ball.vx +=
+                (ball.x-(paddleX+60))*.03;
         }
 
         bricks.forEach(b=>{
 
-            if(!b.alive)return;
-
             if(
+                b.alive &&
                 ball.x>b.x &&
                 ball.x<b.x+b.w &&
                 ball.y>b.y &&
                 ball.y<b.y+b.h &&
                 ball.vy<0
             ){
-
                 b.alive=false;
-
                 ball.vy*=-1;
-
                 score++;
-
-                scoreEl.textContent=score;
+                $("#breakScore").textContent=score;
             }
         });
 
-        if(
-            bricks.every(
-                b=>!b.alive
-            )
-        ){
-            end();
+        if(ball.y>H){
+
+            reset();
         }
 
-        if(ball.y>490){
+        bricks.forEach(b=>{
 
-            lives--;
+            if(!b.alive)return;
 
-            livesEl.textContent=lives;
+            ctx.fillStyle="#9b59b6";
+            ctx.fillRect(
+                b.x,b.y,b.w,b.h
+            );
+        });
 
-            if(lives<=0){
+        ctx.fillStyle="#fff";
+        ctx.fillRect(
+            paddleX,380,120,12
+        );
 
-                end();
-
-            }else{
-
-                resetBall();
-            }
-        }
-
-        draw();
-
-        frame=requestAnimationFrame(loop);
-    }
-
-    function start(){
-
-        if(running)return;
-
-        running=true;
-
-        setStartText("⏸ Running");
-
-        frame=requestAnimationFrame(loop);
-    }
-
-    function move(e){
-
-        const r=canvas.getBoundingClientRect();
-
-        paddleX=
-            (e.clientX-r.left) *
-            canvas.width /
-            r.width -
-            50;
-
-        paddleX=clamp(
-            paddleX,
+        ctx.beginPath();
+        ctx.arc(
+            ball.x,
+            ball.y,
+            ball.r,
             0,
-            600
+            Math.PI*2
         );
+        ctx.fill();
+
+        raf=requestAnimationFrame(loop);
+        activeFrames.push(raf);
     }
 
-    canvas.addEventListener(
-        "pointermove",
-        move
-    );
+    $("#breakRestart").onclick=reset;
 
-    canvas.addEventListener(
-        "pointerdown",
-        move
-    );
+    reset();
+    loop();
 
-    window.currentStart=start;
-
-    draw();
-
-    cleanupCurrentGame=()=>{
-        running=false;
-        cancelAnimationFrame(frame);
-
-        canvas.removeEventListener(
-            "pointermove",
-            move
-        );
-
-        canvas.removeEventListener(
-            "pointerdown",
-            move
-        );
-
-        window.currentStart=null;
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
+        cancelAnimationFrame(raf);
     };
 }
 
 
-/* =========================================================
+/* ==========================================================
    DODGE
-   ========================================================= */
+   ========================================================== */
 
 function dodgeGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">💥 Dodge</div>
+            <div class="score">
+                Score: <b id="dodgeScore">0</b>
+            </div>
 
-    const canvas=createCanvas(420,600);
+            <canvas id="dodgeCanvas"
+                    width="400"
+                    height="550"></canvas>
+
+            <div class="dpad">
+                <button class="left" id="dLeft">⬅️</button>
+                <button class="right" id="dRight">➡️</button>
+            </div>
+
+            <div class="controls">
+                <button id="dodgeRestart" class="primary">
+                    Restart
+                </button>
+            </div>
+        </div>
+    `);
+
+    const canvas=$("#dodgeCanvas");
     const ctx=canvas.getContext("2d");
 
-    const scoreEl=addStat(
-        "Score",
-        "0",
-        "dodgeScore"
-    );
-
-    let playerX=190;
-    let blocks=[];
-    let score=0;
-    let running=false;
-    let frame=0;
+    let player;
+    let enemies;
+    let score;
+    let running;
+    let raf;
     let last=0;
 
-    function draw(){
+    function reset(){
 
-        ctx.fillStyle="#050505";
-        ctx.fillRect(0,0,420,600);
+        player={
+            x:180,
+            y:480,
+            w:40,
+            h:40
+        };
 
-        ctx.fillStyle="#fff";
+        enemies=[];
+        score=0;
+        running=true;
+        last=0;
 
-        ctx.fillRect(
-            playerX,
-            540,
-            40,
-            40
-        );
-
-        ctx.fillStyle="#888";
-
-        blocks.forEach(b=>{
-            ctx.fillRect(
-                b.x,
-                b.y,
-                b.w,
-                b.h
-            );
-        });
+        $("#dodgeScore").textContent=0;
     }
 
-    function loop(time){
+    function left(){
+        player.x=Math.max(
+            0,
+            player.x-35
+        );
+    }
+
+    function right(){
+        player.x=Math.min(
+            360,
+            player.x+35
+        );
+    }
+
+    $("#dLeft").onclick=left;
+    $("#dRight").onclick=right;
+
+    function key(e){
+
+        if(e.key==="ArrowLeft" || e.key==="a"){
+            left();
+        }
+
+        if(e.key==="ArrowRight" || e.key==="d"){
+            right();
+        }
+    }
+
+    document.addEventListener("keydown",key);
+
+    canvas.addEventListener(
+        "pointermove",
+        e=>{
+            const rect=canvas.getBoundingClientRect();
+
+            player.x =
+                (e.clientX-rect.left) /
+                rect.width *
+                400 - 20;
+
+            player.x=Math.max(
+                0,
+                Math.min(360,player.x)
+            );
+        }
+    );
+
+    function loop(t){
 
         if(!running)return;
 
-        if(!last)last=time;
+        if(!last)last=t;
 
-        const dt=
-            Math.min(
-                32,
-                time-last
-            );
+        const dt=Math.min(
+            .035,
+            (t-last)/1000
+        );
 
-        last=time;
+        last=t;
 
-        if(Math.random()<.035){
+        if(Math.random()<.04){
 
-            blocks.push({
-                x:randomInt(0,380),
+            enemies.push({
+                x:Math.random()*370,
                 y:-30,
-                w:randomInt(25,55),
+                w:30+Math.random()*30,
                 h:30,
-                speed:3+score*.015
+                speed:150+Math.random()*130
             });
         }
 
-        blocks.forEach(b=>{
-            b.y+=b.speed*(dt/16);
+        enemies.forEach(e=>{
+            e.y+=e.speed*dt;
         });
 
-        blocks=blocks.filter(
-            b=>b.y<650
+        enemies=enemies.filter(
+            e=>e.y<580
         );
 
-        for(const b of blocks){
+        score += dt;
+
+        $("#dodgeScore").textContent=
+            Math.floor(score);
+
+        for(const e of enemies){
 
             if(
-                playerX<b.x+b.w &&
-                playerX+40>b.x &&
-                540<b.y+b.h &&
-                580>b.y
+                player.x<e.x+e.w &&
+                player.x+player.w>e.x &&
+                player.y<e.y+e.h &&
+                player.y+player.h>e.y
             ){
                 running=false;
-                setStartText("▶ Start");
+
+                setTimeout(()=>{
+                    alert(
+                        "You survived " +
+                        Math.floor(score) +
+                        " seconds!"
+                    );
+                },20);
+
                 return;
             }
         }
 
-        score+=dt/1000;
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,400,550);
 
-        scoreEl.textContent=
-            Math.floor(score);
+        ctx.fillStyle="#4ade80";
+        ctx.fillRect(
+            player.x,
+            player.y,
+            player.w,
+            player.h
+        );
 
-        draw();
+        ctx.fillStyle="#ef4444";
 
-        frame=requestAnimationFrame(loop);
+        enemies.forEach(e=>{
+            ctx.fillRect(
+                e.x,e.y,e.w,e.h
+            );
+        });
+
+        raf=requestAnimationFrame(loop);
+        activeFrames.push(raf);
     }
 
-    function start(){
+    $("#dodgeRestart").onclick=()=>{
+        reset();
+    };
 
-        if(running)return;
+    reset();
+    loop(0);
 
-        running=true;
-        last=0;
-
-        setStartText("⏸ Running");
-
-        frame=requestAnimationFrame(loop);
-    }
-
-    function move(e){
-
-        const r=canvas.getBoundingClientRect();
-
-        playerX=
-            (e.clientX-r.left) *
-            canvas.width /
-            r.width -
-            20;
-
-        playerX=clamp(
-            playerX,
-            0,
-            380
-        );
-    }
-
-    function key(e){
-
-        if(e.key==="ArrowLeft"){
-
-            e.preventDefault();
-
-            playerX-=25;
-        }
-
-        if(e.key==="ArrowRight"){
-
-            e.preventDefault();
-
-            playerX+=25;
-        }
-
-        playerX=clamp(
-            playerX,
-            0,
-            380
-        );
-    }
-
-    canvas.addEventListener(
-        "pointermove",
-        move
-    );
-
-    canvas.addEventListener(
-        "pointerdown",
-        move
-    );
-
-    document.addEventListener(
-        "keydown",
-        key
-    );
-
-    window.currentStart=start;
-
-    draw();
-
-    cleanupCurrentGame=()=>{
-        running=false;
-
-        cancelAnimationFrame(frame);
-
-        canvas.removeEventListener(
-            "pointermove",
-            move
-        );
-
-        canvas.removeEventListener(
-            "pointerdown",
-            move
-        );
-
-        document.removeEventListener(
-            "keydown",
-            key
-        );
-
-        window.currentStart=null;
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
+        cancelAnimationFrame(raf);
     };
 }
 
 
-/* =========================================================
+/* ==========================================================
    2048
-   ========================================================= */
+   ========================================================== */
 
 function game2048(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">🔢 2048</div>
 
-    const scoreEl=addStat(
-        "Score",
-        "0",
-        "2048Score"
-    );
+            <div class="score">
+                Score: <b id="score2048">0</b>
+            </div>
 
-    const bestEl=addStat(
-        "Best",
-        localStorage.getItem("2048Best")||"0",
-        "2048Best"
-    );
+            <div id="grid2048"
+                 class="grid2048"></div>
 
-    const board=document.createElement("div");
+            <div class="help">
+                Swipe or use arrow keys.
+            </div>
 
-    board.className="board2048";
+            <div class="controls">
+                <button id="restart2048"
+                        class="primary">
+                    New Game
+                </button>
+            </div>
+        </div>
+    `);
 
-    gameArea.appendChild(board);
+    const grid=$("#grid2048");
 
-    let grid;
-    let score=0;
+    let board;
+    let score;
 
-    function addTile(){
+    function reset(){
+
+        board=Array.from(
+            {length:4},
+            ()=>Array(4).fill(0)
+        );
+
+        score=0;
+
+        add();
+        add();
+
+        render();
+    }
+
+    function add(){
 
         const empty=[];
 
         for(let r=0;r<4;r++){
-
             for(let c=0;c<4;c++){
-
-                if(!grid[r][c]){
+                if(!board[r][c]){
                     empty.push([r,c]);
                 }
             }
@@ -1804,1279 +1468,1126 @@ function game2048(){
 
         const [r,c]=
             empty[
-                randomInt(0,empty.length-1)
+                Math.floor(
+                    Math.random()*empty.length
+                )
             ];
 
-        grid[r][c]=
+        board[r][c]=
             Math.random()<.9 ? 2 : 4;
     }
 
-    function render(){
+    function slide(line){
 
-        board.innerHTML="";
+        let a=line.filter(Boolean);
 
-        for(let r=0;r<4;r++){
+        for(let i=0;i<a.length-1;i++){
 
-            for(let c=0;c<4;c++){
+            if(a[i]===a[i+1]){
 
-                const value=grid[r][c];
+                a[i]*=2;
 
-                const tile=
-                    document.createElement("div");
+                score+=a[i];
 
-                tile.className="tile2048";
-
-                if(value){
-                    tile.textContent=value;
-                    tile.dataset.value=value;
-                }
-
-                board.appendChild(tile);
+                a.splice(i+1,1);
             }
         }
 
-        scoreEl.textContent=score;
-
-        const best=Math.max(
-            score,
-            Number(
-                localStorage.getItem("2048Best")||0
-            )
-        );
-
-        localStorage.setItem(
-            "2048Best",
-            best
-        );
-
-        bestEl.textContent=best;
-    }
-
-    function slide(row){
-
-        const values=
-            row.filter(Boolean);
-
-        for(let i=0;i<values.length-1;i++){
-
-            if(values[i]===values[i+1]){
-
-                values[i]*=2;
-
-                score+=values[i];
-
-                values.splice(
-                    i+1,
-                    1
-                );
-            }
+        while(a.length<4){
+            a.push(0);
         }
 
-        while(values.length<4){
-            values.push(0);
-        }
-
-        return values;
-    }
-
-    function rotate(){
-
-        const n=[
-            [0,0,0,0],
-            [0,0,0,0],
-            [0,0,0,0],
-            [0,0,0,0]
-        ];
-
-        for(let r=0;r<4;r++){
-
-            for(let c=0;c<4;c++){
-
-                n[c][3-r]=grid[r][c];
-            }
-        }
-
-        grid=n;
+        return a;
     }
 
     function move(dir){
 
-        let rotations=0;
+        const old=JSON.stringify(board);
 
-        if(dir==="up")rotations=3;
-        if(dir==="right")rotations=2;
-        if(dir==="down")rotations=1;
+        if(dir==="left"){
 
-        for(let i=0;i<rotations;i++){
-            rotate();
+            for(let r=0;r<4;r++){
+                board[r]=slide(board[r]);
+            }
         }
 
-        const old=
-            JSON.stringify(grid);
+        if(dir==="right"){
+
+            for(let r=0;r<4;r++){
+                board[r]=slide(
+                    board[r].slice().reverse()
+                ).reverse();
+            }
+        }
+
+        if(dir==="up"){
+
+            for(let c=0;c<4;c++){
+
+                const col=[];
+
+                for(let r=0;r<4;r++){
+                    col.push(board[r][c]);
+                }
+
+                const s=slide(col);
+
+                for(let r=0;r<4;r++){
+                    board[r][c]=s[r];
+                }
+            }
+        }
+
+        if(dir==="down"){
+
+            for(let c=0;c<4;c++){
+
+                const col=[];
+
+                for(let r=3;r>=0;r--){
+                    col.push(board[r][c]);
+                }
+
+                const s=slide(col);
+
+                for(let i=0;i<4;i++){
+                    board[3-i][c]=s[i];
+                }
+            }
+        }
+
+        if(JSON.stringify(board)!==old){
+            add();
+            render();
+        }
+    }
+
+    function canMove(){
 
         for(let r=0;r<4;r++){
-            grid[r]=slide(grid[r]);
+            for(let c=0;c<4;c++){
+
+                if(!board[r][c]){
+                    return true;
+                }
+
+                if(
+                    c<3 &&
+                    board[r][c]===board[r][c+1]
+                ){
+                    return true;
+                }
+
+                if(
+                    r<3 &&
+                    board[r][c]===board[r+1][c]
+                ){
+                    return true;
+                }
+            }
         }
 
-        for(let i=0;i<(4-rotations)%4;i++){
-            rotate();
-        }
+        return false;
+    }
 
-        if(
-            JSON.stringify(grid)!==old
-        ){
-            addTile();
-            render();
+    function render(){
+
+        grid.innerHTML="";
+
+        board.flat().forEach(value=>{
+
+            const tile=document.createElement("div");
+
+            tile.className="tile2048";
+            tile.textContent=value || "";
+
+            grid.appendChild(tile);
+        });
+
+        $("#score2048").textContent=score;
+
+        if(!canMove()){
+
+            timer(()=>{
+                alert(
+                    "Game over! Score: " + score
+                );
+            },50);
         }
     }
 
     function key(e){
 
-        const keys={
+        const map={
             ArrowLeft:"left",
             ArrowRight:"right",
             ArrowUp:"up",
-            ArrowDown:"down",
-            a:"left",
-            d:"right",
-            w:"up",
-            s:"down"
+            ArrowDown:"down"
         };
 
-        if(!keys[e.key])return;
+        if(map[e.key]){
 
-        e.preventDefault();
-
-        move(keys[e.key]);
+            e.preventDefault();
+            move(map[e.key]);
+        }
     }
 
     let startX=0;
     let startY=0;
 
-    function touchStart(e){
-
-        const p=e.touches[0];
-
-        startX=p.clientX;
-        startY=p.clientY;
-    }
-
-    function touchEnd(e){
-
-        const p=e.changedTouches[0];
-
-        const dx=p.clientX-startX;
-        const dy=p.clientY-startY;
-
-        if(
-            Math.max(
-                Math.abs(dx),
-                Math.abs(dy)
-            )<25
-        )return;
-
-        if(Math.abs(dx)>Math.abs(dy)){
-            move(dx>0?"right":"left");
-        }else{
-            move(dy>0?"down":"up");
+    grid.addEventListener(
+        "pointerdown",
+        e=>{
+            startX=e.clientX;
+            startY=e.clientY;
         }
-    }
+    );
+
+    grid.addEventListener(
+        "pointerup",
+        e=>{
+
+            const dx=e.clientX-startX;
+            const dy=e.clientY-startY;
+
+            if(
+                Math.max(
+                    Math.abs(dx),
+                    Math.abs(dy)
+                )<25
+            )return;
+
+            if(Math.abs(dx)>Math.abs(dy)){
+                move(dx>0?"right":"left");
+            }else{
+                move(dy>0?"down":"up");
+            }
+        }
+    );
+
+    document.addEventListener("keydown",key);
+
+    $("#restart2048").onclick=reset;
+
+    reset();
+
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
+    };
+}
+
+
+/* ==========================================================
+   MEMORY MATCH
+   ========================================================== */
+
+function memoryGame(){
+
+    html(`
+        <div class="panel">
+            <div class="game-title">🧠 Memory Match</div>
+
+            <div class="score">
+                Matches: <b id="memoryScore">0</b>
+            </div>
+
+            <div id="memoryGrid"
+                 class="memory-grid"></div>
+
+            <div class="controls">
+                <button id="memoryRestart"
+                        class="primary">
+                    New Game
+                </button>
+            </div>
+        </div>
+    `);
+
+    const symbols=[
+        "🍕","🏀","🎮","🐍",
+        "🚀","🎯","🔥","⭐"
+    ];
+
+    const grid=$("#memoryGrid");
+
+    let cards=[];
+    let first=null;
+    let second=null;
+    let lock=false;
+    let matches=0;
 
     function reset(){
 
-        grid=[
-            [0,0,0,0],
-            [0,0,0,0],
-            [0,0,0,0],
-            [0,0,0,0]
-        ];
+        cards=[
+            ...symbols,
+            ...symbols
+        ].sort(
+            ()=>Math.random()-.5
+        );
 
-        score=0;
-
-        addTile();
-        addTile();
+        first=null;
+        second=null;
+        lock=false;
+        matches=0;
 
         render();
     }
 
-    window.currentStart=()=>{};
+    function render(){
 
-    board.addEventListener(
-        "touchstart",
-        touchStart,
-        {passive:true}
-    );
+        grid.innerHTML="";
 
-    board.addEventListener(
-        "touchend",
-        touchEnd,
-        {passive:true}
-    );
+        cards.forEach(
+            (symbol,index)=>{
 
-    document.addEventListener(
-        "keydown",
-        key
-    );
+                const card=
+                    document.createElement("button");
 
-    reset();
+                card.className=
+                    "memory-card";
 
-    cleanupCurrentGame=()=>{
+                card.dataset.index=index;
 
-        board.removeEventListener(
-            "touchstart",
-            touchStart
-        );
-
-        board.removeEventListener(
-            "touchend",
-            touchEnd
-        );
-
-        document.removeEventListener(
-            "keydown",
-            key
-        );
-
-        window.currentStart=null;
-    };
-}
-
-
-/* =========================================================
-   MEMORY MATCH
-   ========================================================= */
-
-function memoryGame(){
-
-    clearGameArea();
-    clearScore();
-
-    const movesEl=addStat(
-        "Moves",
-        "0",
-        "memoryMoves"
-    );
-
-    const pairsEl=addStat(
-        "Pairs",
-        "0",
-        "memoryPairs"
-    );
-
-    const symbols=[
-        "🍎",
-        "🍋",
-        "🍇",
-        "🍉",
-        "⭐",
-        "🔥",
-        "🎯",
-        "🎵"
-    ];
-
-    const cards=shuffle(
-        [...symbols,...symbols]
-    );
-
-    const grid=
-        document.createElement("div");
-
-    grid.className="memory-grid";
-
-    gameArea.appendChild(grid);
-
-    let first=null;
-    let locked=false;
-    let moves=0;
-    let pairs=0;
-    const buttons=[];
-
-    cards.forEach(symbol=>{
-
-        const b=
-            document.createElement("button");
-
-        b.className="memory-card";
-        b.textContent="❓";
-
-        b.dataset.symbol=symbol;
-
-        b.addEventListener(
-            "click",
-            ()=>{
-                if(locked)return;
+                card.textContent=
+                    symbol.visible ||
+                    "";
 
                 if(
-                    b.classList.contains("flipped") ||
-                    b.classList.contains("matched")
-                )return;
-
-                b.classList.add("flipped");
-                b.textContent=symbol;
-
-                if(!first){
-
-                    first=b;
-                    return;
-                }
-
-                moves++;
-
-                movesEl.textContent=moves;
-
-                if(
-                    first.dataset.symbol===
-                    b.dataset.symbol
+                    symbol.visible ||
+                    symbol.matched
                 ){
-
-                    first.classList.add("matched");
-                    b.classList.add("matched");
-
-                    pairs++;
-
-                    pairsEl.textContent=pairs;
-
-                    first=null;
-
-                }else{
-
-                    locked=true;
-
-                    setTimeout(()=>{
-
-                        first.classList.remove(
-                            "flipped"
-                        );
-
-                        b.classList.remove(
-                            "flipped"
-                        );
-
-                        first.textContent="❓";
-                        b.textContent="❓";
-
-                        first=null;
-                        locked=false;
-
-                    },650);
+                    card.textContent=symbol;
+                    card.classList.add(
+                        symbol.matched ?
+                        "matched" :
+                        "flipped"
+                    );
                 }
+
+                card.onclick=()=>flip(index);
+
+                grid.appendChild(card);
             }
         );
 
-        grid.appendChild(b);
-        buttons.push(b);
-    });
+        $("#memoryScore").textContent=matches;
+    }
 
-    cleanupCurrentGame=()=>{
+    function flip(index){
 
-        buttons.forEach(b=>{
-            b.replaceWith(b.cloneNode(true));
-        });
+        if(lock)return;
 
-        window.currentStart=null;
-    };
+        if(cards[index].matched)return;
+
+        if(
+            first!==null &&
+            first===index
+        )return;
+
+        const buttons=
+            grid.querySelectorAll(
+                ".memory-card"
+            );
+
+        buttons[index].textContent=
+            cards[index];
+
+        buttons[index].classList.add(
+            "flipped"
+        );
+
+        if(first===null){
+
+            first=index;
+            return;
+        }
+
+        second=index;
+        lock=true;
+
+        if(cards[first]===cards[second]){
+
+            cards[first].matched=true;
+            cards[second].matched=true;
+
+            matches++;
+
+            first=null;
+            second=null;
+            lock=false;
+
+            render();
+
+            if(matches===symbols.length){
+
+                timer(()=>{
+                    alert(
+                        "You found every pair!"
+                    );
+                },100);
+            }
+
+        }else{
+
+            timer(()=>{
+
+                render();
+
+                first=null;
+                second=null;
+                lock=false;
+
+            },700);
+        }
+    }
+
+    $("#memoryRestart").onclick=reset;
+
+    reset();
 }
 
 
-/* =========================================================
-   REACTION TEST
-   ========================================================= */
+/* ==========================================================
+   REACTION
+   ========================================================== */
 
 function reactionGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">⚡ Reaction Test</div>
 
-    const bestEl=addStat(
-        "Best",
-        localStorage.getItem("reactionBest")||"—",
-        "reactionBest"
-    );
+            <div id="reactionBox"
+                 style="
+                 min-height:280px;
+                 display:flex;
+                 align-items:center;
+                 justify-content:center;
+                 border-radius:18px;
+                 background:#202020;
+                 font-size:28px;
+                 font-weight:900;
+                 text-align:center;
+                 padding:20px;
+                 ">
+                TAP TO START
+            </div>
 
-    const area=document.createElement("div");
+            <div class="score">
+                Result:
+                <b id="reactionScore">—</b>
+            </div>
 
-    area.className="tap-target";
+            <div class="controls">
+                <button id="reactionRestart"
+                        class="primary">
+                    Try Again
+                </button>
+            </div>
+        </div>
+    `);
 
-    area.style.cssText=`
-        width:min(94vw,600px);
-        height:400px;
-        border-radius:18px;
-        background:#222;
-        border:2px solid #444;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size:clamp(25px,7vw,42px);
-        font-weight:900;
-        user-select:none;
-        text-align:center;
-        padding:20px;
-    `;
-
-    area.textContent=
-        "Press Start, then wait for GO";
-
-    gameArea.appendChild(area);
+    const box=$("#reactionBox");
+    const score=$("#reactionScore");
 
     let state="idle";
-    let timer=null;
-    let startTime=0;
+    let start=0;
+    let waitTimer=null;
 
-    function start(){
+    function startGame(){
 
-        if(state==="waiting"||state==="ready"){
+        if(state==="waiting"){
+
+            clearTimeout(waitTimer);
+
+            state="idle";
+
+            box.textContent=
+                "Too early! Tap to try again.";
+
+            return;
+        }
+
+        if(state==="go"){
             return;
         }
 
         state="waiting";
 
-        area.textContent=
+        box.textContent=
             "WAIT...";
 
-        timer=setTimeout(()=>{
+        waitTimer=setTimeout(()=>{
 
-            state="ready";
+            state="go";
+            start=performance.now();
 
-            startTime=performance.now();
+            box.textContent=
+                "TAP NOW!";
 
-            area.textContent=
-                "GO! TAP NOW!";
-
-        },randomInt(1500,4000));
-
-        setStartText("Waiting...");
+        },1000+Math.random()*3000);
     }
 
     function tap(){
 
+        if(state==="idle"){
+
+            startGame();
+            return;
+        }
+
         if(state==="waiting"){
 
-            clearTimeout(timer);
+            clearTimeout(waitTimer);
 
             state="idle";
 
-            area.textContent=
-                "Too early! Press Start.";
-
-            setStartText("▶ Start");
+            box.textContent=
+                "Too early!";
 
             return;
         }
 
-        if(state!=="ready")return;
+        if(state==="go"){
 
-        const reaction=
-            Math.round(
-                performance.now()-startTime
-            );
+            const ms=
+                Math.round(
+                    performance.now()-start
+                );
 
-        state="idle";
+            score.textContent=
+                ms + " ms";
 
-        area.textContent=
-            `${reaction} ms`;
+            box.textContent=
+                "Great! " + ms + " ms";
 
-        const old=
-            Number(
-                localStorage.getItem(
-                    "reactionBest"
-                )||999999
-            );
-
-        if(reaction<old){
-
-            localStorage.setItem(
-                "reactionBest",
-                reaction
-            );
-
-            bestEl.textContent=
-                `${reaction} ms`;
+            state="idle";
         }
-
-        setStartText("▶ Start");
     }
 
-    area.addEventListener(
-        "pointerdown",
-        e=>{
-            e.preventDefault();
-            tap();
-        }
-    );
+    box.onclick=tap;
 
-    window.currentStart=start;
+    $("#reactionRestart").onclick=()=>{
+        state="idle";
+        score.textContent="—";
+        box.textContent="TAP TO START";
+    };
 
-    cleanupCurrentGame=()=>{
-        clearTimeout(timer);
-        window.currentStart=null;
+    activeCleanup=()=>{
+        clearTimeout(waitTimer);
     };
 }
 
 
-/* =========================================================
+/* ==========================================================
    WHACK A MOLE
-   ========================================================= */
+   ========================================================== */
 
 function whackGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">🔨 Whack-a-Mole</div>
 
-    const scoreEl=addStat(
-        "Score",
-        "0",
-        "moleScore"
-    );
+            <div class="score">
+                Score: <b id="moleScore">0</b>
+                |
+                Time: <b id="moleTime">30</b>
+            </div>
 
-    const timeEl=addStat(
-        "Time",
-        "30",
-        "moleTime"
-    );
+            <div id="moleGrid"
+                 class="mole-grid"></div>
 
-    const board=document.createElement("div");
+            <div class="controls">
+                <button id="moleRestart"
+                        class="primary">
+                    Start / Restart
+                </button>
+            </div>
+        </div>
+    `);
 
-    board.style.cssText=`
-        width:min(94vw,500px);
-        aspect-ratio:1;
-        display:grid;
-        grid-template-columns:repeat(3,1fr);
-        gap:10px;
-    `;
+    const grid=$("#moleGrid");
 
-    gameArea.appendChild(board);
-
-    const holes=[];
+    let score=0;
+    let time=30;
+    let mole=-1;
+    let running=false;
 
     for(let i=0;i<9;i++){
 
-        const h=
+        const hole=
             document.createElement("button");
 
-        h.className="memory-card";
-        h.textContent="";
+        hole.className="hole";
 
-        h.style.background="#222";
+        hole.onclick=()=>{
 
-        h.addEventListener(
-            "pointerdown",
-            ()=>{
-                if(
-                    h.dataset.mole!=="yes"
-                )return;
-
+            if(
+                running &&
+                i===mole
+            ){
                 score++;
-
-                scoreEl.textContent=score;
-
-                h.dataset.mole="no";
-                h.textContent="";
+                $("#moleScore").textContent=score;
+                moveMole();
             }
-        );
+        };
 
-        board.appendChild(h);
-        holes.push(h);
+        grid.appendChild(hole);
     }
 
-    let score=0;
-    let running=false;
-    let timer=30;
-    let moleTimer=null;
-    let clockTimer=null;
+    const holes=
+        grid.querySelectorAll(".hole");
 
-    function spawn(){
+    function moveMole(){
 
-        holes.forEach(h=>{
-            h.dataset.mole="no";
-            h.textContent="";
-        });
+        holes.forEach(
+            h=>h.textContent=""
+        );
 
-        const h=
-            holes[
-                randomInt(0,holes.length-1)
-            ];
+        mole=
+            Math.floor(
+                Math.random()*9
+            );
 
-        h.dataset.mole="yes";
-        h.textContent="🔨";
+        holes[mole].textContent="🐹";
     }
 
     function start(){
 
-        if(running)return;
-
-        running=true;
-        timer=30;
         score=0;
+        time=30;
+        running=true;
 
-        scoreEl.textContent="0";
-        timeEl.textContent="30";
+        $("#moleScore").textContent=0;
+        $("#moleTime").textContent=30;
 
-        spawn();
+        moveMole();
 
-        moleTimer=setInterval(
-            spawn,
-            650
-        );
+        interval(()=>{
 
-        clockTimer=setInterval(()=>{
+            if(!running)return;
 
-            timer--;
+            time--;
 
-            timeEl.textContent=timer;
+            $("#moleTime").textContent=time;
 
-            if(timer<=0){
+            moveMole();
+
+            if(time<=0){
 
                 running=false;
 
-                clearInterval(moleTimer);
-                clearInterval(clockTimer);
+                holes.forEach(
+                    h=>h.textContent=""
+                );
 
-                setStartText("▶ Start");
+                alert(
+                    "Time! Score: " + score
+                );
             }
 
         },1000);
-
-        setStartText("⏸ Running");
     }
 
-    window.currentStart=start;
-
-    cleanupCurrentGame=()=>{
-
-        clearInterval(moleTimer);
-        clearInterval(clockTimer);
-
-        window.currentStart=null;
-    };
+    $("#moleRestart").onclick=start;
 }
 
 
-/* =========================================================
+/* ==========================================================
    BASKETBALL — FIXED
-   ========================================================= */
+   ========================================================== */
 
 function basketballGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">🏀 Basketball</div>
 
-    const canvas=createCanvas(420,600);
+            <div class="score">
+                Score: <b id="basketScore">0</b>
+                |
+                Time: <b id="basketTime">30</b>
+            </div>
+
+            <canvas id="basketCanvas"
+                    width="360"
+                    height="520"></canvas>
+
+            <div class="help">
+                Drag from the ball toward the hoop,
+                then release.
+            </div>
+
+            <div class="controls">
+                <button id="basketRestart"
+                        class="primary">
+                    Start / Restart
+                </button>
+            </div>
+        </div>
+    `);
+
+    const canvas=$("#basketCanvas");
     const ctx=canvas.getContext("2d");
 
-    const scoreEl=addStat(
-        "Score",
-        "0",
-        "basketScore"
-    );
-
-    const shotsEl=addStat(
-        "Shots",
-        "0",
-        "basketShots"
-    );
-
     let score=0;
-    let shots=0;
-
-    let ball={
-        x:210,
-        y:510,
-        vx:0,
-        vy:0,
-        r:15
-    };
+    let time=30;
+    let running=false;
+    let ball;
+    let startPoint=null;
+    let raf;
 
     const hoop={
-        x:210,
-        y:180,
-        w:100
+        x:180,
+        y:135,
+        w:80
     };
 
-    let running=false;
-    let frame=0;
-    let aiming=false;
-    let startX=210;
-    let startY=510;
-    let powerX=0;
-    let powerY=0;
+    function reset(){
 
-    function resetBall(){
+        score=0;
+        time=30;
+        running=true;
+
+        $("#basketScore").textContent=0;
+        $("#basketTime").textContent=30;
 
         ball={
-            x:210,
-            y:510,
+            x:180,
+            y:455,
             vx:0,
             vy:0,
-            r:15
+            active:false,
+            scored:false
         };
-
-        aiming=false;
     }
 
-    function draw(){
+    function shoot(x,y){
 
-        ctx.fillStyle="#050505";
-        ctx.fillRect(0,0,420,600);
+        if(!running)return;
+
+        const rect=
+            canvas.getBoundingClientRect();
+
+        const tx=
+            (x-rect.left) /
+            rect.width *
+            360;
+
+        const ty=
+            (y-rect.top) /
+            rect.height *
+            520;
+
+        const dx=tx-ball.x;
+        const dy=ty-ball.y;
+
+        const power=.075;
+
+        ball.vx=dx*power;
+        ball.vy=dy*power;
+
+        if(ball.vy>-4){
+            ball.vy=-9;
+        }
+
+        ball.active=true;
+        ball.scored=false;
+    }
+
+    canvas.addEventListener(
+        "pointerdown",
+        e=>{
+            if(!running)return;
+
+            startPoint={
+                x:e.clientX,
+                y:e.clientY
+            };
+        }
+    );
+
+    canvas.addEventListener(
+        "pointerup",
+        e=>{
+
+            if(!startPoint)return;
+
+            shoot(
+                e.clientX,
+                e.clientY
+            );
+
+            startPoint=null;
+        }
+    );
+
+    function loop(){
+
+        ctx.fillStyle="#16202b";
+        ctx.fillRect(0,0,360,520);
 
         /* court */
+        ctx.fillStyle="#b87842";
+        ctx.fillRect(0,350,360,170);
 
-        ctx.strokeStyle="#555";
-        ctx.lineWidth=3;
-
-        ctx.beginPath();
-
-        ctx.arc(
-            210,
-            540,
-            80,
-            Math.PI,
-            Math.PI*2
-        );
-
-        ctx.stroke();
-
-        /* backboard */
-
+        /* hoop */
         ctx.strokeStyle="#fff";
+        ctx.lineWidth=6;
 
         ctx.strokeRect(
-            150,
-            110,
-            120,
-            12
+            hoop.x-25,
+            hoop.y-55,
+            50,
+            55
         );
 
-        /* rim */
+        ctx.strokeStyle="#f97316";
 
         ctx.beginPath();
-
-        ctx.arc(
+        ctx.ellipse(
             hoop.x,
             hoop.y,
-            50,
+            hoop.w/2,
+            12,
+            0,
             0,
             Math.PI*2
         );
-
         ctx.stroke();
 
-        ctx.beginPath();
+        ctx.strokeStyle="#fff";
+        ctx.lineWidth=2;
 
-        ctx.strokeStyle="#aaa";
+        for(let i=-2;i<=2;i++){
 
-        ctx.moveTo(
-            hoop.x-hoop.w/2,
-            hoop.y
-        );
+            ctx.beginPath();
+            ctx.moveTo(
+                hoop.x+i*14,
+                hoop.y
+            );
+            ctx.lineTo(
+                hoop.x+i*10,
+                hoop.y+35
+            );
+            ctx.stroke();
+        }
 
-        ctx.lineTo(
-            hoop.x+hoop.w/2,
-            hoop.y
-        );
+        if(ball.active){
 
-        ctx.stroke();
+            const previousY=ball.y;
+
+            ball.vy+=.28;
+
+            ball.x+=ball.vx;
+            ball.y+=ball.vy;
+
+            if(
+                ball.x<12 ||
+                ball.x>348
+            ){
+                ball.vx*=-.75;
+            }
+
+            /* basket detection */
+            if(
+                !ball.scored &&
+                previousY<hoop.y &&
+                ball.y>=hoop.y &&
+                ball.x>hoop.x-hoop.w/2 &&
+                ball.x<hoop.x+hoop.w/2
+            ){
+
+                score++;
+                ball.scored=true;
+
+                $("#basketScore").textContent=score;
+            }
+
+            if(ball.y>530){
+
+                ball={
+                    x:180,
+                    y:455,
+                    vx:0,
+                    vy:0,
+                    active:false,
+                    scored:false
+                };
+            }
+        }
 
         /* ball */
-
-        ctx.fillStyle="#fff";
+        ctx.fillStyle="#f97316";
 
         ctx.beginPath();
 
         ctx.arc(
             ball.x,
             ball.y,
-            ball.r,
+            15,
             0,
             Math.PI*2
         );
 
         ctx.fill();
 
-        /* aiming line */
+        if(running){
 
-        if(aiming){
-
-            ctx.strokeStyle="#888";
-            ctx.setLineDash([6,6]);
-
-            ctx.beginPath();
-
-            ctx.moveTo(
-                ball.x,
-                ball.y
-            );
-
-            ctx.lineTo(
-                ball.x+powerX,
-                ball.y+powerY
-            );
-
-            ctx.stroke();
-
-            ctx.setLineDash([]);
+            raf=requestAnimationFrame(loop);
+            activeFrames.push(raf);
         }
     }
 
-    function shoot(){
+    $("#basketRestart").onclick=()=>{
+        reset();
+        cancelAnimationFrame(raf);
+        loop();
+    };
 
-        const dx=
-            powerX;
+    $("#basketRestart").click();
 
-        const dy=
-            powerY;
-
-        const magnitude=
-            Math.hypot(dx,dy);
-
-        if(magnitude<20){
-            aiming=false;
-            return;
-        }
-
-        ball.vx=
-            clamp(
-                dx*.075,
-                -11,
-                11
-            );
-
-        ball.vy=
-            clamp(
-                dy*.075,
-                -15,
-                15
-            );
-
-        shots++;
-
-        shotsEl.textContent=shots;
-
-        aiming=false;
-    }
-
-    function loop(){
+    interval(()=>{
 
         if(!running)return;
 
-        if(
-            Math.abs(ball.vx)>0 ||
-            Math.abs(ball.vy)>0
-        ){
+        time--;
 
-            ball.x+=ball.vx;
-            ball.y+=ball.vy;
+        $("#basketTime").textContent=time;
 
-            ball.vy+=.35;
+        if(time<=0){
 
-            /* rim collision */
+            running=false;
 
-            const dx=
-                ball.x-hoop.x;
-
-            const dy=
-                ball.y-hoop.y;
-
-            const dist=
-                Math.hypot(dx,dy);
-
-            if(
-                dist<50+ball.r &&
-                ball.y<hoop.y+30
-            ){
-
-                if(
-                    ball.vy>0 &&
-                    ball.y<hoop.y+15
-                ){
-
-                    score++;
-
-                    scoreEl.textContent=score;
-
-                    ball.vy=-Math.abs(ball.vy)*.6;
-                }
-            }
-
-            /* ground */
-
-            if(ball.y>585){
-
-                resetBall();
-            }
-
-            /* side walls */
-
-            if(
-                ball.x<ball.r ||
-                ball.x>420-ball.r
-            ){
-                ball.vx*=-.7;
-            }
+            alert(
+                "Game Over! You scored " +
+                score +
+                " basket" +
+                (score===1?"":"s") +
+                "."
+            );
         }
 
-        draw();
+    },1000);
 
-        frame=
-            requestAnimationFrame(loop);
-    }
-
-    function start(){
-
-        if(running)return;
-
-        running=true;
-
-        setStartText("🏀 Running");
-
-        frame=
-            requestAnimationFrame(loop);
-    }
-
-    function pointerDown(e){
-
-        e.preventDefault();
-
-        if(!running){
-            start();
-        }
-
-        const r=
-            canvas.getBoundingClientRect();
-
-        startX=
-            (e.clientX-r.left)*
-            canvas.width/r.width;
-
-        startY=
-            (e.clientY-r.top)*
-            canvas.height/r.height;
-
-        powerX=0;
-        powerY=0;
-
-        aiming=true;
-    }
-
-    function pointerMove(e){
-
-        if(!aiming)return;
-
-        const r=
-            canvas.getBoundingClientRect();
-
-        const x=
-            (e.clientX-r.left)*
-            canvas.width/r.width;
-
-        const y=
-            (e.clientY-r.top)*
-            canvas.height/r.height;
-
-        powerX=
-            clamp(
-                startX-x,
-                -180,
-                180
-            );
-
-        powerY=
-            clamp(
-                startY-y,
-                -250,
-                250
-            );
-    }
-
-    function pointerUp(){
-
-        if(!aiming)return;
-
-        shoot();
-    }
-
-    canvas.addEventListener(
-        "pointerdown",
-        pointerDown
-    );
-
-    canvas.addEventListener(
-        "pointermove",
-        pointerMove
-    );
-
-    canvas.addEventListener(
-        "pointerup",
-        pointerUp
-    );
-
-    window.currentStart=start;
-
-    resetBall();
-    draw();
-
-    cleanupCurrentGame=()=>{
-
-        running=false;
-
-        cancelAnimationFrame(frame);
-
-        canvas.removeEventListener(
-            "pointerdown",
-            pointerDown
-        );
-
-        canvas.removeEventListener(
-            "pointermove",
-            pointerMove
-        );
-
-        canvas.removeEventListener(
-            "pointerup",
-            pointerUp
-        );
-
-        window.currentStart=null;
+    activeCleanup=()=>{
+        cancelAnimationFrame(raf);
     };
 }
 
 
-/* =========================================================
+/* ==========================================================
    TARGET SHOOTER
-   ========================================================= */
+   ========================================================== */
 
 function targetGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">🎯 Target Shooter</div>
 
-    const canvas=createCanvas(600,500);
+            <div class="score">
+                Score: <b id="targetScore">0</b>
+                |
+                Time: <b id="targetTime">30</b>
+            </div>
+
+            <canvas id="targetCanvas"
+                    width="420"
+                    height="520"></canvas>
+
+            <div class="help">
+                Tap the targets.
+            </div>
+
+            <div class="controls">
+                <button id="targetRestart"
+                        class="primary">
+                    Start / Restart
+                </button>
+            </div>
+        </div>
+    `);
+
+    const canvas=$("#targetCanvas");
     const ctx=canvas.getContext("2d");
-
-    const scoreEl=addStat(
-        "Hits",
-        "0",
-        "targetScore"
-    );
-
-    const timeEl=addStat(
-        "Time",
-        "30",
-        "targetTime"
-    );
 
     let target=null;
     let score=0;
     let time=30;
     let running=false;
-    let frame=0;
-    let clock=null;
+    let raf;
 
-    function spawn(){
+    function newTarget(){
 
         target={
-            x:randomInt(40,560),
-            y:randomInt(40,460),
-            r:randomInt(18,35)
+            x:30+Math.random()*360,
+            y:50+Math.random()*420,
+            r:18+Math.random()*14
         };
     }
 
-    function draw(){
+    function reset(){
 
-        ctx.fillStyle="#050505";
-        ctx.fillRect(0,0,600,500);
-
-        if(!target)return;
-
-        ctx.strokeStyle="#fff";
-        ctx.lineWidth=4;
-
-        ctx.beginPath();
-
-        ctx.arc(
-            target.x,
-            target.y,
-            target.r,
-            0,
-            Math.PI*2
-        );
-
-        ctx.stroke();
-
-        ctx.beginPath();
-
-        ctx.arc(
-            target.x,
-            target.y,
-            target.r/2,
-            0,
-            Math.PI*2
-        );
-
-        ctx.stroke();
-
-        ctx.beginPath();
-
-        ctx.arc(
-            target.x,
-            target.y,
-            4,
-            0,
-            Math.PI*2
-        );
-
-        ctx.fill();
-    }
-
-    function start(){
-
-        if(running)return;
-
-        running=true;
         score=0;
         time=30;
+        running=true;
 
-        scoreEl.textContent="0";
-        timeEl.textContent="30";
+        $("#targetScore").textContent=0;
+        $("#targetTime").textContent=30;
 
-        spawn();
-
-        clock=setInterval(()=>{
-
-            time--;
-
-            timeEl.textContent=time;
-
-            if(time<=0){
-
-                running=false;
-
-                clearInterval(clock);
-
-                setStartText("▶ Start");
-            }
-
-        },1000);
-
-        frame=requestAnimationFrame(loop);
-
-        setStartText("⏸ Running");
+        newTarget();
     }
+
+    canvas.addEventListener(
+        "pointerdown",
+        e=>{
+
+            if(!running)return;
+
+            const rect=
+                canvas.getBoundingClientRect();
+
+            const x=
+                (e.clientX-rect.left) /
+                rect.width *
+                420;
+
+            const y=
+                (e.clientY-rect.top) /
+                rect.height *
+                520;
+
+            const d=
+                Math.hypot(
+                    x-target.x,
+                    y-target.y
+                );
+
+            if(d<=target.r){
+
+                score++;
+                $("#targetScore").textContent=score;
+
+                newTarget();
+            }
+        }
+    );
 
     function loop(){
 
         if(!running)return;
 
-        draw();
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,420,520);
 
-        frame=
-            requestAnimationFrame(loop);
-    }
+        if(target){
 
-    function tap(e){
+            ctx.fillStyle="#ef4444";
 
-        e.preventDefault();
+            ctx.beginPath();
 
-        if(!running){
+            ctx.arc(
+                target.x,
+                target.y,
+                target.r,
+                0,
+                Math.PI*2
+            );
 
-            start();
+            ctx.fill();
 
-            return;
+            ctx.fillStyle="#fff";
+
+            ctx.beginPath();
+
+            ctx.arc(
+                target.x,
+                target.y,
+                target.r*.4,
+                0,
+                Math.PI*2
+            );
+
+            ctx.fill();
         }
 
-        const r=
-            canvas.getBoundingClientRect();
-
-        const x=
-            (e.clientX-r.left)*
-            canvas.width/r.width;
-
-        const y=
-            (e.clientY-r.top)*
-            canvas.height/r.height;
-
-        if(!target)return;
-
-        if(
-            Math.hypot(
-                x-target.x,
-                y-target.y
-            )<=target.r
-        ){
-
-            score++;
-
-            scoreEl.textContent=score;
-
-            spawn();
-        }
+        raf=requestAnimationFrame(loop);
+        activeFrames.push(raf);
     }
 
-    canvas.addEventListener(
-        "pointerdown",
-        tap
-    );
+    $("#targetRestart").onclick=()=>{
+        reset();
+        cancelAnimationFrame(raf);
+        loop();
+    };
 
-    window.currentStart=start;
+    $("#targetRestart").click();
 
-    draw();
+    interval(()=>{
 
-    cleanupCurrentGame=()=>{
+        if(!running)return;
 
-        running=false;
+        time--;
 
-        clearInterval(clock);
-        cancelAnimationFrame(frame);
+        $("#targetTime").textContent=time;
 
-        canvas.removeEventListener(
-            "pointerdown",
-            tap
-        );
+        if(time<=0){
 
-        window.currentStart=null;
+            running=false;
+
+            alert(
+                "Time! Score: " + score
+            );
+        }
+
+    },1000);
+
+    activeCleanup=()=>{
+        cancelAnimationFrame(raf);
     };
 }
 
 
-/* =========================================================
+/* ==========================================================
    CHESS
-   ========================================================= */
+   ========================================================== */
 
 function chessGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">♟️ Chess</div>
 
-    addStat(
-        "Turn",
-        "White",
-        "chessTurn"
-    );
+            <div class="score">
+                Turn: <b id="chessTurn">White</b>
+            </div>
 
-    addStat(
-        "Mode",
-        "vs Computer",
-        "chessMode"
-    );
+            <div id="chessBoard"
+                 class="board"></div>
 
-    const board=
-        document.createElement("div");
+            <div id="chessStatus"
+                 class="status">
+                Select a piece.
+            </div>
 
-    board.className="chess-board";
+            <div class="controls">
+                <button id="chessRestart"
+                        class="primary">
+                    New Game
+                </button>
+            </div>
 
-    gameArea.appendChild(board);
+            <div class="help">
+                Two-player local chess.
+                Castling and en-passant are omitted;
+                pawns automatically promote to queens.
+            </div>
+        </div>
+    `);
 
-    const turnEl=
-        document.getElementById("chessTurn");
-
-    /*
-       Simple functional chess engine:
-       - legal movement for all pieces
-       - captures
-       - alternating turns
-       - computer responds
-       - promotion to queen
-       - no castling/en-passant/checkmate validation
-    */
+    const boardEl=$("#chessBoard");
 
     const pieces={
         r:"♜",
@@ -3085,7 +2596,6 @@ function chessGame(){
         q:"♛",
         k:"♚",
         p:"♟",
-
         R:"♖",
         N:"♘",
         B:"♗",
@@ -3094,87 +2604,102 @@ function chessGame(){
         P:"♙"
     };
 
-    let state=[
-        ["r","n","b","q","k","b","n","r"],
-        ["p","p","p","p","p","p","p","p"],
-        ["","","","","","","",""],
-        ["","","","","","","",""],
-        ["","","","","","","",""],
-        ["","","","","","","",""],
-        ["P","P","P","P","P","P","P","P"],
-        ["R","N","B","Q","K","B","N","R"]
-    ];
-
+    let board;
+    let turn;
     let selected=null;
-    let turn="white";
-    let locked=false;
+    let gameOver=false;
+
+    function initial(){
+
+        board=[
+            ["r","n","b","q","k","b","n","r"],
+            ["p","p","p","p","p","p","p","p"],
+            [null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null],
+            ["P","P","P","P","P","P","P","P"],
+            ["R","N","B","Q","K","B","N","R"]
+        ];
+
+        turn="w";
+        selected=null;
+        gameOver=false;
+
+        render();
+    }
 
     function color(piece){
-
         if(!piece)return null;
-
-        return piece===
-            piece.toUpperCase()
-            ? "white"
-            : "black";
+        return piece===piece.toUpperCase()
+            ?"w":"b";
     }
 
     function inside(r,c){
-
-        return (
-            r>=0 &&
-            r<8 &&
-            c>=0 &&
-            c<8
-        );
+        return r>=0 && r<8 && c>=0 && c<8;
     }
 
-    function pseudoMoves(r,c){
+    function clone(b){
+        return b.map(row=>row.slice());
+    }
 
-        const piece=state[r][c];
+    function pseudo(b,r,c,attacksOnly=false){
 
-        if(!piece)return [];
+        const p=b[r][c];
+
+        if(!p)return [];
+
+        const col=color(p);
+        const type=p.toLowerCase();
 
         const moves=[];
 
-        const col=color(piece);
-        const type=piece.toLowerCase();
+        function add(nr,nc){
 
-        const add=(rr,cc)=>{
+            if(!inside(nr,nc))return;
 
-            if(!inside(rr,cc))return;
+            const target=b[nr][nc];
 
-            const target=state[rr][cc];
+            if(
+                target &&
+                color(target)===col
+            )return;
 
-            if(!target || color(target)!==col){
+            /* Never capture a king. */
+            if(
+                target &&
+                target.toLowerCase()==="k"
+            )return;
 
-                moves.push([rr,cc]);
-            }
-        };
+            moves.push([nr,nc]);
+        }
 
         if(type==="p"){
 
-            const dir=
-                col==="white" ? -1 : 1;
+            const dir=col==="w"?-1:1;
 
-            const start=
-                col==="white" ? 6 : 1;
+            if(attacksOnly){
+
+                add(r+dir,c-1);
+                add(r+dir,c+1);
+
+                return moves;
+            }
 
             if(
                 inside(r+dir,c) &&
-                !state[r+dir][c]
+                !b[r+dir][c]
             ){
 
-                moves.push([
-                    r+dir,
-                    c
-                ]);
+                moves.push([r+dir,c]);
+
+                const start=
+                    col==="w"?6:1;
 
                 if(
                     r===start &&
-                    !state[r+2*dir][c]
+                    !b[r+2*dir][c]
                 ){
-
                     moves.push([
                         r+2*dir,
                         c
@@ -3184,1711 +2709,1655 @@ function chessGame(){
 
             for(const dc of [-1,1]){
 
-                const rr=r+dir;
-                const cc=c+dc;
-
-                if(!inside(rr,cc))continue;
+                const nr=r+dir;
+                const nc=c+dc;
 
                 if(
-                    state[rr][cc] &&
-                    color(state[rr][cc])!==col
+                    inside(nr,nc) &&
+                    b[nr][nc] &&
+                    color(b[nr][nc])!==col &&
+                    b[nr][nc].toLowerCase()!=="k"
                 ){
-                    moves.push([rr,cc]);
+                    moves.push([nr,nc]);
                 }
             }
-
-            return moves;
         }
 
         if(type==="n"){
 
             [
-                [-2,-1],
-                [-2,1],
-                [-1,-2],
-                [-1,2],
-                [1,-2],
-                [1,2],
-                [2,-1],
-                [2,1]
+                [-2,-1],[-2,1],
+                [-1,-2],[-1,2],
+                [1,-2],[1,2],
+                [2,-1],[2,1]
             ].forEach(
                 ([dr,dc])=>add(r+dr,c+dc)
             );
+        }
 
-            return moves;
+        if(
+            type==="b" ||
+            type==="r" ||
+            type==="q"
+        ){
+
+            const dirs=[];
+
+            if(
+                type==="b" ||
+                type==="q"
+            ){
+                dirs.push(
+                    [-1,-1],[-1,1],
+                    [1,-1],[1,1]
+                );
+            }
+
+            if(
+                type==="r" ||
+                type==="q"
+            ){
+                dirs.push(
+                    [-1,0],[1,0],
+                    [0,-1],[0,1]
+                );
+            }
+
+            dirs.forEach(
+                ([dr,dc])=>{
+
+                    let nr=r+dr;
+                    let nc=c+dc;
+
+                    while(
+                        inside(nr,nc)
+                    ){
+
+                        const target=
+                            b[nr][nc];
+
+                        if(!target){
+
+                            moves.push([nr,nc]);
+
+                        }else{
+
+                            if(
+                                color(target)!==col &&
+                                target.toLowerCase()!=="k"
+                            ){
+                                moves.push([
+                                    nr,nc
+                                ]);
+                            }
+
+                            break;
+                        }
+
+                        nr+=dr;
+                        nc+=dc;
+                    }
+                }
+            );
         }
 
         if(type==="k"){
 
             for(let dr=-1;dr<=1;dr++){
-
                 for(let dc=-1;dc<=1;dc++){
 
-                    if(dr||dc){
-                        add(
-                            r+dr,
-                            c+dc
-                        );
-                    }
+                    if(dr===0 && dc===0)continue;
+
+                    add(r+dr,c+dc);
                 }
             }
-
-            return moves;
         }
-
-        const directions=[];
-
-        if(
-            type==="b" ||
-            type==="q"
-        ){
-
-            directions.push(
-                [-1,-1],
-                [-1,1],
-                [1,-1],
-                [1,1]
-            );
-        }
-
-        if(
-            type==="r" ||
-            type==="q"
-        ){
-
-            directions.push(
-                [-1,0],
-                [1,0],
-                [0,-1],
-                [0,1]
-            );
-        }
-
-        directions.forEach(
-            ([dr,dc])=>{
-
-                let rr=r+dr;
-                let cc=c+dc;
-
-                while(
-                    inside(rr,cc)
-                ){
-
-                    const target=
-                        state[rr][cc];
-
-                    if(!target){
-
-                        moves.push([
-                            rr,
-                            cc
-                        ]);
-
-                    }else{
-
-                        if(
-                            color(target)!==col
-                        ){
-                            moves.push([
-                                rr,
-                                cc
-                            ]);
-                        }
-
-                        break;
-                    }
-
-                    rr+=dr;
-                    cc+=dc;
-                }
-            }
-        );
 
         return moves;
     }
 
-    function makeMove(from,to){
-
-        const piece=
-            state[from[0]][from[1]];
-
-        const target=
-            state[to[0]][to[1]];
-
-        if(
-            target &&
-            target.toLowerCase()==="k"
-        ){
-
-            state[to[0]][to[1]]=piece;
-            state[from[0]][from[1]]="";
-
-            render();
-
-            setTimeout(()=>{
-                alert(
-                    turn==="white"
-                    ? "White wins!"
-                    : "Black wins!"
-                );
-
-                locked=true;
-            },50);
-
-            return;
-        }
-
-        state[to[0]][to[1]]=piece;
-        state[from[0]][from[1]]="";
-
-        /* promotion */
-
-        if(
-            piece==="P" &&
-            to[0]===0
-        ){
-            state[to[0]][to[1]]="Q";
-        }
-
-        if(
-            piece==="p" &&
-            to[0]===7
-        ){
-            state[to[0]][to[1]]="q";
-        }
-
-        turn=
-            turn==="white"
-            ? "black"
-            : "white";
-
-        turnEl.textContent=
-            turn==="white"
-            ? "White"
-            : "Black";
-
-        render();
-
-        if(turn==="black"){
-
-            locked=true;
-
-            setTimeout(
-                computerMove,
-                350
-            );
-        }
-    }
-
-    function computerMove(){
-
-        if(locked===false)return;
-
-        const options=[];
+    function attacked(
+        b,
+        tr,
+        tc,
+        byColor
+    ){
 
         for(let r=0;r<8;r++){
-
             for(let c=0;c<8;c++){
 
-                const p=state[r][c];
+                const p=b[r][c];
 
                 if(
-                    p &&
-                    color(p)==="black"
-                ){
+                    !p ||
+                    color(p)!==byColor
+                )continue;
 
-                    pseudoMoves(r,c)
-                    .forEach(to=>{
-                        options.push({
-                            from:[r,c],
-                            to
-                        });
-                    });
+                const type=p.toLowerCase();
+
+                if(type==="p"){
+
+                    const dir=
+                        byColor==="w"?-1:1;
+
+                    if(
+                        r+dir===tr &&
+                        Math.abs(c-tc)===1
+                    ){
+                        return true;
+                    }
+
+                }else{
+
+                    const moves=
+                        pseudo(
+                            b,
+                            r,
+                            c,
+                            true
+                        );
+
+                    if(
+                        moves.some(
+                            m=>m[0]===tr &&
+                               m[1]===tc
+                        )
+                    ){
+                        return true;
+                    }
                 }
             }
         }
 
-        if(!options.length){
+        return false;
+    }
 
-            locked=false;
-            return;
+    function inCheck(b,col){
+
+        let kr=-1;
+        let kc=-1;
+
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
+
+                if(
+                    b[r][c]===(
+                        col==="w"?"K":"k"
+                    )
+                ){
+                    kr=r;
+                    kc=c;
+                }
+            }
         }
 
-        const choice=
-            options[
-                randomInt(
-                    0,
-                    options.length-1
-                )
-            ];
+        if(kr<0)return true;
 
-        state[
-            choice.to[0]
-        ][
-            choice.to[1]
-        ]=
-            state[
-                choice.from[0]
-            ][
-                choice.from[1]
-            ];
+        return attacked(
+            b,
+            kr,
+            kc,
+            col==="w"?"b":"w"
+        );
+    }
 
-        state[
-            choice.from[0]
-        ][
-            choice.from[1]
-        ]="";
+    function legalMoves(r,c){
 
-        const moved=
-            state[
-                choice.to[0]
-            ][
-                choice.to[1]
-            ];
+        const p=board[r][c];
+
+        if(!p || color(p)!==turn){
+            return [];
+        }
+
+        return pseudo(
+            board,r,c
+        ).filter(([nr,nc])=>{
+
+            const copy=clone(board);
+
+            copy[nr][nc]=copy[r][c];
+            copy[r][c]=null;
+
+            /* Promote. */
+            const moved=copy[nr][nc];
+
+            if(
+                moved.toLowerCase()==="p" &&
+                (nr===0 || nr===7)
+            ){
+                copy[nr][nc]=
+                    color(moved)==="w"
+                    ?"Q"
+                    :"q";
+            }
+
+            return !inCheck(
+                copy,
+                turn
+            );
+        });
+    }
+
+    function anyLegal(col){
+
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
+
+                if(
+                    board[r][c] &&
+                    color(board[r][c])===col &&
+                    legalMoves(r,c).length
+                ){
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    function move(fr,fc,tr,tc){
+
+        const p=board[fr][fc];
+
+        board[tr][tc]=p;
+        board[fr][fc]=null;
 
         if(
-            moved==="p" &&
-            choice.to[0]===7
+            p.toLowerCase()==="p" &&
+            (tr===0 || tr===7)
         ){
-            state[
-                choice.to[0]
-            ][
-                choice.to[1]
-            ]="q";
+            board[tr][tc]=
+                color(p)==="w"
+                ?"Q"
+                :"q";
         }
 
-        turn="white";
-        locked=false;
+        const opponent=
+            turn==="w"?"b":"w";
 
-        turnEl.textContent="White";
+        turn=opponent;
+
+        selected=null;
+
+        const check=inCheck(
+            board,
+            turn
+        );
+
+        if(!anyLegal(turn)){
+
+            gameOver=true;
+
+            if(check){
+
+                $("#chessStatus").textContent=
+                    (turn==="w"?"White":"Black") +
+                    " is checkmated.";
+
+            }else{
+
+                $("#chessStatus").textContent=
+                    "Stalemate.";
+            }
+
+        }else{
+
+            $("#chessStatus").textContent=
+                check
+                ? "Check!"
+                : "Select a piece.";
+        }
+
+        $("#chessTurn").textContent=
+            turn==="w"?"White":"Black";
 
         render();
     }
 
     function clickSquare(r,c){
 
-        if(locked)return;
-
-        const piece=state[r][c];
+        if(gameOver)return;
 
         if(selected){
 
             const moves=
-                pseudoMoves(
-                    selected[0],
-                    selected[1]
+                legalMoves(
+                    selected.r,
+                    selected.c
                 );
 
-            const legal=
-                moves.some(
-                    m=>m[0]===r&&m[1]===c
+            const valid=moves.some(
+                m=>m[0]===r && m[1]===c
+            );
+
+            if(valid){
+
+                move(
+                    selected.r,
+                    selected.c,
+                    r,c
                 );
-
-            if(legal){
-
-                makeMove(
-                    selected,
-                    [r,c]
-                );
-
-                selected=null;
 
                 return;
             }
-
-            selected=null;
-            render();
         }
 
         if(
-            piece &&
-            color(piece)==="white" &&
-            turn==="white"
+            board[r][c] &&
+            color(board[r][c])===turn
         ){
 
-            selected=[r,c];
+            selected={r,c};
 
+            render();
+        }else{
+
+            selected=null;
             render();
         }
     }
 
     function render(){
 
-        board.innerHTML="";
+        boardEl.innerHTML="";
+
+        const moves=
+            selected
+            ?legalMoves(
+                selected.r,
+                selected.c
+            )
+            :[];
 
         for(let r=0;r<8;r++){
-
-            for(let c=0;c<8;c++){
-
-                const square=
-                    document.createElement("div");
-
-                square.className=
-                    "chess-square "+
-                    (
-                        (r+c)%2===0
-                        ? "chess-light"
-                        : "chess-dark"
-                    );
-
-                if(
-                    selected &&
-                    selected[0]===r &&
-                    selected[1]===c
-                ){
-                    square.classList.add(
-                        "selected"
-                    );
-                }
-
-                if(selected){
-
-                    const legal=
-                        pseudoMoves(
-                            selected[0],
-                            selected[1]
-                        );
-
-                    if(
-                        legal.some(
-                            m=>m[0]===r&&m[1]===c
-                        )
-                    ){
-                        square.classList.add(
-                            "legal"
-                        );
-                    }
-                }
-
-                square.textContent=
-                    pieces[state[r][c]]||"";
-
-                square.addEventListener(
-                    "pointerdown",
-                    e=>{
-                        e.preventDefault();
-                        clickSquare(r,c);
-                    }
-                );
-
-                board.appendChild(square);
-            }
-        }
-    }
-
-    window.currentStart=()=>{};
-
-    render();
-
-    cleanupCurrentGame=()=>{
-        window.currentStart=null;
-    };
-}
-
-
-/* =========================================================
-   CHECKERS
-   ========================================================= */
-
-function checkersGame(){
-
-    clearGameArea();
-    clearScore();
-
-    const turnEl=addStat(
-        "Turn",
-        "Red",
-        "checkTurn"
-    );
-
-    const scoreEl=addStat(
-        "Red",
-        "12",
-        "checkScore"
-    );
-
-    const board=
-        document.createElement("div");
-
-    board.className="checkers-board";
-
-    gameArea.appendChild(board);
-
-    let pieces=[];
-
-    /*
-       0 empty
-       1 red
-       2 black
-       3 red king
-       4 black king
-    */
-
-    function reset(){
-
-        pieces=
-            Array.from(
-                {length:8},
-                ()=>Array(8).fill(0)
-            );
-
-        for(let r=0;r<3;r++){
-
-            for(let c=0;c<8;c++){
-
-                if((r+c)%2===1){
-                    pieces[r][c]=2;
-                }
-            }
-        }
-
-        for(let r=5;r<8;r++){
-
-            for(let c=0;c<8;c++){
-
-                if((r+c)%2===1){
-                    pieces[r][c]=1;
-                }
-            }
-        }
-    }
-
-    let turn="red";
-    let selected=null;
-    let locked=false;
-
-    function isRed(p){
-        return p===1||p===3;
-    }
-
-    function isBlack(p){
-        return p===2||p===4;
-    }
-
-    function movesFor(r,c){
-
-        const p=pieces[r][c];
-
-        if(!p)return [];
-
-        const red=isRed(p);
-        const king=
-            p===3 ||
-            p===4;
-
-        const result=[];
-
-        const dirs=[];
-
-        if(
-            red||king
-        ){
-            dirs.push(
-                [-1,-1],
-                [-1,1]
-            );
-        }
-
-        if(
-            !red||king
-        ){
-            dirs.push(
-                [1,-1],
-                [1,1]
-            );
-        }
-
-        dirs.forEach(([dr,dc])=>{
-
-            const r1=r+dr;
-            const c1=c+dc;
-
-            if(
-                r1>=0&&
-                r1<8&&
-                c1>=0&&
-                c1<8&&
-                pieces[r1][c1]===0
-            ){
-
-                result.push({
-                    r:r1,
-                    c:c1,
-                    capture:null
-                });
-            }
-
-            const r2=r+dr*2;
-            const c2=c+dc*2;
-
-            if(
-                r2>=0&&
-                r2<8&&
-                c2>=0&&
-                c2<8&&
-                pieces[r1]?.[c1] &&
-                pieces[r2][c2]===0 &&
-                (
-                    red
-                    ? isBlack(pieces[r1][c1])
-                    : isRed(pieces[r1][c1])
-                )
-            ){
-
-                result.push({
-                    r:r2,
-                    c:c2,
-                    capture:[
-                        r1,
-                        c1
-                    ]
-                });
-            }
-        });
-
-        return result;
-    }
-
-    function computer(){
-
-        if(turn!=="black")return;
-
-        const options=[];
-
-        for(let r=0;r<8;r++){
-
-            for(let c=0;c<8;c++){
-
-                if(isBlack(pieces[r][c])){
-
-                    movesFor(r,c)
-                    .forEach(m=>{
-                        options.push({
-                            from:[r,c],
-                            move:m
-                        });
-                    });
-                }
-            }
-        }
-
-        if(!options.length){
-
-            turn="red";
-            turnEl.textContent="Red";
-            return;
-        }
-
-        const captureOptions=
-            options.filter(
-                o=>o.move.capture
-            );
-
-        const choice=
-            (
-                captureOptions.length
-                ? captureOptions
-                : options
-            )[
-                randomInt(
-                    0,
-                    (
-                        captureOptions.length
-                        ? captureOptions
-                        : options
-                    ).length-1
-                )
-            ];
-
-        const p=
-            pieces[
-                choice.from[0]
-            ][
-                choice.from[1]
-            ];
-
-        pieces[
-            choice.move.r
-        ][
-            choice.move.c
-        ]=p;
-
-        pieces[
-            choice.from[0]
-        ][
-            choice.from[1]
-        ]=0;
-
-        if(choice.move.capture){
-
-            pieces[
-                choice.move.capture[0]
-            ][
-                choice.move.capture[1]
-            ]=0;
-        }
-
-        if(
-            p===2 &&
-            choice.move.r===7
-        ){
-            pieces[
-                choice.move.r
-            ][
-                choice.move.c
-            ]=4;
-        }
-
-        turn="red";
-
-        turnEl.textContent="Red";
-
-        render();
-    }
-
-    function click(r,c){
-
-        if(locked||turn!=="red")return;
-
-        const p=pieces[r][c];
-
-        if(selected){
-
-            const moves=
-                movesFor(
-                    selected[0],
-                    selected[1]
-                );
-
-            const move=
-                moves.find(
-                    m=>m.r===r&&m.c===c
-                );
-
-            if(move){
-
-                const piece=
-                    pieces[
-                        selected[0]
-                    ][
-                        selected[1]
-                    ];
-
-                pieces[r][c]=piece;
-
-                pieces[
-                    selected[0]
-                ][
-                    selected[1]
-                ]=0;
-
-                if(move.capture){
-
-                    pieces[
-                        move.capture[0]
-                    ][
-                        move.capture[1]
-                    ]=0;
-                }
-
-                if(
-                    piece===1 &&
-                    r===0
-                ){
-                    pieces[r][c]=3;
-                }
-
-                selected=null;
-
-                turn="black";
-
-                turnEl.textContent="Black";
-
-                render();
-
-                locked=true;
-
-                setTimeout(()=>{
-                    computer();
-                    locked=false;
-                    render();
-                },400);
-
-                return;
-            }
-
-            selected=null;
-            render();
-        }
-
-        if(
-            isRed(p) &&
-            turn==="red"
-        ){
-
-            selected=[r,c];
-
-            render();
-        }
-    }
-
-    function render(){
-
-        board.innerHTML="";
-
-        for(let r=0;r<8;r++){
-
             for(let c=0;c<8;c++){
 
                 const sq=
-                    document.createElement("div");
+                    document.createElement("button");
 
                 sq.className=
-                    "check-square "+
-                    (
-                        (r+c)%2===0
-                        ? "check-light"
-                        : "check-dark"
-                    );
+                    "square " +
+                    ((r+c)%2===0
+                    ?"chess-light"
+                    :"chess-dark");
 
                 if(
                     selected &&
-                    selected[0]===r &&
-                    selected[1]===c
+                    selected.r===r &&
+                    selected.c===c
                 ){
                     sq.classList.add(
                         "selected"
                     );
                 }
 
-                const p=pieces[r][c];
+                if(
+                    moves.some(
+                        m=>m[0]===r &&
+                           m[1]===c
+                    )
+                ){
 
-                if(p){
-
-                    const piece=
-                        document.createElement("div");
-
-                    piece.className=
-                        "piece "+
-                        (
-                            isRed(p)
-                            ? "red"
-                            : "black"
-                        )+
-                        (
-                            p===3||p===4
-                            ? " king"
-                            : ""
-                        );
-
-                    sq.appendChild(piece);
+                    if(board[r][c]){
+                        sq.classList.add("capture");
+                    }else{
+                        sq.classList.add("move");
+                    }
                 }
 
-                sq.addEventListener(
-                    "pointerdown",
-                    e=>{
-                        e.preventDefault();
-                        click(r,c);
-                    }
-                );
+                if(board[r][c]){
+                    sq.textContent=
+                        pieces[board[r][c]];
+                }
 
-                board.appendChild(sq);
+                sq.onclick=()=>{
+                    clickSquare(r,c);
+                };
+
+                boardEl.appendChild(sq);
             }
         }
     }
 
-    reset();
-    render();
+    $("#chessRestart").onclick=initial;
 
-    window.currentStart=()=>{};
-
-    cleanupCurrentGame=()=>{
-        window.currentStart=null;
-    };
+    initial();
 }
 
 
-/* =========================================================
-   MONOPOLY
-   ========================================================= */
+/* ==========================================================
+   CHECKERS
+   ========================================================== */
 
-function monopolyGame(){
+function checkersGame(){
 
-    clearGameArea();
-    clearScore();
+    html(`
+        <div class="panel">
+            <div class="game-title">🔴 Checkers</div>
 
-    const moneyEl=addStat(
-        "Your Money",
-        "$1500",
-        "monoMoney"
-    );
+            <div class="score">
+                Turn: <b id="checkerTurn">Red</b>
+            </div>
 
-    const posEl=addStat(
-        "Position",
-        "START",
-        "monoPos"
-    );
+            <div id="checkerBoard"
+                 class="board"></div>
 
-    const mono=document.createElement("div");
+            <div id="checkerStatus"
+                 class="status">
+                Select a piece.
+            </div>
 
-    mono.className="mono";
+            <div class="controls">
+                <button id="checkerRestart"
+                        class="primary">
+                    New Game
+                </button>
+            </div>
+        </div>
+    `);
 
-    gameArea.appendChild(mono);
+    const el=$("#checkerBoard");
 
-    const cells=[
-        "START",
-        "Brown 1",
-        "Brown 2",
-        "Community",
-        "Light Blue",
-        "Railroad",
-        "Pink 1",
-        "Pink 2",
-        "Tax",
-        "Orange",
-        "Free Parking",
-        "Red 1",
-        "Red 2",
-        "Chance",
-        "Yellow",
-        "Railroad",
-        "Green 1",
-        "Green 2",
-        "Luxury Tax",
-        "Dark Blue"
-    ];
+    let board;
+    let turn;
+    let selected=null;
+    let mustContinue=false;
+    let gameOver=false;
 
-    const prices=[
-        0,60,60,0,100,200,
-        140,140,0,180,
-        0,220,220,0,260,
-        200,300,300,0,350
-    ];
+    function reset(){
 
-    let playerPos=0;
-    let cpuPos=10;
+        board=Array.from(
+            {length:8},
+            ()=>Array(8).fill(null)
+        );
 
-    let money=1500;
-    let cpuMoney=1500;
+        for(let r=0;r<3;r++){
+            for(let c=0;c<8;c++){
 
-    let owned=new Set();
-    let cpuOwned=new Set();
+                if((r+c)%2===1){
+                    board[r][c]="b";
+                }
+            }
+        }
 
-    const board=
-        document.createElement("div");
+        for(let r=5;r<8;r++){
+            for(let c=0;c<8;c++){
 
-    board.className="mono-board";
+                if((r+c)%2===1){
+                    board[r][c]="r";
+                }
+            }
+        }
 
-    mono.appendChild(board);
+        turn="r";
+        selected=null;
+        mustContinue=false;
+        gameOver=false;
 
-    const log=
-        document.createElement("div");
-
-    log.className="mono-log";
-
-    mono.appendChild(log);
-
-    function write(text){
-
-        log.innerHTML=
-            `<div>${text}</div>`+
-            log.innerHTML;
+        render();
     }
 
-    function render(){
+    function inside(r,c){
+        return r>=0 && r<8 && c>=0 && c<8;
+    }
 
-        board.innerHTML="";
+    function captures(r,c){
 
-        cells.forEach(
-            (name,index)=>{
+        const p=board[r][c];
 
-                const cell=
-                    document.createElement("div");
+        if(!p)return [];
 
-                cell.className="mono-cell";
+        const king=
+            p===p.toUpperCase();
 
-                if(index===0){
-                    cell.classList.add("start");
-                }
+        const dirs=[];
 
-                if(prices[index]>0){
-                    cell.classList.add("property");
-                }
+        if(
+            king ||
+            p.toLowerCase()==="r"
+        ){
+            dirs.push(
+                [-1,-1],[-1,1],
+                [1,-1],[1,1]
+            );
+        }else{
+
+            const dir=
+                p.toLowerCase()==="r"
+                ?-1
+                :1;
+
+            dirs.push(
+                [dir,-1],
+                [dir,1]
+            );
+        }
+
+        const result=[];
+
+        dirs.forEach(
+            ([dr,dc])=>{
+
+                const mr=r+dr;
+                const mc=c+dc;
+
+                const lr=r+dr*2;
+                const lc=c+dc*2;
 
                 if(
-                    playerPos===index
+                    inside(lr,lc) &&
+                    board[mr] &&
+                    board[mr][mc] &&
+                    board[mr][mc].toLowerCase() !==
+                        p.toLowerCase() &&
+                    !board[lr][lc]
                 ){
-                    cell.classList.add("player");
+                    result.push([
+                        lr,lc,mr,mc
+                    ]);
                 }
-
-                let owner="";
-
-                if(owned.has(index)){
-                    owner="👑 You";
-                }
-
-                if(cpuOwned.has(index)){
-                    owner="🤖 CPU";
-                }
-
-                cell.innerHTML=
-                    `<strong>${name}</strong>`+
-                    `<span>${
-                        prices[index]
-                        ? "$"+prices[index]
-                        : ""
-                    }</span>`+
-                    `<span>${owner}</span>`;
-
-                board.appendChild(cell);
             }
         );
 
-        moneyEl.textContent=
-            "$"+money;
-
-        posEl.textContent=
-            cells[playerPos];
+        return result;
     }
 
-    function buyProperty(
-        position,
-        isPlayer
-    ){
+    function moves(r,c){
 
-        const price=prices[position];
+        const p=board[r][c];
 
-        if(!price)return;
+        if(!p)return [];
 
-        if(
-            owned.has(position) ||
-            cpuOwned.has(position)
-        ){
+        const result=[];
 
-            if(
-                cpuOwned.has(position) &&
-                isPlayer
-            ){
-
-                const rent=
-                    Math.floor(
-                        price*.2
-                    );
-
-                money-=rent;
-                cpuMoney+=rent;
-
-                write(
-                    `💸 You paid $${rent} rent.`
-                );
-            }
-
-            if(
-                owned.has(position) &&
-                !isPlayer
-            ){
-
-                const rent=
-                    Math.floor(
-                        price*.2
-                    );
-
-                cpuMoney-=rent;
-                money+=rent;
-
-                write(
-                    `💰 CPU paid you $${rent} rent.`
-                );
-            }
-
-            return;
+        if(captures(r,c).length){
+            return captures(r,c);
         }
 
-        if(isPlayer){
+        const king=
+            p===p.toUpperCase();
 
-            if(money>=price){
+        let dirs=[];
 
-                money-=price;
+        if(king){
 
-                owned.add(position);
-
-                write(
-                    `🏠 You bought ${cells[position]} for $${price}.`
-                );
-            }
+            dirs=[
+                [-1,-1],[-1,1],
+                [1,-1],[1,1]
+            ];
 
         }else{
 
-            if(cpuMoney>=price){
+            const dir=
+                p.toLowerCase()==="r"
+                ?-1
+                :1;
 
-                cpuMoney-=price;
-
-                cpuOwned.add(position);
-
-                write(
-                    `🤖 CPU bought ${cells[position]}.`
-                );
-            }
-        }
-    }
-
-    function movePlayer(){
-
-        const roll=
-            randomInt(1,6)+
-            randomInt(1,6);
-
-        const old=playerPos;
-
-        playerPos=
-            (playerPos+roll)%
-            cells.length;
-
-        if(playerPos<old){
-
-            money+=200;
-
-            write(
-                "💵 You passed START and collected $200."
-            );
+            dirs=[
+                [dir,-1],
+                [dir,1]
+            ];
         }
 
-        write(
-            `🎲 You rolled ${roll} and landed on ${cells[playerPos]}.`
-        );
-
-        if(playerPos===8){
-
-            money-=100;
-
-            write(
-                "💸 You paid $100 tax."
-            );
-        }
-
-        buyProperty(
-            playerPos,
-            true
-        );
-
-        render();
-
-        if(money<=0){
-
-            write(
-                "💀 You are out of money. Game over."
-            );
-
-            startBtn.disabled=false;
-
-            return;
-        }
-
-        setTimeout(
-            cpuTurn,
-            600
-        );
-    }
-
-    function cpuTurn(){
-
-        const roll=
-            randomInt(1,6)+
-            randomInt(1,6);
-
-        const old=cpuPos;
-
-        cpuPos=
-            (cpuPos+roll)%
-            cells.length;
-
-        if(cpuPos<old){
-
-            cpuMoney+=200;
-        }
-
-        buyProperty(
-            cpuPos,
-            false
-        );
-
-        render();
-
-        if(
-            cpuMoney<=0
-        ){
-
-            write(
-                "🏆 You win! CPU is bankrupt."
-            );
-
-            return;
-        }
-    }
-
-    const controls=
-        document.createElement("div");
-
-    controls.className="controls";
-
-    const rollBtn=
-        document.createElement("button");
-
-    rollBtn.className="btn primary";
-    rollBtn.textContent="🎲 Roll Dice";
-
-    rollBtn.addEventListener(
-        "click",
-        movePlayer
-    );
-
-    controls.appendChild(rollBtn);
-
-    mono.insertBefore(
-        controls,
-        board
-    );
-
-    write(
-        "🏠 Buy properties and bankrupt the computer."
-    );
-
-    render();
-
-    window.currentStart=()=>{
-        rollBtn.click();
-    };
-
-    cleanupCurrentGame=()=>{
-        rollBtn.replaceWith(
-            rollBtn.cloneNode(true)
-        );
-
-        window.currentStart=null;
-    };
-}
-
-
-/* =========================================================
-   DIRTY MINDS
-   ========================================================= */
-
-function dirtyMindsGame(){
-
-    clearGameArea();
-    clearScore();
-
-    const scoreEl=addStat(
-        "Score",
-        "0",
-        "dirtyScore"
-    );
-
-    const numberEl=addStat(
-        "Question",
-        "1",
-        "dirtyNumber"
-    );
-
-    const trivia=
-        document.createElement("div");
-
-    trivia.className="trivia";
-
-    gameArea.appendChild(trivia);
-
-    /*
-       Clean/funny Dirty Minds-style riddles.
-       The joke is that the question sounds suggestive
-       but has an innocent answer.
-    */
-
-    const questions=[
-        {
-            q:"What gets wetter the more it dries?",
-            answers:[
-                "A towel",
-                "A sponge",
-                "A raincoat",
-                "A shoe"
-            ],
-            correct:0
-        },
-        {
-            q:"What has a head and a tail but no body?",
-            answers:[
-                "A coin",
-                "A snake",
-                "A shirt",
-                "A spoon"
-            ],
-            correct:0
-        },
-        {
-            q:"What goes in hard and dry and comes out soft and wet?",
-            answers:[
-                "Pasta",
-                "A towel",
-                "A candle",
-                "A pencil"
-            ],
-            correct:0
-        },
-        {
-            q:"What can you catch but never throw?",
-            answers:[
-                "A cold",
-                "A ball",
-                "A shoe",
-                "A fish"
-            ],
-            correct:0
-        },
-        {
-            q:"What has a hole in the middle but can still hold water?",
-            answers:[
-                "A sponge",
-                "A cup",
-                "A bottle",
-                "A bucket"
-            ],
-            correct:0
-        },
-        {
-            q:"What gets longer when you pull it?",
-            answers:[
-                "A rubber band",
-                "A table",
-                "A book",
-                "A plate"
-            ],
-            correct:0
-        },
-        {
-            q:"What has many rings but no fingers?",
-            answers:[
-                "A telephone",
-                "A hand",
-                "A glove",
-                "A necklace"
-            ],
-            correct:0
-        },
-        {
-            q:"What can be cracked, made, told, and played?",
-            answers:[
-                "A joke",
-                "A window",
-                "An egg",
-                "A guitar"
-            ],
-            correct:0
-        },
-        {
-            q:"What has a bottom at the top?",
-            answers:[
-                "Your legs",
-                "A mountain",
-                "A bottle",
-                "A chair"
-            ],
-            correct:0
-        },
-        {
-            q:"What is easy to get into but hard to get out of?",
-            answers:[
-                "Trouble",
-                "A car",
-                "A bathtub",
-                "A house"
-            ],
-            correct:0
-        },
-        {
-            q:"What can you hold without ever touching it?",
-            answers:[
-                "A conversation",
-                "A cup",
-                "A ball",
-                "A book"
-            ],
-            correct:0
-        },
-        {
-            q:"What has a tongue but cannot taste?",
-            answers:[
-                "A shoe",
-                "A dog",
-                "A spoon",
-                "A person"
-            ],
-            correct:0
-        }
-    ];
-
-    shuffle(questions);
-
-    let index=0;
-    let score=0;
-
-    function renderQuestion(){
-
-        if(index>=questions.length){
-
-            trivia.innerHTML=`
-                <div class="question-box">
-                    <div class="question-text">
-                        😈 Game Over!
-                    </div>
-                    <p>
-                        You scored
-                        <strong>${score}</strong>
-                        out of
-                        <strong>${questions.length}</strong>.
-                    </p>
-                    <button
-                        class="btn primary"
-                        id="dirtyAgain"
-                    >
-                        🔄 Play Again
-                    </button>
-                </div>
-            `;
-
-            document
-                .getElementById("dirtyAgain")
-                .addEventListener(
-                    "click",
-                    ()=>{
-                        loadGame("dirty_minds");
-                    }
-                );
-
-            return;
-        }
-
-        const item=questions[index];
-
-        numberEl.textContent=
-            `${index+1}/${questions.length}`;
-
-        trivia.innerHTML="";
-
-        const box=
-            document.createElement("div");
-
-        box.className="question-box";
-
-        box.innerHTML=`
-            <div class="question-number">
-                😈 Dirty Minds
-            </div>
-            <div class="question-text">
-                ${item.q}
-            </div>
-        `;
-
-        trivia.appendChild(box);
-
-        const answers=
-            document.createElement("div");
-
-        answers.className="answers";
-
-        item.answers.forEach(
-            (answer,i)=>{
-
-                const button=
-                    document.createElement("button");
-
-                button.className="answer-btn";
-
-                button.textContent=answer;
-
-                button.addEventListener(
-                    "click",
-                    ()=>{
-
-                        const buttons=
-                            answers.querySelectorAll(
-                                ".answer-btn"
-                            );
-
-                        buttons.forEach(
-                            b=>b.disabled=true
-                        );
-
-                        if(i===item.correct){
-
-                            button.classList.add(
-                                "correct"
-                            );
-
-                            score++;
-
-                            scoreEl.textContent=
-                                score;
-
-                        }else{
-
-                            button.classList.add(
-                                "wrong"
-                            );
-
-                            buttons[
-                                item.correct
-                            ].classList.add(
-                                "correct"
-                            );
-                        }
-
-                        const result=
-                            document.createElement("div");
-
-                        result.className=
-                            "trivia-result";
-
-                        result.textContent=
-                            i===item.correct
-                            ? "🔥 Correct!"
-                            : `😏 Nope! The innocent answer is "${item.answers[item.correct]}".`;
-
-                        trivia.appendChild(result);
-
-                        setTimeout(()=>{
-
-                            index++;
-
-                            renderQuestion();
-
-                        },1100);
-                    }
-                );
-
-                answers.appendChild(button);
+        dirs.forEach(
+            ([dr,dc])=>{
+
+                const nr=r+dr;
+                const nc=c+dc;
+
+                if(
+                    inside(nr,nc) &&
+                    !board[nr][nc]
+                ){
+                    result.push([
+                        nr,nc
+                    ]);
+                }
             }
         );
 
-        trivia.appendChild(answers);
+        return result;
     }
 
-    renderQuestion();
+    function playerHasCapture(p){
 
-    window.currentStart=()=>{};
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
 
-    cleanupCurrentGame=()=>{
-        window.currentStart=null;
-    };
-}
+                if(
+                    board[r][c] &&
+                    board[r][c].toLowerCase()===p
+                ){
 
-
-/* =========================================================
-   RACE CAR RACING
-   ========================================================= */
-
-function raceCarGame(){
-
-    clearGameArea();
-    clearScore();
-
-    const canvas=createCanvas(420,650);
-    const ctx=canvas.getContext("2d");
-
-    const scoreEl=addStat(
-        "Distance",
-        "0",
-        "raceDistance"
-    );
-
-    const speedEl=addStat(
-        "Speed",
-        "1",
-        "raceSpeed"
-    );
-
-    let playerLane=1;
-    let distance=0;
-    let speed=4;
-    let cars=[];
-    let running=false;
-    let frame=0;
-    let spawnCounter=0;
-
-    const lanes=[
-        90,
-        180,
-        270
-    ];
-
-    function spawnCar(){
-
-        const lane=
-            randomInt(0,2);
-
-        cars.push({
-            lane,
-            x:lanes[lane],
-            y:-120,
-            w:48,
-            h:90,
-            speed:speed*
-                (0.85+
-                Math.random()*.35)
-        });
-    }
-
-    function drawRoad(){
-
-        ctx.fillStyle="#111";
-        ctx.fillRect(
-            0,
-            0,
-            420,
-            650
-        );
-
-        /* road */
-
-        ctx.fillStyle="#444";
-
-        ctx.fillRect(
-            55,
-            0,
-            310,
-            650
-        );
-
-        /* lane lines */
-
-        ctx.strokeStyle="#aaa";
-        ctx.lineWidth=5;
-        ctx.setLineDash([35,30]);
-
-        [145,235].forEach(x=>{
-
-            ctx.beginPath();
-
-            ctx.moveTo(x,0);
-            ctx.lineTo(x,650);
-
-            ctx.stroke();
-        });
-
-        ctx.setLineDash([]);
-
-        /* player */
-
-        ctx.fillStyle="#fff";
-
-        ctx.fillRect(
-            lanes[playerLane]-24,
-            530,
-            48,
-            90
-        );
-
-        /* opponents */
-
-        ctx.fillStyle="#888";
-
-        cars.forEach(car=>{
-
-            ctx.fillRect(
-                car.x-24,
-                car.y,
-                car.w,
-                car.h
-            );
-        });
-    }
-
-    function collision(car){
-
-        const px=
-            lanes[playerLane]-24;
-
-        const py=530;
-
-        return (
-            px<car.x+car.w/2 &&
-            px+48>car.x-car.w/2 &&
-            py<car.y+car.h &&
-            py+90>car.y
-        );
-    }
-
-    function loop(){
-
-        if(!running)return;
-
-        spawnCounter++;
-
-        if(
-            spawnCounter>
-            Math.max(
-                25,
-                65-distance/100
-            )
-        ){
-
-            spawnCounter=0;
-
-            spawnCar();
+                    if(captures(r,c).length){
+                        return true;
+                    }
+                }
+            }
         }
 
-        cars.forEach(car=>{
-            car.y+=car.speed;
-        });
+        return false;
+    }
 
-        cars=cars.filter(
-            car=>car.y<700
-        );
+    function move(fr,fc,tr,tc){
 
-        for(const car of cars){
+        const p=board[fr][fc];
 
-            if(collision(car)){
+        const isCapture=
+            Math.abs(tr-fr)===2;
 
-                running=false;
+        board[tr][tc]=p;
+        board[fr][fc]=null;
 
-                setStartText("▶ Start");
+        if(isCapture){
+
+            const mr=(fr+tr)/2;
+            const mc=(fc+tc)/2;
+
+            board[mr][mc]=null;
+
+            if(
+                captures(tr,tc).length
+            ){
+
+                selected={r:tr,c:tc};
+                mustContinue=true;
+
+                render();
 
                 return;
             }
         }
 
-        distance+=speed*.05;
+        /* King promotion */
+        if(
+            p.toLowerCase()==="r" &&
+            tr===0
+        ){
+            board[tr][tc]="R";
+        }
 
-        speed=
-            Math.min(
-                12,
-                4+distance/150
+        if(
+            p.toLowerCase()==="b" &&
+            tr===7
+        ){
+            board[tr][tc]="B";
+        }
+
+        turn=
+            turn==="r"
+            ?"b"
+            :"r";
+
+        selected=null;
+        mustContinue=false;
+
+        checkEnd();
+
+        render();
+    }
+
+    function checkEnd(){
+
+        let pieces=0;
+        let movesAvailable=false;
+
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
+
+                if(
+                    board[r][c] &&
+                    board[r][c].toLowerCase()===turn
+                ){
+
+                    pieces++;
+
+                    if(moves(r,c).length){
+                        movesAvailable=true;
+                    }
+                }
+            }
+        }
+
+        if(
+            pieces===0 ||
+            !movesAvailable
+        ){
+
+            gameOver=true;
+
+            const winner=
+                turn==="r"
+                ?"Black"
+                :"Red";
+
+            $("#checkerStatus").textContent=
+                winner + " wins!";
+        }
+    }
+
+    function click(r,c){
+
+        if(gameOver)return;
+
+        if(selected){
+
+            const available=
+                moves(
+                    selected.r,
+                    selected.c
+                );
+
+            const found=
+                available.find(
+                    m=>m[0]===r && m[1]===c
+                );
+
+            if(found){
+
+                move(
+                    selected.r,
+                    selected.c,
+                    r,c
+                );
+
+                return;
+            }
+        }
+
+        if(
+            board[r][c] &&
+            board[r][c].toLowerCase()===turn
+        ){
+
+            const mustCapture=
+                playerHasCapture(turn);
+
+            if(
+                mustCapture &&
+                !captures(r,c).length
+            ){
+                return;
+            }
+
+            selected={r,c};
+
+            render();
+        }
+    }
+
+    function render(){
+
+        el.innerHTML="";
+
+        const globalCapture=
+            playerHasCapture(turn);
+
+        for(let r=0;r<8;r++){
+            for(let c=0;c<8;c++){
+
+                const sq=
+                    document.createElement("button");
+
+                sq.className=
+                    "square " +
+                    ((r+c)%2===0
+                    ?"checker-light"
+                    :"checker-dark");
+
+                const p=board[r][c];
+
+                if(
+                    p &&
+                    p.toLowerCase()===turn
+                ){
+
+                    const piece=
+                        document.createElement("div");
+
+                    piece.className=
+                        "checker-piece " +
+                        (
+                            p.toLowerCase()==="r"
+                            ?"checker-red"
+                            :"checker-black"
+                        );
+
+                    if(
+                        p===p.toUpperCase()
+                    ){
+                        piece.classList.add(
+                            "checker-king"
+                        );
+                    }
+
+                    sq.appendChild(piece);
+                }
+
+                if(
+                    selected &&
+                    selected.r===r &&
+                    selected.c===c
+                ){
+                    sq.classList.add("selected");
+                }
+
+                if(
+                    selected &&
+                    moves(
+                        selected.r,
+                        selected.c
+                    ).some(
+                        m=>m[0]===r &&
+                           m[1]===c
+                    )
+                ){
+                    sq.classList.add(
+                        board[r][c]
+                        ?"capture"
+                        :"move"
+                    );
+                }
+
+                sq.onclick=()=>{
+                    click(r,c);
+                };
+
+                el.appendChild(sq);
+            }
+        }
+
+        $("#checkerTurn").textContent=
+            turn==="r"
+            ?"Red"
+            :"Black";
+
+        if(!gameOver){
+
+            $("#checkerStatus").textContent=
+                globalCapture
+                ?"A capture is mandatory."
+                :"Select a piece.";
+        }
+    }
+
+    $("#checkerRestart").onclick=reset;
+
+    reset();
+}
+
+
+/* ==========================================================
+   MONOPOLY
+   ========================================================== */
+
+function monopolyGame(){
+
+    html(`
+        <div class="panel">
+            <div class="game-title">🎲 Monopoly</div>
+
+            <div id="monoInfo"
+                 class="status"></div>
+
+            <div id="monoBoard"
+                 class="mono-board"></div>
+
+            <div id="monoLog"
+                 class="status"></div>
+
+            <div class="controls">
+                <button id="monoRoll"
+                        class="primary">
+                    🎲 Roll Dice
+                </button>
+
+                <button id="monoBuy"
+                        class="success"
+                        style="display:none">
+                    Buy Property
+                </button>
+
+                <button id="monoSkip"
+                        style="display:none">
+                    Skip
+                </button>
+
+                <button id="monoRestart">
+                    New Game
+                </button>
+            </div>
+
+            <div class="help">
+                Simplified playable Monopoly:
+                buy properties, collect rent,
+                survive taxes and reach the finish.
+            </div>
+        </div>
+    `);
+
+    const spaces=[
+        ["GO","go"],
+        ["Central Ave","property",100,12],
+        ["Community","community"],
+        ["Desert Tax","tax",150],
+        ["Sunset Blvd","property",120,15],
+        ["Rail Station","property",150,18],
+        ["Palm Ave","property",140,16],
+        ["Chance","chance"],
+        ["Mountain Rd","property",160,20],
+        ["Cactus St","property",180,22],
+        ["Jail","jail"],
+        ["Ocean Ave","property",180,22],
+        ["Electric Co.","property",150,18],
+        ["Community","community"],
+        ["Valley Rd","property",200,24],
+        ["Rail Depot","property",200,24],
+        ["Mesa Ave","property",220,26],
+        ["Chance","chance"],
+        ["Desert Rd","property",220,27],
+        ["Sunrise Ave","property",240,30],
+        ["Free Parking","free"],
+        ["Canyon Blvd","property",240,30],
+        ["Community","community"],
+        ["Palm Springs","property",260,32],
+        ["Rail Terminal","property",200,25],
+        ["Downtown","property",280,35],
+        ["Chance","chance"],
+        ["West Ave","property",280,36],
+        ["Water Works","property",150,18],
+        ["Garden Blvd","property",300,40],
+        ["Go To Jail","gotojail"],
+        ["Lake Rd","property",300,40],
+        ["Community","community"],
+        ["Broadway","property",320,42],
+        ["Rail Hub","property",200,25],
+        ["Arizona Ave","property",340,45],
+        ["Chance","chance"],
+        ["King St","property",360,48],
+        ["Luxury Tax","tax",100],
+        ["Melanated Ave","property",400,55]
+    ];
+
+    const boardEl=$("#monoBoard");
+
+    let players;
+    let current=0;
+    let rolled=false;
+    let pendingProperty=null;
+    let gameEnded=false;
+
+    const positions=[
+        0,10,20,30
+    ];
+
+    function reset(){
+
+        players=[
+            {
+                name:"You",
+                token:"👑",
+                money:1500,
+                pos:0,
+                human:true,
+                alive:true
+            },
+            {
+                name:"Player 2",
+                token:"🚗",
+                money:1500,
+                pos:0,
+                human:false,
+                alive:true
+            },
+            {
+                name:"Player 3",
+                token:"🐕",
+                money:1500,
+                pos:0,
+                human:false,
+                alive:true
+            }
+        ];
+
+        spaces.forEach(s=>{
+            if(s.owner!==undefined){
+                delete s.owner;
+            }
+        });
+
+        current=0;
+        rolled=false;
+        pendingProperty=null;
+        gameEnded=false;
+
+        render();
+        updateTurn();
+    }
+
+    function gridPosition(index){
+
+        if(index<=10){
+            return {
+                row:1,
+                col:index+1
+            };
+        }
+
+        if(index<=19){
+            return {
+                row:index-9,
+                col:11
+            };
+        }
+
+        if(index<=30){
+            return {
+                row:11,
+                col:31-index
+            };
+        }
+
+        return {
+            row:41-index,
+            col:1
+        };
+    }
+
+    function render(){
+
+        boardEl.innerHTML="";
+
+        spaces.forEach(
+            (space,index)=>{
+
+                const cell=
+                    document.createElement("div");
+
+                cell.className="mono-space";
+
+                const gp=
+                    gridPosition(index);
+
+                cell.style.gridRow=
+                    gp.row;
+
+                cell.style.gridColumn=
+                    gp.col;
+
+                cell.innerHTML=
+                    `<b>${escapeHtml(space[0])}</b>`;
+
+                if(space[1]==="property"){
+
+                    cell.innerHTML +=
+                        `<small>$${space[2]}</small>`;
+
+                    if(space.owner!==undefined){
+
+                        cell.innerHTML +=
+                            `<small>Owned</small>`;
+                    }
+                }
+
+                players.forEach(
+                    (p,pi)=>{
+
+                        if(
+                            p.alive &&
+                            p.pos===index
+                        ){
+
+                            const token=
+                                document.createElement("span");
+
+                            token.className=
+                                "mono-token";
+
+                            token.textContent=
+                                p.token;
+
+                            cell.appendChild(token);
+                        }
+                    }
+                );
+
+                boardEl.appendChild(cell);
+            }
+        );
+
+        const center=
+            document.createElement("div");
+
+        center.className="mono-center";
+
+        center.innerHTML=`
+            <div style="font-size:42px">🎲</div>
+            <b>MONOPOLY</b>
+            <small>Melanated AZ Edition</small>
+        `;
+
+        boardEl.appendChild(center);
+
+        updateInfo();
+    }
+
+    function updateInfo(){
+
+        const alive=
+            players.filter(
+                p=>p.alive
             );
 
-        scoreEl.textContent=
-            Math.floor(distance);
-
-        speedEl.textContent=
-            speed.toFixed(1);
-
-        drawRoad();
-
-        frame=
-            requestAnimationFrame(loop);
+        $("#monoInfo").innerHTML=
+            alive.map(
+                p=>
+                    `<b>${escapeHtml(p.name)}</b>
+                     ${p.token}
+                     — $${p.money}`
+            ).join(" &nbsp; | &nbsp; ");
     }
 
-    function start(){
+    function log(message){
 
-        if(running)return;
-
-        running=true;
-
-        setStartText("🏎️ Racing");
-
-        frame=
-            requestAnimationFrame(loop);
+        $("#monoLog").textContent=
+            message;
     }
 
-    function moveLeft(){
+    function updateTurn(){
+
+        if(gameEnded)return;
+
+        const p=players[current];
+
+        rolled=false;
+        pendingProperty=null;
+
+        $("#monoRoll").disabled=
+            !p.human;
+
+        $("#monoBuy").style.display="none";
+        $("#monoSkip").style.display="none";
+
+        log(
+            p.human
+            ?"Your turn — roll the dice."
+            :p.name + " is thinking..."
+        );
+
+        if(!p.human){
+
+            timer(
+                aiTurn,
+                700
+            );
+        }
+    }
+
+    function rollDice(){
+
+        if(gameEnded)return;
+
+        const p=players[current];
+
+        if(!p.human || rolled)return;
+
+        rolled=true;
+
+        const d1=
+            1+Math.floor(Math.random()*6);
+
+        const d2=
+            1+Math.floor(Math.random()*6);
+
+        const total=d1+d2;
+
+        log(
+            `You rolled ${d1} + ${d2} = ${total}`
+        );
+
+        movePlayer(
+            p,
+            total
+        );
+    }
+
+    function movePlayer(p,steps){
+
+        const old=p.pos;
+
+        p.pos=
+            (p.pos+steps)%40;
+
+        if(p.pos<old){
+            p.money+=200;
+        }
+
+        render();
+
+        timer(
+            ()=>resolveSpace(p),
+            350
+        );
+    }
+
+    function resolveSpace(p){
+
+        const space=
+            spaces[p.pos];
+
+        const type=space[1];
+
+        if(type==="go"){
+            nextTurn();
+            return;
+        }
+
+        if(type==="jail"){
+
+            p.money-=50;
+
+            log(
+                p.name +
+                " is visiting jail."
+            );
+
+            nextTurn();
+            return;
+        }
+
+        if(type==="gotojail"){
+
+            p.pos=10;
+
+            log(
+                p.name +
+                " goes to jail."
+            );
+
+            render();
+
+            nextTurn();
+            return;
+        }
+
+        if(type==="free"){
+
+            log(
+                p.name +
+                " landed on Free Parking."
+            );
+
+            nextTurn();
+            return;
+        }
+
+        if(type==="tax"){
+
+            p.money-=space[2];
+
+            log(
+                p.name +
+                " paid $" +
+                space[2] +
+                " in taxes."
+            );
+
+            checkBankruptcy(p);
+
+            nextTurn();
+            return;
+        }
+
+        if(type==="chance"){
+
+            const amount=
+                [-150,-100,50,100,150]
+                [
+                    Math.floor(
+                        Math.random()*5
+                    )
+                ];
+
+            p.money+=amount;
+
+            log(
+                p.name +
+                (
+                    amount>=0
+                    ?" received $"
+                    :" paid $"
+                ) +
+                Math.abs(amount) +
+                " from Chance."
+            );
+
+            checkBankruptcy(p);
+
+            nextTurn();
+            return;
+        }
+
+        if(type==="community"){
+
+            const amount=
+                [50,100,150,-50]
+                [
+                    Math.floor(
+                        Math.random()*4
+                    )
+                ];
+
+            p.money+=amount;
+
+            log(
+                p.name +
+                " drew a community card: " +
+                (
+                    amount>=0
+                    ?"+"
+                    :""
+                ) +
+                "$" +
+                amount
+            );
+
+            checkBankruptcy(p);
+
+            nextTurn();
+            return;
+        }
+
+        if(type==="property"){
+
+            const owner=
+                space.owner;
+
+            if(owner===undefined){
+
+                if(p.human){
+
+                    pendingProperty=
+                        p.pos;
+
+                    $("#monoBuy").style.display=
+                        "inline-block";
+
+                    $("#monoSkip").style.display=
+                        "inline-block";
+
+                    log(
+                        `${space[0]} costs $${space[2]}. Buy it?`
+                    );
+
+                    return;
+
+                }else{
+
+                    if(
+                        p.money>=space[2]
+                    ){
+
+                        space.owner=
+                            players.indexOf(p);
+
+                        p.money-=space[2];
+
+                        log(
+                            p.name +
+                            " bought " +
+                            space[0]
+                        );
+                    }
+
+                    nextTurn();
+                    return;
+                }
+            }
+
+            if(owner!==players.indexOf(p)){
+
+                const rent=
+                    space[3];
+
+                const landlord=
+                    players[owner];
+
+                p.money-=rent;
+                landlord.money+=rent;
+
+                log(
+                    p.name +
+                    " paid $" +
+                    rent +
+                    " rent to " +
+                    landlord.name
+                );
+
+                checkBankruptcy(p);
+            }
+
+            nextTurn();
+        }
+    }
+
+    function buyProperty(){
+
+        if(pendingProperty===null)return;
+
+        const p=players[current];
+        const space=
+            spaces[pendingProperty];
+
+        if(
+            p.money>=space[2]
+        ){
+
+            space.owner=current;
+            p.money-=space[2];
+
+            log(
+                "You bought " +
+                space[0] +
+                " for $" +
+                space[2]
+            );
+        }
+
+        pendingProperty=null;
+
+        $("#monoBuy").style.display="none";
+        $("#monoSkip").style.display="none";
+
+        render();
+
+        timer(
+            nextTurn,
+            500
+        );
+    }
+
+    function checkBankruptcy(p){
+
+        if(p.money>=0)return;
+
+        p.alive=false;
+
+        log(
+            p.name +
+            " is bankrupt!"
+        );
+
+        /* Return properties. */
+        spaces.forEach(s=>{
+
+            if(
+                s.owner===players.indexOf(p)
+            ){
+                delete s.owner;
+            }
+        });
+
+        const alive=
+            players.filter(
+                x=>x.alive
+            );
+
+        if(alive.length<=1){
+
+            gameEnded=true;
+
+            if(alive.length===1){
+
+                log(
+                    "🏆 " +
+                    alive[0].name +
+                    " wins!"
+                );
+            }
+
+            render();
+            return true;
+        }
+
+        return true;
+    }
+
+    function nextTurn(){
+
+        if(gameEnded)return;
+
+        $("#monoBuy").style.display="none";
+        $("#monoSkip").style.display="none";
+
+        let attempts=0;
+
+        do{
+
+            current=
+                (current+1)%players.length;
+
+            attempts++;
+
+        }while(
+            !players[current].alive &&
+            attempts<players.length
+        );
+
+        render();
+        updateTurn();
+    }
+
+    function aiTurn(){
+
+        if(gameEnded)return;
+
+        const p=players[current];
+
+        if(p.human)return;
+
+        const d1=
+            1+Math.floor(Math.random()*6);
+
+        const d2=
+            1+Math.floor(Math.random()*6);
+
+        const total=d1+d2;
+
+        log(
+            p.name +
+            " rolled " +
+            d1 +
+            " + " +
+            d2
+        );
+
+        movePlayer(
+            p,
+            total
+        );
+    }
+
+    $("#monoRoll").onclick=rollDice;
+    $("#monoBuy").onclick=buyProperty;
+    $("#monoSkip").onclick=()=>{
+        pendingProperty=null;
+        $("#monoBuy").style.display="none";
+        $("#monoSkip").style.display="none";
+        nextTurn();
+    };
+
+    $("#monoRestart").onclick=reset;
+
+    reset();
+}
+
+
+/* ==========================================================
+   RACE CAR RACING
+   ========================================================== */
+
+function raceCarGame(){
+
+    html(`
+        <div class="panel">
+            <div class="game-title">🏎️ Race Car Racing</div>
+
+            <div class="score">
+                Distance: <b id="raceScore">0</b> m
+            </div>
+
+            <canvas id="raceCanvas"
+                    width="360"
+                    height="640"></canvas>
+
+            <div class="controls">
+                <button id="raceLeft">⬅️ LEFT</button>
+                <button id="raceStart"
+                        class="primary">
+                    START
+                </button>
+                <button id="raceRight">RIGHT ➡️</button>
+            </div>
+
+            <div class="help">
+                Use the buttons, A/D,
+                or ← → keys to dodge traffic.
+            </div>
+        </div>
+    `);
+
+    const canvas=$("#raceCanvas");
+    const ctx=canvas.getContext("2d");
+
+    const lanes=[
+        80,180,280
+    ];
+
+    let playerLane=1;
+    let enemies=[];
+    let running=false;
+    let distance=0;
+    let speed=260;
+    let last=0;
+    let raf;
+
+    function reset(){
+
+        playerLane=1;
+        enemies=[];
+        running=false;
+        distance=0;
+        speed=260;
+        last=0;
+
+        $("#raceScore").textContent=0;
+
+        draw();
+    }
+
+    function left(){
 
         playerLane=
             Math.max(
@@ -4897,7 +4366,7 @@ function raceCarGame(){
             );
     }
 
-    function moveRight(){
+    function right(){
 
         playerLane=
             Math.min(
@@ -4906,138 +4375,1037 @@ function raceCarGame(){
             );
     }
 
+    $("#raceLeft").onclick=left;
+    $("#raceRight").onclick=right;
+
     function key(e){
 
         if(
             e.key==="ArrowLeft" ||
-            e.key==="a" ||
-            e.key==="A"
+            e.key.toLowerCase()==="a"
         ){
-
             e.preventDefault();
-            moveLeft();
+            left();
         }
 
         if(
             e.key==="ArrowRight" ||
-            e.key==="d" ||
-            e.key==="D"
+            e.key.toLowerCase()==="d"
         ){
-
             e.preventDefault();
-            moveRight();
+            right();
         }
 
         if(
-            e.key==="ArrowUp" ||
-            e.key==="w" ||
-            e.key==="W"
+            e.key===" " &&
+            !running
         ){
-
-            e.preventDefault();
             start();
         }
     }
 
-    let touchStartX=0;
+    document.addEventListener("keydown",key);
 
-    function touchStart(e){
+    function start(){
 
-        const p=e.touches[0];
+        enemies=[];
+        distance=0;
+        speed=260;
+        playerLane=1;
+        running=true;
+        last=performance.now();
 
-        touchStartX=p.clientX;
+        $("#raceScore").textContent=0;
+
+        loop(last);
     }
 
-    function touchEnd(e){
+    function spawn(){
 
-        const p=e.changedTouches[0];
-
-        const dx=
-            p.clientX-touchStartX;
+        const lane=
+            Math.floor(
+                Math.random()*3
+            );
 
         if(
-            Math.abs(dx)<25
+            enemies.some(
+                e=>
+                    e.lane===lane &&
+                    e.y<160
+            )
         ){
-            start();
             return;
         }
 
-        if(dx<0){
-            moveLeft();
-        }else{
-            moveRight();
-        }
-
-        start();
+        enemies.push({
+            lane,
+            y:-100,
+            w:48,
+            h:82
+        });
     }
 
-    canvas.addEventListener(
-        "touchstart",
-        touchStart,
-        {passive:true}
-    );
+    function loop(t){
 
-    canvas.addEventListener(
-        "touchend",
-        touchEnd,
-        {passive:true}
-    );
+        if(!running)return;
 
-    document.addEventListener(
-        "keydown",
-        key
-    );
+        const dt=
+            Math.min(
+                .035,
+                (t-last)/1000
+            );
 
-    window.currentStart=start;
+        last=t;
 
-    drawRoad();
+        speed+=dt*5;
+        distance+=dt*speed*.1;
 
-    cleanupCurrentGame=()=>{
+        if(Math.random()<.025){
+            spawn();
+        }
 
-        running=false;
-
-        cancelAnimationFrame(frame);
-
-        canvas.removeEventListener(
-            "touchstart",
-            touchStart
+        enemies.forEach(
+            e=>e.y+=speed*dt
         );
 
-        canvas.removeEventListener(
-            "touchend",
-            touchEnd
+        enemies=
+            enemies.filter(
+                e=>e.y<700
+            );
+
+        const py=520;
+        const px=lanes[playerLane];
+
+        for(const e of enemies){
+
+            const ex=lanes[e.lane];
+
+            if(
+                Math.abs(ex-px)<48 &&
+                e.y<py+70 &&
+                e.y+e.h>py
+            ){
+
+                running=false;
+
+                setTimeout(()=>{
+                    alert(
+                        "💥 Crash!\n\n" +
+                        "Distance: " +
+                        Math.floor(distance) +
+                        " m"
+                    );
+                },20);
+
+                draw();
+
+                return;
+            }
+        }
+
+        $("#raceScore").textContent=
+            Math.floor(distance);
+
+        draw();
+
+        raf=requestAnimationFrame(loop);
+        activeFrames.push(raf);
+    }
+
+    function draw(){
+
+        ctx.fillStyle="#151515";
+        ctx.fillRect(0,0,360,640);
+
+        /* road */
+        ctx.fillStyle="#333";
+        ctx.fillRect(
+            25,0,310,640
         );
 
-        document.removeEventListener(
-            "keydown",
-            key
+        /* shoulders */
+        ctx.fillStyle="#d8d8d8";
+
+        ctx.fillRect(
+            20,0,5,640
         );
 
-        window.currentStart=null;
+        ctx.fillRect(
+            335,0,5,640
+        );
+
+        /* lane markings */
+        ctx.strokeStyle="#aaa";
+        ctx.lineWidth=4;
+        ctx.setLineDash([30,30]);
+
+        ctx.beginPath();
+        ctx.moveTo(130,0);
+        ctx.lineTo(130,640);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(230,0);
+        ctx.lineTo(230,640);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        /* player */
+        const px=lanes[playerLane];
+
+        ctx.fillStyle="#3498db";
+
+        ctx.fillRect(
+            px-24,
+            520,
+            48,
+            82
+        );
+
+        ctx.fillStyle="#111";
+
+        ctx.fillRect(
+            px-18,
+            530,
+            36,
+            18
+        );
+
+        ctx.fillRect(
+            px-18,
+            575,
+            36,
+            18
+        );
+
+        /* enemies */
+        enemies.forEach(e=>{
+
+            const x=lanes[e.lane];
+
+            ctx.fillStyle="#e74c3c";
+
+            ctx.fillRect(
+                x-24,
+                e.y,
+                e.w,
+                e.h
+            );
+
+            ctx.fillStyle="#111";
+
+            ctx.fillRect(
+                x-18,
+                e.y+10,
+                36,
+                16
+            );
+
+            ctx.fillRect(
+                x-18,
+                e.y+55,
+                36,
+                16
+            );
+        });
+
+        if(!running){
+
+            ctx.fillStyle="#fff";
+            ctx.textAlign="center";
+            ctx.font="bold 26px Arial";
+
+            ctx.fillText(
+                "TAP START",
+                180,
+                320
+            );
+        }
+    }
+
+    $("#raceStart").onclick=()=>{
+        if(!running){
+            start();
+        }
+    };
+
+    reset();
+
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
+        cancelAnimationFrame(raf);
     };
 }
 
 
-/* =========================================================
-   UNKNOWN GAME
-   ========================================================= */
+/* ==========================================================
+   DIRTY MINDS — TRUE MULTIPLAYER
+   ========================================================== */
 
-function unknownGame(){
+function dirtyMindsGame(){
 
-    clearGameArea();
-    clearScore();
+    const params=
+        new URLSearchParams(
+            window.location.search
+        );
 
-    setMessage(
-        "❌ This game does not have a playable engine yet."
-    );
+    let roomId=
+        params.get("room") || "";
 
-    startBtn.disabled=true;
+    let playerId=
+        params.get("player_id") || "";
+
+    let playerName=
+        params.get("player_name") || "";
+
+    html(`
+        <div class="panel dm-lobby">
+
+            <div class="game-title">
+                🧠 Dirty Minds
+            </div>
+
+            <p class="help">
+                Multiplayer party game for the
+                whole Telegram group.
+            </p>
+
+            <div id="dmSetup">
+
+                <input
+                    id="dmName"
+                    placeholder="Enter your player name"
+                    maxlength="40"
+                    value="${escapeHtml(playerName)}"
+                >
+
+                <div class="controls">
+
+                    <button id="dmCreate"
+                            class="primary">
+                        🎮 Create Game
+                    </button>
+
+                    <button id="dmJoin">
+                        🔗 Join Room
+                    </button>
+
+                </div>
+
+                <div style="margin-top:14px">
+
+                    <input
+                        id="dmRoom"
+                        placeholder="Room code"
+                        maxlength="12"
+                        value="${escapeHtml(roomId)}"
+                    >
+
+                </div>
+
+            </div>
+
+            <div id="dmGame"
+                 style="display:none">
+
+                <div id="dmRoomLabel"
+                     class="status"></div>
+
+                <div id="dmPhase"></div>
+
+                <div id="dmPlayers"
+                     class="dm-players"></div>
+
+                <div class="controls">
+
+                    <button id="dmStart"
+                            class="primary"
+                            style="display:none">
+                        ▶️ Start Game
+                    </button>
+
+                    <button id="dmReveal"
+                            class="gold"
+                            style="display:none">
+                        👀 Reveal Answer
+                    </button>
+
+                    <button id="dmNext"
+                            class="primary"
+                            style="display:none">
+                        ➡️ Next Round
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+    `);
+
+    const API="/real-games";
+
+    let room=null;
+    let pollId=null;
+    let joined=false;
+
+    const nameInput=$("#dmName");
+    const roomInput=$("#dmRoom");
+
+    function myName(){
+
+        return (
+            nameInput.value.trim() ||
+            "Player"
+        ).slice(0,40);
+    }
+
+    function createPlayerId(){
+
+        return (
+            "web_" +
+            Date.now() +
+            "_" +
+            Math.random()
+                .toString(36)
+                .slice(2,9)
+        );
+    }
+
+    async function api(
+        url,
+        options={}
+    ){
+
+        const response=
+            await fetch(
+                url,
+                {
+                    ...options,
+                    headers:{
+                        "Content-Type":
+                            "application/json",
+                        ...(options.headers||{})
+                    }
+                }
+            );
+
+        const data=
+            await response.json();
+
+        if(!response.ok){
+
+            throw new Error(
+                data.error ||
+                "Request failed"
+            );
+        }
+
+        return data;
+    }
+
+    async function createGame(){
+
+        try{
+
+            if(!playerId){
+                playerId=createPlayerId();
+            }
+
+            const data=
+                await api(
+                    API+"/create-room",
+                    {
+                        method:"POST",
+                        body:JSON.stringify({
+                            game_id:"dirty_minds",
+                            player_id:playerId,
+                            player_name:myName()
+                        })
+                    }
+                );
+
+            roomId=data.room_id;
+            room=data.room;
+
+            roomInput.value=roomId;
+
+            joined=true;
+
+            showGame();
+
+            history.replaceState(
+                {},
+                "",
+                "?room="+
+                encodeURIComponent(roomId)+
+                "&player_id="+
+                encodeURIComponent(playerId)
+            );
+
+            startPolling();
+
+        }catch(err){
+
+            alert(err.message);
+        }
+    }
+
+    async function joinGame(){
+
+        try{
+
+            roomId=
+                roomInput.value
+                    .trim()
+                    .toUpperCase();
+
+            if(!roomId){
+
+                alert(
+                    "Enter a room code."
+                );
+
+                return;
+            }
+
+            if(!playerId){
+                playerId=createPlayerId();
+            }
+
+            const data=
+                await api(
+                    API+
+                    "/room/"+
+                    encodeURIComponent(roomId)+
+                    "/join",
+                    {
+                        method:"POST",
+                        body:JSON.stringify({
+                            player_id:playerId,
+                            player_name:myName()
+                        })
+                    }
+                );
+
+            room=data.room;
+
+            joined=true;
+
+            showGame();
+
+            history.replaceState(
+                {},
+                "",
+                "?room="+
+                encodeURIComponent(roomId)+
+                "&player_id="+
+                encodeURIComponent(playerId)
+            );
+
+            startPolling();
+
+        }catch(err){
+
+            alert(err.message);
+        }
+    }
+
+    function showGame(){
+
+        $("#dmSetup").style.display="none";
+        $("#dmGame").style.display="block";
+
+        renderRoom();
+    }
+
+    async function refresh(){
+
+        if(!roomId)return;
+
+        try{
+
+            const data=
+                await api(
+                    API+
+                    "/room/"+
+                    encodeURIComponent(roomId)
+                );
+
+            room=data.room;
+
+            if(!joined){
+
+                joined=true;
+                showGame();
+            }
+
+            renderRoom();
+
+        }catch(err){
+
+            console.error(err);
+        }
+    }
+
+    function startPolling(){
+
+        if(pollId){
+            clearInterval(pollId);
+        }
+
+        pollId=setInterval(
+            refresh,
+            1000
+        );
+
+        activeIntervals.push(
+            pollId
+        );
+
+        refresh();
+    }
+
+    function isHost(){
+
+        return room &&
+            String(room.host_id)===
+            String(playerId);
+    }
+
+    function me(){
+
+        if(!room)return null;
+
+        return room.players.find(
+            p=>
+                String(p.player_id)===
+                String(playerId)
+        );
+    }
+
+    function renderRoom(){
+
+        if(!room)return;
+
+        $("#dmRoomLabel").innerHTML=
+            `Room:
+             <b>${escapeHtml(room.room_id)}</b>
+             ·
+             ${room.players.length} players`;
+
+        const playersEl=
+            $("#dmPlayers");
+
+        playersEl.innerHTML="";
+
+        room.players.forEach(
+            p=>{
+
+                const row=
+                    document.createElement("div");
+
+                row.className=
+                    "dm-player";
+
+                if(
+                    String(p.player_id)===
+                    String(playerId)
+                ){
+                    row.classList.add("me");
+                }
+
+                const answered=
+                    room.answers &&
+                    room.answers[
+                        p.player_id
+                    ];
+
+                row.innerHTML=`
+                    <span>
+                        ${escapeHtml(p.name)}
+                        ${
+                            String(p.player_id)===
+                            String(room.host_id)
+                            ?" 👑"
+                            :""
+                        }
+                    </span>
+
+                    <span>
+                        ${
+                            room.started
+                            ?p.score+" pts"
+                            :""
+                        }
+
+                        ${
+                            answered
+                            ?'<span class="dm-submitted"> ✓</span>'
+                            :""
+                        }
+                    </span>
+                `;
+
+                playersEl.appendChild(row);
+            }
+        );
+
+        const startBtn=
+            $("#dmStart");
+
+        startBtn.style.display=
+            !room.started &&
+            !room.finished &&
+            isHost()
+            ?"inline-block"
+            :"none";
+
+        if(!room.started){
+
+            $("#dmPhase").innerHTML=
+                `
+                <div class="dm-question">
+                    👥 Waiting for players
+                </div>
+                <div class="help">
+                    Share room <b>${room.room_id}</b>
+                    with your Telegram group.
+                </div>
+                `;
+
+            $("#dmReveal").style.display="none";
+            $("#dmNext").style.display="none";
+
+            return;
+        }
+
+        if(room.finished){
+
+            const winner=
+                room.winner;
+
+            $("#dmPhase").innerHTML=
+                `
+                <div class="dm-question">
+                    🏆 GAME OVER
+                </div>
+
+                <div class="dm-answer">
+                    ${
+                        winner
+                        ?escapeHtml(winner.name)
+                        :"No winner"
+                    }
+                    ${
+                        winner
+                        ?" — "+winner.score+" points"
+                        :""
+                    }
+                </div>
+                `;
+
+            $("#dmReveal").style.display="none";
+            $("#dmNext").style.display="none";
+
+            return;
+        }
+
+        if(room.phase==="question"){
+
+            renderQuestion();
+        }
+
+        if(room.phase==="reveal"){
+
+            renderReveal();
+        }
+    }
+
+    function renderQuestion(){
+
+        const answered=
+            room.answers &&
+            room.answers[
+                playerId
+            ];
+
+        $("#dmPhase").innerHTML=
+            `
+            <div class="status">
+                Round ${room.round}
+                of ${room.total_rounds}
+            </div>
+
+            <div class="dm-question">
+                ${escapeHtml(room.question)}
+            </div>
+
+            <div>
+                <input
+                    id="dmAnswer"
+                    maxlength="200"
+                    placeholder="What's your answer?"
+                    ${answered?"disabled":""}
+                >
+            </div>
+
+            <div class="controls">
+
+                <button id="dmSubmit"
+                        class="primary"
+                        ${answered?"disabled":""}>
+                    ${
+                        answered
+                        ?"✓ Answer Submitted"
+                        :"Submit Answer"
+                    }
+                </button>
+
+            </div>
+            `;
+
+        const submit=
+            $("#dmSubmit");
+
+        if(submit){
+
+            submit.onclick=
+                submitAnswer;
+        }
+
+        $("#dmReveal").style.display=
+            isHost()
+            ?"inline-block"
+            :"none";
+
+        $("#dmNext").style.display="none";
+    }
+
+    function renderReveal(){
+
+        const answer=
+            room.answer || "";
+
+        let answersHtml="";
+
+        room.players.forEach(
+            p=>{
+
+                const submitted=
+                    room.answers &&
+                    room.answers[
+                        p.player_id
+                    ];
+
+                answersHtml +=
+                    `
+                    <div class="dm-player">
+                        <span>
+                            ${escapeHtml(p.name)}
+                        </span>
+                        <span>
+                            ${
+                                submitted
+                                ?escapeHtml(submitted)
+                                :"No answer"
+                            }
+                        </span>
+                    </div>
+                    `;
+            }
+        );
+
+        $("#dmPhase").innerHTML=
+            `
+            <div class="status">
+                Round ${room.round}
+                of ${room.total_rounds}
+            </div>
+
+            <div class="dm-question">
+                ${escapeHtml(room.question)}
+            </div>
+
+            <div class="dm-answer">
+                ✅ Innocent Answer:<br>
+                ${escapeHtml(answer)}
+            </div>
+
+            <div class="status">
+                Answers
+            </div>
+
+            ${answersHtml}
+            `;
+
+        $("#dmReveal").style.display="none";
+
+        $("#dmNext").style.display=
+            isHost()
+            ?"inline-block"
+            :"none";
+    }
+
+    async function submitAnswer(){
+
+        const input=
+            $("#dmAnswer");
+
+        if(!input)return;
+
+        const answer=
+            input.value.trim();
+
+        if(!answer){
+
+            alert(
+                "Enter an answer first."
+            );
+
+            return;
+        }
+
+        try{
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/answer",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+                        player_id:playerId,
+                        answer:answer
+                    })
+                }
+            );
+
+            await refresh();
+
+        }catch(err){
+
+            alert(err.message);
+        }
+    }
+
+    async function startGame(){
+
+        try{
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/start",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+                        player_id:playerId
+                    })
+                }
+            );
+
+            await refresh();
+
+        }catch(err){
+
+            alert(err.message);
+        }
+    }
+
+    async function reveal(){
+
+        try{
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/reveal",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+                        player_id:playerId
+                    })
+                }
+            );
+
+            await refresh();
+
+        }catch(err){
+
+            alert(err.message);
+        }
+    }
+
+    async function nextRound(){
+
+        try{
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/next",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+                        player_id:playerId
+                    })
+                }
+            );
+
+            await refresh();
+
+        }catch(err){
+
+            alert(err.message);
+        }
+    }
+
+    $("#dmCreate").onclick=
+        createGame;
+
+    $("#dmJoin").onclick=
+        joinGame;
+
+    $("#dmStart").onclick=
+        startGame;
+
+    $("#dmReveal").onclick=
+        reveal;
+
+    $("#dmNext").onclick=
+        nextRound;
+
+    /* ------------------------------------------------------
+       If Telegram deep-link supplied room + player ID,
+       join automatically.
+       ------------------------------------------------------ */
+
+    if(roomId){
+
+        timer(
+            joinGame,
+            100
+        );
+    }
+
+    activeCleanup=()=>{
+
+        if(pollId){
+            clearInterval(pollId);
+        }
+    };
 }
 
 
-/* =========================================================
-   PLAYABLE GAME REGISTRY
-   ========================================================= */
+/* ==========================================================
+   GAME MAP
+   ========================================================== */
 
 const PLAYABLE_GAMES={
 
@@ -5079,73 +5447,89 @@ const PLAYABLE_GAMES={
 
     race_car:raceCarGame,
 
-    racing:raceCarGame,
-
-    race:raceCarGame
+    racing:raceCarGame
 };
 
 
-/* =========================================================
-   LOAD GAME
-   ========================================================= */
+/* ==========================================================
+   LAUNCH
+   ========================================================== */
 
-function loadGame(id){
+function launch(){
 
-    stopCurrentGame();
+    clearGame();
 
-    startBtn.disabled=false;
+    const id=
+        String(GAME_ID)
+            .toLowerCase()
+            .trim()
+            .replaceAll("-","_")
+            .replaceAll(" ","_");
 
-    setStartText("▶ Start");
+    const game=
+        PLAYABLE_GAMES[id];
 
-    const normalized=
-        String(id||"")
-        .toLowerCase()
-        .trim()
-        .replace(/-/g,"_")
-        .replace(/\s+/g,"_");
+    if(!game){
 
-    const engine=
-        PLAYABLE_GAMES[normalized];
+        html(`
+            <div class="panel">
+                <div class="game-title">
+                    ❌ Game Not Available
+                </div>
 
-    if(!engine){
+                <div class="help">
+                    The game engine for
+                    <b>${escapeHtml(GAME_ID)}</b>
+                    has not been installed.
+                </div>
 
-        unknownGame();
+                <div class="controls">
+                    <a class="back"
+                       href="/real-games/">
+                        Return to Real Games
+                    </a>
+                </div>
+            </div>
+        `);
 
         return;
     }
 
     try{
 
-        engine();
+        game();
 
     }catch(error){
 
         console.error(
-            "Game failed to load:",
-            normalized,
+            "Real Game Error:",
             error
         );
 
-        stopCurrentGame();
+        html(`
+            <div class="panel">
+                <div class="game-title">
+                    ⚠️ Game Error
+                </div>
 
-        clearGameArea();
+                <div class="help">
+                    Something went wrong while
+                    loading this game.
+                </div>
 
-        clearScore();
-
-        setMessage(
-            "❌ This game encountered an error while loading."
-        );
-
-        startBtn.disabled=true;
+                <div class="controls">
+                    <button
+                        onclick="location.reload()"
+                        class="primary">
+                        Reload Game
+                    </button>
+                </div>
+            </div>
+        `);
     }
 }
 
-
-/* =========================================================
-   START
-   ========================================================= */
-
-loadGame(GAME_ID);
+launch();
 
 </script>
 
