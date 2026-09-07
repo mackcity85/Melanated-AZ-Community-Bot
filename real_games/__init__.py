@@ -1,12 +1,10 @@
-"""
-Melanated AZ Bot
-Real Games Package
-"""
+# ==========================================================
+# Melanated AZ Real Games
+# ==========================================================
 
-from .routes import real_games_bp
-from .deep_links import handle_real_game_deep_link
+from .real_games import real_games_bp
+
 
 __all__ = [
-    "real_games_bp",
-    "handle_real_game_deep_link",
+    "real_games_bp"
 ]
