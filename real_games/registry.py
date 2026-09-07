@@ -2,29 +2,13 @@
 Melanated AZ Bot
 Real Games - Game Registry
 
-PC + MOBILE COMPATIBLE GAME REGISTRY
+PC + MOBILE COMPATIBLE GAMES ONLY
 
-IMPORTANT:
-    This file contains GAME METADATA ONLY.
+This registry contains metadata only.
+The actual playable engines are inside game.html.
 
-    The actual game engines are implemented by game.html.
-
-    ONLY games with a real playable engine in game.html should
-    be registered here.
-
-Deep-link format:
-
-    /start rg_<game_id>
-
-Examples:
-
-    /start rg_snake
-    /start rg_pong
-    /start rg_2048
-
-Multiplayer rooms are intentionally disabled for this registry.
-The current Real Games package is focused on reliable
-PC + mobile browser gameplay.
+Every game listed here MUST have a matching game engine
+in game.html.
 """
 
 from __future__ import annotations
@@ -43,23 +27,11 @@ class GameDefinition:
     name: str
     category: str
     description: str
-
-    # Flask endpoint used by the Real Games blueprint.
     endpoint: str
-
-    # solo / multiplayer / both
     mode: str = "solo"
-
-    # Maximum players.
     max_players: int = 1
-
-    # Minimum players.
     min_players: int = 1
-
-    # GameManager rooms are disabled for this mobile/PC set.
     uses_rooms: bool = False
-
-    # Display emoji.
     icon: str = "🎮"
 
 
@@ -75,11 +47,10 @@ CATEGORY_ORDER = [
 
 
 # ==========================================================
-# GAME REGISTRY
+# PLAYABLE GAME REGISTRY
 #
-# IMPORTANT:
-# Keep this list synchronized with the playable engines
-# inside game.html.
+# DO NOT ADD A GAME HERE UNLESS game.html HAS A WORKING
+# ENGINE FOR THAT GAME.
 # ==========================================================
 
 GAMES: dict[str, GameDefinition] = {
@@ -89,107 +60,133 @@ GAMES: dict[str, GameDefinition] = {
     # ======================================================
 
     "snake": GameDefinition(
-        game_id="snake",
-        name="Snake",
-        category="Arcade",
-        description="Eat the food, grow longer, and don't hit yourself.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🐍",
+        "snake",
+        "Snake",
+        "Arcade",
+        "Eat the food, grow longer, and avoid hitting yourself.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🐍",
     ),
 
     "pong": GameDefinition(
-        game_id="pong",
-        name="Pong",
-        category="Arcade",
-        description="Classic paddle action. Play against the computer.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🏓",
+        "pong",
+        "Pong",
+        "Arcade",
+        "Classic paddle action against the computer.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🏓",
     ),
 
     "breakout": GameDefinition(
-        game_id="breakout",
-        name="Breakout",
-        category="Arcade",
-        description="Break the blocks and keep the ball alive.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🧱",
+        "breakout",
+        "Breakout",
+        "Arcade",
+        "Break the blocks and keep the ball alive.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🧱",
     ),
 
     "dodge": GameDefinition(
-        game_id="dodge",
-        name="Dodge",
-        category="Arcade",
-        description="Move around the arena and avoid the falling obstacles.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="💨",
+        "dodge",
+        "Dodge",
+        "Arcade",
+        "Avoid falling obstacles for as long as possible.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "💨",
     ),
 
     "2048": GameDefinition(
-        game_id="2048",
-        name="2048",
-        category="Arcade",
-        description="Combine matching tiles and reach 2048.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🔢",
+        "2048",
+        "2048",
+        "Arcade",
+        "Combine matching tiles and reach 2048.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🔢",
     ),
 
     "memory_match": GameDefinition(
-        game_id="memory_match",
-        name="Memory Match",
-        category="Arcade",
-        description="Flip the cards and match all the hidden pairs.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🧠",
+        "memory_match",
+        "Memory Match",
+        "Arcade",
+        "Flip cards and match all the hidden pairs.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🧠",
     ),
 
     "reaction": GameDefinition(
-        game_id="reaction",
-        name="Reaction Test",
-        category="Arcade",
-        description="Wait for the signal and tap as quickly as possible.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="⚡",
+        "reaction",
+        "Reaction Test",
+        "Arcade",
+        "Test how quickly you can react.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "⚡",
     ),
 
     "whack_a_mole": GameDefinition(
-        game_id="whack_a_mole",
-        name="Whack-a-Mole",
-        category="Arcade",
-        description="Tap the targets before they disappear.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🔨",
+        "whack_a_mole",
+        "Whack-a-Mole",
+        "Arcade",
+        "Tap the mole before it moves.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🔨",
+    ),
+
+    "tic_tac_toe": GameDefinition(
+        "tic_tac_toe",
+        "Tic-Tac-Toe",
+        "Arcade",
+        "Get three in a row.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "⭕",
+    ),
+
+    "connect_four": GameDefinition(
+        "connect_four",
+        "Connect Four",
+        "Arcade",
+        "Connect four pieces before the board fills.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🔴",
     ),
 
 
@@ -198,16 +195,16 @@ GAMES: dict[str, GameDefinition] = {
     # ======================================================
 
     "basketball": GameDefinition(
-        game_id="basketball",
-        name="Basketball",
-        category="Sports",
-        description="Shoot the basketball and build your high score.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🏀",
+        "basketball",
+        "Basketball",
+        "Sports",
+        "Shoot hoops and build your score.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🏀",
     ),
 
 
@@ -216,33 +213,33 @@ GAMES: dict[str, GameDefinition] = {
     # ======================================================
 
     "target_shooter": GameDefinition(
-        game_id="target_shooter",
-        name="Target Shooter",
-        category="Shooting",
-        description="Tap the targets as quickly and accurately as possible.",
-        endpoint="real_games.play_game",
-        mode="solo",
-        max_players=1,
-        min_players=1,
-        uses_rooms=False,
-        icon="🎯",
+        "target_shooter",
+        "Target Shooter",
+        "Shooting",
+        "Tap the targets and test your accuracy.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🎯",
     ),
 }
 
 
 # ==========================================================
-# LOOKUP FUNCTIONS
+# LOOKUPS
 # ==========================================================
 
 def get_game(game_id: str) -> Optional[GameDefinition]:
     """
-    Return a game definition by ID.
+    Get a game by ID.
 
-    Handles:
-        rg_snake
+    Accepts:
+
         snake
         SNAKE
-        snake
+        rg_snake
     """
 
     if not game_id:
@@ -250,17 +247,15 @@ def get_game(game_id: str) -> Optional[GameDefinition]:
 
     game_id = game_id.strip().lower()
 
-    # Allow callers to accidentally pass the deep-link prefix.
     if game_id.startswith("rg_"):
         game_id = game_id[3:]
 
     return GAMES.get(game_id)
 
 
-def get_games_by_category(category: str) -> list[GameDefinition]:
-    """
-    Return all games belonging to a category.
-    """
+def get_games_by_category(
+    category: str,
+) -> list[GameDefinition]:
 
     if not category:
         return []
@@ -276,7 +271,7 @@ def get_games_by_category(category: str) -> list[GameDefinition]:
 
 def get_categories() -> list[str]:
     """
-    Return categories in display order.
+    Return categories in the correct display order.
     """
 
     return [
@@ -300,7 +295,12 @@ def get_games_grouped() -> dict[str, list[GameDefinition]]:
     }
 
     for game in GAMES.values():
-        grouped.setdefault(game.category, [])
+
+        grouped.setdefault(
+            game.category,
+            []
+        )
+
         grouped[game.category].append(game)
 
     return {
@@ -320,7 +320,7 @@ def all_games() -> list[GameDefinition]:
 
 def get_game_ids() -> list[str]:
     """
-    Return all registered game IDs.
+    Return every playable game ID.
     """
 
     return list(GAMES.keys())
@@ -328,7 +328,7 @@ def get_game_ids() -> list[str]:
 
 def game_exists(game_id: str) -> bool:
     """
-    Return True if a game exists in the registry.
+    Check whether a game exists.
     """
 
     return get_game(game_id) is not None
@@ -340,65 +340,34 @@ def game_exists(game_id: str) -> bool:
 
 def validate_registry() -> list[str]:
     """
-    Validate the registry.
-
-    Returns a list of problems instead of raising an exception.
-
-    This makes it easier for routes.py or startup code to check
-    the registry safely.
+    Validate registry metadata.
     """
 
     errors: list[str] = []
 
-    seen_ids: set[str] = set()
+    for game_id, game in GAMES.items():
 
-    for game in GAMES.values():
-
-        # ----------------------------------------------
-        # Game ID
-        # ----------------------------------------------
-
-        if not game.game_id:
-            errors.append("Game has an empty game_id.")
-
-        if game.game_id in seen_ids:
+        if game_id != game.game_id:
             errors.append(
-                f"Duplicate game_id: {game.game_id}"
+                f"Dictionary key '{game_id}' does not match "
+                f"game_id '{game.game_id}'."
             )
 
-        seen_ids.add(game.game_id)
-
-        # ----------------------------------------------
-        # Name
-        # ----------------------------------------------
-
-        if not game.name.strip():
+        if not game.name:
             errors.append(
-                f"{game.game_id}: missing game name."
+                f"{game_id}: missing name."
             )
 
-        # ----------------------------------------------
-        # Category
-        # ----------------------------------------------
+        if not game.category:
+            errors.append(
+                f"{game_id}: missing category."
+            )
 
         if game.category not in CATEGORY_ORDER:
             errors.append(
-                f"{game.game_id}: unknown category "
+                f"{game_id}: invalid category "
                 f"'{game.category}'."
             )
-
-        # ----------------------------------------------
-        # Endpoint
-        # ----------------------------------------------
-
-        if not game.endpoint:
-            errors.append(
-                f"{game.game_id}: missing Flask endpoint."
-            )
-
-        # ----------------------------------------------
-        # Mode
-        # ----------------------------------------------
 
         if game.mode not in {
             "solo",
@@ -406,55 +375,45 @@ def validate_registry() -> list[str]:
             "both",
         }:
             errors.append(
-                f"{game.game_id}: invalid mode "
-                f"'{game.mode}'."
-            )
-
-        # ----------------------------------------------
-        # Player counts
-        # ----------------------------------------------
-
-        if game.max_players < 1:
-            errors.append(
-                f"{game.game_id}: max_players must be >= 1."
+                f"{game_id}: invalid mode."
             )
 
         if game.min_players < 1:
             errors.append(
-                f"{game.game_id}: min_players must be >= 1."
+                f"{game_id}: min_players must be >= 1."
+            )
+
+        if game.max_players < 1:
+            errors.append(
+                f"{game_id}: max_players must be >= 1."
             )
 
         if game.min_players > game.max_players:
             errors.append(
-                f"{game.game_id}: min_players cannot exceed "
+                f"{game_id}: min_players cannot exceed "
                 f"max_players."
             )
 
-        # ----------------------------------------------
-        # Current Real Games requirement
-        # ----------------------------------------------
-
+        # Current system is PC/mobile solo gameplay.
         if game.uses_rooms:
             errors.append(
-                f"{game.game_id}: room-based games are not "
-                f"allowed in the PC/mobile registry."
+                f"{game_id}: room-based games are disabled."
             )
 
     return errors
 
 
 # ==========================================================
-# STARTUP CHECK
+# STARTUP VALIDATION
 # ==========================================================
 
 REGISTRY_ERRORS = validate_registry()
-
 
 if REGISTRY_ERRORS:
     raise RuntimeError(
         "Real Games registry validation failed:\n"
         + "\n".join(
-            f"  - {error}"
+            f" - {error}"
             for error in REGISTRY_ERRORS
         )
     )
