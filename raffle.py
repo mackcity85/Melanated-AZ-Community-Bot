@@ -669,6 +669,192 @@ async def publish_raffle(
 
 
 # ==========================================================
+# REPOST ACTIVE RAFFLE
+# ==========================================================
+
+async def repost_raffle(
+    update,
+    context,
+):
+    """
+    Repost the current active raffle.
+
+    This does NOT create a new raffle or reset entries.
+    It copies the existing raffle post when possible so
+    the same raffle ID and buttons remain attached.
+
+    Intended for:
+        - /repostraffle
+        - Admin panel button
+    """
+
+    query = update.callback_query
+    message = update.effective_message
+    user = update.effective_user
+
+    if not user or not is_raffle_admin(user.id):
+
+        if query:
+            await safe_answer(
+                query,
+                "⛔ Admins only.",
+                True,
+            )
+
+        elif message:
+            await message.reply_text(
+                "⛔ Admins only."
+            )
+
+        return False
+
+    raffle = get_active_raffle()
+
+    if not raffle:
+
+        if query:
+            await safe_answer(
+                query,
+                "There is no active raffle.",
+                True,
+            )
+
+        elif message:
+            await message.reply_text(
+                "⚠️ There is no active raffle to repost."
+            )
+
+        return False
+
+    raffle_id = int(raffle["id"])
+
+    # Try the most common database field names used by
+    # set_raffle_post(). This keeps the function compatible
+    # with existing raffle_database.py implementations.
+    post_chat_id = (
+        raffle.get("post_chat_id")
+        or raffle.get("post_chat")
+        or raffle.get("chat_id")
+    )
+
+    post_message_id = (
+        raffle.get("post_message_id")
+        or raffle.get("post_message")
+        or raffle.get("message_id")
+    )
+
+    if query:
+        await safe_answer(query)
+
+    # ------------------------------------------------------
+    # COPY EXISTING RAFFLE POST
+    # ------------------------------------------------------
+
+    if post_chat_id and post_message_id:
+
+        try:
+
+            copied = await context.bot.copy_message(
+                chat_id=int(RAFFLE_CHAT_ID),
+                from_chat_id=int(post_chat_id),
+                message_id=int(post_message_id),
+            )
+
+            set_raffle_post(
+                raffle_id,
+                RAFFLE_CHAT_ID,
+                copied.message_id,
+            )
+
+            logger.info(
+                "RAFFLE REPOSTED | raffle=%s | "
+                "source_chat=%s | source_message=%s | "
+                "new_message=%s",
+                raffle_id,
+                post_chat_id,
+                post_message_id,
+                copied.message_id,
+            )
+
+            if query:
+                try:
+                    await query.message.reply_text(
+                        "✅ Raffle reposted successfully.\n\n"
+                        f"🎁 Prize: {raffle['prize']}\n"
+                        f"🆔 Raffle: {raffle_id}"
+                    )
+                except TelegramError:
+                    pass
+
+            elif message:
+                await message.reply_text(
+                    "✅ Raffle reposted successfully.\n\n"
+                    f"🎁 Prize: {raffle['prize']}\n"
+                    f"🆔 Raffle: {raffle_id}"
+                )
+
+            return True
+
+        except TelegramError:
+            logger.warning(
+                "Could not copy existing raffle post "
+                "%s/%s. Falling back to a fresh raffle post.",
+                post_chat_id,
+                post_message_id,
+                exc_info=True,
+            )
+
+    # ------------------------------------------------------
+    # FALLBACK: REBUILD THE RAFFLE POST
+    # ------------------------------------------------------
+
+    published = await publish_raffle(
+        raffle_id,
+        context,
+    )
+
+    if published:
+
+        if query:
+            try:
+                await query.message.reply_text(
+                    "✅ Raffle reposted.\n\n"
+                    "The original post could not be copied, "
+                    "so the active raffle was published again "
+                    "using the same raffle ID."
+                )
+            except TelegramError:
+                pass
+
+        elif message:
+            await message.reply_text(
+                "✅ Raffle reposted.\n\n"
+                "The original post could not be copied, "
+                "so the active raffle was published again "
+                "using the same raffle ID."
+            )
+
+        return True
+
+    if query:
+        try:
+            await query.message.reply_text(
+                "⚠️ I could not repost the active raffle. "
+                "Check the bot's permissions in the raffle group."
+            )
+        except TelegramError:
+            pass
+
+    elif message:
+        await message.reply_text(
+            "⚠️ I could not repost the active raffle. "
+            "Check the bot's permissions in the raffle group."
+        )
+
+    return False
+
+
+# ==========================================================
 # APPROVE RAFFLE
 # ==========================================================
 
@@ -2240,6 +2426,21 @@ async def raffle_callback(
                 "Invalid raffle ID.",
                 True,
             )
+
+        return
+
+    # ======================================================
+    # REPOST ACTIVE RAFFLE
+    #
+    # repost_raffle
+    # ======================================================
+
+    if data == "repost_raffle":
+
+        await repost_raffle(
+            update,
+            context,
+        )
 
         return
 
