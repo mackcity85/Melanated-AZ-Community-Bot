@@ -13,6 +13,7 @@
 #   - Scrollable member selector for manual raffle entries
 #   - Truth or Dare
 #   - Games
+#   - Dirty Minds multiplayer
 # ==========================================================
 
 import logging
@@ -47,7 +48,6 @@ from raffle_database import (
     get_member,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -58,14 +58,12 @@ logger = logging.getLogger(__name__)
 def is_admin(user_id):
 
     try:
-
         return int(user_id) in [
             int(admin_id)
             for admin_id in ADMIN_IDS
         ]
 
     except (TypeError, ValueError):
-
         return False
 
 
@@ -151,6 +149,12 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "🎭 Dirty Minds",
+                    callback_data="admin_dirty_minds",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "🔄 Refresh",
                     callback_data="admin_refresh",
                 ),
@@ -180,7 +184,10 @@ def admin_menu_text():
         "Manage the community Truth or Dare game.\n\n"
 
         "🎮 **GAMES**\n"
-        "Access the Melanated AZ Games Center."
+        "Access the Melanated AZ Games Center.\n\n"
+
+        "🎭 **DIRTY MINDS**\n"
+        "Create and manage multiplayer Dirty Minds rooms."
     )
 
 
@@ -378,7 +385,6 @@ async def admin_draw(update, context):
 async def admin_repost_raffle(update, context):
 
     query = update.callback_query
-
     user = update.effective_user
 
     if not user or not is_admin(user.id):
@@ -401,7 +407,6 @@ async def admin_repost_raffle(update, context):
             )
 
         except Exception:
-
             pass
 
     try:
@@ -429,7 +434,6 @@ async def admin_repost_raffle(update, context):
                 )
 
             except Exception:
-
                 pass
 
 
@@ -457,7 +461,6 @@ async def admin_manual_entry(update, context):
 
     await query.answer()
 
-    # Clear previous manual-entry state.
     context.user_data.pop(
         "admin_manual_raffle_members",
         None,
@@ -547,7 +550,6 @@ def manual_raffle_member_keyboard(
     for member in current_members:
 
         user_id = member.get("user_id")
-
         name = manual_member_display_name(member)
 
         buttons.append(
@@ -669,7 +671,6 @@ async def show_manual_raffle_member_selector(
         return
 
     total = len(members)
-
     page_size = 8
 
     max_page = max(
@@ -721,9 +722,7 @@ async def admin_manual_select(
         return
 
     try:
-
         member_user_id = int(member_user_id)
-
     except (TypeError, ValueError):
 
         await query.answer(
@@ -747,11 +746,9 @@ async def admin_manual_select(
             if int(item.get("user_id", 0)) == member_user_id:
 
                 member = item
-
                 break
 
         except (TypeError, ValueError):
-
             continue
 
     if not member:
@@ -846,9 +843,7 @@ async def admin_manual_confirm(
         return
 
     try:
-
         member_user_id = int(member_user_id)
-
     except (TypeError, ValueError):
 
         await query.answer(
@@ -876,7 +871,6 @@ async def admin_manual_confirm(
                 return
 
         except (TypeError, ValueError):
-
             pass
 
     await query.answer(
@@ -923,30 +917,18 @@ async def admin_manual_confirm(
 
     if result:
 
-        context.user_data.pop(
+        for key in [
             "admin_manual_raffle_members",
-            None,
-        )
-
-        context.user_data.pop(
             "admin_manual_raffle_page",
-            None,
-        )
-
-        context.user_data.pop(
             "admin_manual_raffle_selected_user_id",
-            None,
-        )
-
-        context.user_data.pop(
             "admin_manual_raffle_selected_name",
-            None,
-        )
-
-        context.user_data.pop(
             "admin_manual_raffle_chat_id",
-            None,
-        )
+        ]:
+
+            context.user_data.pop(
+                key,
+                None,
+            )
 
 
 # ==========================================================
@@ -964,30 +946,18 @@ async def admin_manual_cancel(update, context):
         "Manual entry cancelled."
     )
 
-    context.user_data.pop(
+    for key in [
         "admin_manual_raffle_members",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_manual_raffle_page",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_manual_raffle_selected_user_id",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_manual_raffle_selected_name",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_manual_raffle_chat_id",
-        None,
-    )
+    ]:
+
+        context.user_data.pop(
+            key,
+            None,
+        )
 
     await query.edit_message_text(
         text=admin_menu_text(),
@@ -1063,7 +1033,6 @@ def normalize_admin_birthday(value):
         return None
 
     value = value.strip().replace("-", "/")
-
     parts = value.split("/")
 
     if len(parts) != 2:
@@ -1149,7 +1118,6 @@ def birthday_member_keyboard(
     for member in current_members:
 
         user_id = member.get("user_id")
-
         name = member_display_name(member)
 
         buttons.append(
@@ -1256,7 +1224,6 @@ async def show_birthday_member_selector(
         return
 
     total = len(members)
-
     page_size = 8
 
     max_page = max(
@@ -1352,9 +1319,7 @@ async def admin_birthday_select(
         return
 
     try:
-
         member_user_id = int(member_user_id)
-
     except (TypeError, ValueError):
 
         await query.answer(
@@ -1369,7 +1334,6 @@ async def admin_birthday_select(
     )
 
     if chat_id is None:
-
         chat_id = query.message.chat_id
 
     member = get_member(
@@ -1386,11 +1350,15 @@ async def admin_birthday_select(
 
         for item in members:
 
-            if int(item.get("user_id", 0)) == member_user_id:
+            try:
 
-                member = item
+                if int(item.get("user_id", 0)) == member_user_id:
 
-                break
+                    member = item
+                    break
+
+            except (TypeError, ValueError):
+                continue
 
     if not member:
 
@@ -1445,7 +1413,6 @@ async def admin_birthday_text_handler(
 ):
 
     message = update.effective_message
-
     user = update.effective_user
 
     if not message or not user:
@@ -1520,7 +1487,6 @@ async def admin_birthday_text_handler(
     )
 
     username = None
-
     display_name = selected_name
 
     if member:
@@ -1564,35 +1530,19 @@ async def admin_birthday_text_handler(
 
         return True
 
-    context.user_data.pop(
+    for key in [
         "awaiting_admin_birthday",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_birthday_chat_id",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_birthday_selected_user_id",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_birthday_selected_name",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_birthday_members",
-        None,
-    )
-
-    context.user_data.pop(
         "admin_birthday_page",
-        None,
-    )
+    ]:
+
+        context.user_data.pop(
+            key,
+            None,
+        )
 
     await message.reply_text(
         "✅ **Birthday Saved!**\n\n"
@@ -1807,9 +1757,7 @@ async def admin_remove_birthday(
     query = update.callback_query
 
     try:
-
         birthday_id = int(birthday_id)
-
     except (TypeError, ValueError):
 
         await query.answer(
@@ -1871,9 +1819,7 @@ async def admin_games(update, context):
 
     try:
 
-        from games import (
-            games_admin_menu,
-        )
+        from games import games_admin_menu
 
     except Exception:
 
@@ -1931,6 +1877,735 @@ async def admin_games(update, context):
             ),
             parse_mode="Markdown",
         )
+
+
+# ==========================================================
+# DIRTY MINDS
+# ==========================================================
+
+async def admin_dirty_minds(
+    update,
+    context,
+):
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    user = update.effective_user
+
+    if not user or not is_admin(user.id):
+
+        await query.answer(
+            "⛔ You are not authorized.",
+            show_alert=True,
+        )
+
+        return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎭 CREATE DIRTY MINDS GAME",
+                    callback_data="admin_dirty_create",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📋 ACTIVE DIRTY MINDS ROOMS",
+                    callback_data="admin_dirty_rooms",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_back",
+                )
+            ],
+        ]
+    )
+
+    await query.edit_message_text(
+        "🎭 **DIRTY MINDS**\n\n"
+        "Create a multiplayer Dirty Minds game for the "
+        "community.\n\n"
+        "Players join through Telegram and then play "
+        "together in the web game.\n\n"
+        "🎤 Microphone: optional\n"
+        "📷 Camera: optional\n"
+        "👥 Up to 20 players\n\n"
+        "Each player can independently choose:\n"
+        "• Mic only\n"
+        "• Camera only\n"
+        "• Mic + Camera\n"
+        "• Neither",
+        reply_markup=keyboard,
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# CREATE DIRTY MINDS GAME
+# ==========================================================
+
+async def admin_create_dirty_minds(
+    update,
+    context,
+):
+
+    query = update.callback_query
+    user = update.effective_user
+
+    if not query or not user:
+        return
+
+    if not is_admin(user.id):
+
+        await query.answer(
+            "⛔ You are not authorized.",
+            show_alert=True,
+        )
+
+        return
+
+    await query.answer(
+        "Creating Dirty Minds game..."
+    )
+
+    try:
+
+        from game_manager import GAME_MANAGER
+
+    except ImportError:
+
+        try:
+            from real_games.game_manager import GAME_MANAGER
+        except ImportError:
+
+            logger.exception(
+                "Could not import GAME_MANAGER."
+            )
+
+            await query.edit_message_text(
+                "❌ **Dirty Minds Error**\n\n"
+                "The game manager could not be loaded.\n\n"
+                "Please check the Render logs.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "⬅️ Back",
+                                callback_data="admin_back",
+                            )
+                        ]
+                    ]
+                ),
+                parse_mode="Markdown",
+            )
+
+            return
+
+    try:
+
+        from dirty_minds import create_dirty_minds_state
+
+    except ImportError:
+
+        try:
+            from real_games.dirty_minds import (
+                create_dirty_minds_state
+            )
+        except ImportError:
+
+            logger.exception(
+                "Could not import Dirty Minds engine."
+            )
+
+            await query.edit_message_text(
+                "❌ **Dirty Minds Error**\n\n"
+                "The Dirty Minds game engine could not "
+                "be loaded.\n\n"
+                "Please check the Render logs.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "⬅️ Back",
+                                callback_data="admin_back",
+                            )
+                        ]
+                    ]
+                ),
+                parse_mode="Markdown",
+            )
+
+            return
+
+    try:
+
+        room = GAME_MANAGER.create(
+            game_id="dirty_minds",
+            game_name="Dirty Minds",
+            max_players=20,
+            min_players=2,
+            state=create_dirty_minds_state(),
+        )
+
+        # The admin who creates the game becomes the host.
+        display_name = (
+            user.full_name
+            or user.first_name
+            or f"Player {user.id}"
+        )
+
+        room.add_player(
+            str(user.id),
+            display_name,
+        )
+
+        # Store host metadata.
+        room.host_id = str(user.id)
+
+        # Make sure the player record has host status.
+        if str(user.id) in room.players:
+            room.players[str(user.id)]["host"] = True
+
+    except Exception:
+
+        logger.exception(
+            "Failed to create Dirty Minds room."
+        )
+
+        await query.edit_message_text(
+            "❌ **Dirty Minds Game Creation Failed**\n\n"
+            "The room could not be created.\n\n"
+            "Please check the Render logs.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_back",
+                        )
+                    ]
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    try:
+
+        me = await context.bot.get_me()
+        bot_username = me.username
+
+    except Exception:
+
+        logger.exception(
+            "Unable to get bot username."
+        )
+
+        bot_username = None
+
+    if not bot_username:
+
+        await query.edit_message_text(
+            "❌ **Dirty Minds Created — But No Join Link**\n\n"
+            f"Room: `{room.room_id}`\n\n"
+            "I could not determine the Telegram bot username.\n"
+            "Check the Render logs.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_back",
+                        )
+                    ]
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    join_link = (
+        f"https://t.me/{bot_username}"
+        f"?start=rg_join_{room.room_id}"
+    )
+
+    # ------------------------------------------------------
+    # POST GAME TO COMMUNITY CHAT
+    # ------------------------------------------------------
+
+    try:
+
+        from config import RAFFLE_CHAT_ID
+
+        community_chat_id = int(RAFFLE_CHAT_ID)
+
+    except Exception:
+
+        community_chat_id = None
+
+    announcement_text = (
+        "🎭 **DIRTY MINDS IS LIVE!** 🎭\n\n"
+        "Think dirty. Answer clean. 😈\n\n"
+        "A new multiplayer Dirty Minds game has been "
+        "created.\n\n"
+        f"👥 Players: **{room.player_count()}/20**\n"
+        f"🎮 Room: `{room.room_id}`\n\n"
+        "🎤 **Microphone:** Optional\n"
+        "📷 **Camera:** Optional\n\n"
+        "Everyone controls their own mic and camera.\n"
+        "You can use either one, both, or neither.\n\n"
+        "Tap the button below to join."
+    )
+
+    join_keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎭 JOIN DIRTY MINDS",
+                    url=join_link,
+                )
+            ]
+        ]
+    )
+
+    community_message = None
+
+    if community_chat_id:
+
+        try:
+
+            community_message = await context.bot.send_message(
+                chat_id=community_chat_id,
+                text=announcement_text,
+                reply_markup=join_keyboard,
+                parse_mode="Markdown",
+                disable_web_page_preview=True,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Could not post Dirty Minds announcement "
+                "to community chat."
+            )
+
+    # ------------------------------------------------------
+    # ADMIN CONFIRMATION
+    # ------------------------------------------------------
+
+    admin_keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎭 OPEN GAME",
+                    url=join_link,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📋 ACTIVE ROOMS",
+                    callback_data="admin_dirty_rooms",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_back",
+                )
+            ],
+        ]
+    )
+
+    community_status = (
+        "✅ Posted to the community chat."
+        if community_message
+        else
+        "⚠️ I could not post to the configured community chat."
+    )
+
+    await query.edit_message_text(
+        "✅ **DIRTY MINDS GAME CREATED!** 🎭\n\n"
+        f"🎮 Room: `{room.room_id}`\n"
+        f"👑 Host: **{display_name}**\n"
+        f"👥 Players: **1/20**\n\n"
+        "🎤 Mic: Optional\n"
+        "📷 Camera: Optional\n\n"
+        f"{community_status}\n\n"
+        "The Telegram JOIN button is ready.",
+        reply_markup=admin_keyboard,
+        parse_mode="Markdown",
+    )
+
+    logger.info(
+        "Dirty Minds room created | room=%s | host=%s | "
+        "community_posted=%s",
+        room.room_id,
+        user.id,
+        bool(community_message),
+    )
+
+
+# ==========================================================
+# ACTIVE DIRTY MINDS ROOMS
+# ==========================================================
+
+async def admin_dirty_rooms(
+    update,
+    context,
+):
+
+    query = update.callback_query
+    user = update.effective_user
+
+    if not query or not user:
+        return
+
+    if not is_admin(user.id):
+
+        await query.answer(
+            "⛔ You are not authorized.",
+            show_alert=True,
+        )
+
+        return
+
+    await query.answer()
+
+    try:
+
+        from game_manager import GAME_MANAGER
+
+    except ImportError:
+
+        try:
+            from real_games.game_manager import GAME_MANAGER
+        except ImportError:
+
+            await query.edit_message_text(
+                "❌ Game manager unavailable.",
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "⬅️ Back",
+                                callback_data="admin_back",
+                            )
+                        ]
+                    ]
+                ),
+            )
+
+            return
+
+    rooms = GAME_MANAGER.list_rooms(
+        game_id="dirty_minds"
+    )
+
+    active_rooms = [
+        room
+        for room in rooms
+        if not room.finished
+    ]
+
+    if not active_rooms:
+
+        await query.edit_message_text(
+            "📋 **ACTIVE DIRTY MINDS ROOMS**\n\n"
+            "There are currently no active Dirty Minds rooms.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "➕ Create Game",
+                            callback_data="admin_dirty_create",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_back",
+                        )
+                    ],
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    buttons = []
+
+    for room in active_rooms:
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    (
+                        f"🎭 {room.room_id} "
+                        f"({room.player_count()}/20)"
+                    ),
+                    callback_data=(
+                        f"admin_dirty_view_{room.room_id}"
+                    ),
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "➕ Create Game",
+                callback_data="admin_dirty_create",
+            )
+        ]
+    )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "⬅️ Back",
+                callback_data="admin_back",
+            )
+        ]
+    )
+
+    await query.edit_message_text(
+        "📋 **ACTIVE DIRTY MINDS ROOMS**\n\n"
+        f"Active rooms: **{len(active_rooms)}**\n\n"
+        "Select a room to view or close it.",
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# VIEW DIRTY MINDS ROOM
+# ==========================================================
+
+async def admin_dirty_view_room(
+    update,
+    context,
+    room_id,
+):
+
+    query = update.callback_query
+    user = update.effective_user
+
+    if not query or not user:
+        return
+
+    if not is_admin(user.id):
+
+        await query.answer(
+            "⛔ You are not authorized.",
+            show_alert=True,
+        )
+
+        return
+
+    await query.answer()
+
+    try:
+
+        from game_manager import GAME_MANAGER
+
+    except ImportError:
+
+        try:
+            from real_games.game_manager import GAME_MANAGER
+        except ImportError:
+            await query.edit_message_text(
+                "❌ Game manager unavailable."
+            )
+            return
+
+    room = GAME_MANAGER.get(room_id)
+
+    if not room:
+
+        await query.edit_message_text(
+            "❌ **Room Not Found**\n\n"
+            "This Dirty Minds room no longer exists.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Active Rooms",
+                            callback_data="admin_dirty_rooms",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_back",
+                        )
+                    ],
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    players = room.players
+
+    player_lines = []
+
+    for player in players.values():
+
+        host_marker = " 👑" if player.get("host") else ""
+
+        player_lines.append(
+            f"• {player.get('name', 'Player')}{host_marker}"
+        )
+
+    if not player_lines:
+        player_lines.append("• No players")
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🛑 CLOSE ROOM",
+                    callback_data=(
+                        f"admin_dirty_close_{room.room_id}"
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Active Rooms",
+                    callback_data="admin_dirty_rooms",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_back",
+                )
+            ],
+        ]
+    )
+
+    await query.edit_message_text(
+        "🎭 **DIRTY MINDS ROOM**\n\n"
+        f"🎮 Room: `{room.room_id}`\n"
+        f"👥 Players: **{room.player_count()}/20**\n"
+        f"▶️ Started: **{'Yes' if room.started else 'No'}**\n\n"
+        "**Players:**\n"
+        + "\n".join(player_lines),
+        reply_markup=keyboard,
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
+# CLOSE DIRTY MINDS ROOM
+# ==========================================================
+
+async def admin_dirty_close_room(
+    update,
+    context,
+    room_id,
+):
+
+    query = update.callback_query
+    user = update.effective_user
+
+    if not query or not user:
+        return
+
+    if not is_admin(user.id):
+
+        await query.answer(
+            "⛔ You are not authorized.",
+            show_alert=True,
+        )
+
+        return
+
+    await query.answer(
+        "Closing room..."
+    )
+
+    try:
+
+        from game_manager import GAME_MANAGER
+
+    except ImportError:
+
+        try:
+            from real_games.game_manager import GAME_MANAGER
+        except ImportError:
+            await query.edit_message_text(
+                "❌ Game manager unavailable."
+            )
+            return
+
+    room = GAME_MANAGER.get(room_id)
+
+    if not room:
+
+        await query.edit_message_text(
+            "⚠️ That room is already gone.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Active Rooms",
+                            callback_data="admin_dirty_rooms",
+                        )
+                    ]
+                ]
+            ),
+        )
+
+        return
+
+    GAME_MANAGER.remove(room.room_id)
+
+    await query.edit_message_text(
+        "🛑 **DIRTY MINDS ROOM CLOSED**\n\n"
+        f"Room `{room.room_id}` has been closed.\n\n"
+        "Players will no longer be able to use that "
+        "game room.",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "📋 Active Rooms",
+                        callback_data="admin_dirty_rooms",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="admin_back",
+                    )
+                ],
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+    logger.info(
+        "Dirty Minds room closed | room=%s | admin=%s",
+        room.room_id,
+        user.id,
+    )
 
 
 # ==========================================================
@@ -2084,7 +2759,7 @@ async def admin_button(
         return
 
     # ------------------------------------------------------
-    # MANUAL RAFFLE ENTRY
+    # MANUAL RAFFLE
     # ------------------------------------------------------
 
     if data == "admin_manual_entry":
@@ -2112,9 +2787,7 @@ async def admin_button(
         ]
 
         try:
-
             page = int(page_text)
-
         except (TypeError, ValueError):
 
             await query.answer(
@@ -2145,7 +2818,6 @@ async def admin_button(
         ] = page
 
         page_size = 8
-
         total = len(members)
 
         max_page = max(
@@ -2206,6 +2878,65 @@ async def admin_button(
         await admin_games(
             update,
             context,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # DIRTY MINDS
+    # ------------------------------------------------------
+
+    if data == "admin_dirty_minds":
+
+        await admin_dirty_minds(
+            update,
+            context,
+        )
+
+        return
+
+    if data == "admin_dirty_create":
+
+        await admin_create_dirty_minds(
+            update,
+            context,
+        )
+
+        return
+
+    if data == "admin_dirty_rooms":
+
+        await admin_dirty_rooms(
+            update,
+            context,
+        )
+
+        return
+
+    if data.startswith("admin_dirty_view_"):
+
+        room_id = data[
+            len("admin_dirty_view_"):
+        ]
+
+        await admin_dirty_view_room(
+            update,
+            context,
+            room_id,
+        )
+
+        return
+
+    if data.startswith("admin_dirty_close_"):
+
+        room_id = data[
+            len("admin_dirty_close_"):
+        ]
+
+        await admin_dirty_close_room(
+            update,
+            context,
+            room_id,
         )
 
         return
@@ -2280,10 +3011,6 @@ async def admin_button(
         )
 
         return
-
-    # ------------------------------------------------------
-    # REPOST RAFFLE
-    # ------------------------------------------------------
 
     if data == "admin_repost_raffle":
 
@@ -2372,9 +3099,7 @@ async def admin_button(
         ]
 
         try:
-
             page = int(page_text)
-
         except (TypeError, ValueError):
 
             await query.answer(
@@ -2405,7 +3130,6 @@ async def admin_button(
         ] = page
 
         page_size = 8
-
         total = len(members)
 
         max_page = max(
@@ -2430,7 +3154,7 @@ async def admin_button(
         return
 
     # ------------------------------------------------------
-    # SELECT MEMBER
+    # SELECT BIRTHDAY MEMBER
     # ------------------------------------------------------
 
     if data.startswith("admin_bday_select_"):
