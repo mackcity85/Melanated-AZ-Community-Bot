@@ -5529,9 +5529,13 @@ function launch(){
     }
 }
 
-launch();
-
-</script>
+document.addEventListener("DOMContentLoaded", function () {
+    try {
+        launch();
+    } catch (error) {
+        console.error("Launch Error:", error);
+    }
+});
 
 </body>
 </html>
