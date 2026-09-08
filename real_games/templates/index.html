@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>🎮 Melanated AZ Real Games</title>
+
+<style>
+*{
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+    margin:0;
+    padding:0;
+    min-height:100%;
+    background:#080808;
+    color:#fff;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+    padding:16px;
+}
+
+.page{
+    width:100%;
+    max-width:1100px;
+    margin:0 auto;
+}
+
+.header{
+    text-align:center;
+    margin-bottom:30px;
+}
+
+.header h1{
+    margin:0;
+    font-size:clamp(30px,7vw,50px);
+    font-weight:900;
+}
+
+.header p{
+    margin:10px 0 0;
+    color:#aaa;
+    font-size:15px;
+}
+
+.category{
+    margin-bottom:32px;
+}
+
+.category-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0 0 14px;
+    font-size:25px;
+    font-weight:900;
+}
+
+.game-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:14px;
+}
+
+.game-card{
+    display:block;
+    text-decoration:none;
+    color:#fff;
+    background:#151515;
+    border:1px solid #292929;
+    border-radius:18px;
+    padding:20px;
+    min-height:185px;
+    transition:transform .15s ease,background .15s ease,border-color .15s ease;
+}
+
+.game-card:hover{
+    transform:translateY(-3px);
+    background:#1d1d1d;
+    border-color:#555;
+}
+
+.game-card:active{
+    transform:scale(.97);
+}
+
+.game-icon{
+    font-size:48px;
+    line-height:1;
+    margin-bottom:14px;
+}
+
+.game-name{
+    font-size:20px;
+    font-weight:900;
+    margin-bottom:8px;
+}
+
+.game-description{
+    color:#aaa;
+    font-size:14px;
+    line-height:1.45;
+    min-height:42px;
+}
+
+.play{
+    display:inline-block;
+    margin-top:15px;
+    padding:9px 15px;
+    background:#fff;
+    color:#000;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:900;
+}
+
+.empty{
+    color:#777;
+    font-size:14px;
+    padding:10px 0;
+}
+
+.footer{
+    text-align:center;
+    color:#777;
+    font-size:12px;
+    margin-top:40px;
+    padding-bottom:25px;
+}
+
+@media(max-width:600px){
+    body{ padding:12px; }
+    .header{ margin-bottom:24px; }
+    .header h1{ font-size:32px; }
+    .category-title{ font-size:22px; }
+    .game-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .game-card{ padding:15px; min-height:175px; border-radius:16px; }
+    .game-icon{ font-size:40px; margin-bottom:10px; }
+    .game-name{ font-size:17px; }
+    .game-description{ font-size:12px; }
+    .play{ margin-top:12px; padding:8px 12px; font-size:12px; }
+}
+
+@media(max-width:360px){
+    .game-grid{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+
+<body>
+<div class="page">
+
+    <header class="header">
+        <h1>🎮 Real Games</h1>
+        <p>Mobile-friendly games from Melanated AZ</p>
+    </header>
+
+    {% for category in categories %}
+    <section class="category">
+        <h2 class="category-title">{{ category }}</h2>
+
+        <div class="game-grid">
+            {% for game in games_by_category[category] %}
+            <a class="game-card" href="{{ url_for('real_games.play_game', game_id=game.game_id) }}">
+                <div class="game-icon">{{ game.icon }}</div>
+                <div class="game-name">{{ game.name }}</div>
+                <div class="game-description">{{ game.description }}</div>
+                <div class="play">
+                    {% if game.mode == "multiplayer" %}JOIN GAME{% else %}PLAY{% endif %}
+                </div>
+            </a>
+            {% else %}
+            <div class="empty">No games available in {{ category }}.</div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+
+    <div class="footer">
+        Melanated AZ Real Games
+    </div>
+
+</div>
+</body>
+</html>
