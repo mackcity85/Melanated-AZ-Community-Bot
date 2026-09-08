@@ -2435,6 +2435,8 @@ function dirtyMindsGame(){
         return "web_" + Date.now() + "_" + Math.random().toString(36).slice(2,9);
     }
 
+    if(!playerId) playerId = createPlayerId();
+
     async function api(url, options={}){
         const response = await fetch(url, {
             ...options,
@@ -2466,8 +2468,6 @@ function dirtyMindsGame(){
     async function createGame(){
         showError("");
         try{
-            if(!playerId) playerId = createPlayerId();
-
             const data = await api(API + "/create-room", {
                 method:"POST",
                 body:JSON.stringify({
@@ -2478,7 +2478,7 @@ function dirtyMindsGame(){
             });
 
             roomId = data.room_id || (data.room && data.room.room_id) || "";
-            room = data.room || null;
+            room = data.room || data.data || null;
 
             if(!roomId) throw new Error("No room code returned.");
 
@@ -2487,7 +2487,7 @@ function dirtyMindsGame(){
 
             showGame();
 
-            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId));
+            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId) + "&player_name=" + encodeURIComponent(myName()));
             startPolling();
 
         }catch(err){
@@ -2504,8 +2504,6 @@ function dirtyMindsGame(){
                 return;
             }
 
-            if(!playerId) playerId = createPlayerId();
-
             const data = await api(API + "/room/" + encodeURIComponent(roomId) + "/join", {
                 method:"POST",
                 body:JSON.stringify({
@@ -2514,12 +2512,12 @@ function dirtyMindsGame(){
                 })
             });
 
-            room = data.room || null;
+            room = data.room || data.data || null;
             joined = true;
 
             showGame();
 
-            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId));
+            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId) + "&player_name=" + encodeURIComponent(myName()));
             startPolling();
 
         }catch(err){
@@ -2538,7 +2536,7 @@ function dirtyMindsGame(){
 
         try{
             const data = await api(API + "/room/" + encodeURIComponent(roomId));
-            room = data.room || null;
+            room = data.room || data.data || null;
             if(!room) return;
 
             if(!joined){
@@ -2562,12 +2560,12 @@ function dirtyMindsGame(){
 
     function getStatus(){
         if(!room) return "waiting";
-        if(room.finished) return "finished";
+        if(room.finished || room.game_over) return "finished";
         if(room.status) return String(room.status).toLowerCase();
         if(room.phase){
             const p = String(room.phase).toLowerCase();
-            if(p === "question") return "playing";
-            if(p === "reveal") return "revealed";
+            if(p === "question" || p === "playing") return "playing";
+            if(p === "reveal" || p === "revealed") return "revealed";
         }
         if(room.started) return "playing";
         return "waiting";
@@ -2585,8 +2583,9 @@ function dirtyMindsGame(){
         if(!room) return;
 
         const players = Array.isArray(room.players) ? room.players : [];
+        const roomCode = room.room_id || roomId;
 
-        $("#dmRoomLabel").innerHTML = `Room: <b>${escapeHtml(room.room_id || roomId)}</b> · ${players.length} player${players.length===1?"":"s"}`;
+        $("#dmRoomLabel").innerHTML = `Room: <b>${escapeHtml(roomCode)}</b> · ${players.length} player${players.length===1?"":"s"}`;
 
         const playersEl = $("#dmPlayers");
         playersEl.innerHTML = "";
@@ -2597,11 +2596,12 @@ function dirtyMindsGame(){
             if(String(p.player_id) === String(playerId)) row.classList.add("me");
 
             const answered = room.answers && room.answers[p.player_id];
+            const isHostPlayer = room.host_id && String(p.player_id) === String(room.host_id);
 
             row.innerHTML = `
                 <span>
-                    ${escapeHtml(p.name || "Player")}
-                    ${String(p.player_id) === String(room.host_id) ? " 👑" : ""}
+                    ${escapeHtml(p.name || p.player_name || "Player")}
+                    ${isHostPlayer ? " 👑" : ""}
                 </span>
                 <span>
                     ${room.started ? (p.score ?? 0) + " pts" : ""}
@@ -2614,16 +2614,20 @@ function dirtyMindsGame(){
 
         const status = getStatus();
 
-        // Anyone connected can start, reveal, or advance rounds
+        // Control buttons remain accessible to all connected room members
         $("#dmStart").style.display = !room.started && !room.finished ? "inline-block" : "none";
         $("#dmReveal").style.display = room.started && (status === "playing" || status === "question") ? "inline-block" : "none";
         $("#dmNext").style.display = room.started && (status === "revealed" || status === "reveal") ? "inline-block" : "none";
 
         if(!room.started && !room.finished){
             $("#dmPhase").innerHTML = `
-                <div class="dm-question">👥 Waiting for players</div>
+                <div class="dm-question">👥 Waiting for Players</div>
                 <div class="help">
-                    Share room <b>${escapeHtml(room.room_id || roomId)}</b> with your group.<br><br>
+                    Room Code:
+                    <div style="font-size:32px;font-weight:900;letter-spacing:4px;margin:15px 0;color:#a78bfa;">
+                        ${escapeHtml(roomCode)}
+                    </div>
+                    Share this room code with everyone playing.<br><br>
                     Click <b>▶️ Start Game</b> when everyone has connected.
                 </div>
             `;
@@ -2635,7 +2639,7 @@ function dirtyMindsGame(){
             $("#dmPhase").innerHTML = `
                 <div class="dm-question">🏆 GAME OVER</div>
                 <div class="dm-answer">
-                    ${winner ? escapeHtml(winner.name) + " — " + (winner.score ?? 0) + " points" : "No winner"}
+                    ${winner ? escapeHtml(winner.name || winner.player_name || "Winner") + " — " + (winner.score ?? 0) + " points" : "Game Complete"}
                 </div>
             `;
             return;
@@ -2705,7 +2709,7 @@ function dirtyMindsGame(){
             const submitted = room.answers && room.answers[p.player_id];
             answersHtml += `
                 <div class="dm-player">
-                    <span>${escapeHtml(p.name || "Player")}</span>
+                    <span>${escapeHtml(p.name || p.player_name || "Player")}</span>
                     <span>${submitted ? escapeHtml(String(submitted)) : "No answer"}</span>
                 </div>
             `;
@@ -2717,7 +2721,7 @@ function dirtyMindsGame(){
             <div class="dm-question">${escapeHtml(clue)}</div>
 
             <div class="dm-answer">
-                ✅ Innocent Answer:<br>
+                ✅ Innocent Answer:<br><br>
                 ${escapeHtml(answer)}
             </div>
 
@@ -2759,7 +2763,10 @@ function dirtyMindsGame(){
 
     async function startGame(){
         const button = $("#dmStart");
-        if(button) button.disabled = true;
+        if(button){
+            button.disabled = true;
+            button.textContent = "⏳ Starting...";
+        }
 
         try{
             await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/start", {
@@ -2773,7 +2780,10 @@ function dirtyMindsGame(){
             await refresh();
 
         }catch(err){
-            if(button) button.disabled = false;
+            if(button){
+                button.disabled = false;
+                button.textContent = "▶️ Start Game";
+            }
             alert(err.message);
         }
     }
