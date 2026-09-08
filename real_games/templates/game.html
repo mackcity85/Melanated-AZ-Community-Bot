@@ -29,8 +29,7 @@ body{
         max(12px,env(safe-area-inset-left));
 }
 
-button,
-input{
+button,input{
     font:inherit;
 }
 
@@ -455,9 +454,28 @@ canvas{
     font-weight:700;
 }
 
-/* ==========================================================
-   MOBILE
-   ========================================================== */
+.dm-host-badge{
+    display:inline-block;
+    margin:8px auto;
+    padding:8px 14px;
+    border-radius:999px;
+    background:#7c3aed;
+    color:#fff;
+    font-weight:800;
+}
+
+.dm-room-code{
+    font-size:32px;
+    font-weight:900;
+    letter-spacing:4px;
+    margin:15px 0;
+    color:#a78bfa;
+    text-align:center;
+}
+
+.dm-share{
+    background:#16803c;
+}
 
 @media(max-width:600px){
 
@@ -506,7 +524,6 @@ canvas{
 
 </div>
 
-
 <script>
 "use strict";
 
@@ -547,7 +564,7 @@ function clearGame(){
     activeIntervals = [];
     activeFrames = [];
 
-    if (gameArea) gameArea.innerHTML = "";
+    if(gameArea) gameArea.innerHTML = "";
 }
 
 function timer(fn,ms){
@@ -569,7 +586,7 @@ function frame(fn){
 }
 
 function html(content){
-    if (gameArea) gameArea.innerHTML = content;
+    if(gameArea) gameArea.innerHTML = content;
 }
 
 function escapeHtml(value){
@@ -607,27 +624,29 @@ function snakeGame(){
         </div>
     `);
 
-    const canvas = $("#snakeCanvas");
-    const ctx = canvas.getContext("2d");
+    const canvas=$("#snakeCanvas");
+    const ctx=canvas.getContext("2d");
 
-    const size = 20;
-    const cells = 20;
+    const size=20;
+    const cells=20;
 
-    let snake, food, dx, dy, score, running;
+    let snake,food,dx,dy,score,running;
 
     function reset(){
-        snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
-        food = spawnFood();
-        dx = 1; dy = 0;
-        score = 0; running = true;
-        $("#snakeScore").textContent = score;
+        snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+        food=spawnFood();
+        dx=1;
+        dy=0;
+        score=0;
+        running=true;
+        $("#snakeScore").textContent=score;
         draw();
     }
 
     function spawnFood(){
         let p;
         do{
-            p = {
+            p={
                 x:Math.floor(Math.random()*cells),
                 y:Math.floor(Math.random()*cells)
             };
@@ -636,21 +655,28 @@ function snakeGame(){
     }
 
     function change(nx,ny){
-        if(nx === -dx && ny === -dy) return;
-        dx = nx; dy = ny;
+        if(nx===-dx && ny===-dy)return;
+        dx=nx;
+        dy=ny;
     }
 
     function tick(){
-        if(!running) return;
-        const head = { x:snake[0].x + dx, y:snake[0].y + dy };
+        if(!running)return;
+
+        const head={
+            x:snake[0].x+dx,
+            y:snake[0].y+dy
+        };
 
         if(
-            head.x < 0 || head.y < 0 ||
-            head.x >= cells || head.y >= cells ||
+            head.x<0 ||
+            head.y<0 ||
+            head.x>=cells ||
+            head.y>=cells ||
             snake.some(s=>s.x===head.x && s.y===head.y)
         ){
-            running = false;
-            setTimeout(()=>{ alert("Game Over! Score: " + score); },20);
+            running=false;
+            timer(()=>alert("Game Over! Score: "+score),20);
             return;
         }
 
@@ -658,8 +684,8 @@ function snakeGame(){
 
         if(head.x===food.x && head.y===food.y){
             score++;
-            $("#snakeScore").textContent = score;
-            food = spawnFood();
+            $("#snakeScore").textContent=score;
+            food=spawnFood();
         }else{
             snake.pop();
         }
@@ -668,27 +694,39 @@ function snakeGame(){
     }
 
     function draw(){
-        ctx.fillStyle = "#050505";
+        ctx.fillStyle="#050505";
         ctx.fillRect(0,0,400,400);
 
-        ctx.fillStyle = "#e33";
-        ctx.fillRect(food.x*size, food.y*size, size-1, size-1);
+        ctx.fillStyle="#e33";
+        ctx.fillRect(food.x*size,food.y*size,size-1,size-1);
 
-        ctx.fillStyle = "#39d98a";
+        ctx.fillStyle="#39d98a";
+
         snake.forEach(s=>{
-            ctx.fillRect(s.x*size, s.y*size, size-1, size-1);
+            ctx.fillRect(s.x*size,s.y*size,size-1,size-1);
         });
     }
 
     function key(e){
-        const k = e.key.toLowerCase();
-        if(["arrowup","arrowdown","arrowleft","arrowright","w","a","s","d"].includes(k)){
+        const k=e.key.toLowerCase();
+
+        if([
+            "arrowup",
+            "arrowdown",
+            "arrowleft",
+            "arrowright",
+            "w",
+            "a",
+            "s",
+            "d"
+        ].includes(k)){
             e.preventDefault();
         }
-        if(k==="arrowup" || k==="w") change(0,-1);
-        if(k==="arrowdown" || k==="s") change(0,1);
-        if(k==="arrowleft" || k==="a") change(-1,0);
-        if(k==="arrowright" || k==="d") change(1,0);
+
+        if(k==="arrowup" || k==="w")change(0,-1);
+        if(k==="arrowdown" || k==="s")change(0,1);
+        if(k==="arrowleft" || k==="a")change(-1,0);
+        if(k==="arrowright" || k==="d")change(1,0);
     }
 
     document.addEventListener("keydown",key);
@@ -699,12 +737,14 @@ function snakeGame(){
     $("#sRight").onclick=()=>change(1,0);
     $("#snakeRestart").onclick=reset;
 
-    const loop = setInterval(tick,110);
+    const loop=setInterval(tick,110);
     activeIntervals.push(loop);
 
     reset();
 
-    activeCleanup=()=>{ document.removeEventListener("keydown",key); };
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
+    };
 }
 
 
@@ -720,43 +760,68 @@ function pongGame(){
             <div class="score">You <b id="pongPlayer">0</b> — <b id="pongCPU">0</b> CPU</div>
             <canvas id="pongCanvas" width="700" height="400"></canvas>
             <div class="help">Move your paddle with mouse, finger, or ↑ ↓ keys.</div>
-            <div class="controls"><button id="pongRestart" class="primary">Restart</button></div>
+            <div class="controls">
+                <button id="pongRestart" class="primary">Restart</button>
+            </div>
         </div>
     `);
 
     const canvas=$("#pongCanvas");
     const ctx=canvas.getContext("2d");
-    const W=700,H=400;
 
-    let playerY=160, cpuY=160;
-    let ball={ x:350, y:200, vx:5, vy:3 };
-    let ps=0, cs=0, raf;
+    const W=700;
+    const H=400;
 
-    function resetBall(dir){
-        ball={ x:W/2, y:H/2, vx:dir*5, vy:(Math.random()-.5)*6 };
-    }
+    let playerY=160;
+    let cpuY=160;
+    let ball={
+        x:350,
+        y:200,
+        vx:5,
+        vy:3
+    };
+
+    let ps=0;
+    let cs=0;
+    let raf;
 
     function reset(){
-        ps=0; cs=0; playerY=160; cpuY=160;
+        ps=0;
+        cs=0;
+        playerY=160;
+        cpuY=160;
+
         $("#pongPlayer").textContent=0;
         $("#pongCPU").textContent=0;
-        resetBall(Math.random()<.5 ? -1 : 1);
+
+        resetBall(Math.random()<.5?-1:1);
+    }
+
+    function resetBall(dir){
+        ball={
+            x:W/2,
+            y:H/2,
+            vx:dir*5,
+            vy:(Math.random()-.5)*6
+        };
     }
 
     function movePlayer(y){
         const rect=canvas.getBoundingClientRect();
         const scale=H/rect.height;
-        playerY = (y-rect.top)*scale - 40;
-        playerY=Math.max(0, Math.min(H-80,playerY));
+
+        playerY=(y-rect.top)*scale-40;
+        playerY=Math.max(0,Math.min(H-80,playerY));
     }
 
-    canvas.addEventListener("pointermove", e=>movePlayer(e.clientY));
-    canvas.addEventListener("pointerdown", e=>movePlayer(e.clientY));
+    canvas.addEventListener("pointermove",e=>movePlayer(e.clientY));
+    canvas.addEventListener("pointerdown",e=>movePlayer(e.clientY));
 
     function key(e){
-        if(e.key==="ArrowUp") playerY-=30;
-        if(e.key==="ArrowDown") playerY+=30;
-        playerY=Math.max(0, Math.min(H-80,playerY));
+        if(e.key==="ArrowUp")playerY-=30;
+        if(e.key==="ArrowDown")playerY+=30;
+
+        playerY=Math.max(0,Math.min(H-80,playerY));
     }
 
     document.addEventListener("keydown",key);
@@ -767,34 +832,58 @@ function pongGame(){
 
         ctx.strokeStyle="#444";
         ctx.setLineDash([8,8]);
+
         ctx.beginPath();
         ctx.moveTo(W/2,0);
         ctx.lineTo(W/2,H);
         ctx.stroke();
+
         ctx.setLineDash([]);
 
-        cpuY += (ball.y - 40 - cpuY)*.045;
-        cpuY=Math.max(0, Math.min(H-80,cpuY));
+        cpuY+=(ball.y-40-cpuY)*.045;
+        cpuY=Math.max(0,Math.min(H-80,cpuY));
 
         ball.x+=ball.vx;
         ball.y+=ball.vy;
 
-        if(ball.y<10 || ball.y>H-10) ball.vy*=-1;
+        if(ball.y<10 || ball.y>H-10){
+            ball.vy*=-1;
+        }
 
-        if(ball.x<40 && ball.x>25 && ball.y>playerY && ball.y<playerY+80){
+        if(
+            ball.x<40 &&
+            ball.x>25 &&
+            ball.y>playerY &&
+            ball.y<playerY+80
+        ){
             ball.vx=Math.abs(ball.vx);
-            ball.vy += (ball.y-(playerY+40))*.08;
+            ball.vy+=(ball.y-(playerY+40))*.08;
         }
 
-        if(ball.x>W-40 && ball.x<W-25 && ball.y>cpuY && ball.y<cpuY+80){
+        if(
+            ball.x>W-40 &&
+            ball.x<W-25 &&
+            ball.y>cpuY &&
+            ball.y<cpuY+80
+        ){
             ball.vx=-Math.abs(ball.vx);
-            ball.vy += (ball.y-(cpuY+40))*.08;
+            ball.vy+=(ball.y-(cpuY+40))*.08;
         }
 
-        if(ball.x<0){ cs++; $("#pongCPU").textContent=cs; resetBall(1); }
-        if(ball.x>W){ ps++; $("#pongPlayer").textContent=ps; resetBall(-1); }
+        if(ball.x<0){
+            cs++;
+            $("#pongCPU").textContent=cs;
+            resetBall(1);
+        }
+
+        if(ball.x>W){
+            ps++;
+            $("#pongPlayer").textContent=ps;
+            resetBall(-1);
+        }
 
         ctx.fillStyle="#fff";
+
         ctx.fillRect(20,playerY,12,80);
         ctx.fillRect(W-32,cpuY,12,80);
 
@@ -830,63 +919,111 @@ function breakoutGame(){
             <div class="score">Score: <b id="breakScore">0</b></div>
             <canvas id="breakCanvas" width="600" height="450"></canvas>
             <div class="help">Move paddle with finger, mouse, or arrow keys.</div>
-            <div class="controls"><button id="breakRestart" class="primary">Restart</button></div>
+            <div class="controls">
+                <button id="breakRestart" class="primary">Restart</button>
+            </div>
         </div>
     `);
 
     const canvas=$("#breakCanvas");
     const ctx=canvas.getContext("2d");
-    const W=600,H=450;
 
-    let paddleX=250, ball, bricks, score=0, raf;
+    const W=600;
+    const H=450;
+
+    let paddleX=250;
+    let ball;
+    let bricks;
+    let score=0;
+    let raf;
 
     function reset(){
-        paddleX=250; score=0;
+        paddleX=250;
+        score=0;
+
         $("#breakScore").textContent=0;
-        ball={ x:300, y:350, vx:4, vy:-4, r:8 };
+
+        ball={
+            x:300,
+            y:350,
+            vx:4,
+            vy:-4,
+            r:8
+        };
+
         bricks=[];
 
         for(let r=0;r<5;r++){
             for(let c=0;c<10;c++){
-                bricks.push({ x:8+c*59, y:40+r*25, w:54, h:18, alive:true });
+                bricks.push({
+                    x:8+c*59,
+                    y:40+r*25,
+                    w:54,
+                    h:18,
+                    alive:true
+                });
             }
         }
     }
 
     function move(x){
         const rect=canvas.getBoundingClientRect();
-        paddleX = (x-rect.left) / rect.width * W - 60;
-        paddleX=Math.max(0, Math.min(W-120,paddleX));
+
+        paddleX=
+            (x-rect.left)/
+            rect.width*
+            W-60;
+
+        paddleX=Math.max(0,Math.min(W-120,paddleX));
     }
 
-    canvas.addEventListener("pointermove", e=>move(e.clientX));
-    canvas.addEventListener("pointerdown", e=>move(e.clientX));
+    canvas.addEventListener("pointermove",e=>move(e.clientX));
+    canvas.addEventListener("pointerdown",e=>move(e.clientX));
 
     function key(e){
-        if(e.key==="ArrowLeft") paddleX-=30;
-        if(e.key==="ArrowRight") paddleX+=30;
-        paddleX=Math.max(0, Math.min(W-120,paddleX));
+        if(e.key==="ArrowLeft")paddleX-=30;
+        if(e.key==="ArrowRight")paddleX+=30;
+
+        paddleX=Math.max(0,Math.min(W-120,paddleX));
     }
 
     document.addEventListener("keydown",key);
 
     function loop(){
+
         ctx.fillStyle="#050505";
         ctx.fillRect(0,0,W,H);
 
         ball.x+=ball.vx;
         ball.y+=ball.vy;
 
-        if(ball.x<ball.r || ball.x>W-ball.r) ball.vx*=-1;
-        if(ball.y<ball.r) ball.vy*=-1;
+        if(ball.x<ball.r || ball.x>W-ball.r){
+            ball.vx*=-1;
+        }
 
-        if(ball.y+ball.r>=380 && ball.x>=paddleX && ball.x<=paddleX+120 && ball.vy>0){
+        if(ball.y<ball.r){
+            ball.vy*=-1;
+        }
+
+        if(
+            ball.y+ball.r>=380 &&
+            ball.x>=paddleX &&
+            ball.x<=paddleX+120 &&
+            ball.vy>0
+        ){
             ball.vy=-Math.abs(ball.vy);
-            ball.vx += (ball.x-(paddleX+60))*.03;
+            ball.vx+=(ball.x-(paddleX+60))*.03;
         }
 
         bricks.forEach(b=>{
-            if(b.alive && ball.x>b.x && ball.x<b.x+b.w && ball.y>b.y && ball.y<b.y+b.h && ball.vy<0){
+            if(
+                b.alive &&
+                ball.x>b.x &&
+                ball.x<b.x+b.w &&
+                ball.y>b.y &&
+                ball.y<b.y+b.h &&
+                ball.vy<0
+            ){
                 b.alive=false;
                 ball.vy*=-1;
                 score++;
@@ -894,10 +1031,13 @@ function breakoutGame(){
             }
         });
 
-        if(ball.y>H) reset();
+        if(ball.y>H){
+            reset();
+        }
 
         bricks.forEach(b=>{
             if(!b.alive)return;
+
             ctx.fillStyle="#9b59b6";
             ctx.fillRect(b.x,b.y,b.w,b.h);
         });
@@ -936,76 +1076,144 @@ function dodgeGame(){
             <div class="game-title">💥 Dodge</div>
             <div class="score">Score: <b id="dodgeScore">0</b></div>
             <canvas id="dodgeCanvas" width="400" height="550"></canvas>
+
             <div class="dpad">
                 <button class="left" id="dLeft">⬅️</button>
                 <button class="right" id="dRight">➡️</button>
             </div>
-            <div class="controls"><button id="dodgeRestart" class="primary">Restart</button></div>
+
+            <div class="controls">
+                <button id="dodgeRestart" class="primary">Restart</button>
+            </div>
         </div>
     `);
 
     const canvas=$("#dodgeCanvas");
     const ctx=canvas.getContext("2d");
 
-    let player, enemies, score, running, raf, last=0;
+    let player;
+    let enemies;
+    let score;
+    let running;
+    let raf;
+    let last=0;
 
     function reset(){
-        player={ x:180, y:480, w:40, h:40 };
-        enemies=[]; score=0; running=true; last=0;
+        player={
+            x:180,
+            y:480,
+            w:40,
+            h:40
+        };
+
+        enemies=[];
+        score=0;
+        running=true;
+        last=0;
+
         $("#dodgeScore").textContent=0;
     }
 
-    function left(){ player.x=Math.max(0, player.x-35); }
-    function right(){ player.x=Math.min(360, player.x+35); }
+    function left(){
+        player.x=Math.max(0,player.x-35);
+    }
+
+    function right(){
+        player.x=Math.min(360,player.x+35);
+    }
 
     $("#dLeft").onclick=left;
     $("#dRight").onclick=right;
 
     function key(e){
-        if(e.key==="ArrowLeft" || e.key==="a") left();
-        if(e.key==="ArrowRight" || e.key==="d") right();
+        if(e.key==="ArrowLeft" || e.key==="a")left();
+        if(e.key==="ArrowRight" || e.key==="d")right();
     }
 
     document.addEventListener("keydown",key);
 
-    canvas.addEventListener("pointermove", e=>{
+    canvas.addEventListener("pointermove",e=>{
         const rect=canvas.getBoundingClientRect();
-        player.x = (e.clientX-rect.left) / rect.width * 400 - 20;
-        player.x=Math.max(0, Math.min(360,player.x));
+
+        player.x=
+            (e.clientX-rect.left)/
+            rect.width*
+            400-20;
+
+        player.x=Math.max(0,Math.min(360,player.x));
     });
 
     function loop(t){
+
         if(!running)return;
+
         if(!last)last=t;
-        const dt=Math.min(.035, (t-last)/1000);
+
+        const dt=Math.min(.035,(t-last)/1000);
         last=t;
 
         if(Math.random()<.04){
             enemies.push({
-                x:Math.random()*370, y:-30,
-                w:30+Math.random()*30, h:30,
+                x:Math.random()*370,
+                y:-30,
+                w:30+Math.random()*30,
+                h:30,
                 speed:150+Math.random()*130
             });
         }
 
-        enemies.forEach(e=>{ e.y+=e.speed*dt; });
+        enemies.forEach(e=>{
+            e.y+=e.speed*dt;
+        });
+
         enemies=enemies.filter(e=>e.y<580);
 
-        score += dt;
+        score+=dt;
+
         $("#dodgeScore").textContent=Math.floor(score);
 
         for(const e of enemies){
-            if(player.x<e.x+e.w && player.x+player.w>e.x && player.y<e.y+e.h && player.y+player.h>e.y){
+            if(
+                player.x<e.x+e.w &&
+                player.x+player.w>e.x &&
+                player.y<e.y+e.h &&
+                player.y+player.h>e.y
+            ){
                 running=false;
-                setTimeout(()=>{ alert("You survived " + Math.floor(score) + " seconds!"); },20);
+
+                timer(()=>{
+                    alert(
+                        "You survived "+
+                        Math.floor(score)+
+                        " seconds!"
+                    );
+                },20);
+
                 return;
             }
         }
 
-        ctx.fillStyle="#050505"; ctx.fillRect(0,0,400,550);
-        ctx.fillStyle="#4ade80"; ctx.fillRect(player.x,player.y,player.w,player.h);
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,400,550);
+
+        ctx.fillStyle="#4ade80";
+        ctx.fillRect(
+            player.x,
+            player.y,
+            player.w,
+            player.h
+        );
+
         ctx.fillStyle="#ef4444";
-        enemies.forEach(e=>{ ctx.fillRect(e.x,e.y,e.w,e.h); });
+
+        enemies.forEach(e=>{
+            ctx.fillRect(
+                e.x,
+                e.y,
+                e.w,
+                e.h
+            );
+        });
 
         raf=requestAnimationFrame(loop);
         activeFrames.push(raf);
@@ -1035,120 +1243,243 @@ function game2048(){
             <div class="score">Score: <b id="score2048">0</b></div>
             <div id="grid2048" class="grid2048"></div>
             <div class="help">Swipe or use arrow keys.</div>
-            <div class="controls"><button id="restart2048" class="primary">New Game</button></div>
+
+            <div class="controls">
+                <button id="restart2048" class="primary">New Game</button>
+            </div>
         </div>
     `);
 
     const grid=$("#grid2048");
-    let board, score;
+
+    let board;
+    let score;
 
     function reset(){
-        board=Array.from({length:4},()=>Array(4).fill(0));
+        board=Array.from(
+            {length:4},
+            ()=>Array(4).fill(0)
+        );
+
         score=0;
-        add(); add();
+
+        add();
+        add();
+
         render();
     }
 
     function add(){
         const empty=[];
+
         for(let r=0;r<4;r++){
             for(let c=0;c<4;c++){
-                if(!board[r][c]) empty.push([r,c]);
+                if(!board[r][c]){
+                    empty.push([r,c]);
+                }
             }
         }
+
         if(!empty.length)return;
-        const [r,c]=empty[Math.floor(Math.random()*empty.length)];
-        board[r][c]=Math.random()<.9 ? 2 : 4;
+
+        const [r,c]=
+            empty[
+                Math.floor(Math.random()*empty.length)
+            ];
+
+        board[r][c]=
+            Math.random()<.9 ? 2 : 4;
     }
 
     function slide(line){
+
         let a=line.filter(Boolean);
+
         for(let i=0;i<a.length-1;i++){
+
             if(a[i]===a[i+1]){
+
                 a[i]*=2;
                 score+=a[i];
+
                 a.splice(i+1,1);
             }
         }
-        while(a.length<4) a.push(0);
+
+        while(a.length<4){
+            a.push(0);
+        }
+
         return a;
     }
 
     function move(dir){
+
         const old=JSON.stringify(board);
+
         if(dir==="left"){
-            for(let r=0;r<4;r++) board[r]=slide(board[r]);
+            for(let r=0;r<4;r++){
+                board[r]=slide(board[r]);
+            }
         }
+
         if(dir==="right"){
-            for(let r=0;r<4;r++) board[r]=slide(board[r].slice().reverse()).reverse();
+            for(let r=0;r<4;r++){
+                board[r]=
+                    slide(board[r].slice().reverse())
+                    .reverse();
+            }
         }
+
         if(dir==="up"){
             for(let c=0;c<4;c++){
-                const col=[board[0][c],board[1][c],board[2][c],board[3][c]];
+
+                const col=[
+                    board[0][c],
+                    board[1][c],
+                    board[2][c],
+                    board[3][c]
+                ];
+
                 const s=slide(col);
-                for(let r=0;r<4;r++) board[r][c]=s[r];
+
+                for(let r=0;r<4;r++){
+                    board[r][c]=s[r];
+                }
             }
         }
+
         if(dir==="down"){
             for(let c=0;c<4;c++){
-                const col=[board[3][c],board[2][c],board[1][c],board[0][c]];
+
+                const col=[
+                    board[3][c],
+                    board[2][c],
+                    board[1][c],
+                    board[0][c]
+                ];
+
                 const s=slide(col);
-                for(let i=0;i<4;i++) board[3-i][c]=s[i];
+
+                for(let i=0;i<4;i++){
+                    board[3-i][c]=s[i];
+                }
             }
         }
+
         if(JSON.stringify(board)!==old){
-            add(); render();
+            add();
+            render();
         }
     }
 
     function canMove(){
+
         for(let r=0;r<4;r++){
             for(let c=0;c<4;c++){
-                if(!board[r][c]) return true;
-                if(c<3 && board[r][c]===board[r][c+1]) return true;
-                if(r<3 && board[r][c]===board[r+1][c]) return true;
+
+                if(!board[r][c]){
+                    return true;
+                }
+
+                if(
+                    c<3 &&
+                    board[r][c]===board[r][c+1]
+                ){
+                    return true;
+                }
+
+                if(
+                    r<3 &&
+                    board[r][c]===board[r+1][c]
+                ){
+                    return true;
+                }
             }
         }
+
         return false;
     }
 
     function render(){
+
         grid.innerHTML="";
+
         board.flat().forEach(value=>{
+
             const tile=document.createElement("div");
+
             tile.className="tile2048";
             tile.textContent=value || "";
+
             grid.appendChild(tile);
         });
+
         $("#score2048").textContent=score;
+
         if(!canMove()){
-            timer(()=>{ alert("Game over! Score: " + score); },50);
+            timer(()=>{
+                alert(
+                    "Game over! Score: "+
+                    score
+                );
+            },50);
         }
     }
 
     function key(e){
-        const map={ ArrowLeft:"left", ArrowRight:"right", ArrowUp:"up", ArrowDown:"down" };
+
+        const map={
+            ArrowLeft:"left",
+            ArrowRight:"right",
+            ArrowUp:"up",
+            ArrowDown:"down"
+        };
+
         if(map[e.key]){
             e.preventDefault();
             move(map[e.key]);
         }
     }
 
-    let startX=0, startY=0;
-    grid.addEventListener("pointerdown", e=>{ startX=e.clientX; startY=e.clientY; });
-    grid.addEventListener("pointerup", e=>{
-        const dx=e.clientX-startX, dy=e.clientY-startY;
-        if(Math.max(Math.abs(dx),Math.abs(dy))<25)return;
-        if(Math.abs(dx)>Math.abs(dy)) move(dx>0?"right":"left");
-        else move(dy>0?"down":"up");
+    let startX=0;
+    let startY=0;
+
+    grid.addEventListener("pointerdown",e=>{
+        startX=e.clientX;
+        startY=e.clientY;
+    });
+
+    grid.addEventListener("pointerup",e=>{
+
+        const dx=e.clientX-startX;
+        const dy=e.clientY-startY;
+
+        if(
+            Math.max(
+                Math.abs(dx),
+                Math.abs(dy)
+            )<25
+        ){
+            return;
+        }
+
+        if(Math.abs(dx)>Math.abs(dy)){
+            move(dx>0?"right":"left");
+        }else{
+            move(dy>0?"down":"up");
+        }
     });
 
     document.addEventListener("keydown",key);
+
     $("#restart2048").onclick=reset;
 
     reset();
 
-    activeCleanup=()=>{ document.removeEventListener("keydown",key); };
+    activeCleanup=()=>{
+        document.removeEventListener("keydown",key);
+    };
 }
 
 
@@ -1161,71 +1492,142 @@ function memoryGame(){
     html(`
         <div class="panel">
             <div class="game-title">🧠 Memory Match</div>
-            <div class="score">Matches: <b id="memoryScore">0</b></div>
+            <div class="score">
+                Matches: <b id="memoryScore">0</b>
+            </div>
+
             <div id="memoryGrid" class="memory-grid"></div>
-            <div class="controls"><button id="memoryRestart" class="primary">New Game</button></div>
+
+            <div class="controls">
+                <button id="memoryRestart" class="primary">
+                    New Game
+                </button>
+            </div>
         </div>
     `);
 
-    const symbols=["🍕","🏀","🎮","🐍","🚀","🎯","🔥","⭐"];
+    const symbols=[
+        "🍕","🏀","🎮","🐍",
+        "🚀","🎯","🔥","⭐"
+    ];
+
     const grid=$("#memoryGrid");
 
-    let cards=[], first=null, second=null, lock=false, matches=0;
+    let cards=[];
+    let first=null;
+    let second=null;
+    let lock=false;
+    let matches=0;
 
     function reset(){
-        cards=[...symbols, ...symbols].sort(()=>Math.random()-.5);
-        first=null; second=null; lock=false; matches=0;
+
+        cards=[
+            ...symbols,
+            ...symbols
+        ].sort(()=>Math.random()-.5);
+
+        first=null;
+        second=null;
+        lock=false;
+        matches=0;
+
         render();
     }
 
     function render(){
+
         grid.innerHTML="";
+
         cards.forEach((symbol,index)=>{
+
             const card=document.createElement("button");
+
             card.className="memory-card";
             card.dataset.index=index;
 
-            if(symbol.visible || symbol.matched){
+            if(
+                symbol.visible ||
+                symbol.matched
+            ){
                 card.textContent=symbol;
-                card.classList.add(symbol.matched ? "matched" : "flipped");
+
+                card.classList.add(
+                    symbol.matched
+                    ? "matched"
+                    : "flipped"
+                );
             }
 
             card.onclick=()=>flip(index);
+
             grid.appendChild(card);
         });
+
         $("#memoryScore").textContent=matches;
     }
 
     function flip(index){
-        if(lock || cards[index].matched) return;
-        if(first!==null && first===index) return;
 
-        const buttons=grid.querySelectorAll(".memory-card");
+        if(lock || cards[index].matched){
+            return;
+        }
+
+        if(first!==null && first===index){
+            return;
+        }
+
+        const buttons=
+            grid.querySelectorAll(".memory-card");
+
         buttons[index].textContent=cards[index];
+
         buttons[index].classList.add("flipped");
 
-        if(first===null){ first=index; return; }
+        if(first===null){
+            first=index;
+            return;
+        }
 
-        second=index; lock=true;
+        second=index;
+        lock=true;
 
         if(cards[first]===cards[second]){
+
             cards[first].matched=true;
             cards[second].matched=true;
+
             matches++;
-            first=null; second=null; lock=false;
+
+            first=null;
+            second=null;
+            lock=false;
+
             render();
+
             if(matches===symbols.length){
-                timer(()=>{ alert("You found every pair!"); },100);
+                timer(()=>{
+                    alert(
+                        "You found every pair!"
+                    );
+                },100);
             }
+
         }else{
+
             timer(()=>{
+
                 render();
-                first=null; second=null; lock=false;
+
+                first=null;
+                second=null;
+                lock=false;
+
             },700);
         }
     }
 
     $("#memoryRestart").onclick=reset;
+
     reset();
 }
 
@@ -1238,51 +1640,113 @@ function reactionGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">⚡ Reaction Test</div>
-            <div id="reactionBox" style="min-height:280px;display:flex;align-items:center;justify-content:center;border-radius:18px;background:#202020;font-size:28px;font-weight:900;text-align:center;padding:20px;">
-                TAP TO START
+
+            <div class="game-title">
+                ⚡ Reaction Test
             </div>
-            <div class="score">Result: <b id="reactionScore">—</b></div>
-            <div class="controls"><button id="reactionRestart" class="primary">Try Again</button></div>
+
+            <div id="reactionBox"
+                 style="
+                 min-height:280px;
+                 display:flex;
+                 align-items:center;
+                 justify-content:center;
+                 border-radius:18px;
+                 background:#202020;
+                 font-size:28px;
+                 font-weight:900;
+                 text-align:center;
+                 padding:20px;">
+
+                TAP TO START
+
+            </div>
+
+            <div class="score">
+                Result:
+                <b id="reactionScore">—</b>
+            </div>
+
+            <div class="controls">
+                <button id="reactionRestart"
+                        class="primary">
+                    Try Again
+                </button>
+            </div>
+
         </div>
     `);
 
     const box=$("#reactionBox");
     const score=$("#reactionScore");
 
-    let state="idle", start=0, waitTimer=null;
+    let state="idle";
+    let start=0;
+    let waitTimer=null;
 
     function startGame(){
+
         if(state==="waiting"){
+
             clearTimeout(waitTimer);
+
             state="idle";
-            box.textContent="Too early! Tap to try again.";
+
+            box.textContent=
+                "Too early! Tap to try again.";
+
             return;
         }
-        if(state==="go") return;
+
+        if(state==="go")return;
 
         state="waiting";
+
         box.textContent="WAIT...";
 
         waitTimer=setTimeout(()=>{
+
             state="go";
+
             start=performance.now();
+
             box.textContent="TAP NOW!";
+
         },1000+Math.random()*3000);
     }
 
     function tap(){
-        if(state==="idle"){ startGame(); return; }
-        if(state==="waiting"){
-            clearTimeout(waitTimer);
-            state="idle";
-            box.textContent="Too early!";
+
+        if(state==="idle"){
+            startGame();
             return;
         }
+
+        if(state==="waiting"){
+
+            clearTimeout(waitTimer);
+
+            state="idle";
+
+            box.textContent="Too early!";
+
+            return;
+        }
+
         if(state==="go"){
-            const ms=Math.round(performance.now()-start);
-            score.textContent=ms + " ms";
-            box.textContent="Great! " + ms + " ms";
+
+            const ms=
+                Math.round(
+                    performance.now()-start
+                );
+
+            score.textContent=ms+" ms";
+
+            box.textContent=
+                "Great! "+
+                ms+
+                " ms";
+
             state="idle";
         }
     }
@@ -1290,12 +1754,17 @@ function reactionGame(){
     box.onclick=tap;
 
     $("#reactionRestart").onclick=()=>{
+
         state="idle";
+
         score.textContent="—";
+
         box.textContent="TAP TO START";
     };
 
-    activeCleanup=()=>{ clearTimeout(waitTimer); };
+    activeCleanup=()=>{
+        clearTimeout(waitTimer);
+    };
 }
 
 
@@ -1307,54 +1776,117 @@ function whackGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">🔨 Whack-a-Mole</div>
-            <div class="score">Score: <b id="moleScore">0</b> | Time: <b id="moleTime">30</b></div>
-            <div id="moleGrid" class="mole-grid"></div>
-            <div class="controls"><button id="moleRestart" class="primary">Start / Restart</button></div>
+
+            <div class="game-title">
+                🔨 Whack-a-Mole
+            </div>
+
+            <div class="score">
+                Score:
+                <b id="moleScore">0</b>
+                |
+                Time:
+                <b id="moleTime">30</b>
+            </div>
+
+            <div id="moleGrid"
+                 class="mole-grid">
+            </div>
+
+            <div class="controls">
+
+                <button id="moleRestart"
+                        class="primary">
+                    Start / Restart
+                </button>
+
+            </div>
+
         </div>
     `);
 
     const grid=$("#moleGrid");
-    let score=0, time=30, mole=-1, running=false;
+
+    let score=0;
+    let time=30;
+    let mole=-1;
+    let running=false;
 
     for(let i=0;i<9;i++){
+
         const hole=document.createElement("button");
+
         hole.className="hole";
+
         hole.onclick=()=>{
-            if(running && i===mole){
+
+            if(
+                running &&
+                i===mole
+            ){
                 score++;
+
                 $("#moleScore").textContent=score;
+
                 moveMole();
             }
         };
+
         grid.appendChild(hole);
     }
 
-    const holes=grid.querySelectorAll(".hole");
+    const holes=
+        grid.querySelectorAll(".hole");
 
     function moveMole(){
-        holes.forEach(h=>h.textContent="");
-        mole=Math.floor(Math.random()*9);
+
+        holes.forEach(h=>{
+            h.textContent="";
+        });
+
+        mole=
+            Math.floor(
+                Math.random()*9
+            );
+
         holes[mole].textContent="🐹";
     }
 
     function start(){
-        score=0; time=30; running=true;
+
+        score=0;
+        time=30;
+        running=true;
+
         $("#moleScore").textContent=0;
         $("#moleTime").textContent=30;
+
         moveMole();
 
         interval(()=>{
+
             if(!running)return;
+
             time--;
+
             $("#moleTime").textContent=time;
+
             moveMole();
 
             if(time<=0){
+
                 running=false;
-                holes.forEach(h=>h.textContent="");
-                alert("Time! Score: " + score);
+
+                holes.forEach(h=>{
+                    h.textContent="";
+                });
+
+                alert(
+                    "Time! Score: "+
+                    score
+                );
             }
+
         },1000);
     }
 
@@ -1370,108 +1902,254 @@ function basketballGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">🏀 Basketball</div>
-            <div class="score">Score: <b id="basketScore">0</b> | Time: <b id="basketTime">30</b></div>
-            <canvas id="basketCanvas" width="360" height="520"></canvas>
-            <div class="help">Drag from the ball toward the hoop, then release.</div>
-            <div class="controls"><button id="basketRestart" class="primary">Start / Restart</button></div>
+
+            <div class="game-title">
+                🏀 Basketball
+            </div>
+
+            <div class="score">
+                Score:
+                <b id="basketScore">0</b>
+                |
+                Time:
+                <b id="basketTime">30</b>
+            </div>
+
+            <canvas id="basketCanvas"
+                    width="360"
+                    height="520">
+            </canvas>
+
+            <div class="help">
+                Drag from the ball toward the hoop,
+                then release.
+            </div>
+
+            <div class="controls">
+
+                <button id="basketRestart"
+                        class="primary">
+                    Start / Restart
+                </button>
+
+            </div>
+
         </div>
     `);
 
     const canvas=$("#basketCanvas");
     const ctx=canvas.getContext("2d");
 
-    let score=0, time=30, running=false, ball, startPoint=null, raf;
+    let score=0;
+    let time=30;
+    let running=false;
+    let ball;
+    let startPoint=null;
+    let raf;
 
-    const hoop={ x:180, y:135, w:80 };
+    const hoop={
+        x:180,
+        y:135,
+        w:80
+    };
 
     function reset(){
-        score=0; time=30; running=true;
+
+        score=0;
+        time=30;
+        running=true;
+
         $("#basketScore").textContent=0;
         $("#basketTime").textContent=30;
-        ball={ x:180, y:455, vx:0, vy:0, active:false, scored:false };
+
+        ball={
+            x:180,
+            y:455,
+            vx:0,
+            vy:0,
+            active:false,
+            scored:false
+        };
     }
 
     function shoot(x,y){
+
         if(!running)return;
-        const rect=canvas.getBoundingClientRect();
-        const tx=(x-rect.left) / rect.width * 360;
-        const ty=(y-rect.top) / rect.height * 520;
-        const dx=tx-ball.x, dy=ty-ball.y;
+
+        const rect=
+            canvas.getBoundingClientRect();
+
+        const tx=
+            (x-rect.left)/
+            rect.width*
+            360;
+
+        const ty=
+            (y-rect.top)/
+            rect.height*
+            520;
+
+        const dx=tx-ball.x;
+        const dy=ty-ball.y;
+
         const power=.075;
 
         ball.vx=dx*power;
         ball.vy=dy*power;
-        if(ball.vy>-4) ball.vy=-9;
+
+        if(ball.vy>-4){
+            ball.vy=-9;
+        }
 
         ball.active=true;
         ball.scored=false;
     }
 
-    canvas.addEventListener("pointerdown", e=>{
+    canvas.addEventListener("pointerdown",e=>{
+
         if(!running)return;
-        startPoint={ x:e.clientX, y:e.clientY };
+
+        startPoint={
+            x:e.clientX,
+            y:e.clientY
+        };
     });
 
-    canvas.addEventListener("pointerup", e=>{
+    canvas.addEventListener("pointerup",e=>{
+
         if(!startPoint)return;
-        shoot(e.clientX, e.clientY);
+
+        shoot(
+            e.clientX,
+            e.clientY
+        );
+
         startPoint=null;
     });
 
     function loop(){
-        ctx.fillStyle="#16202b"; ctx.fillRect(0,0,360,520);
-        ctx.fillStyle="#b87842"; ctx.fillRect(0,350,360,170);
 
-        ctx.strokeStyle="#fff"; ctx.lineWidth=6;
-        ctx.strokeRect(hoop.x-25, hoop.y-55, 50, 55);
+        ctx.fillStyle="#16202b";
+        ctx.fillRect(0,0,360,520);
+
+        ctx.fillStyle="#b87842";
+        ctx.fillRect(0,350,360,170);
+
+        ctx.strokeStyle="#fff";
+        ctx.lineWidth=6;
+
+        ctx.strokeRect(
+            hoop.x-25,
+            hoop.y-55,
+            50,
+            55
+        );
 
         ctx.strokeStyle="#f97316";
+
         ctx.beginPath();
-        ctx.ellipse(hoop.x, hoop.y, hoop.w/2, 12, 0, 0, Math.PI*2);
+
+        ctx.ellipse(
+            hoop.x,
+            hoop.y,
+            hoop.w/2,
+            12,
+            0,
+            0,
+            Math.PI*2
+        );
+
         ctx.stroke();
 
-        ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+        ctx.strokeStyle="#fff";
+        ctx.lineWidth=2;
+
         for(let i=-2;i<=2;i++){
+
             ctx.beginPath();
-            ctx.moveTo(hoop.x+i*14, hoop.y);
-            ctx.lineTo(hoop.x+i*10, hoop.y+35);
+
+            ctx.moveTo(
+                hoop.x+i*14,
+                hoop.y
+            );
+
+            ctx.lineTo(
+                hoop.x+i*10,
+                hoop.y+35
+            );
+
             ctx.stroke();
         }
 
         if(ball.active){
+
             const previousY=ball.y;
+
             ball.vy+=.28;
+
             ball.x+=ball.vx;
             ball.y+=ball.vy;
 
-            if(ball.x<12 || ball.x>348) ball.vx*=-.75;
+            if(ball.x<12 || ball.x>348){
+                ball.vx*=-.75;
+            }
 
-            if(!ball.scored && previousY<hoop.y && ball.y>=hoop.y && ball.x>hoop.x-hoop.w/2 && ball.x<hoop.x+hoop.w/2){
+            if(
+                !ball.scored &&
+                previousY<hoop.y &&
+                ball.y>=hoop.y &&
+                ball.x>hoop.x-hoop.w/2 &&
+                ball.x<hoop.x+hoop.w/2
+            ){
+
                 score++;
+
                 ball.scored=true;
+
                 $("#basketScore").textContent=score;
             }
 
             if(ball.y>530){
-                ball={ x:180, y:455, vx:0, vy:0, active:false, scored:false };
+
+                ball={
+                    x:180,
+                    y:455,
+                    vx:0,
+                    vy:0,
+                    active:false,
+                    scored:false
+                };
             }
         }
 
         ctx.fillStyle="#f97316";
+
         ctx.beginPath();
-        ctx.arc(ball.x, ball.y, 15, 0, Math.PI*2);
+
+        ctx.arc(
+            ball.x,
+            ball.y,
+            15,
+            0,
+            Math.PI*2
+        );
+
         ctx.fill();
 
         if(running){
+
             raf=requestAnimationFrame(loop);
+
             activeFrames.push(raf);
         }
     }
 
     $("#basketRestart").onclick=()=>{
+
         reset();
+
         cancelAnimationFrame(raf);
+
         loop();
     };
 
@@ -1479,16 +2157,31 @@ function basketballGame(){
     loop();
 
     interval(()=>{
+
         if(!running)return;
+
         time--;
+
         $("#basketTime").textContent=time;
+
         if(time<=0){
+
             running=false;
-            alert("Game Over! You scored " + score + " basket" + (score===1?"":"s") + ".");
+
+            alert(
+                "Game Over! You scored "+
+                score+
+                " basket"+
+                (score===1?"":"s")+
+                "."
+            );
         }
+
     },1000);
 
-    activeCleanup=()=>{ cancelAnimationFrame(raf); };
+    activeCleanup=()=>{
+        cancelAnimationFrame(raf);
+    };
 }
 
 
@@ -1500,62 +2193,152 @@ function targetGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">🎯 Target Shooter</div>
-            <div class="score">Score: <b id="targetScore">0</b> | Time: <b id="targetTime">30</b></div>
-            <canvas id="targetCanvas" width="420" height="520"></canvas>
-            <div class="help">Tap the targets.</div>
-            <div class="controls"><button id="targetRestart" class="primary">Start / Restart</button></div>
+
+            <div class="game-title">
+                🎯 Target Shooter
+            </div>
+
+            <div class="score">
+                Score:
+                <b id="targetScore">0</b>
+                |
+                Time:
+                <b id="targetTime">30</b>
+            </div>
+
+            <canvas id="targetCanvas"
+                    width="420"
+                    height="520">
+            </canvas>
+
+            <div class="help">
+                Tap the targets.
+            </div>
+
+            <div class="controls">
+
+                <button id="targetRestart"
+                        class="primary">
+                    Start / Restart
+                </button>
+
+            </div>
+
         </div>
     `);
 
     const canvas=$("#targetCanvas");
     const ctx=canvas.getContext("2d");
 
-    let target=null, score=0, time=30, running=false, raf;
+    let target=null;
+    let score=0;
+    let time=30;
+    let running=false;
+    let raf;
 
     function newTarget(){
-        target={ x:30+Math.random()*360, y:50+Math.random()*420, r:18+Math.random()*14 };
+
+        target={
+            x:30+Math.random()*360,
+            y:50+Math.random()*420,
+            r:18+Math.random()*14
+        };
     }
 
     function reset(){
-        score=0; time=30; running=true;
+
+        score=0;
+        time=30;
+        running=true;
+
         $("#targetScore").textContent=0;
         $("#targetTime").textContent=30;
+
         newTarget();
     }
 
-    canvas.addEventListener("pointerdown", e=>{
+    canvas.addEventListener("pointerdown",e=>{
+
         if(!running)return;
-        const rect=canvas.getBoundingClientRect();
-        const x=(e.clientX-rect.left) / rect.width * 420;
-        const y=(e.clientY-rect.top) / rect.height * 520;
-        const d=Math.hypot(x-target.x, y-target.y);
+
+        const rect=
+            canvas.getBoundingClientRect();
+
+        const x=
+            (e.clientX-rect.left)/
+            rect.width*
+            420;
+
+        const y=
+            (e.clientY-rect.top)/
+            rect.height*
+            520;
+
+        const d=
+            Math.hypot(
+                x-target.x,
+                y-target.y
+            );
 
         if(d<=target.r){
+
             score++;
+
             $("#targetScore").textContent=score;
+
             newTarget();
         }
     });
 
     function loop(){
+
         if(!running)return;
-        ctx.fillStyle="#050505"; ctx.fillRect(0,0,420,520);
+
+        ctx.fillStyle="#050505";
+        ctx.fillRect(0,0,420,520);
 
         if(target){
+
             ctx.fillStyle="#ef4444";
-            ctx.beginPath(); ctx.arc(target.x, target.y, target.r, 0, Math.PI*2); ctx.fill();
+
+            ctx.beginPath();
+
+            ctx.arc(
+                target.x,
+                target.y,
+                target.r,
+                0,
+                Math.PI*2
+            );
+
+            ctx.fill();
+
             ctx.fillStyle="#fff";
-            ctx.beginPath(); ctx.arc(target.x, target.y, target.r*.4, 0, Math.PI*2); ctx.fill();
+
+            ctx.beginPath();
+
+            ctx.arc(
+                target.x,
+                target.y,
+                target.r*.4,
+                0,
+                Math.PI*2
+            );
+
+            ctx.fill();
         }
 
         raf=requestAnimationFrame(loop);
+
         activeFrames.push(raf);
     }
 
     $("#targetRestart").onclick=()=>{
+
         reset();
+
         cancelAnimationFrame(raf);
+
         loop();
     };
 
@@ -1563,16 +2346,28 @@ function targetGame(){
     loop();
 
     interval(()=>{
+
         if(!running)return;
+
         time--;
+
         $("#targetTime").textContent=time;
+
         if(time<=0){
+
             running=false;
-            alert("Time! Score: " + score);
+
+            alert(
+                "Time! Score: "+
+                score
+            );
         }
+
     },1000);
 
-    activeCleanup=()=>{ cancelAnimationFrame(raf); };
+    activeCleanup=()=>{
+        cancelAnimationFrame(raf);
+    };
 }
 
 
@@ -1584,21 +2379,66 @@ function chessGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">♟️ Chess</div>
-            <div class="score">Turn: <b id="chessTurn">White</b></div>
-            <div id="chessBoard" class="board"></div>
-            <div id="chessStatus" class="status">Select a piece.</div>
-            <div class="controls"><button id="chessRestart" class="primary">New Game</button></div>
-            <div class="help">Two-player local chess. Pawns automatically promote to queens.</div>
+
+            <div class="game-title">
+                ♟️ Chess
+            </div>
+
+            <div class="score">
+                Turn:
+                <b id="chessTurn">White</b>
+            </div>
+
+            <div id="chessBoard"
+                 class="board">
+            </div>
+
+            <div id="chessStatus"
+                 class="status">
+                Select a piece.
+            </div>
+
+            <div class="controls">
+
+                <button id="chessRestart"
+                        class="primary">
+                    New Game
+                </button>
+
+            </div>
+
+            <div class="help">
+                Two-player local chess.
+                Pawns automatically promote to queens.
+            </div>
+
         </div>
     `);
 
     const boardEl=$("#chessBoard");
-    const pieces={ r:"♜", n:"♞", b:"♝", q:"♛", k:"♚", p:"♟", R:"♖", N:"♘", B:"♗", Q:"♕", K:"♔", P:"♙" };
 
-    let board, turn, selected=null, gameOver=false;
+    const pieces={
+        r:"♜",
+        n:"♞",
+        b:"♝",
+        q:"♛",
+        k:"♚",
+        p:"♟",
+        R:"♖",
+        N:"♘",
+        B:"♗",
+        Q:"♕",
+        K:"♔",
+        P:"♙"
+    };
+
+    let board;
+    let turn;
+    let selected=null;
+    let gameOver=false;
 
     function initial(){
+
         board=[
             ["r","n","b","q","k","b","n","r"],
             ["p","p","p","p","p","p","p","p"],
@@ -1609,203 +2449,588 @@ function chessGame(){
             ["P","P","P","P","P","P","P","P"],
             ["R","N","B","Q","K","B","N","R"]
         ];
-        turn="w"; selected=null; gameOver=false;
+
+        turn="w";
+        selected=null;
+        gameOver=false;
+
         render();
     }
 
     function color(piece){
+
         if(!piece)return null;
-        return piece===piece.toUpperCase()?"w":"b";
+
+        return piece===
+            piece.toUpperCase()
+            ? "w"
+            : "b";
     }
 
-    function inside(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
-    function clone(b){ return b.map(row=>row.slice()); }
+    function inside(r,c){
+        return r>=0 &&
+               r<8 &&
+               c>=0 &&
+               c<8;
+    }
 
-    function pseudo(b,r,c,attacksOnly=false){
+    function clone(b){
+        return b.map(row=>row.slice());
+    }
+
+    function pseudo(
+        b,
+        r,
+        c,
+        attacksOnly=false
+    ){
+
         const p=b[r][c];
+
         if(!p)return [];
+
         const col=color(p);
         const type=p.toLowerCase();
+
         const moves=[];
 
         function add(nr,nc){
+
             if(!inside(nr,nc))return;
+
             const target=b[nr][nc];
+
             if(target && color(target)===col)return;
-            if(target && target.toLowerCase()==="k")return;
+
+            if(
+                target &&
+                target.toLowerCase()==="k"
+            ){
+                return;
+            }
+
             moves.push([nr,nc]);
         }
 
         if(type==="p"){
-            const dir=col==="w"?-1:1;
+
+            const dir=
+                col==="w"
+                ? -1
+                : 1;
+
             if(attacksOnly){
-                add(r+dir,c-1); add(r+dir,c+1);
+
+                add(r+dir,c-1);
+                add(r+dir,c+1);
+
                 return moves;
             }
-            if(inside(r+dir,c) && !b[r+dir][c]){
-                moves.push([r+dir,c]);
-                const start=col==="w"?6:1;
-                if(r===start && !b[r+2*dir][c]){
-                    moves.push([r+2*dir,c]);
+
+            if(
+                inside(r+dir,c) &&
+                !b[r+dir][c]
+            ){
+
+                moves.push([
+                    r+dir,
+                    c
+                ]);
+
+                const start=
+                    col==="w"
+                    ? 6
+                    : 1;
+
+                if(
+                    r===start &&
+                    !b[r+2*dir][c]
+                ){
+
+                    moves.push([
+                        r+2*dir,
+                        c
+                    ]);
                 }
             }
-            for(const dc of [-1,1]){
-                const nr=r+dir, nc=c+dc;
-                if(inside(nr,nc) && b[nr][nc] && color(b[nr][nc])!==col && b[nr][nc].toLowerCase()!=="k"){
-                    moves.push([nr,nc]);
+
+            for(
+                const dc of [-1,1]
+            ){
+
+                const nr=r+dir;
+                const nc=c+dc;
+
+                if(
+                    inside(nr,nc) &&
+                    b[nr][nc] &&
+                    color(b[nr][nc])!==col &&
+                    b[nr][nc].toLowerCase()!=="k"
+                ){
+
+                    moves.push([
+                        nr,
+                        nc
+                    ]);
                 }
             }
         }
 
         if(type==="n"){
-            [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([dr,dc])=>add(r+dr,c+dc));
+
+            [
+                [-2,-1],
+                [-2,1],
+                [-1,-2],
+                [-1,2],
+                [1,-2],
+                [1,2],
+                [2,-1],
+                [2,1]
+            ].forEach(
+                ([dr,dc])=>
+                    add(r+dr,c+dc)
+            );
         }
 
-        if(type==="b" || type==="r" || type==="q"){
-            const dirs=[];
-            if(type==="b" || type==="q") dirs.push([-1,-1],[-1,1],[1,-1],[1,1]);
-            if(type==="r" || type==="q") dirs.push([-1,0],[1,0],[0,-1],[0,1]);
+        if(
+            type==="b" ||
+            type==="r" ||
+            type==="q"
+        ){
 
-            dirs.forEach(([dr,dc])=>{
-                let nr=r+dr, nc=c+dc;
-                while(inside(nr,nc)){
-                    const target=b[nr][nc];
-                    if(!target){
-                        moves.push([nr,nc]);
-                    }else{
-                        if(color(target)!==col && target.toLowerCase()!=="k"){
-                            moves.push([nr,nc]);
+            const dirs=[];
+
+            if(
+                type==="b" ||
+                type==="q"
+            ){
+
+                dirs.push(
+                    [-1,-1],
+                    [-1,1],
+                    [1,-1],
+                    [1,1]
+                );
+            }
+
+            if(
+                type==="r" ||
+                type==="q"
+            ){
+
+                dirs.push(
+                    [-1,0],
+                    [1,0],
+                    [0,-1],
+                    [0,1]
+                );
+            }
+
+            dirs.forEach(
+                ([dr,dc])=>{
+
+                    let nr=r+dr;
+                    let nc=c+dc;
+
+                    while(
+                        inside(nr,nc)
+                    ){
+
+                        const target=
+                            b[nr][nc];
+
+                        if(!target){
+
+                            moves.push([
+                                nr,
+                                nc
+                            ]);
+
+                        }else{
+
+                            if(
+                                color(target)!==col &&
+                                target.toLowerCase()!=="k"
+                            ){
+
+                                moves.push([
+                                    nr,
+                                    nc
+                                ]);
+                            }
+
+                            break;
                         }
-                        break;
+
+                        nr+=dr;
+                        nc+=dc;
                     }
-                    nr+=dr; nc+=dc;
                 }
-            });
+            );
         }
 
         if(type==="k"){
+
             for(let dr=-1;dr<=1;dr++){
+
                 for(let dc=-1;dc<=1;dc++){
-                    if(dr===0 && dc===0)continue;
-                    add(r+dr,c+dc);
+
+                    if(
+                        dr===0 &&
+                        dc===0
+                    ){
+                        continue;
+                    }
+
+                    add(
+                        r+dr,
+                        c+dc
+                    );
                 }
             }
         }
+
         return moves;
     }
 
-    function attacked(b,tr,tc,byColor){
+    function attacked(
+        b,
+        tr,
+        tc,
+        byColor
+    ){
+
         for(let r=0;r<8;r++){
+
             for(let c=0;c<8;c++){
+
                 const p=b[r][c];
-                if(!p || color(p)!==byColor)continue;
-                const type=p.toLowerCase();
+
+                if(
+                    !p ||
+                    color(p)!==byColor
+                ){
+                    continue;
+                }
+
+                const type=
+                    p.toLowerCase();
+
                 if(type==="p"){
-                    const dir=byColor==="w"?-1:1;
-                    if(r+dir===tr && Math.abs(c-tc)===1) return true;
+
+                    const dir=
+                        byColor==="w"
+                        ? -1
+                        : 1;
+
+                    if(
+                        r+dir===tr &&
+                        Math.abs(c-tc)===1
+                    ){
+                        return true;
+                    }
+
                 }else{
-                    const moves=pseudo(b,r,c,true);
-                    if(moves.some(m=>m[0]===tr && m[1]===tc)) return true;
+
+                    const moves=
+                        pseudo(
+                            b,
+                            r,
+                            c,
+                            true
+                        );
+
+                    if(
+                        moves.some(
+                            m=>
+                                m[0]===tr &&
+                                m[1]===tc
+                        )
+                    ){
+                        return true;
+                    }
                 }
             }
         }
+
         return false;
     }
 
     function inCheck(b,col){
-        let kr=-1, kc=-1;
+
+        let kr=-1;
+        let kc=-1;
+
         for(let r=0;r<8;r++){
+
             for(let c=0;c<8;c++){
-                if(b[r][c]===(col==="w"?"K":"k")){ kr=r; kc=c; }
+
+                if(
+                    b[r][c]===
+                    (col==="w"?"K":"k")
+                ){
+
+                    kr=r;
+                    kc=c;
+                }
             }
         }
+
         if(kr<0)return true;
-        return attacked(b,kr,kc,col==="w"?"b":"w");
+
+        return attacked(
+            b,
+            kr,
+            kc,
+            col==="w"?"b":"w"
+        );
     }
 
     function legalMoves(r,c){
+
         const p=board[r][c];
-        if(!p || color(p)!==turn) return [];
-        return pseudo(board,r,c).filter(([nr,nc])=>{
-            const copy=clone(board);
-            copy[nr][nc]=copy[r][c];
-            copy[r][c]=null;
-            const moved=copy[nr][nc];
-            if(moved.toLowerCase()==="p" && (nr===0 || nr===7)){
-                copy[nr][nc]=color(moved)==="w"?"Q":"q";
+
+        if(
+            !p ||
+            color(p)!==turn
+        ){
+            return [];
+        }
+
+        return pseudo(
+            board,
+            r,
+            c
+        ).filter(
+            ([nr,nc])=>{
+
+                const copy=clone(board);
+
+                copy[nr][nc]=copy[r][c];
+                copy[r][c]=null;
+
+                const moved=
+                    copy[nr][nc];
+
+                if(
+                    moved.toLowerCase()==="p" &&
+                    (nr===0 || nr===7)
+                ){
+
+                    copy[nr][nc]=
+                        color(moved)==="w"
+                        ? "Q"
+                        : "q";
+                }
+
+                return !inCheck(
+                    copy,
+                    turn
+                );
             }
-            return !inCheck(copy,turn);
-        });
+        );
     }
 
     function anyLegal(col){
+
         for(let r=0;r<8;r++){
+
             for(let c=0;c<8;c++){
-                if(board[r][c] && color(board[r][c])===col && legalMoves(r,c).length) return true;
+
+                if(
+                    board[r][c] &&
+                    color(board[r][c])===col &&
+                    legalMoves(r,c).length
+                ){
+                    return true;
+                }
             }
         }
+
         return false;
     }
 
-    function move(fr,fc,tr,tc){
+    function move(
+        fr,
+        fc,
+        tr,
+        tc
+    ){
+
         const p=board[fr][fc];
+
         board[tr][tc]=p;
         board[fr][fc]=null;
 
-        if(p.toLowerCase()==="p" && (tr===0 || tr===7)){
-            board[tr][tc]=color(p)==="w"?"Q":"q";
+        if(
+            p.toLowerCase()==="p" &&
+            (tr===0 || tr===7)
+        ){
+
+            board[tr][tc]=
+                color(p)==="w"
+                ? "Q"
+                : "q";
         }
 
-        turn=turn==="w"?"b":"w";
+        turn=
+            turn==="w"
+            ? "b"
+            : "w";
+
         selected=null;
 
-        const check=inCheck(board,turn);
+        const check=
+            inCheck(
+                board,
+                turn
+            );
+
         if(!anyLegal(turn)){
+
             gameOver=true;
-            $("#chessStatus").textContent = check ? (turn==="w"?"White":"Black") + " is checkmated." : "Stalemate.";
+
+            $("#chessStatus").textContent=
+                check
+                ? (
+                    turn==="w"
+                    ? "White"
+                    : "Black"
+                )+
+                " is checkmated."
+                : "Stalemate.";
+
         }else{
-            $("#chessStatus").textContent = check ? "Check!" : "Select a piece.";
+
+            $("#chessStatus").textContent=
+                check
+                ? "Check!"
+                : "Select a piece.";
         }
-        $("#chessTurn").textContent = turn==="w"?"White":"Black";
+
+        $("#chessTurn").textContent=
+            turn==="w"
+            ? "White"
+            : "Black";
+
         render();
     }
 
     function clickSquare(r,c){
+
         if(gameOver)return;
+
         if(selected){
-            const moves=legalMoves(selected.r, selected.c);
-            if(moves.some(m=>m[0]===r && m[1]===c)){
-                move(selected.r, selected.c, r, c);
+
+            const moves=
+                legalMoves(
+                    selected.r,
+                    selected.c
+                );
+
+            if(
+                moves.some(
+                    m=>
+                        m[0]===r &&
+                        m[1]===c
+                )
+            ){
+
+                move(
+                    selected.r,
+                    selected.c,
+                    r,
+                    c
+                );
+
                 return;
             }
         }
-        if(board[r][c] && color(board[r][c])===turn){
-            selected={r,c};
+
+        if(
+            board[r][c] &&
+            color(board[r][c])===turn
+        ){
+
+            selected={
+                r,
+                c
+            };
+
         }else{
+
             selected=null;
         }
+
         render();
     }
 
     function render(){
+
         boardEl.innerHTML="";
-        const moves=selected?legalMoves(selected.r, selected.c):[];
+
+        const moves=
+            selected
+            ? legalMoves(
+                selected.r,
+                selected.c
+            )
+            : [];
+
         for(let r=0;r<8;r++){
+
             for(let c=0;c<8;c++){
-                const sq=document.createElement("button");
-                sq.className="square " + ((r+c)%2===0?"chess-light":"chess-dark");
-                if(selected && selected.r===r && selected.c===c) sq.classList.add("selected");
-                if(moves.some(m=>m[0]===r && m[1]===c)){
-                    sq.classList.add(board[r][c]?"capture":"move");
+
+                const sq=
+                    document.createElement("button");
+
+                sq.className=
+                    "square "+
+                    (
+                        (r+c)%2===0
+                        ? "chess-light"
+                        : "chess-dark"
+                    );
+
+                if(
+                    selected &&
+                    selected.r===r &&
+                    selected.c===c
+                ){
+                    sq.classList.add("selected");
                 }
-                if(board[r][c]) sq.textContent=pieces[board[r][c]];
-                sq.onclick=()=>clickSquare(r,c);
+
+                if(
+                    moves.some(
+                        m=>
+                            m[0]===r &&
+                            m[1]===c
+                    )
+                ){
+
+                    sq.classList.add(
+                        board[r][c]
+                        ? "capture"
+                        : "move"
+                    );
+                }
+
+                if(board[r][c]){
+                    sq.textContent=
+                        pieces[board[r][c]];
+                }
+
+                sq.onclick=
+                    ()=>clickSquare(r,c);
+
                 boardEl.appendChild(sq);
             }
         }
     }
 
     $("#chessRestart").onclick=initial;
+
     initial();
 }
 
@@ -1818,165 +3043,491 @@ function checkersGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">🔴 Checkers</div>
-            <div class="score">Turn: <b id="checkerTurn">Red</b></div>
-            <div id="checkerBoard" class="board"></div>
-            <div id="checkerStatus" class="status">Select a piece.</div>
-            <div class="controls"><button id="checkerRestart" class="primary">New Game</button></div>
+
+            <div class="game-title">
+                🔴 Checkers
+            </div>
+
+            <div class="score">
+                Turn:
+                <b id="checkerTurn">Red</b>
+            </div>
+
+            <div id="checkerBoard"
+                 class="board">
+            </div>
+
+            <div id="checkerStatus"
+                 class="status">
+                Select a piece.
+            </div>
+
+            <div class="controls">
+
+                <button id="checkerRestart"
+                        class="primary">
+                    New Game
+                </button>
+
+            </div>
+
         </div>
     `);
 
     const el=$("#checkerBoard");
-    let board, turn, selected=null, mustContinue=false, gameOver=false;
+
+    let board;
+    let turn;
+    let selected=null;
+    let mustContinue=false;
+    let gameOver=false;
 
     function reset(){
-        board=Array.from({length:8},()=>Array(8).fill(null));
+
+        board=
+            Array.from(
+                {length:8},
+                ()=>Array(8).fill(null)
+            );
+
         for(let r=0;r<3;r++){
-            for(let c=0;c<8;c++){ if((r+c)%2===1) board[r][c]="b"; }
+
+            for(let c=0;c<8;c++){
+
+                if((r+c)%2===1){
+                    board[r][c]="b";
+                }
+            }
         }
+
         for(let r=5;r<8;r++){
-            for(let c=0;c<8;c++){ if((r+c)%2===1) board[r][c]="r"; }
+
+            for(let c=0;c<8;c++){
+
+                if((r+c)%2===1){
+                    board[r][c]="r";
+                }
+            }
         }
-        turn="r"; selected=null; mustContinue=false; gameOver=false;
+
+        turn="r";
+        selected=null;
+        mustContinue=false;
+        gameOver=false;
+
         render();
     }
 
-    function inside(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+    function inside(r,c){
+
+        return r>=0 &&
+               r<8 &&
+               c>=0 &&
+               c<8;
+    }
 
     function captures(r,c){
+
         const p=board[r][c];
+
         if(!p)return [];
-        const king=p===p.toUpperCase();
+
+        const king=
+            p===p.toUpperCase();
+
         const dirs=[];
+
         if(king || p.toLowerCase()==="r"){
-            dirs.push([-1,-1],[-1,1],[1,-1],[1,1]);
+
+            dirs.push(
+                [-1,-1],
+                [-1,1],
+                [1,-1],
+                [1,1]
+            );
+
         }else{
-            const dir=p.toLowerCase()==="r"?-1:1;
-            dirs.push([dir,-1],[dir,1]);
+
+            const dir=
+                p.toLowerCase()==="r"
+                ? -1
+                : 1;
+
+            dirs.push(
+                [dir,-1],
+                [dir,1]
+            );
         }
+
         const result=[];
-        dirs.forEach(([dr,dc])=>{
-            const mr=r+dr, mc=c+dc, lr=r+dr*2, lc=c+dc*2;
-            if(inside(lr,lc) && board[mr] && board[mr][mc] && board[mr][mc].toLowerCase()!==p.toLowerCase() && !board[lr][lc]){
-                result.push([lr,lc,mr,mc]);
+
+        dirs.forEach(
+            ([dr,dc])=>{
+
+                const mr=r+dr;
+                const mc=c+dc;
+
+                const lr=r+dr*2;
+                const lc=c+dc*2;
+
+                if(
+                    inside(lr,lc) &&
+                    board[mr] &&
+                    board[mr][mc] &&
+                    board[mr][mc].toLowerCase()!==p.toLowerCase() &&
+                    !board[lr][lc]
+                ){
+
+                    result.push([
+                        lr,
+                        lc,
+                        mr,
+                        mc
+                    ]);
+                }
             }
-        });
+        );
+
         return result;
     }
 
     function moves(r,c){
+
         const p=board[r][c];
+
         if(!p)return [];
-        if(captures(r,c).length) return captures(r,c);
-        const king=p===p.toUpperCase();
-        const dirs=king?[[-1,-1],[-1,1],[1,-1],[1,1]]:[[p.toLowerCase()==="r"?-1:1,-1],[p.toLowerCase()==="r"?-1:1,1]];
+
+        if(captures(r,c).length){
+            return captures(r,c);
+        }
+
+        const king=
+            p===p.toUpperCase();
+
+        const dirs=
+            king
+            ? [
+                [-1,-1],
+                [-1,1],
+                [1,-1],
+                [1,1]
+            ]
+            : [
+                [
+                    p.toLowerCase()==="r"
+                    ? -1
+                    : 1,
+                    -1
+                ],
+                [
+                    p.toLowerCase()==="r"
+                    ? -1
+                    : 1,
+                    1
+                ]
+            ];
+
         const result=[];
-        dirs.forEach(([dr,dc])=>{
-            const nr=r+dr, nc=c+dc;
-            if(inside(nr,nc) && !board[nr][nc]){
-                result.push([nr,nc]);
+
+        dirs.forEach(
+            ([dr,dc])=>{
+
+                const nr=r+dr;
+                const nc=c+dc;
+
+                if(
+                    inside(nr,nc) &&
+                    !board[nr][nc]
+                ){
+
+                    result.push([
+                        nr,
+                        nc
+                    ]);
+                }
             }
-        });
+        );
+
         return result;
     }
 
     function playerHasCapture(p){
+
         for(let r=0;r<8;r++){
+
             for(let c=0;c<8;c++){
-                if(board[r][c] && board[r][c].toLowerCase()===p && captures(r,c).length) return true;
+
+                if(
+                    board[r][c] &&
+                    board[r][c].toLowerCase()===p &&
+                    captures(r,c).length
+                ){
+
+                    return true;
+                }
             }
         }
+
         return false;
     }
 
-    function move(fr,fc,tr,tc){
+    function move(
+        fr,
+        fc,
+        tr,
+        tc
+    ){
+
         const p=board[fr][fc];
-        const isCapture=Math.abs(tr-fr)===2;
+
+        const isCapture=
+            Math.abs(tr-fr)===2;
+
         board[tr][tc]=p;
         board[fr][fc]=null;
 
         if(isCapture){
-            board[(fr+tr)/2][(fc+tc)/2]=null;
+
+            board[
+                (fr+tr)/2
+            ][
+                (fc+tc)/2
+            ]=null;
+
             if(captures(tr,tc).length){
-                selected={r:tr,c:tc};
+
+                selected={
+                    r:tr,
+                    c:tc
+                };
+
                 mustContinue=true;
+
                 render();
+
                 return;
             }
         }
 
-        if(p.toLowerCase()==="r" && tr===0) board[tr][tc]="R";
-        if(p.toLowerCase()==="b" && tr===7) board[tr][tc]="B";
+        if(
+            p.toLowerCase()==="r" &&
+            tr===0
+        ){
+            board[tr][tc]="R";
+        }
 
-        turn=turn==="r"?"b":"r";
-        selected=null; mustContinue=false;
+        if(
+            p.toLowerCase()==="b" &&
+            tr===7
+        ){
+            board[tr][tc]="B";
+        }
+
+        turn=
+            turn==="r"
+            ? "b"
+            : "r";
+
+        selected=null;
+        mustContinue=false;
+
         checkEnd();
         render();
     }
 
     function checkEnd(){
-        let pieces=0, movesAvailable=false;
+
+        let pieces=0;
+        let movesAvailable=false;
+
         for(let r=0;r<8;r++){
+
             for(let c=0;c<8;c++){
-                if(board[r][c] && board[r][c].toLowerCase()===turn){
+
+                if(
+                    board[r][c] &&
+                    board[r][c].toLowerCase()===turn
+                ){
+
                     pieces++;
-                    if(moves(r,c).length) movesAvailable=true;
+
+                    if(
+                        moves(r,c).length
+                    ){
+                        movesAvailable=true;
+                    }
                 }
             }
         }
-        if(pieces===0 || !movesAvailable){
+
+        if(
+            pieces===0 ||
+            !movesAvailable
+        ){
+
             gameOver=true;
-            $("#checkerStatus").textContent = (turn==="r"?"Black":"Red") + " wins!";
+
+            $("#checkerStatus").textContent=
+                (
+                    turn==="r"
+                    ? "Black"
+                    : "Red"
+                )+
+                " wins!";
         }
     }
 
     function click(r,c){
+
         if(gameOver)return;
+
         if(selected){
-            const found=moves(selected.r, selected.c).find(m=>m[0]===r && m[1]===c);
+
+            const found=
+                moves(
+                    selected.r,
+                    selected.c
+                ).find(
+                    m=>
+                        m[0]===r &&
+                        m[1]===c
+                );
+
             if(found){
-                move(selected.r, selected.c, r, c);
+
+                move(
+                    selected.r,
+                    selected.c,
+                    r,
+                    c
+                );
+
                 return;
             }
         }
-        if(board[r][c] && board[r][c].toLowerCase()===turn){
-            if(playerHasCapture(turn) && !captures(r,c).length) return;
-            selected={r,c};
+
+        if(
+            board[r][c] &&
+            board[r][c].toLowerCase()===turn
+        ){
+
+            if(
+                playerHasCapture(turn) &&
+                !captures(r,c).length
+            ){
+                return;
+            }
+
+            selected={
+                r,
+                c
+            };
+
             render();
         }
     }
 
     function render(){
+
         el.innerHTML="";
-        const globalCapture=playerHasCapture(turn);
+
+        const globalCapture=
+            playerHasCapture(turn);
+
         for(let r=0;r<8;r++){
+
             for(let c=0;c<8;c++){
-                const sq=document.createElement("button");
-                sq.className="square " + ((r+c)%2===0?"checker-light":"checker-dark");
+
+                const sq=
+                    document.createElement("button");
+
+                sq.className=
+                    "square "+
+                    (
+                        (r+c)%2===0
+                        ? "checker-light"
+                        : "checker-dark"
+                    );
+
                 const p=board[r][c];
 
-                if(p && p.toLowerCase()===turn){
-                    const piece=document.createElement("div");
-                    piece.className="checker-piece " + (p.toLowerCase()==="r"?"checker-red":"checker-black");
-                    if(p===p.toUpperCase()) piece.classList.add("checker-king");
+                if(
+                    p &&
+                    p.toLowerCase()===turn
+                ){
+
+                    const piece=
+                        document.createElement("div");
+
+                    piece.className=
+                        "checker-piece "+
+                        (
+                            p.toLowerCase()==="r"
+                            ? "checker-red"
+                            : "checker-black"
+                        );
+
+                    if(
+                        p===p.toUpperCase()
+                    ){
+                        piece.classList.add(
+                            "checker-king"
+                        );
+                    }
+
                     sq.appendChild(piece);
                 }
 
-                if(selected && selected.r===r && selected.c===c) sq.classList.add("selected");
-                if(selected && moves(selected.r, selected.c).some(m=>m[0]===r && m[1]===c)){
-                    sq.classList.add(board[r][c]?"capture":"move");
+                if(
+                    selected &&
+                    selected.r===r &&
+                    selected.c===c
+                ){
+                    sq.classList.add("selected");
                 }
-                sq.onclick=()=>click(r,c);
+
+                if(
+                    selected &&
+                    moves(
+                        selected.r,
+                        selected.c
+                    ).some(
+                        m=>
+                            m[0]===r &&
+                            m[1]===c
+                    )
+                ){
+
+                    sq.classList.add(
+                        board[r][c]
+                        ? "capture"
+                        : "move"
+                    );
+                }
+
+                sq.onclick=
+                    ()=>click(r,c);
+
                 el.appendChild(sq);
             }
         }
-        $("#checkerTurn").textContent = turn==="r"?"Red":"Black";
+
+        $("#checkerTurn").textContent=
+            turn==="r"
+            ? "Red"
+            : "Black";
+
         if(!gameOver){
-            $("#checkerStatus").textContent = globalCapture ? "A capture is mandatory." : "Select a piece.";
+
+            $("#checkerStatus").textContent=
+                globalCapture
+                ? "A capture is mandatory."
+                : "Select a piece.";
         }
     }
 
     $("#checkerRestart").onclick=reset;
+
     reset();
 }
 
@@ -1989,243 +3540,699 @@ function monopolyGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">🎲 Monopoly</div>
-            <div id="monoInfo" class="status"></div>
-            <div id="monoBoard" class="mono-board"></div>
-            <div id="monoLog" class="status"></div>
 
-            <div class="controls">
-                <button id="monoRoll" class="primary">🎲 Roll Dice</button>
-                <button id="monoBuy" class="success" style="display:none">Buy Property</button>
-                <button id="monoSkip" style="display:none">Skip</button>
-                <button id="monoRestart">New Game</button>
+            <div class="game-title">
+                🎲 Monopoly
             </div>
 
-            <div class="help">Buy properties, collect rent, survive taxes.</div>
+            <div id="monoInfo"
+                 class="status">
+            </div>
+
+            <div id="monoBoard"
+                 class="mono-board">
+            </div>
+
+            <div id="monoLog"
+                 class="status">
+            </div>
+
+            <div class="controls">
+
+                <button id="monoRoll"
+                        class="primary">
+                    🎲 Roll Dice
+                </button>
+
+                <button id="monoBuy"
+                        class="success"
+                        style="display:none">
+                    Buy Property
+                </button>
+
+                <button id="monoSkip"
+                        style="display:none">
+                    Skip
+                </button>
+
+                <button id="monoRestart">
+                    New Game
+                </button>
+
+            </div>
+
+            <div class="help">
+                Buy properties, collect rent,
+                survive taxes.
+            </div>
+
         </div>
     `);
 
     const spaces=[
-        ["GO","go"], ["Central Ave","property",100,12], ["Community","community"], ["Desert Tax","tax",150],
-        ["Sunset Blvd","property",120,15], ["Rail Station","property",150,18], ["Palm Ave","property",140,16],
-        ["Chance","chance"], ["Mountain Rd","property",160,20], ["Cactus St","property",180,22], ["Jail","jail"],
-        ["Ocean Ave","property",180,22], ["Electric Co.","property",150,18], ["Community","community"],
-        ["Valley Rd","property",200,24], ["Rail Depot","property",200,24], ["Mesa Ave","property",220,26],
-        ["Chance","chance"], ["Desert Rd","property",220,27], ["Sunrise Ave","property",240,30], ["Free Parking","free"],
-        ["Canyon Blvd","property",240,30], ["Community","community"], ["Palm Springs","property",260,32],
-        ["Rail Terminal","property",200,25], ["Downtown","property",280,35], ["Chance","chance"],
-        ["West Ave","property",280,36], ["Water Works","property",150,18], ["Garden Blvd","property",300,40],
-        ["Go To Jail","gotojail"], ["Lake Rd","property",300,40], ["Community","community"],
-        ["Broadway","property",320,42], ["Rail Hub","property",200,25], ["Arizona Ave","property",340,45],
-        ["Chance","chance"], ["King St","property",360,48], ["Luxury Tax","tax",100], ["Melanated Ave","property",400,55]
+        ["GO","go"],
+        ["Central Ave","property",100,12],
+        ["Community","community"],
+        ["Desert Tax","tax",150],
+        ["Sunset Blvd","property",120,15],
+        ["Rail Station","property",150,18],
+        ["Palm Ave","property",140,16],
+        ["Chance","chance"],
+        ["Mountain Rd","property",160,20],
+        ["Cactus St","property",180,22],
+        ["Jail","jail"],
+        ["Ocean Ave","property",180,22],
+        ["Electric Co.","property",150,18],
+        ["Community","community"],
+        ["Valley Rd","property",200,24],
+        ["Rail Depot","property",200,24],
+        ["Mesa Ave","property",220,26],
+        ["Chance","chance"],
+        ["Desert Rd","property",220,27],
+        ["Sunrise Ave","property",240,30],
+        ["Free Parking","free"],
+        ["Canyon Blvd","property",240,30],
+        ["Community","community"],
+        ["Palm Springs","property",260,32],
+        ["Rail Terminal","property",200,25],
+        ["Downtown","property",280,35],
+        ["Chance","chance"],
+        ["West Ave","property",280,36],
+        ["Water Works","property",150,18],
+        ["Garden Blvd","property",300,40],
+        ["Go To Jail","gotojail"],
+        ["Lake Rd","property",300,40],
+        ["Community","community"],
+        ["Broadway","property",320,42],
+        ["Rail Hub","property",200,25],
+        ["Arizona Ave","property",340,45],
+        ["Chance","chance"],
+        ["King St","property",360,48],
+        ["Luxury Tax","tax",100],
+        ["Melanated Ave","property",400,55]
     ];
 
     const boardEl=$("#monoBoard");
-    let players, current=0, rolled=false, pendingProperty=null, gameEnded=false;
+
+    let players;
+    let current=0;
+    let rolled=false;
+    let pendingProperty=null;
+    let gameEnded=false;
 
     function reset(){
+
         players=[
-            { name:"You", token:"👑", money:1500, pos:0, human:true, alive:true },
-            { name:"Player 2", token:"🚗", money:1500, pos:0, human:false, alive:true },
-            { name:"Player 3", token:"🐕", money:1500, pos:0, human:false, alive:true }
+            {
+                name:"You",
+                token:"👑",
+                money:1500,
+                pos:0,
+                human:true,
+                alive:true
+            },
+            {
+                name:"Player 2",
+                token:"🚗",
+                money:1500,
+                pos:0,
+                human:false,
+                alive:true
+            },
+            {
+                name:"Player 3",
+                token:"🐕",
+                money:1500,
+                pos:0,
+                human:false,
+                alive:true
+            }
         ];
-        spaces.forEach(s=>{ if(s.owner!==undefined) delete s.owner; });
-        current=0; rolled=false; pendingProperty=null; gameEnded=false;
-        render(); updateTurn();
+
+        spaces.forEach(s=>{
+            if(s.owner!==undefined){
+                delete s.owner;
+            }
+        });
+
+        current=0;
+        rolled=false;
+        pendingProperty=null;
+        gameEnded=false;
+
+        render();
+        updateTurn();
     }
 
     function gridPosition(index){
-        if(index<=10) return { row:1, col:index+1 };
-        if(index<=19) return { row:index-9, col:11 };
-        if(index<=30) return { row:11, col:31-index };
-        return { row:41-index, col:1 };
+
+        if(index<=10){
+            return {
+                row:1,
+                col:index+1
+            };
+        }
+
+        if(index<=19){
+            return {
+                row:index-9,
+                col:11
+            };
+        }
+
+        if(index<=30){
+            return {
+                row:11,
+                col:31-index
+            };
+        }
+
+        return {
+            row:41-index,
+            col:1
+        };
     }
 
     function render(){
+
         boardEl.innerHTML="";
-        spaces.forEach((space,index)=>{
-            const cell=document.createElement("div");
-            cell.className="mono-space";
-            const gp=gridPosition(index);
-            cell.style.gridRow=gp.row; cell.style.gridColumn=gp.col;
-            cell.innerHTML=`<b>${escapeHtml(space[0])}</b>`;
 
-            if(space[1]==="property"){
-                cell.innerHTML += `<small>$${space[2]}</small>`;
-                if(space.owner!==undefined) cell.innerHTML += `<small>Owned</small>`;
-            }
+        spaces.forEach(
+            (space,index)=>{
 
-            players.forEach(p=>{
-                if(p.alive && p.pos===index){
-                    const token=document.createElement("span");
-                    token.className="mono-token";
-                    token.textContent=p.token;
-                    cell.appendChild(token);
+                const cell=
+                    document.createElement("div");
+
+                cell.className="mono-space";
+
+                const gp=
+                    gridPosition(index);
+
+                cell.style.gridRow=gp.row;
+                cell.style.gridColumn=gp.col;
+
+                cell.innerHTML=
+                    `<b>${escapeHtml(space[0])}</b>`;
+
+                if(space[1]==="property"){
+
+                    cell.innerHTML+=
+                        `<small>$${space[2]}</small>`;
+
+                    if(space.owner!==undefined){
+
+                        cell.innerHTML+=
+                            `<small>Owned</small>`;
+                    }
                 }
-            });
 
-            boardEl.appendChild(cell);
-        });
+                players.forEach(p=>{
 
-        const center=document.createElement("div");
+                    if(
+                        p.alive &&
+                        p.pos===index
+                    ){
+
+                        const token=
+                            document.createElement("span");
+
+                        token.className="mono-token";
+
+                        token.textContent=p.token;
+
+                        cell.appendChild(token);
+                    }
+                });
+
+                boardEl.appendChild(cell);
+            }
+        );
+
+        const center=
+            document.createElement("div");
+
         center.className="mono-center";
-        center.innerHTML=`<div style="font-size:42px">🎲</div><b>MONOPOLY</b><small>Melanated AZ Edition</small>`;
+
+        center.innerHTML=`
+            <div style="font-size:42px">🎲</div>
+            <b>MONOPOLY</b>
+            <small>Melanated AZ Edition</small>
+        `;
+
         boardEl.appendChild(center);
+
         updateInfo();
     }
 
     function updateInfo(){
-        const alive=players.filter(p=>p.alive);
-        $("#monoInfo").innerHTML=alive.map(p=>`<b>${escapeHtml(p.name)}</b> ${p.token} — $${p.money}`).join(" &nbsp; | &nbsp; ");
+
+        const alive=
+            players.filter(
+                p=>p.alive
+            );
+
+        $("#monoInfo").innerHTML=
+            alive.map(
+                p=>
+                    `<b>${escapeHtml(p.name)}</b> `+
+                    `${p.token} — $${p.money}`
+            ).join(
+                " &nbsp; | &nbsp; "
+            );
     }
 
-    function log(message){ $("#monoLog").textContent=message; }
+    function log(message){
+        $("#monoLog").textContent=message;
+    }
 
     function updateTurn(){
+
         if(gameEnded)return;
+
         const p=players[current];
-        rolled=false; pendingProperty=null;
+
+        rolled=false;
+        pendingProperty=null;
+
         $("#monoRoll").disabled=!p.human;
+
         $("#monoBuy").style.display="none";
         $("#monoSkip").style.display="none";
-        log(p.human?"Your turn — roll the dice.":p.name + " is thinking...");
-        if(!p.human) timer(aiTurn,700);
+
+        log(
+            p.human
+            ? "Your turn — roll the dice."
+            : p.name+" is thinking..."
+        );
+
+        if(!p.human){
+            timer(aiTurn,700);
+        }
     }
 
     function rollDice(){
+
         if(gameEnded)return;
+
         const p=players[current];
+
         if(!p.human || rolled)return;
+
         rolled=true;
-        const d1=1+Math.floor(Math.random()*6), d2=1+Math.floor(Math.random()*6);
+
+        const d1=
+            1+Math.floor(Math.random()*6);
+
+        const d2=
+            1+Math.floor(Math.random()*6);
+
         const total=d1+d2;
-        log(`You rolled ${d1} + ${d2} = ${total}`);
-        movePlayer(p,total);
+
+        log(
+            `You rolled ${d1} + ${d2} = ${total}`
+        );
+
+        movePlayer(
+            p,
+            total
+        );
     }
 
-    function movePlayer(p,steps){
+    function movePlayer(
+        p,
+        steps
+    ){
+
         const old=p.pos;
-        p.pos=(p.pos+steps)%40;
-        if(p.pos<old) p.money+=200;
+
+        p.pos=
+            (p.pos+steps)%40;
+
+        if(p.pos<old){
+            p.money+=200;
+        }
+
         render();
-        timer(()=>resolveSpace(p),350);
+
+        timer(
+            ()=>resolveSpace(p),
+            350
+        );
     }
 
     function resolveSpace(p){
-        const space=spaces[p.pos];
+
+        const space=
+            spaces[p.pos];
+
         const type=space[1];
 
-        if(type==="go"){ nextTurn(); return; }
-        if(type==="jail"){ p.money-=50; log(p.name + " is visiting jail."); nextTurn(); return; }
-        if(type==="gotojail"){ p.pos=10; log(p.name + " goes to jail."); render(); nextTurn(); return; }
-        if(type==="free"){ log(p.name + " landed on Free Parking."); nextTurn(); return; }
+        if(type==="go"){
+            nextTurn();
+            return;
+        }
+
+        if(type==="jail"){
+
+            p.money-=50;
+
+            log(
+                p.name+
+                " is visiting jail."
+            );
+
+            nextTurn();
+
+            return;
+        }
+
+        if(type==="gotojail"){
+
+            p.pos=10;
+
+            log(
+                p.name+
+                " goes to jail."
+            );
+
+            render();
+
+            nextTurn();
+
+            return;
+        }
+
+        if(type==="free"){
+
+            log(
+                p.name+
+                " landed on Free Parking."
+            );
+
+            nextTurn();
+
+            return;
+        }
+
         if(type==="tax"){
+
             p.money-=space[2];
-            log(p.name + " paid $" + space[2] + " in taxes.");
-            checkBankruptcy(p); nextTurn(); return;
+
+            log(
+                p.name+
+                " paid $"+
+                space[2]+
+                " in taxes."
+            );
+
+            checkBankruptcy(p);
+
+            nextTurn();
+
+            return;
         }
+
         if(type==="chance"){
-            const amount=[-150,-100,50,100,150][Math.floor(Math.random()*5)];
+
+            const amount=
+                [-150,-100,50,100,150]
+                [
+                    Math.floor(
+                        Math.random()*5
+                    )
+                ];
+
             p.money+=amount;
-            log(p.name + (amount>=0?" received $":" paid $") + Math.abs(amount) + " from Chance.");
-            checkBankruptcy(p); nextTurn(); return;
+
+            log(
+                p.name+
+                (
+                    amount>=0
+                    ? " received $"
+                    : " paid $"
+                )+
+                Math.abs(amount)+
+                " from Chance."
+            );
+
+            checkBankruptcy(p);
+
+            nextTurn();
+
+            return;
         }
+
         if(type==="community"){
-            const amount=[50,100,150,-50][Math.floor(Math.random()*4)];
+
+            const amount=
+                [50,100,150,-50]
+                [
+                    Math.floor(
+                        Math.random()*4
+                    )
+                ];
+
             p.money+=amount;
-            log(p.name + " drew community card: " + (amount>=0?"+":"") + "$" + amount);
-            checkBankruptcy(p); nextTurn(); return;
+
+            log(
+                p.name+
+                " drew community card: "+
+                (amount>=0?"+":"")+
+                "$"+
+                amount
+            );
+
+            checkBankruptcy(p);
+
+            nextTurn();
+
+            return;
         }
+
         if(type==="property"){
+
             const owner=space.owner;
+
             if(owner===undefined){
+
                 if(p.human){
+
                     pendingProperty=p.pos;
-                    $("#monoBuy").style.display="inline-block";
-                    $("#monoSkip").style.display="inline-block";
-                    log(`${space[0]} costs $${space[2]}. Buy it?`);
+
+                    $("#monoBuy").style.display=
+                        "inline-block";
+
+                    $("#monoSkip").style.display=
+                        "inline-block";
+
+                    log(
+                        `${space[0]} costs $${space[2]}. Buy it?`
+                    );
+
                     return;
+
                 }else{
+
                     if(p.money>=space[2]){
-                        space.owner=players.indexOf(p);
+
+                        space.owner=
+                            players.indexOf(p);
+
                         p.money-=space[2];
-                        log(p.name + " bought " + space[0]);
+
+                        log(
+                            p.name+
+                            " bought "+
+                            space[0]
+                        );
                     }
-                    nextTurn(); return;
+
+                    nextTurn();
+
+                    return;
                 }
             }
+
             if(owner!==players.indexOf(p)){
+
                 const rent=space[3];
-                const landlord=players[owner];
-                p.money-=rent; landlord.money+=rent;
-                log(p.name + " paid $" + rent + " rent to " + landlord.name);
+
+                const landlord=
+                    players[owner];
+
+                p.money-=rent;
+
+                landlord.money+=rent;
+
+                log(
+                    p.name+
+                    " paid $"+
+                    rent+
+                    " rent to "+
+                    landlord.name
+                );
+
                 checkBankruptcy(p);
             }
+
             nextTurn();
         }
     }
 
     function buyProperty(){
+
         if(pendingProperty===null)return;
+
         const p=players[current];
-        const space=spaces[pendingProperty];
+
+        const space=
+            spaces[pendingProperty];
+
         if(p.money>=space[2]){
+
             space.owner=current;
+
             p.money-=space[2];
-            log("You bought " + space[0] + " for $" + space[2]);
+
+            log(
+                "You bought "+
+                space[0]+
+                " for $"+
+                space[2]
+            );
         }
+
         pendingProperty=null;
+
         $("#monoBuy").style.display="none";
         $("#monoSkip").style.display="none";
+
         render();
-        timer(nextTurn,500);
+
+        timer(
+            nextTurn,
+            500
+        );
     }
 
     function checkBankruptcy(p){
-        if(p.money>=0)return;
-        p.alive=false;
-        log(p.name + " is bankrupt!");
-        spaces.forEach(s=>{ if(s.owner===players.indexOf(p)) delete s.owner; });
-        const alive=players.filter(x=>x.alive);
-        if(alive.length<=1){
-            gameEnded=true;
-            if(alive.length===1) log("🏆 " + alive[0].name + " wins!");
-            render(); return true;
+
+        if(p.money>=0){
+            return;
         }
+
+        p.alive=false;
+
+        log(
+            p.name+
+            " is bankrupt!"
+        );
+
+        spaces.forEach(s=>{
+
+            if(
+                s.owner===
+                players.indexOf(p)
+            ){
+                delete s.owner;
+            }
+        });
+
+        const alive=
+            players.filter(
+                x=>x.alive
+            );
+
+        if(alive.length<=1){
+
+            gameEnded=true;
+
+            if(alive.length===1){
+
+                log(
+                    "🏆 "+
+                    alive[0].name+
+                    " wins!"
+                );
+            }
+
+            render();
+
+            return true;
+        }
+
         return true;
     }
 
     function nextTurn(){
+
         if(gameEnded)return;
+
         $("#monoBuy").style.display="none";
         $("#monoSkip").style.display="none";
+
         let attempts=0;
+
         do{
-            current=(current+1)%players.length;
+
+            current=
+                (current+1)%
+                players.length;
+
             attempts++;
-        }while(!players[current].alive && attempts<players.length);
-        render(); updateTurn();
+
+        }while(
+            !players[current].alive &&
+            attempts<players.length
+        );
+
+        render();
+        updateTurn();
     }
 
     function aiTurn(){
+
         if(gameEnded)return;
+
         const p=players[current];
+
         if(p.human)return;
-        const d1=1+Math.floor(Math.random()*6), d2=1+Math.floor(Math.random()*6);
-        log(p.name + " rolled " + d1 + " + " + d2);
-        movePlayer(p, d1+d2);
+
+        const d1=
+            1+Math.floor(Math.random()*6);
+
+        const d2=
+            1+Math.floor(Math.random()*6);
+
+        log(
+            p.name+
+            " rolled "+
+            d1+
+            " + "+
+            d2
+        );
+
+        movePlayer(
+            p,
+            d1+d2
+        );
     }
 
     $("#monoRoll").onclick=rollDice;
     $("#monoBuy").onclick=buyProperty;
+
     $("#monoSkip").onclick=()=>{
+
         pendingProperty=null;
+
         $("#monoBuy").style.display="none";
         $("#monoSkip").style.display="none";
+
         nextTurn();
     };
 
     $("#monoRestart").onclick=reset;
+
     reset();
 }
 
@@ -2238,121 +4245,388 @@ function raceCarGame(){
 
     html(`
         <div class="panel">
-            <div class="game-title">🏎️ Race Car Racing</div>
-            <div class="score">Distance: <b id="raceScore">0</b> m</div>
-            <canvas id="raceCanvas" width="360" height="640"></canvas>
-            <div class="controls">
-                <button id="raceLeft">⬅️ LEFT</button>
-                <button id="raceStart" class="primary">START</button>
-                <button id="raceRight">RIGHT ➡️</button>
+
+            <div class="game-title">
+                🏎️ Race Car Racing
             </div>
-            <div class="help">Use buttons, A/D, or ← → keys to dodge traffic.</div>
+
+            <div class="score">
+                Distance:
+                <b id="raceScore">0</b> m
+            </div>
+
+            <canvas id="raceCanvas"
+                    width="360"
+                    height="640">
+            </canvas>
+
+            <div class="controls">
+
+                <button id="raceLeft">
+                    ⬅️ LEFT
+                </button>
+
+                <button id="raceStart"
+                        class="primary">
+                    START
+                </button>
+
+                <button id="raceRight">
+                    RIGHT ➡️
+                </button>
+
+            </div>
+
+            <div class="help">
+                Use buttons, A/D, or ← →
+                keys to dodge traffic.
+            </div>
+
         </div>
     `);
 
     const canvas=$("#raceCanvas");
     const ctx=canvas.getContext("2d");
-    const lanes=[80,180,280];
 
-    let playerLane=1, enemies=[], running=false, distance=0, speed=260, last=0, raf;
+    const lanes=[
+        80,
+        180,
+        280
+    ];
+
+    let playerLane=1;
+    let enemies=[];
+    let running=false;
+    let distance=0;
+    let speed=260;
+    let last=0;
+    let raf;
 
     function reset(){
-        playerLane=1; enemies=[]; running=false; distance=0; speed=260; last=0;
+
+        playerLane=1;
+        enemies=[];
+        running=false;
+        distance=0;
+        speed=260;
+        last=0;
+
         $("#raceScore").textContent=0;
+
         draw();
     }
 
-    function left(){ playerLane=Math.max(0, playerLane-1); }
-    function right(){ playerLane=Math.min(2, playerLane+1); }
+    function left(){
+        playerLane=
+            Math.max(
+                0,
+                playerLane-1
+            );
+    }
+
+    function right(){
+        playerLane=
+            Math.min(
+                2,
+                playerLane+1
+            );
+    }
 
     $("#raceLeft").onclick=left;
     $("#raceRight").onclick=right;
 
     function key(e){
-        if(e.key==="ArrowLeft" || e.key.toLowerCase()==="a"){ e.preventDefault(); left(); }
-        if(e.key==="ArrowRight" || e.key.toLowerCase()==="d"){ e.preventDefault(); right(); }
-        if(e.key===" " && !running) start();
+
+        if(
+            e.key==="ArrowLeft" ||
+            e.key.toLowerCase()==="a"
+        ){
+
+            e.preventDefault();
+
+            left();
+        }
+
+        if(
+            e.key==="ArrowRight" ||
+            e.key.toLowerCase()==="d"
+        ){
+
+            e.preventDefault();
+
+            right();
+        }
+
+        if(
+            e.key===" " &&
+            !running
+        ){
+            start();
+        }
     }
 
-    document.addEventListener("keydown",key);
+    document.addEventListener(
+        "keydown",
+        key
+    );
 
     function start(){
-        enemies=[]; distance=0; speed=260; playerLane=1; running=true;
+
+        enemies=[];
+        distance=0;
+        speed=260;
+        playerLane=1;
+        running=true;
         last=performance.now();
+
         $("#raceScore").textContent=0;
+
         loop(last);
     }
 
     function spawn(){
-        const lane=Math.floor(Math.random()*3);
-        if(enemies.some(e=>e.lane===lane && e.y<160)) return;
-        enemies.push({ lane, y:-100, w:48, h:82 });
+
+        const lane=
+            Math.floor(
+                Math.random()*3
+            );
+
+        if(
+            enemies.some(
+                e=>
+                    e.lane===lane &&
+                    e.y<160
+            )
+        ){
+            return;
+        }
+
+        enemies.push({
+            lane,
+            y:-100,
+            w:48,
+            h:82
+        });
     }
 
     function loop(t){
+
         if(!running)return;
-        const dt=Math.min(.035, (t-last)/1000);
+
+        const dt=
+            Math.min(
+                .035,
+                (t-last)/1000
+            );
+
         last=t;
 
         speed+=dt*5;
-        distance+=dt*speed*.1;
 
-        if(Math.random()<.025) spawn();
-        enemies.forEach(e=>e.y+=speed*dt);
-        enemies=enemies.filter(e=>e.y<700);
+        distance+=
+            dt*
+            speed*
+            .1;
 
-        const py=520, px=lanes[playerLane];
+        if(Math.random()<.025){
+            spawn();
+        }
+
+        enemies.forEach(
+            e=>{
+                e.y+=speed*dt;
+            }
+        );
+
+        enemies=
+            enemies.filter(
+                e=>e.y<700
+            );
+
+        const py=520;
+        const px=lanes[playerLane];
 
         for(const e of enemies){
-            const ex=lanes[e.lane];
-            if(Math.abs(ex-px)<48 && e.y<py+70 && e.y+e.h>py){
+
+            const ex=
+                lanes[e.lane];
+
+            if(
+                Math.abs(ex-px)<48 &&
+                e.y<py+70 &&
+                e.y+e.h>py
+            ){
+
                 running=false;
-                setTimeout(()=>{ alert("💥 Crash!\n\nDistance: " + Math.floor(distance) + " m"); },20);
+
+                timer(()=>{
+                    alert(
+                        "💥 Crash!\n\nDistance: "+
+                        Math.floor(distance)+
+                        " m"
+                    );
+                },20);
+
                 draw();
+
                 return;
             }
         }
 
-        $("#raceScore").textContent=Math.floor(distance);
+        $("#raceScore").textContent=
+            Math.floor(distance);
+
         draw();
 
-        raf=requestAnimationFrame(loop);
+        raf=
+            requestAnimationFrame(loop);
+
         activeFrames.push(raf);
     }
 
     function draw(){
-        ctx.fillStyle="#151515"; ctx.fillRect(0,0,360,640);
-        ctx.fillStyle="#333"; ctx.fillRect(25,0,310,640);
+
+        ctx.fillStyle="#151515";
+        ctx.fillRect(
+            0,
+            0,
+            360,
+            640
+        );
+
+        ctx.fillStyle="#333";
+        ctx.fillRect(
+            25,
+            0,
+            310,
+            640
+        );
 
         ctx.fillStyle="#d8d8d8";
-        ctx.fillRect(20,0,5,640); ctx.fillRect(335,0,5,640);
 
-        ctx.strokeStyle="#aaa"; ctx.lineWidth=4; ctx.setLineDash([30,30]);
-        ctx.beginPath(); ctx.moveTo(130,0); ctx.lineTo(130,640); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(230,0); ctx.lineTo(230,640); ctx.stroke();
+        ctx.fillRect(
+            20,
+            0,
+            5,
+            640
+        );
+
+        ctx.fillRect(
+            335,
+            0,
+            5,
+            640
+        );
+
+        ctx.strokeStyle="#aaa";
+        ctx.lineWidth=4;
+        ctx.setLineDash([
+            30,
+            30
+        ]);
+
+        ctx.beginPath();
+        ctx.moveTo(130,0);
+        ctx.lineTo(130,640);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(230,0);
+        ctx.lineTo(230,640);
+        ctx.stroke();
+
         ctx.setLineDash([]);
 
         const px=lanes[playerLane];
-        ctx.fillStyle="#3498db"; ctx.fillRect(px-24,520,48,82);
-        ctx.fillStyle="#111"; ctx.fillRect(px-18,530,36,18); ctx.fillRect(px-18,575,36,18);
+
+        ctx.fillStyle="#3498db";
+
+        ctx.fillRect(
+            px-24,
+            520,
+            48,
+            82
+        );
+
+        ctx.fillStyle="#111";
+
+        ctx.fillRect(
+            px-18,
+            530,
+            36,
+            18
+        );
+
+        ctx.fillRect(
+            px-18,
+            575,
+            36,
+            18
+        );
 
         enemies.forEach(e=>{
-            const x=lanes[e.lane];
-            ctx.fillStyle="#e74c3c"; ctx.fillRect(x-24,e.y,e.w,e.h);
-            ctx.fillStyle="#111"; ctx.fillRect(x-18,e.y+10,36,16); ctx.fillRect(x-18,e.y+55,36,16);
+
+            const x=
+                lanes[e.lane];
+
+            ctx.fillStyle="#e74c3c";
+
+            ctx.fillRect(
+                x-24,
+                e.y,
+                e.w,
+                e.h
+            );
+
+            ctx.fillStyle="#111";
+
+            ctx.fillRect(
+                x-18,
+                e.y+10,
+                36,
+                16
+            );
+
+            ctx.fillRect(
+                x-18,
+                e.y+55,
+                36,
+                16
+            );
         });
 
         if(!running){
-            ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.font="bold 26px Arial";
-            ctx.fillText("TAP START",180,320);
+
+            ctx.fillStyle="#fff";
+
+            ctx.textAlign="center";
+
+            ctx.font=
+                "bold 26px Arial";
+
+            ctx.fillText(
+                "TAP START",
+                180,
+                320
+            );
         }
     }
 
-    $("#raceStart").onclick=()=>{ if(!running) start(); };
+    $("#raceStart").onclick=()=>{
+        if(!running){
+            start();
+        }
+    };
+
     reset();
 
     activeCleanup=()=>{
-        document.removeEventListener("keydown",key);
+
+        document.removeEventListener(
+            "keydown",
+            key
+        );
+
         cancelAnimationFrame(raf);
     };
 }
@@ -2360,19 +4634,111 @@ function raceCarGame(){
 
 /* ==========================================================
    DIRTY MINDS — MULTIPLAYER
+   FIXED HOST / START SYSTEM
    ========================================================== */
 
 function dirtyMindsGame(){
 
-    const params = new URLSearchParams(window.location.search);
-    let roomId = params.get("room") || "";
-    let playerId = params.get("player_id") || "";
-    let playerName = params.get("player_name") || "";
+    const params=
+        new URLSearchParams(
+            window.location.search
+        );
+
+    let roomId=
+        params.get("room") || "";
+
+    let playerId=
+        params.get("player_id") || "";
+
+    let playerName=
+        params.get("player_name") || "";
+
+    /*
+     * IMPORTANT:
+     * The creator of a room is immediately
+     * marked as the host on the frontend.
+     *
+     * This prevents the Start button from
+     * disappearing when the server does not
+     * immediately return host_id.
+     */
+
+    let room=null;
+    let pollId=null;
+    let joined=false;
+    let isHost=false;
+
+    function createPlayerId(){
+
+        return "web_"+
+            Date.now()+
+            "_"+
+            Math.random()
+                .toString(36)
+                .slice(2,9);
+    }
+
+    if(!playerId){
+        playerId=createPlayerId();
+    }
+
+    /*
+     * Preserve host status when the player
+     * refreshes the page.
+     */
+
+    function hostStorageKey(){
+
+        return roomId
+            ? "dirty_minds_host_"+roomId
+            : "";
+    }
+
+    function saveHost(){
+
+        if(!roomId)return;
+
+        try{
+
+            if(isHost){
+                localStorage.setItem(
+                    hostStorageKey(),
+                    playerId
+                );
+            }
+
+        }catch(e){
+            console.warn(
+                "Unable to save host state",
+                e
+            );
+        }
+    }
+
+    function loadHost(){
+
+        if(!roomId)return false;
+
+        try{
+
+            return String(
+                localStorage.getItem(
+                    hostStorageKey()
+                ) || ""
+            )===String(playerId);
+
+        }catch(e){
+
+            return false;
+        }
+    }
 
     html(`
         <div class="panel dm-lobby">
 
-            <div class="game-title">🧠 Dirty Minds</div>
+            <div class="game-title">
+                🧠 Dirty Minds
+            </div>
 
             <p class="help">
                 Multiplayer party game for your group.
@@ -2380,37 +4746,100 @@ function dirtyMindsGame(){
 
             <div id="dmSetup">
 
-                <input id="dmName"
-                       placeholder="Enter your player name"
-                       maxlength="40"
-                       value="${escapeHtml(playerName)}">
+                <input
+                    id="dmName"
+                    placeholder="Enter your player name"
+                    maxlength="40"
+                    value="${escapeHtml(playerName)}"
+                    autocomplete="nickname"
+                >
 
                 <div style="margin-top:14px">
-                    <input id="dmRoom"
-                           placeholder="Room code"
-                           maxlength="12"
-                           value="${escapeHtml(roomId)}">
+
+                    <input
+                        id="dmRoom"
+                        placeholder="Room code"
+                        maxlength="12"
+                        value="${escapeHtml(roomId)}"
+                        autocomplete="off"
+                    >
+
                 </div>
 
                 <div class="controls">
-                    <button id="dmCreate" class="primary">🎮 Create Game</button>
-                    <button id="dmJoin">🔗 Join Room</button>
+
+                    <button
+                        id="dmCreate"
+                        class="primary">
+                        🎮 Create Game
+                    </button>
+
+                    <button
+                        id="dmJoin">
+                        🔗 Join Room
+                    </button>
+
                 </div>
 
-                <div id="dmError" class="status" style="color:#ff7777"></div>
+                <div
+                    id="dmError"
+                    class="status"
+                    style="color:#ff7777">
+                </div>
 
             </div>
 
-            <div id="dmGame" style="display:none">
+            <div
+                id="dmGame"
+                style="display:none">
 
-                <div id="dmRoomLabel" class="status"></div>
+                <div
+                    id="dmRoomLabel"
+                    class="status">
+                </div>
+
+                <div
+                    id="dmHostBadge"
+                    style="text-align:center">
+                </div>
+
                 <div id="dmPhase"></div>
-                <div id="dmPlayers" class="dm-players"></div>
+
+                <div
+                    id="dmPlayers"
+                    class="dm-players">
+                </div>
 
                 <div class="controls">
-                    <button id="dmStart" class="primary" style="display:none">▶️ Start Game</button>
-                    <button id="dmReveal" class="gold" style="display:none">👀 Reveal Answer</button>
-                    <button id="dmNext" class="primary" style="display:none">➡️ Next Round</button>
+
+                    <button
+                        id="dmStart"
+                        class="primary"
+                        style="display:none">
+                        ▶️ Start Game
+                    </button>
+
+                    <button
+                        id="dmShare"
+                        class="dm-share"
+                        style="display:none">
+                        📋 Copy Invite Link
+                    </button>
+
+                    <button
+                        id="dmReveal"
+                        class="gold"
+                        style="display:none">
+                        👀 Reveal Answer
+                    </button>
+
+                    <button
+                        id="dmNext"
+                        class="primary"
+                        style="display:none">
+                        ➡️ Next Round
+                    </button>
+
                 </div>
 
             </div>
@@ -2418,426 +4847,1260 @@ function dirtyMindsGame(){
         </div>
     `);
 
-    const API = "/real-games";
+    const API="/real-games";
 
-    let room = null;
-    let pollId = null;
-    let joined = false;
-
-    const nameInput = $("#dmName");
-    const roomInput = $("#dmRoom");
+    const nameInput=$("#dmName");
+    const roomInput=$("#dmRoom");
 
     function myName(){
-        return (nameInput.value.trim() || "Player").slice(0,40);
+
+        return (
+            nameInput.value.trim() ||
+            "Player"
+        ).slice(0,40);
     }
 
-    function createPlayerId(){
-        return "web_" + Date.now() + "_" + Math.random().toString(36).slice(2,9);
-    }
+    async function api(
+        url,
+        options={}
+    ){
 
-    if(!playerId) playerId = createPlayerId();
-
-    async function api(url, options={}){
-        const response = await fetch(url, {
-            ...options,
-            headers: {
-                "Content-Type": "application/json",
-                ...(options.headers || {})
-            }
-        });
+        const response=
+            await fetch(
+                url,
+                {
+                    ...options,
+                    headers:{
+                        "Content-Type":
+                            "application/json",
+                        ...(options.headers || {})
+                    }
+                }
+            );
 
         let data;
-        try {
-            data = await response.json();
-        } catch(e) {
-            throw new Error("Invalid server response.");
+
+        try{
+
+            data=
+                await response.json();
+
+        }catch(e){
+
+            throw new Error(
+                "Invalid server response."
+            );
         }
 
         if(!response.ok){
-            throw new Error(data.error || data.message || "Request failed.");
+
+            throw new Error(
+                data.error ||
+                data.message ||
+                "Request failed."
+            );
         }
 
         return data;
     }
 
     function showError(msg){
-        const el = $("#dmError");
-        if(el) el.textContent = msg || "";
+
+        const el=$("#dmError");
+
+        if(el){
+            el.textContent=
+                msg || "";
+        }
+    }
+
+    function getReturnedRoom(data){
+
+        return (
+            data &&
+            (
+                data.room ||
+                data.data ||
+                null
+            )
+        );
+    }
+
+    function establishHostFromRoom(){
+
+        if(!room)return;
+
+        /*
+         * If backend supplies host_id,
+         * always trust it.
+         */
+
+        const backendHost=
+            room.host_id ||
+            room.host_player_id ||
+            room.host;
+
+        if(backendHost){
+
+            room.host_id=
+                String(backendHost);
+
+            isHost=
+                String(backendHost)===
+                String(playerId);
+
+            if(isHost){
+                saveHost();
+            }
+
+            return;
+        }
+
+        /*
+         * If this browser created the room,
+         * remain host even if backend omitted
+         * host_id from its response.
+         */
+
+        if(loadHost()){
+
+            isHost=true;
+
+            room.host_id=
+                room.host_id ||
+                playerId;
+        }
     }
 
     async function createGame(){
+
         showError("");
+
+        const name=myName();
+
         try{
-            const data = await api(API + "/create-room", {
-                method:"POST",
-                body:JSON.stringify({
-                    game_id:"dirty_minds",
-                    player_id:playerId,
-                    player_name:myName()
-                })
-            });
 
-            roomId = data.room_id || (data.room && data.room.room_id) || "";
-            room = data.room || data.data || null;
+            const data=
+                await api(
+                    API+"/create-room",
+                    {
+                        method:"POST",
+                        body:JSON.stringify({
+                            game_id:
+                                "dirty_minds",
+                            player_id:
+                                playerId,
+                            player_name:
+                                name
+                        })
+                    }
+                );
 
-            if(!roomId) throw new Error("No room code returned.");
+            roomId=
+                data.room_id ||
+                (
+                    data.room &&
+                    data.room.room_id
+                ) ||
+                "";
 
-            roomInput.value = roomId;
-            joined = true;
+            room=
+                getReturnedRoom(data);
+
+            if(!roomId){
+
+                throw new Error(
+                    "No room code returned."
+                );
+            }
+
+            /*
+             * THE CREATOR IS THE HOST.
+             */
+
+            isHost=true;
+
+            if(!room){
+                room={};
+            }
+
+            room.room_id=roomId;
+            room.host_id=playerId;
+
+            saveHost();
+
+            roomInput.value=roomId;
+
+            joined=true;
+
+            history.replaceState(
+                {},
+                "",
+                "?room="+
+                encodeURIComponent(roomId)+
+                "&player_id="+
+                encodeURIComponent(playerId)+
+                "&player_name="+
+                encodeURIComponent(name)
+            );
 
             showGame();
 
-            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId) + "&player_name=" + encodeURIComponent(myName()));
             startPolling();
 
         }catch(err){
-            showError(err.message);
+
+            showError(
+                err.message
+            );
         }
     }
 
     async function joinGame(){
+
         showError("");
+
         try{
-            roomId = roomInput.value.trim().toUpperCase();
+
+            roomId=
+                roomInput.value
+                    .trim()
+                    .toUpperCase();
+
             if(!roomId){
-                showError("Enter a room code first.");
+
+                showError(
+                    "Enter a room code first."
+                );
+
                 return;
             }
 
-            const data = await api(API + "/room/" + encodeURIComponent(roomId) + "/join", {
-                method:"POST",
-                body:JSON.stringify({
-                    player_id:playerId,
-                    player_name:myName()
-                })
-            });
+            const data=
+                await api(
+                    API+
+                    "/room/"+
+                    encodeURIComponent(roomId)+
+                    "/join",
+                    {
+                        method:"POST",
+                        body:JSON.stringify({
+                            player_id:
+                                playerId,
+                            player_name:
+                                myName()
+                        })
+                    }
+                );
 
-            room = data.room || data.data || null;
-            joined = true;
+            room=
+                getReturnedRoom(data);
+
+            joined=true;
+
+            establishHostFromRoom();
+
+            history.replaceState(
+                {},
+                "",
+                "?room="+
+                encodeURIComponent(roomId)+
+                "&player_id="+
+                encodeURIComponent(playerId)+
+                "&player_name="+
+                encodeURIComponent(myName())
+            );
 
             showGame();
 
-            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId) + "&player_name=" + encodeURIComponent(myName()));
             startPolling();
 
         }catch(err){
-            showError(err.message);
+
+            showError(
+                err.message
+            );
         }
     }
 
     function showGame(){
-        $("#dmSetup").style.display = "none";
-        $("#dmGame").style.display = "block";
+
+        const setup=$("#dmSetup");
+        const game=$("#dmGame");
+
+        if(setup){
+            setup.style.display="none";
+        }
+
+        if(game){
+            game.style.display="block";
+        }
+
         renderRoom();
     }
 
     async function refresh(){
-        if(!roomId) return;
+
+        if(!roomId)return;
 
         try{
-            const data = await api(API + "/room/" + encodeURIComponent(roomId));
-            room = data.room || data.data || null;
-            if(!room) return;
+
+            const data=
+                await api(
+                    API+
+                    "/room/"+
+                    encodeURIComponent(roomId)
+                );
+
+            const newRoom=
+                getReturnedRoom(data);
+
+            if(!newRoom){
+                return;
+            }
+
+            /*
+             * Preserve our local host identity
+             * if the backend response doesn't
+             * include host_id.
+             */
+
+            const previousHostId=
+                room &&
+                room.host_id
+                ? room.host_id
+                : null;
+
+            room=newRoom;
+
+            if(
+                !room.host_id &&
+                previousHostId
+            ){
+
+                room.host_id=
+                    previousHostId;
+            }
+
+            if(
+                !room.host_id &&
+                loadHost()
+            ){
+
+                room.host_id=
+                    playerId;
+            }
+
+            establishHostFromRoom();
 
             if(!joined){
-                joined = true;
+
+                joined=true;
+
                 showGame();
             }
 
             renderRoom();
 
         }catch(err){
-            console.error(err);
+
+            console.error(
+                "Dirty Minds refresh error:",
+                err
+            );
         }
     }
 
     function startPolling(){
-        if(pollId) clearInterval(pollId);
-        pollId = setInterval(refresh, 1000);
-        activeIntervals.push(pollId);
+
+        if(pollId){
+            clearInterval(pollId);
+        }
+
+        pollId=
+            setInterval(
+                refresh,
+                1000
+            );
+
+        activeIntervals.push(
+            pollId
+        );
+
         refresh();
     }
 
     function getStatus(){
-        if(!room) return "waiting";
-        if(room.finished || room.game_over) return "finished";
-        if(room.status) return String(room.status).toLowerCase();
-        if(room.phase){
-            const p = String(room.phase).toLowerCase();
-            if(p === "question" || p === "playing") return "playing";
-            if(p === "reveal" || p === "revealed") return "revealed";
+
+        if(!room){
+            return "waiting";
         }
-        if(room.started) return "playing";
+
+        if(
+            room.finished ||
+            room.game_over
+        ){
+            return "finished";
+        }
+
+        if(room.status){
+
+            return String(
+                room.status
+            ).toLowerCase();
+        }
+
+        if(room.phase){
+
+            const p=
+                String(
+                    room.phase
+                ).toLowerCase();
+
+            if(
+                p==="question" ||
+                p==="playing"
+            ){
+                return "playing";
+            }
+
+            if(
+                p==="reveal" ||
+                p==="revealed"
+            ){
+                return "revealed";
+            }
+        }
+
+        if(room.started){
+            return "playing";
+        }
+
         return "waiting";
     }
 
     function getClue(){
-        return room.clue || room.question || room.current_clue || (room.data && room.data.clue) || "";
+
+        return (
+            room.clue ||
+            room.question ||
+            room.current_clue ||
+            (
+                room.data &&
+                room.data.clue
+            ) ||
+            ""
+        );
     }
 
     function getRevealedAnswer(){
-        return room.answer || room.current_answer || (room.data && room.data.answer) || "";
+
+        return (
+            room.answer ||
+            room.current_answer ||
+            (
+                room.data &&
+                room.data.answer
+            ) ||
+            ""
+        );
     }
 
     function renderRoom(){
-        if(!room) return;
 
-        const players = Array.isArray(room.players) ? room.players : [];
-        const roomCode = room.room_id || roomId;
+        if(!room)return;
 
-        $("#dmRoomLabel").innerHTML = `Room: <b>${escapeHtml(roomCode)}</b> · ${players.length} player${players.length===1?"":"s"}`;
+        const players=
+            Array.isArray(room.players)
+            ? room.players
+            : [];
 
-        const playersEl = $("#dmPlayers");
-        playersEl.innerHTML = "";
+        const roomCode=
+            room.room_id ||
+            roomId;
 
-        players.forEach(p => {
-            const row = document.createElement("div");
-            row.className = "dm-player";
-            if(String(p.player_id) === String(playerId)) row.classList.add("me");
+        /*
+         * Recalculate host status every render.
+         */
 
-            const answered = room.answers && room.answers[p.player_id];
-            const isHostPlayer = room.host_id && String(p.player_id) === String(room.host_id);
+        establishHostFromRoom();
 
-            row.innerHTML = `
+        $("#dmRoomLabel").innerHTML=
+            `Room: <b>${
+                escapeHtml(roomCode)
+            }</b> · ${
+                players.length
+            } player${
+                players.length===1
+                ? ""
+                : "s"
+            }`;
+
+        const hostBadge=
+            $("#dmHostBadge");
+
+        if(hostBadge){
+
+            hostBadge.innerHTML=
+                isHost
+                ? `<span class="dm-host-badge">
+                       👑 YOU ARE THE HOST
+                   </span>`
+                : "";
+        }
+
+        const playersEl=
+            $("#dmPlayers");
+
+        playersEl.innerHTML="";
+
+        players.forEach(p=>{
+
+            const row=
+                document.createElement("div");
+
+            row.className="dm-player";
+
+            if(
+                String(p.player_id)===
+                String(playerId)
+            ){
+
+                row.classList.add("me");
+            }
+
+            const answered=
+                room.answers &&
+                room.answers[p.player_id];
+
+            const isHostPlayer=
+                room.host_id &&
+                String(p.player_id)===
+                String(room.host_id);
+
+            row.innerHTML=`
                 <span>
-                    ${escapeHtml(p.name || p.player_name || "Player")}
-                    ${isHostPlayer ? " 👑" : ""}
+                    ${escapeHtml(
+                        p.name ||
+                        p.player_name ||
+                        "Player"
+                    )}
+
+                    ${isHostPlayer
+                        ? " 👑"
+                        : ""}
                 </span>
+
                 <span>
-                    ${room.started ? (p.score ?? 0) + " pts" : ""}
-                    ${answered ? '<span class="dm-submitted"> ✓</span>' : ""}
+
+                    ${
+                        room.started
+                        ? (
+                            p.score ?? 0
+                        )+" pts"
+                        : ""
+                    }
+
+                    ${
+                        answered
+                        ? '<span class="dm-submitted"> ✓</span>'
+                        : ""
+                    }
+
                 </span>
             `;
 
             playersEl.appendChild(row);
         });
 
-        const status = getStatus();
+        const status=
+            getStatus();
 
-        // Control buttons remain accessible to all connected room members
-        $("#dmStart").style.display = !room.started && !room.finished ? "inline-block" : "none";
-        $("#dmReveal").style.display = room.started && (status === "playing" || status === "question") ? "inline-block" : "none";
-        $("#dmNext").style.display = room.started && (status === "revealed" || status === "reveal") ? "inline-block" : "none";
+        const startButton=
+            $("#dmStart");
 
-        if(!room.started && !room.finished){
-            $("#dmPhase").innerHTML = `
-                <div class="dm-question">👥 Waiting for Players</div>
+        const shareButton=
+            $("#dmShare");
+
+        const revealButton=
+            $("#dmReveal");
+
+        const nextButton=
+            $("#dmNext");
+
+        /*
+         * START BUTTON:
+         * Only host sees it.
+         */
+
+        if(startButton){
+
+            startButton.style.display=
+                isHost &&
+                !room.started &&
+                !room.finished
+                ? "inline-block"
+                : "none";
+        }
+
+        /*
+         * Copy invite link is useful
+         * while waiting for players.
+         */
+
+        if(shareButton){
+
+            shareButton.style.display=
+                !room.started &&
+                !room.finished
+                ? "inline-block"
+                : "none";
+        }
+
+        if(revealButton){
+
+            revealButton.style.display=
+                isHost &&
+                room.started &&
+                (
+                    status==="playing" ||
+                    status==="question"
+                )
+                ? "inline-block"
+                : "none";
+        }
+
+        if(nextButton){
+
+            nextButton.style.display=
+                isHost &&
+                room.started &&
+                (
+                    status==="revealed" ||
+                    status==="reveal"
+                )
+                ? "inline-block"
+                : "none";
+        }
+
+        if(
+            !room.started &&
+            !room.finished
+        ){
+
+            $("#dmPhase").innerHTML=`
+
+                <div class="dm-question">
+                    👥 Waiting for Players
+                </div>
+
                 <div class="help">
+
                     Room Code:
-                    <div style="font-size:32px;font-weight:900;letter-spacing:4px;margin:15px 0;color:#a78bfa;">
+
+                    <div class="dm-room-code">
                         ${escapeHtml(roomCode)}
                     </div>
-                    Share this room code with everyone playing.<br><br>
-                    Click <b>▶️ Start Game</b> when everyone has connected.
+
+                    Give this code to everyone
+                    who wants to play.
+
+                    <br><br>
+
+                    ${
+                        isHost
+                        ? `
+                            <b>
+                                👑 You are the host.
+                            </b>
+
+                            <br><br>
+
+                            When everyone has joined,
+                            press
+                            <b>▶️ Start Game</b>.
+                        `
+                        : `
+                            Waiting for the host
+                            to start the game.
+                        `
+                    }
+
                 </div>
             `;
+
             return;
         }
 
-        if(room.finished || status === "finished"){
-            const winner = room.winner;
-            $("#dmPhase").innerHTML = `
-                <div class="dm-question">🏆 GAME OVER</div>
+        if(
+            room.finished ||
+            status==="finished"
+        ){
+
+            const winner=
+                room.winner;
+
+            $("#dmPhase").innerHTML=`
+
+                <div class="dm-question">
+                    🏆 GAME OVER
+                </div>
+
                 <div class="dm-answer">
-                    ${winner ? escapeHtml(winner.name || winner.player_name || "Winner") + " — " + (winner.score ?? 0) + " points" : "Game Complete"}
+
+                    ${
+                        winner
+                        ? escapeHtml(
+                            winner.name ||
+                            winner.player_name ||
+                            "Winner"
+                        )+
+                        " — "+
+                        (
+                            winner.score ??
+                            0
+                        )+
+                        " points"
+                        : "Game Complete"
+                    }
+
                 </div>
             `;
+
             return;
         }
 
-        if(status === "playing" || status === "question"){
+        if(
+            status==="playing" ||
+            status==="question"
+        ){
+
             renderQuestion();
+
             return;
         }
 
-        if(status === "revealed" || status === "reveal"){
+        if(
+            status==="revealed" ||
+            status==="reveal"
+        ){
+
             renderReveal();
+
             return;
         }
     }
 
     function renderQuestion(){
-        const clue = getClue();
-        const answered = room.answers && room.answers[playerId];
 
-        $("#dmPhase").innerHTML = `
-            <div class="status">Round <b>${room.round || 1}</b> of <b>${room.total_rounds || 10}</b></div>
+        const clue=getClue();
+
+        const answered=
+            room.answers &&
+            room.answers[playerId];
+
+        $("#dmPhase").innerHTML=`
+
+            <div class="status">
+
+                Round
+                <b>
+                    ${room.round || 1}
+                </b>
+
+                of
+
+                <b>
+                    ${room.total_rounds || 10}
+                </b>
+
+            </div>
 
             <div class="dm-question">
-                ${clue ? escapeHtml(clue) : "Loading clue..."}
+
+                ${
+                    clue
+                    ? escapeHtml(clue)
+                    : "Loading clue..."
+                }
+
             </div>
 
             <div>
-                <input id="dmAnswer"
-                       maxlength="200"
-                       autocomplete="off"
-                       placeholder="What's your answer?"
-                       ${answered ? "disabled" : ""}>
+
+                <input
+                    id="dmAnswer"
+                    maxlength="200"
+                    autocomplete="off"
+                    placeholder="What's your answer?"
+                    ${answered ? "disabled" : ""}
+                >
+
             </div>
 
             <div class="controls">
-                <button id="dmSubmit" class="primary" ${answered ? "disabled" : ""}>
-                    ${answered ? "✓ Answer Submitted" : "Submit Answer"}
+
+                <button
+                    id="dmSubmit"
+                    class="primary"
+                    ${answered ? "disabled" : ""}>
+
+                    ${
+                        answered
+                        ? "✓ Answer Submitted"
+                        : "Submit Answer"
+                    }
+
                 </button>
+
             </div>
 
-            ${answered ? '<div class="status" style="color:#6ee7a0">✓ Your answer has been submitted. Waiting for the reveal.</div>' : ""}
+            ${
+                answered
+                ? `
+                    <div
+                        class="status"
+                        style="color:#6ee7a0">
+
+                        ✓ Your answer has been submitted.
+                        Waiting for the reveal.
+
+                    </div>
+                `
+                : ""
+            }
         `;
 
-        const submit = $("#dmSubmit");
-        if(submit) submit.onclick = submitAnswer;
+        const submit=$("#dmSubmit");
 
-        const answerInput = $("#dmAnswer");
+        if(submit){
+            submit.onclick=
+                submitAnswer;
+        }
+
+        const answerInput=
+            $("#dmAnswer");
+
         if(answerInput){
-            answerInput.addEventListener("keydown", e => {
-                if(e.key === "Enter" && !answered){
-                    e.preventDefault();
-                    submitAnswer();
+
+            answerInput.addEventListener(
+                "keydown",
+                e=>{
+
+                    if(
+                        e.key==="Enter" &&
+                        !answered
+                    ){
+
+                        e.preventDefault();
+
+                        submitAnswer();
+                    }
                 }
-            });
+            );
         }
     }
 
     function renderReveal(){
-        const clue = getClue();
-        const answer = getRevealedAnswer();
 
-        let answersHtml = "";
-        const players = Array.isArray(room.players) ? room.players : [];
+        const clue=getClue();
 
-        players.forEach(p => {
-            const submitted = room.answers && room.answers[p.player_id];
-            answersHtml += `
+        const answer=
+            getRevealedAnswer();
+
+        let answersHtml="";
+
+        const players=
+            Array.isArray(room.players)
+            ? room.players
+            : [];
+
+        players.forEach(p=>{
+
+            const submitted=
+                room.answers &&
+                room.answers[p.player_id];
+
+            answersHtml+=`
+
                 <div class="dm-player">
-                    <span>${escapeHtml(p.name || p.player_name || "Player")}</span>
-                    <span>${submitted ? escapeHtml(String(submitted)) : "No answer"}</span>
+
+                    <span>
+                        ${escapeHtml(
+                            p.name ||
+                            p.player_name ||
+                            "Player"
+                        )}
+                    </span>
+
+                    <span>
+                        ${
+                            submitted
+                            ? escapeHtml(
+                                String(submitted)
+                              )
+                            : "No answer"
+                        }
+                    </span>
+
                 </div>
             `;
         });
 
-        $("#dmPhase").innerHTML = `
-            <div class="status">Round <b>${room.round || 1}</b> of <b>${room.total_rounds || 10}</b></div>
+        $("#dmPhase").innerHTML=`
 
-            <div class="dm-question">${escapeHtml(clue)}</div>
+            <div class="status">
 
-            <div class="dm-answer">
-                ✅ Innocent Answer:<br><br>
-                ${escapeHtml(answer)}
+                Round
+                <b>
+                    ${room.round || 1}
+                </b>
+
+                of
+
+                <b>
+                    ${room.total_rounds || 10}
+                </b>
+
             </div>
 
-            <div class="status">Answers Submitted</div>
+            <div class="dm-question">
+                ${escapeHtml(clue)}
+            </div>
+
+            <div class="dm-answer">
+
+                ✅ Innocent Answer:
+
+                <br><br>
+
+                ${escapeHtml(answer)}
+
+            </div>
+
+            <div class="status">
+                Answers Submitted
+            </div>
 
             ${answersHtml}
         `;
     }
 
     async function submitAnswer(){
-        const input = $("#dmAnswer");
-        if(!input) return;
 
-        const answer = input.value.trim();
+        const input=$("#dmAnswer");
+
+        if(!input)return;
+
+        const answer=
+            input.value.trim();
+
         if(!answer){
-            alert("Enter an answer first.");
+
+            alert(
+                "Enter an answer first."
+            );
+
             return;
         }
 
-        const submit = $("#dmSubmit");
-        if(submit) submit.disabled = true;
+        const submit=
+            $("#dmSubmit");
+
+        if(submit){
+            submit.disabled=true;
+        }
 
         try{
-            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/answer", {
-                method:"POST",
-                body:JSON.stringify({
-                    player_id: playerId,
-                    answer: answer
-                })
-            });
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/answer",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+                        player_id:
+                            playerId,
+                        answer:
+                            answer
+                    })
+                }
+            );
 
             await refresh();
 
         }catch(err){
-            if(submit) submit.disabled = false;
-            alert(err.message);
+
+            if(submit){
+                submit.disabled=false;
+            }
+
+            alert(
+                err.message
+            );
         }
     }
 
     async function startGame(){
-        const button = $("#dmStart");
+
+        /*
+         * HARD HOST CHECK
+         */
+
+        establishHostFromRoom();
+
+        if(!isHost){
+
+            alert(
+                "Only the host can start the game."
+            );
+
+            return;
+        }
+
+        if(!roomId){
+
+            alert(
+                "No room code is available."
+            );
+
+            return;
+        }
+
+        const button=
+            $("#dmStart");
+
         if(button){
-            button.disabled = true;
-            button.textContent = "⏳ Starting...";
+
+            button.disabled=true;
+
+            button.textContent=
+                "⏳ Starting...";
         }
 
         try{
-            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/start", {
-                method:"POST",
-                body:JSON.stringify({
-                    player_id: playerId,
-                    host_id: room ? room.host_id : playerId
-                })
-            });
+
+            /*
+             * Always send a valid host_id.
+             */
+
+            const hostId=
+                room &&
+                room.host_id
+                ? room.host_id
+                : playerId;
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/start",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+
+                        player_id:
+                            playerId,
+
+                        host_id:
+                            hostId
+                    })
+                }
+            );
 
             await refresh();
 
         }catch(err){
+
             if(button){
-                button.disabled = false;
-                button.textContent = "▶️ Start Game";
+
+                button.disabled=false;
+
+                button.textContent=
+                    "▶️ Start Game";
             }
-            alert(err.message);
+
+            alert(
+                err.message
+            );
         }
     }
 
     async function reveal(){
+
+        if(!isHost){
+
+            alert(
+                "Only the host can reveal the answer."
+            );
+
+            return;
+        }
+
         try{
-            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/reveal", {
-                method:"POST",
-                body:JSON.stringify({
-                    player_id: playerId
-                })
-            });
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/reveal",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+                        player_id:
+                            playerId
+                    })
+                }
+            );
 
             await refresh();
 
         }catch(err){
-            alert(err.message);
+
+            alert(
+                err.message
+            );
         }
     }
 
     async function nextRound(){
-        const button = $("#dmNext");
-        if(button) button.disabled = true;
+
+        if(!isHost){
+
+            alert(
+                "Only the host can start the next round."
+            );
+
+            return;
+        }
+
+        const button=
+            $("#dmNext");
+
+        if(button){
+            button.disabled=true;
+        }
 
         try{
-            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/next", {
-                method:"POST",
-                body:JSON.stringify({
-                    player_id: playerId
-                })
-            });
+
+            await api(
+                API+
+                "/room/"+
+                encodeURIComponent(roomId)+
+                "/dirty-minds/next",
+                {
+                    method:"POST",
+                    body:JSON.stringify({
+                        player_id:
+                            playerId
+                    })
+                }
+            );
 
             await refresh();
 
         }catch(err){
-            if(button) button.disabled = false;
-            alert(err.message);
+
+            if(button){
+                button.disabled=false;
+            }
+
+            alert(
+                err.message
+            );
         }
     }
 
-    $("#dmCreate").onclick = createGame;
-    $("#dmJoin").onclick = joinGame;
-    $("#dmStart").onclick = startGame;
-    $("#dmReveal").onclick = reveal;
-    $("#dmNext").onclick = nextRound;
+    async function copyInvite(){
 
-    if(roomId){
-        timer(joinGame, 100);
+        if(!roomId)return;
+
+        const url=
+            window.location.origin+
+            window.location.pathname+
+            "?room="+
+            encodeURIComponent(roomId)+
+            "&game=dirty_minds";
+
+        try{
+
+            await navigator.clipboard.writeText(url);
+
+            const button=
+                $("#dmShare");
+
+            if(button){
+
+                const old=
+                    button.textContent;
+
+                button.textContent=
+                    "✅ Link Copied!";
+
+                timer(()=>{
+
+                    button.textContent=
+                        old;
+
+                },2000);
+            }
+
+        }catch(err){
+
+            /*
+             * Clipboard can be blocked by
+             * some mobile browsers.
+             */
+
+            prompt(
+                "Copy this invite link:",
+                url
+            );
+        }
     }
 
-    activeCleanup = () => {
+    $("#dmCreate").onclick=
+        createGame;
+
+    $("#dmJoin").onclick=
+        joinGame;
+
+    $("#dmStart").onclick=
+        startGame;
+
+    $("#dmShare").onclick=
+        copyInvite;
+
+    $("#dmReveal").onclick=
+        reveal;
+
+    $("#dmNext").onclick=
+        nextRound;
+
+    /*
+     * If someone opens a room link,
+     * automatically join the room.
+     */
+
+    if(roomId){
+
+        timer(
+            joinGame,
+            100
+        );
+    }
+
+    activeCleanup=()=>{
+
         if(pollId){
-            clearInterval(pollId);
-            pollId = null;
+
+            clearInterval(
+                pollId
+            );
+
+            pollId=null;
         }
     };
 }
@@ -2848,25 +6111,45 @@ function dirtyMindsGame(){
    ========================================================== */
 
 const PLAYABLE_GAMES={
+
     snake:snakeGame,
+
     pong:pongGame,
+
     breakout:breakoutGame,
+
     dodge:dodgeGame,
+
     "2048":game2048,
+
     memory_match:memoryGame,
+
     memory:memoryGame,
+
     reaction:reactionGame,
+
     whack_a_mole:whackGame,
+
     whack:whackGame,
+
     basketball:basketballGame,
+
     target_shooter:targetGame,
+
     targetshooter:targetGame,
+
     chess:chessGame,
+
     checkers:checkersGame,
+
     monopoly:monopolyGame,
+
     dirty_minds:dirtyMindsGame,
+
     dirtyminds:dirtyMindsGame,
+
     race_car:raceCarGame,
+
     racing:raceCarGame
 };
 
@@ -2879,52 +6162,116 @@ function launch(){
 
     clearGame();
 
-    const id = String(GAME_ID)
-        .toLowerCase()
-        .trim()
-        .replaceAll("-","_")
-        .replaceAll(" ","_");
+    const id=
+        String(GAME_ID)
+            .toLowerCase()
+            .trim()
+            .replaceAll("-","_")
+            .replaceAll(" ","_");
 
-    const game = PLAYABLE_GAMES[id];
+    const game=
+        PLAYABLE_GAMES[id];
 
     if(!game){
+
         html(`
+
             <div class="panel">
-                <div class="game-title">❌ Game Not Available</div>
+
+                <div class="game-title">
+                    ❌ Game Not Available
+                </div>
+
                 <div class="help">
-                    The game engine for <b>${escapeHtml(GAME_ID)}</b> has not been installed.
+
+                    The game engine for
+                    <b>
+                        ${escapeHtml(GAME_ID)}
+                    </b>
+                    has not been installed.
+
                 </div>
+
                 <div class="controls">
-                    <a class="back" href="/real-games/">Return to Real Games</a>
+
+                    <a
+                        class="back"
+                        href="/real-games/">
+
+                        Return to Real Games
+
+                    </a>
+
                 </div>
+
             </div>
+
         `);
+
         return;
     }
 
     try{
+
         game();
+
     }catch(error){
-        console.error("Real Game Error:", error);
+
+        console.error(
+            "Real Game Error:",
+            error
+        );
+
         html(`
+
             <div class="panel">
-                <div class="game-title">⚠️ Game Error</div>
-                <div class="help">Something went wrong while loading this game.</div>
-                <div class="controls">
-                    <button onclick="location.reload()" class="primary">Reload Game</button>
+
+                <div class="game-title">
+                    ⚠️ Game Error
                 </div>
+
+                <div class="help">
+
+                    Something went wrong
+                    while loading this game.
+
+                </div>
+
+                <div class="controls">
+
+                    <button
+                        onclick="location.reload()"
+                        class="primary">
+
+                        Reload Game
+
+                    </button>
+
+                </div>
+
             </div>
+
         `);
     }
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-    try {
-        launch();
-    } catch (error) {
-        console.error("Launch Error:", error);
+document.addEventListener(
+    "DOMContentLoaded",
+    function(){
+
+        try{
+
+            launch();
+
+        }catch(error){
+
+            console.error(
+                "Launch Error:",
+                error
+            );
+        }
     }
-});
+);
 </script>
 
 </body>
