@@ -33,22 +33,22 @@ body {
 }
 
 body {
-    padding: 16px;
+    padding: 14px;
 }
 
 .page {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
-/* ==========================================================
+/* =========================
    HEADER
-   ========================================================== */
+   ========================= */
 
 .header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 28px;
 }
 
 .header h1 {
@@ -58,61 +58,53 @@ body {
 }
 
 .header p {
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     color: #aaa;
-    font-size: 15px;
+    font-size: 14px;
 }
 
-/* ==========================================================
+/* =========================
    CATEGORY
-   ========================================================== */
+   ========================= */
 
 .category {
-    margin-bottom: 32px;
+    margin-bottom: 34px;
 }
 
 .category-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-
     margin: 0 0 14px;
-
-    font-size: 25px;
+    font-size: clamp(22px, 5vw, 28px);
     font-weight: 900;
 }
 
-/* ==========================================================
+/* =========================
    GAME GRID
-   ========================================================== */
+   ========================= */
 
 .game-grid {
     display: grid;
-
     grid-template-columns:
         repeat(auto-fit, minmax(180px, 1fr));
-
     gap: 14px;
 }
 
-/* ==========================================================
+/* =========================
    GAME CARD
-   ========================================================== */
+   ========================= */
 
 .game-card {
     display: block;
-
     text-decoration: none;
-    color: #ffffff;
+    color: #fff;
 
     background: #151515;
 
     border: 1px solid #292929;
     border-radius: 18px;
 
-    padding: 20px;
+    padding: 18px;
 
-    min-height: 185px;
+    min-height: 190px;
 
     transition:
         transform .15s ease,
@@ -130,64 +122,61 @@ body {
     transform: scale(.97);
 }
 
-/* ==========================================================
-   GAME ICON
-   ========================================================== */
+/* =========================
+   ICON
+   ========================= */
 
 .game-icon {
-    font-size: 48px;
+    font-size: 46px;
     line-height: 1;
-
     margin-bottom: 14px;
 }
 
-/* ==========================================================
-   GAME NAME
-   ========================================================== */
+/* =========================
+   NAME
+   ========================= */
 
 .game-name {
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 900;
-
-    margin-bottom: 8px;
+    margin-bottom: 7px;
 }
 
-/* ==========================================================
+/* =========================
    DESCRIPTION
-   ========================================================== */
+   ========================= */
 
 .game-description {
     color: #aaa;
+    font-size: 13px;
+    line-height: 1.4;
 
-    font-size: 14px;
-    line-height: 1.45;
-
-    min-height: 42px;
+    min-height: 38px;
 }
 
-/* ==========================================================
+/* =========================
    PLAY BUTTON
-   ========================================================== */
+   ========================= */
 
 .play {
     display: inline-block;
 
-    margin-top: 15px;
+    margin-top: 14px;
 
     padding: 9px 15px;
 
-    background: #ffffff;
-    color: #000000;
+    background: #fff;
+    color: #000;
 
     border-radius: 999px;
 
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 900;
 }
 
-/* ==========================================================
-   EMPTY CATEGORY
-   ========================================================== */
+/* =========================
+   EMPTY
+   ========================= */
 
 .empty {
     color: #777;
@@ -195,9 +184,9 @@ body {
     padding: 10px 0;
 }
 
-/* ==========================================================
+/* =========================
    FOOTER
-   ========================================================== */
+   ========================= */
 
 .footer {
     text-align: center;
@@ -207,22 +196,21 @@ body {
     font-size: 12px;
 
     margin-top: 40px;
-
     padding-bottom: 25px;
 }
 
-/* ==========================================================
+/* =========================
    MOBILE
-   ========================================================== */
+   ========================= */
 
 @media (max-width: 600px) {
 
     body {
-        padding: 12px;
+        padding: 10px;
     }
 
     .header {
-        margin-bottom: 24px;
+        margin-bottom: 22px;
     }
 
     .header h1 {
@@ -234,41 +222,41 @@ body {
     }
 
     .game-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
         gap: 10px;
     }
 
     .game-card {
-        padding: 15px;
-
+        padding: 14px;
         min-height: 175px;
-
         border-radius: 16px;
     }
 
     .game-icon {
-        font-size: 40px;
+        font-size: 38px;
         margin-bottom: 10px;
     }
 
     .game-name {
-        font-size: 17px;
+        font-size: 16px;
     }
 
     .game-description {
-        font-size: 12px;
+        font-size: 11px;
     }
 
     .play {
-        margin-top: 12px;
-        padding: 8px 12px;
-        font-size: 12px;
+        margin-top: 11px;
+        padding: 8px 11px;
+        font-size: 11px;
     }
 }
 
-/* ==========================================================
+/* =========================
    VERY SMALL PHONES
-   ========================================================== */
+   ========================= */
 
 @media (max-width: 360px) {
 
@@ -286,9 +274,9 @@ body {
 
 <div class="page">
 
-    <!-- =====================================================
+    <!-- =========================
          HEADER
-         ===================================================== -->
+         ========================= -->
 
     <header class="header">
 
@@ -301,9 +289,9 @@ body {
     </header>
 
 
-    <!-- =====================================================
+    <!-- =========================
          ARCADE
-         ===================================================== -->
+         ========================= -->
 
     <section class="category">
 
@@ -354,9 +342,62 @@ body {
     </section>
 
 
-    <!-- =====================================================
+    <!-- =========================
+         BOARD GAMES
+         ========================= -->
+
+    <section class="category">
+
+        <h2 class="category-title">
+            🎲 Board Games
+        </h2>
+
+        <div class="game-grid">
+
+            {% for game in games if game.category == "Board Games" %}
+
+            <a
+                class="game-card"
+                href="{{ url_for(
+                    'real_games.play_game',
+                    game_id=game.game_id
+                ) }}"
+            >
+
+                <div class="game-icon">
+                    {{ game.icon }}
+                </div>
+
+                <div class="game-name">
+                    {{ game.name }}
+                </div>
+
+                <div class="game-description">
+                    {{ game.description }}
+                </div>
+
+                <div class="play">
+                    PLAY
+                </div>
+
+            </a>
+
+            {% else %}
+
+            <div class="empty">
+                No board games available.
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    <!-- =========================
          SPORTS
-         ===================================================== -->
+         ========================= -->
 
     <section class="category">
 
@@ -407,14 +448,14 @@ body {
     </section>
 
 
-    <!-- =====================================================
+    <!-- =========================
          SHOOTING
-         ===================================================== -->
+         ========================= -->
 
     <section class="category">
 
         <h2 class="category-title">
-            🎯 Shooting
+            🔫 Shooting
         </h2>
 
         <div class="game-grid">
@@ -460,93 +501,15 @@ body {
     </section>
 
 
-    <!-- =====================================================
-         PARTY
-         ===================================================== -->
-
-    <section class="category">
-
-        <h2 class="category-title">
-            🎭 Party
-        </h2>
-
-        <div class="game-grid">
-
-            {% for game in games if game.category == "Party" %}
-
-            <a
-                class="game-card"
-                href="{% if game.game_id == 'dirty_minds' %}/real-games/{% else %}{{ url_for(
-                    'real_games.play_game',
-                    game_id=game.game_id
-                ) }}{% endif %}"
-                {% if game.game_id == 'dirty_minds' %}
-                onclick="showDirtyMindsMessage(event)"
-                {% endif %}
-            >
-
-                <div class="game-icon">
-                    {{ game.icon }}
-                </div>
-
-                <div class="game-name">
-                    {{ game.name }}
-                </div>
-
-                <div class="game-description">
-                    {{ game.description }}
-                </div>
-
-                <div class="play">
-                    {% if game.game_id == "dirty_minds" %}
-                        JOIN GAME
-                    {% else %}
-                        PLAY
-                    {% endif %}
-                </div>
-
-            </a>
-
-            {% else %}
-
-            <div class="empty">
-                No party games available.
-            </div>
-
-            {% endfor %}
-
-        </div>
-
-    </section>
-
-
-    <!-- =====================================================
+    <!-- =========================
          FOOTER
-         ===================================================== -->
+         ========================= -->
 
     <div class="footer">
-
         Melanated AZ Real Games
-
     </div>
 
 </div>
-
-
-<script>
-
-function showDirtyMindsMessage(event) {
-
-    event.preventDefault();
-
-    alert(
-        "🎭 Dirty Minds is a multiplayer game.\n\n" +
-        "Create or join a Dirty Minds room from Telegram."
-    );
-
-}
-
-</script>
 
 </body>
 </html>
