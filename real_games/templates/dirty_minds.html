@@ -1,2001 +1,1309 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 
 <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1,
-             maximum-scale=1, user-scalable=no,
-             viewport-fit=cover"
+name="viewport"
+content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
+
 >
 
-<title>🎭 Dirty Minds — Melanated AZ</title>
+<title>🎭 Dirty Minds — Melanated AZ Real Games</title>
 
 <style>
-* {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
+*{
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
 }
 
 html,
-body {
-    margin: 0;
-    padding: 0;
-    min-height: 100%;
-    background: #080808;
-    color: #ffffff;
+body{
+    margin:0;
+    padding:0;
+    min-height:100%;
+    background:#080808;
+    color:#fff;
     font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
         Arial,
-        Helvetica,
         sans-serif;
 }
 
-body {
+body{
     padding:
-        max(12px, env(safe-area-inset-top))
-        12px
-        max(20px, env(safe-area-inset-bottom));
+        env(safe-area-inset-top)
+        env(safe-area-inset-right)
+        env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
 }
 
 button,
-input {
-    font: inherit;
+input{
+    font:inherit;
 }
 
-button {
-    cursor: pointer;
+button{
+    cursor:pointer;
 }
 
-.app {
-    width: 100%;
-    max-width: 1100px;
-    margin: 0 auto;
+#app{
+    width:100%;
+    max-width:900px;
+    margin:0 auto;
+    padding:16px;
 }
 
-/* ==========================================================
+/* =========================================================
    HEADER
-   ========================================================== */
+========================================================= */
 
-.header {
-    background: linear-gradient(
-        135deg,
-        #181818,
-        #0d0d0d
-    );
-
-    border: 1px solid #292929;
-    border-radius: 18px;
-
-    padding: 16px;
-
-    margin-bottom: 12px;
-
-    box-shadow:
-        0 10px 30px rgba(0, 0, 0, .35);
+.header{
+    text-align:center;
+    margin-bottom:16px;
 }
 
-.header-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+.logo{
+    font-size:42px;
+    line-height:1;
+    margin-bottom:8px;
 }
 
-.title {
-    margin: 0;
-    font-size: 25px;
-    font-weight: 900;
+.title{
+    font-size:28px;
+    font-weight:900;
+    letter-spacing:.3px;
 }
 
-.subtitle {
-    color: #aaa;
-    margin-top: 4px;
-    font-size: 13px;
+.subtitle{
+    color:#aaa;
+    font-size:14px;
+    margin-top:5px;
 }
 
-.room-badge {
-    background: #242424;
-    border: 1px solid #383838;
-    border-radius: 12px;
-    padding: 8px 10px;
-    text-align: center;
-    flex-shrink: 0;
+/* =========================================================
+   PANELS
+========================================================= */
+
+.panel{
+    background:#151515;
+    border:1px solid #292929;
+    border-radius:18px;
+    padding:18px;
+    margin-bottom:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);
 }
 
-.room-label {
-    display: block;
-    color: #888;
-    font-size: 10px;
-    text-transform: uppercase;
+.panel h2{
+    margin:0 0 12px;
+    font-size:19px;
 }
 
-.room-code {
-    display: block;
-    margin-top: 2px;
-    font-size: 14px;
-    font-weight: 900;
-    letter-spacing: 1px;
+.hidden{
+    display:none !important;
 }
 
-/* ==========================================================
-   CONNECTION
-   ========================================================== */
+/* =========================================================
+   ROOM INFO
+========================================================= */
 
-.connection {
-    margin-top: 12px;
-
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    color: #aaa;
-    font-size: 13px;
+.room-bar{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
 }
 
-.connection-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #777;
-    flex-shrink: 0;
+.info-box{
+    background:#0d0d0d;
+    border:1px solid #292929;
+    border-radius:12px;
+    padding:12px;
 }
 
-.connection.connected .connection-dot {
-    background: #31d158;
+.info-label{
+    display:block;
+    color:#888;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+    margin-bottom:4px;
 }
 
-.connection.error .connection-dot {
-    background: #ff453a;
+.info-value{
+    font-size:17px;
+    font-weight:800;
+    word-break:break-word;
 }
 
-.connection.connecting .connection-dot {
-    background: #ffd60a;
+/* =========================================================
+   STATUS
+========================================================= */
+
+.status{
+    padding:12px;
+    border-radius:12px;
+    background:#101010;
+    border:1px solid #292929;
+    text-align:center;
+    color:#ccc;
+    margin-top:12px;
+    font-size:14px;
 }
 
-/* ==========================================================
-   CONTROLS
-   ========================================================== */
-
-.controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-
-    margin-bottom: 12px;
+.status.good{
+    border-color:#28783b;
+    color:#8df0a1;
 }
 
-.control-button {
-    min-height: 50px;
-
-    border: 1px solid #343434;
-    border-radius: 13px;
-
-    background: #171717;
-    color: #fff;
-
-    font-weight: 800;
-
-    transition:
-        transform .12s ease,
-        background .12s ease;
+.status.warn{
+    border-color:#8a6b1c;
+    color:#ffd968;
 }
 
-.control-button:active {
-    transform: scale(.97);
+.status.error{
+    border-color:#8a2929;
+    color:#ff8e8e;
 }
 
-.control-button.active {
-    background: #202020;
-    border-color: #666;
-}
-
-.control-button.off {
-    color: #aaa;
-}
-
-#leaveButton {
-    grid-column: 1 / -1;
-    color: #ff8d85;
-}
-
-/* ==========================================================
-   VIDEO AREA
-   ========================================================== */
-
-.video-section {
-    margin-bottom: 12px;
-}
-
-.section-title {
-    margin: 0 0 8px 3px;
-    color: #aaa;
-    font-size: 13px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-}
-
-.video-grid {
-    display: grid;
-
-    grid-template-columns:
-        repeat(
-            auto-fit,
-            minmax(145px, 1fr)
-        );
-
-    gap: 8px;
-}
-
-.video-tile {
-    position: relative;
-
-    min-height: 145px;
-
-    background: #121212;
-
-    border: 1px solid #292929;
-    border-radius: 15px;
-
-    overflow: hidden;
-}
-
-.video-tile video {
-    width: 100%;
-    height: 100%;
-
-    min-height: 145px;
-
-    object-fit: cover;
-
-    display: block;
-
-    background: #101010;
-}
-
-.video-tile.local video {
-    transform: scaleX(-1);
-}
-
-.video-placeholder {
-    position: absolute;
-    inset: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    flex-direction: column;
-
-    gap: 6px;
-
-    color: #aaa;
-
-    background:
-        radial-gradient(
-            circle at center,
-            #202020,
-            #101010 70%
-        );
-}
-
-.avatar {
-    width: 54px;
-    height: 54px;
-
-    border-radius: 50%;
-
-    background: #292929;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    font-size: 24px;
-    font-weight: 900;
-}
-
-.placeholder-name {
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.video-name {
-    position: absolute;
-
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-
-    padding: 6px 8px;
-
-    background: rgba(0, 0, 0, .65);
-
-    border-radius: 8px;
-
-    font-size: 12px;
-    font-weight: 800;
-
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.video-status {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-
-    display: flex;
-    gap: 5px;
-}
-
-.status-icon {
-    background: rgba(0, 0, 0, .7);
-
-    border-radius: 7px;
-
-    padding: 4px 6px;
-
-    font-size: 11px;
-}
-
-/* ==========================================================
-   GAME CARD
-   ========================================================== */
-
-.game-card {
-    background: #111111;
-
-    border: 1px solid #292929;
-
-    border-radius: 18px;
-
-    padding: 18px;
-
-    margin-bottom: 12px;
-
-    box-shadow:
-        0 10px 30px rgba(0, 0, 0, .25);
-}
-
-.round-label {
-    color: #999;
-
-    font-size: 12px;
-
-    font-weight: 900;
-
-    text-transform: uppercase;
-
-    letter-spacing: 1px;
-
-    text-align: center;
-}
-
-.clue {
-    margin-top: 12px;
-
-    font-size: clamp(
-        22px,
-        5vw,
-        36px
-    );
-
-    line-height: 1.2;
-
-    text-align: center;
-
-    font-weight: 900;
-}
-
-.clue-hint {
-    text-align: center;
-
-    color: #777;
-
-    font-size: 12px;
-
-    margin-top: 10px;
-}
-
-/* ==========================================================
-   ANSWER
-   ========================================================== */
-
-.answer-area {
-    margin-top: 18px;
-}
-
-.answer-input {
-    width: 100%;
-
-    min-height: 54px;
-
-    background: #191919;
-
-    border: 1px solid #3a3a3a;
-
-    border-radius: 13px;
-
-    color: #fff;
-
-    padding: 0 14px;
-
-    outline: none;
-
-    font-size: 17px;
-}
-
-.answer-input:focus {
-    border-color: #777;
-}
-
-.answer-input:disabled {
-    opacity: .55;
-}
-
-.submit-button {
-    width: 100%;
-
-    min-height: 54px;
-
-    margin-top: 8px;
-
-    border: 0;
-
-    border-radius: 13px;
-
-    background: #ffffff;
-
-    color: #000;
-
-    font-weight: 900;
-
-    font-size: 16px;
-}
-
-.submit-button:active {
-    transform: scale(.98);
-}
-
-.submit-button:disabled {
-    opacity: .45;
-}
-
-/* ==========================================================
-   RESULT
-   ========================================================== */
-
-.result-box {
-    margin-top: 14px;
-
-    padding: 14px;
-
-    border-radius: 13px;
-
-    background: #191919;
-
-    border: 1px solid #303030;
-
-    text-align: center;
-}
-
-.result-answer {
-    font-size: 25px;
-    font-weight: 900;
-}
-
-.result-message {
-    margin-top: 5px;
-    color: #aaa;
-}
-
-/* ==========================================================
-   HOST CONTROLS
-   ========================================================== */
-
-.host-panel {
-    display: none;
-
-    margin-top: 14px;
-
-    padding-top: 14px;
-
-    border-top: 1px solid #292929;
-}
-
-.host-panel.visible {
-    display: block;
-}
-
-.host-title {
-    color: #aaa;
-
-    font-size: 12px;
-
-    font-weight: 900;
-
-    text-transform: uppercase;
-
-    margin-bottom: 8px;
-}
-
-.host-buttons {
-    display: grid;
-
-    grid-template-columns:
-        repeat(
-            auto-fit,
-            minmax(130px, 1fr)
-        );
-
-    gap: 8px;
-}
-
-.host-button {
-    min-height: 48px;
-
-    border: 1px solid #373737;
-
-    background: #202020;
-
-    color: #fff;
-
-    border-radius: 12px;
-
-    font-weight: 800;
-}
-
-.host-button:disabled {
-    opacity: .35;
-}
-
-/* ==========================================================
+/* =========================================================
    PLAYERS
-   ========================================================== */
+========================================================= */
 
-.players-card {
-    background: #111;
-
-    border: 1px solid #292929;
-
-    border-radius: 18px;
-
-    padding: 16px;
-
-    margin-bottom: 12px;
+.players{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;
 }
 
-.players {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
+.player{
+    background:#0e0e0e;
+    border:1px solid #292929;
+    border-radius:13px;
+    padding:12px;
 }
 
-.player-row {
-    display: flex;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    gap: 10px;
-
-    background: #191919;
-
-    border-radius: 11px;
-
-    padding: 10px 12px;
+.player.host{
+    border-color:#7d5cff;
 }
 
-.player-left {
-    min-width: 0;
-
-    display: flex;
-
-    align-items: center;
-
-    gap: 8px;
+.player-name{
+    font-weight:800;
+    font-size:15px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
 }
 
-.player-name {
-    font-weight: 800;
-
-    white-space: nowrap;
-
-    overflow: hidden;
-
-    text-overflow: ellipsis;
+.player-score{
+    margin-top:5px;
+    color:#aaa;
+    font-size:13px;
 }
 
-.host-mark {
-    color: #ffd60a;
+.host-badge{
+    display:inline-block;
+    margin-left:5px;
+    font-size:11px;
 }
 
-.player-score {
-    font-weight: 900;
+/* =========================================================
+   GAME
+========================================================= */
 
-    color: #aaa;
-
-    flex-shrink: 0;
+.round{
+    text-align:center;
+    color:#aaa;
+    font-size:13px;
+    margin-bottom:12px;
 }
 
-/* ==========================================================
-   REVEAL RESULTS
-   ========================================================== */
-
-.results {
-    margin-top: 14px;
+.clue{
+    background:#0c0c0c;
+    border:1px solid #303030;
+    border-radius:18px;
+    padding:28px 20px;
+    text-align:center;
+    font-size:25px;
+    line-height:1.3;
+    font-weight:900;
+    min-height:150px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 }
 
-.results-title {
-    color: #aaa;
-
-    font-size: 12px;
-
-    text-transform: uppercase;
-
-    font-weight: 900;
-
-    margin-bottom: 8px;
+.instructions{
+    text-align:center;
+    color:#999;
+    font-size:13px;
+    margin:12px 0;
 }
 
-.result-row {
-    display: flex;
+/* =========================================================
+   ANSWER FORM
+========================================================= */
 
-    justify-content: space-between;
-
-    gap: 10px;
-
-    padding: 9px 10px;
-
-    margin-bottom: 6px;
-
-    border-radius: 9px;
-
-    background: #191919;
+.answer-area{
+    margin-top:15px;
 }
 
-.result-row.correct {
-    border-left: 3px solid #31d158;
+.answer-input{
+    width:100%;
+    min-height:54px;
+    border-radius:13px;
+    border:1px solid #3a3a3a;
+    background:#090909;
+    color:#fff;
+    padding:13px 15px;
+    font-size:18px;
+    outline:none;
 }
 
-.result-row.wrong {
-    border-left: 3px solid #ff453a;
+.answer-input:focus{
+    border-color:#7d5cff;
+    box-shadow:0 0 0 3px rgba(125,92,255,.12);
 }
 
-.result-player {
-    font-weight: 800;
+.answer-input:disabled{
+    opacity:.55;
 }
 
-.result-submitted {
-    color: #aaa;
-
-    text-align: right;
-
-    word-break: break-word;
+.button-row{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-top:10px;
 }
 
-/* ==========================================================
+.btn{
+    min-height:50px;
+    border:0;
+    border-radius:13px;
+    padding:12px 16px;
+    font-weight:900;
+    color:#fff;
+    background:#292929;
+}
+
+.btn:active{
+    transform:scale(.98);
+}
+
+.btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+.btn-primary{
+    background:#6848ff;
+}
+
+.btn-success{
+    background:#247d3c;
+}
+
+.btn-danger{
+    background:#8c2828;
+}
+
+.btn-warning{
+    background:#765d16;
+}
+
+.btn-secondary{
+    background:#303030;
+}
+
+/* =========================================================
+   REVEAL
+========================================================= */
+
+.answer-box{
+    margin-top:15px;
+    padding:18px;
+    border-radius:15px;
+    background:#101010;
+    border:1px solid #454545;
+    text-align:center;
+}
+
+.answer-label{
+    color:#888;
+    text-transform:uppercase;
+    font-size:11px;
+    letter-spacing:1px;
+}
+
+.correct-answer{
+    margin-top:6px;
+    font-size:27px;
+    font-weight:900;
+}
+
+.result{
+    margin-top:12px;
+    text-align:center;
+    font-size:15px;
+    font-weight:800;
+}
+
+/* =========================================================
+   HOST CONTROLS
+========================================================= */
+
+.host-controls{
+    border-color:#493f78;
+}
+
+.host-title{
+    color:#b4a4ff;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    font-weight:900;
+    margin-bottom:10px;
+}
+
+/* =========================================================
    WINNER
-   ========================================================== */
+========================================================= */
 
-.winner-card {
-    display: none;
-
-    background:
-        linear-gradient(
-            135deg,
-            #242424,
-            #111
-        );
-
-    border: 1px solid #454545;
-
-    border-radius: 18px;
-
-    padding: 22px;
-
-    margin-bottom: 12px;
-
-    text-align: center;
+.winner{
+    text-align:center;
+    padding:25px 15px;
 }
 
-.winner-card.visible {
-    display: block;
+.trophy{
+    font-size:58px;
 }
 
-.winner-icon {
-    font-size: 44px;
+.winner-title{
+    font-size:28px;
+    font-weight:900;
+    margin-top:8px;
 }
 
-.winner-title {
-    margin-top: 8px;
-
-    font-size: 24px;
-
-    font-weight: 900;
+.winner-name{
+    font-size:22px;
+    margin-top:6px;
 }
 
-.winner-score {
-    margin-top: 4px;
+/* =========================================================
+   LOADING
+========================================================= */
 
-    color: #aaa;
+.loading{
+    text-align:center;
+    padding:30px;
+    color:#999;
 }
 
-/* ==========================================================
-   WAITING
-   ========================================================== */
-
-.waiting-card {
-    text-align: center;
-
-    padding: 20px;
-
-    color: #aaa;
+.spinner{
+    width:28px;
+    height:28px;
+    border:3px solid #333;
+    border-top-color:#fff;
+    border-radius:50%;
+    margin:0 auto 10px;
+    animation:spin .8s linear infinite;
 }
 
-.waiting-big {
-    font-size: 42px;
-}
-
-.waiting-title {
-    color: #fff;
-
-    font-size: 20px;
-
-    font-weight: 900;
-
-    margin-top: 8px;
-}
-
-.waiting-text {
-    margin-top: 7px;
-
-    line-height: 1.5;
-}
-
-/* ==========================================================
-   TOAST
-   ========================================================== */
-
-.toast {
-    position: fixed;
-
-    left: 50%;
-
-    bottom:
-        max(
-            20px,
-            env(safe-area-inset-bottom)
-        );
-
-    transform:
-        translateX(-50%)
-        translateY(20px);
-
-    width: calc(
-        100% - 30px
-    );
-
-    max-width: 420px;
-
-    background: #222;
-
-    border: 1px solid #444;
-
-    border-radius: 12px;
-
-    padding: 12px 14px;
-
-    text-align: center;
-
-    font-size: 14px;
-
-    font-weight: 700;
-
-    opacity: 0;
-
-    pointer-events: none;
-
-    transition:
-        opacity .2s ease,
-        transform .2s ease;
-
-    z-index: 9999;
-}
-
-.toast.show {
-    opacity: 1;
-
-    transform:
-        translateX(-50%)
-        translateY(0);
-}
-
-/* ==========================================================
-   RESPONSIVE
-   ========================================================== */
-
-@media (min-width: 700px) {
-    .controls {
-        grid-template-columns:
-            repeat(
-                2,
-                minmax(0, 1fr)
-            );
-    }
-
-    #leaveButton {
-        grid-column: auto;
-    }
-
-    .video-grid {
-        grid-template-columns:
-            repeat(
-                auto-fit,
-                minmax(180px, 1fr)
-            );
+@keyframes spin{
+    to{
+        transform:rotate(360deg);
     }
 }
 
-@media (max-width: 430px) {
-    .title {
-        font-size: 21px;
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media(max-width:600px){
+
+    #app{
+        padding:12px;
     }
 
-    .room-badge {
-        padding: 7px 8px;
+    .logo{
+        font-size:36px;
     }
 
-    .room-code {
-        font-size: 12px;
+    .title{
+        font-size:24px;
     }
 
-    .game-card {
-        padding: 14px;
+    .panel{
+        padding:14px;
+        border-radius:15px;
     }
 
-    .clue {
-        font-size: 23px;
+    .clue{
+        font-size:22px;
+        padding:25px 15px;
+        min-height:140px;
+    }
+
+    .room-bar{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .players{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .btn{
+        min-height:54px;
+    }
+
+    .answer-input{
+        min-height:56px;
+        font-size:18px;
+    }
+}
+
+@media(max-width:360px){
+
+    .players{
+        grid-template-columns:1fr;
+    }
+
+    .room-bar{
+        grid-template-columns:1fr;
+    }
+
+    .clue{
+        font-size:20px;
     }
 }
 </style>
+
 </head>
 
 <body>
 
-<div class="app">
+<div id="app">
 
-    <!-- ======================================================
-         HEADER
-         ====================================================== -->
+```
+<div class="header">
+    <div class="logo">🎭</div>
+    <div class="title">Dirty Minds</div>
+    <div class="subtitle">
+        The clues sound dirty. The answers are clean.
+    </div>
+</div>
 
-    <header class="header">
+<!-- =====================================================
+     LOADING
+====================================================== -->
 
-        <div class="header-top">
+<div id="loadingPanel" class="panel">
+    <div class="loading">
+        <div class="spinner"></div>
+        <div>Connecting to game room...</div>
+    </div>
+</div>
 
-            <div>
-                <h1 class="title">
-                    🎭 Dirty Minds
-                </h1>
+<!-- =====================================================
+     ROOM
+====================================================== -->
 
-                <div class="subtitle">
-                    The clues sound dirty. The answers aren't.
-                </div>
-            </div>
+<div id="roomPanel" class="panel hidden">
 
-            <div class="room-badge">
-                <span class="room-label">
-                    Room
-                </span>
+    <h2>🎮 Game Room</h2>
 
-                <span
-                    class="room-code"
-                    id="roomCode"
-                >
-                    {{ room_id }}
-                </span>
-            </div>
+    <div class="room-bar">
 
+        <div class="info-box">
+            <span class="info-label">Room</span>
+            <span id="roomIdDisplay" class="info-value">---</span>
         </div>
 
-        <div
-            class="connection connecting"
-            id="connectionStatus"
-        >
-            <span class="connection-dot"></span>
-
-            <span id="connectionText">
-                Connecting...
-            </span>
+        <div class="info-box">
+            <span class="info-label">You</span>
+            <span id="playerNameDisplay" class="info-value">---</span>
         </div>
 
-    </header>
+    </div>
 
+    <div id="statusMessage" class="status">
+        Waiting for players...
+    </div>
 
-    <!-- ======================================================
-         AUDIO / CAMERA CONTROLS
-         ====================================================== -->
+</div>
 
-    <section class="controls">
+<!-- =====================================================
+     PLAYERS
+====================================================== -->
 
-        <button
-            class="control-button off"
-            id="micButton"
-            type="button"
-        >
-            🎤 Mic Off
-        </button>
+<div id="playersPanel" class="panel hidden">
 
-        <button
-            class="control-button off"
-            id="cameraButton"
-            type="button"
-        >
-            📷 Camera Off
-        </button>
+    <h2>👥 Players</h2>
 
-        <button
-            class="control-button"
-            id="leaveButton"
-            type="button"
-        >
-            🚪 Leave Game
-        </button>
+    <div id="playersList" class="players"></div>
 
-    </section>
+</div>
 
+<!-- =====================================================
+     HOST START
+====================================================== -->
 
-    <!-- ======================================================
-         VIDEO GRID
-         ====================================================== -->
+<div id="startPanel" class="panel hidden">
 
-    <section class="video-section">
+    <div id="startMessage" class="instructions">
+        Waiting for enough players to start.
+    </div>
 
-        <h2 class="section-title">
-            Players
-        </h2>
-
-        <div
-            class="video-grid"
-            id="videoGrid"
-        ></div>
-
-    </section>
-
-
-    <!-- ======================================================
-         WAITING CARD
-         ====================================================== -->
-
-    <section
-        class="game-card"
-        id="waitingCard"
+    <button
+        id="startButton"
+        class="btn btn-primary"
+        type="button"
+        onclick="startGame()"
     >
+        ▶️ START GAME
+    </button>
 
-        <div class="waiting-card">
+</div>
 
-            <div class="waiting-big">
-                🎭
-            </div>
+<!-- =====================================================
+     GAME PANEL
+====================================================== -->
 
-            <div class="waiting-title">
-                Waiting for the game to start
-            </div>
+<div id="gamePanel" class="panel hidden">
 
-            <div class="waiting-text">
-                The host can start when at least
-                2 players have joined.
-            </div>
+    <div id="roundDisplay" class="round">
+        Round 1 of 10
+    </div>
 
-        </div>
+    <div id="clueDisplay" class="clue">
+        Waiting for clue...
+    </div>
 
-    </section>
+    <div id="instructions" class="instructions">
+        Think of the clean answer.
+    </div>
 
+    <div class="answer-area">
 
-    <!-- ======================================================
-         GAME CARD
-         ====================================================== -->
-
-    <section
-        class="game-card"
-        id="gameCard"
-        style="display:none;"
-    >
-
-        <div
-            class="round-label"
-            id="roundLabel"
+        <input
+            id="answerInput"
+            class="answer-input"
+            type="text"
+            autocomplete="off"
+            autocapitalize="words"
+            placeholder="Type your answer..."
+            maxlength="100"
         >
-            ROUND 1 OF 10
-        </div>
 
-        <div
-            class="clue"
-            id="clue"
-        >
-            Waiting...
-        </div>
-
-        <div class="clue-hint">
-            Think clean. 😈
-        </div>
-
-        <!-- Answer -->
-
-        <div class="answer-area">
-
-            <input
-                class="answer-input"
-                id="answerInput"
-                type="text"
-                maxlength="100"
-                autocomplete="off"
-                autocapitalize="sentences"
-                placeholder="What's your answer?"
-            >
+        <div class="button-row">
 
             <button
-                class="submit-button"
                 id="submitButton"
+                class="btn btn-primary"
                 type="button"
+                onclick="submitAnswer()"
             >
-                SUBMIT ANSWER
+                ✅ SUBMIT ANSWER
             </button>
 
         </div>
 
+    </div>
 
-        <!-- Reveal -->
-
-        <div
-            class="result-box"
-            id="resultBox"
-            style="display:none;"
-        >
-
-            <div class="result-answer">
-                <span id="correctAnswer"></span>
-            </div>
-
-            <div
-                class="result-message"
-                id="resultMessage"
-            ></div>
-
-        </div>
-
-
-        <!-- Round Results -->
-
-        <div
-            class="results"
-            id="results"
-            style="display:none;"
-        >
-
-            <div class="results-title">
-                Round Results
-            </div>
-
-            <div id="resultsList"></div>
-
-        </div>
-
-
-        <!-- Host -->
-
-        <div
-            class="host-panel"
-            id="hostPanel"
-        >
-
-            <div class="host-title">
-                👑 Host Controls
-            </div>
-
-            <div class="host-buttons">
-
-                <button
-                    class="host-button"
-                    id="startButton"
-                    type="button"
-                >
-                    ▶️ Start Game
-                </button>
-
-                <button
-                    class="host-button"
-                    id="revealButton"
-                    type="button"
-                >
-                    👀 Reveal Answer
-                </button>
-
-                <button
-                    class="host-button"
-                    id="nextButton"
-                    type="button"
-                >
-                    ➡️ Next Round
-                </button>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- ======================================================
-         PLAYERS / SCOREBOARD
-         ====================================================== -->
-
-    <section class="players-card">
-
-        <h2 class="section-title">
-            Scoreboard
-        </h2>
-
-        <div
-            class="players"
-            id="players"
-        ></div>
-
-    </section>
-
-
-    <!-- ======================================================
-         WINNER
-         ====================================================== -->
-
-    <section
-        class="winner-card"
-        id="winnerCard"
+    <div
+        id="answerBox"
+        class="answer-box hidden"
     >
-
-        <div class="winner-icon">
-            🏆
+        <div class="answer-label">
+            Correct Answer
         </div>
 
         <div
-            class="winner-title"
-            id="winnerTitle"
+            id="correctAnswer"
+            class="correct-answer"
         >
-            Game Over
+            ---
         </div>
 
         <div
-            class="winner-score"
-            id="winnerScore"
-        ></div>
-
-    </section>
+            id="resultText"
+            class="result"
+        >
+        </div>
+    </div>
 
 </div>
 
+<!-- =====================================================
+     HOST CONTROLS
+====================================================== -->
 
-<!-- ==========================================================
-     TOAST
-     ========================================================== -->
+<div id="hostPanel" class="panel host-controls hidden">
 
-<div
-    class="toast"
-    id="toast"
-></div>
+    <div class="host-title">
+        👑 Host Controls
+    </div>
 
+    <div class="button-row">
 
-<!-- ==========================================================
-     LIVEKIT
-     ========================================================== -->
+        <button
+            id="revealButton"
+            class="btn btn-warning"
+            type="button"
+            onclick="revealRound()"
+        >
+            👀 REVEAL ANSWER
+        </button>
 
-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.2/dist/livekit-client.umd.min.js"></script>
+        <button
+            id="nextButton"
+            class="btn btn-success"
+            type="button"
+            onclick="nextRound()"
+        >
+            ➡️ NEXT ROUND
+        </button>
 
+        <button
+            id="finishButton"
+            class="btn btn-danger"
+            type="button"
+            onclick="finishGame()"
+        >
+            🏁 END GAME
+        </button>
+
+    </div>
+
+</div>
+
+<!-- =====================================================
+     WINNER
+====================================================== -->
+
+<div id="winnerPanel" class="panel hidden">
+
+    <div class="winner">
+
+        <div class="trophy">🏆</div>
+
+        <div class="winner-title">
+            Game Over!
+        </div>
+
+        <div id="winnerName" class="winner-name">
+            Winner
+        </div>
+
+    </div>
+
+</div>
+```
+
+</div>
 
 <script>
-"use strict";
-
 /* ==========================================================
-   SERVER DATA
+   DIRTY MINDS FRONT END
    ========================================================== */
 
-const ROOM_ID =
-    {{ room_id|default('')|tojson }};
+const ROOM_ID = {{ room_id|tojson }};
+const PLAYER_KEY = {{ player_key|tojson }};
+const PLAYER_NAME = {{ player_name|default("Player")|tojson }};
 
-const PLAYER_KEY =
-    {{ player_key|default('')|tojson }};
+const API_BASE = "/real-games/api/dirty-minds";
 
-const PLAYER_NAME =
-    {{ player_name|default('Player')|tojson }};
-
-
-/* ==========================================================
-   API URLS
-   ========================================================== */
-
-const API_BASE =
-    "/real-games/api/dirty-minds";
-
-const STATE_URL =
-    `${API_BASE}/state`;
-
-const START_URL =
-    `${API_BASE}/start`;
-
-const ANSWER_URL =
-    `${API_BASE}/answer`;
-
-const REVEAL_URL =
-    `${API_BASE}/reveal`;
-
-const NEXT_URL =
-    `${API_BASE}/next`;
-
-const TOKEN_URL =
-    `${API_BASE}/livekit-token`;
-
+let currentState = null;
+let polling = null;
+let submitting = false;
+let lastRound = null;
+let lastStatus = null;
 
 /* ==========================================================
-   GLOBAL STATE
-   ========================================================== */
+   ELEMENTS
+========================================================== */
 
-let gameState = null;
+const $ = id => document.getElementById(id);
 
-let livekitRoom = null;
+const loadingPanel = $("loadingPanel");
+const roomPanel = $("roomPanel");
+const playersPanel = $("playersPanel");
+const startPanel = $("startPanel");
+const gamePanel = $("gamePanel");
+const hostPanel = $("hostPanel");
+const winnerPanel = $("winnerPanel");
 
-let pollingTimer = null;
+const roomIdDisplay = $("roomIdDisplay");
+const playerNameDisplay = $("playerNameDisplay");
+const statusMessage = $("statusMessage");
+const startMessage = $("startMessage");
 
-let submittingAnswer = false;
+const playersList = $("playersList");
 
-let localMicEnabled = false;
+const roundDisplay = $("roundDisplay");
+const clueDisplay = $("clueDisplay");
+const instructions = $("instructions");
 
-let localCameraEnabled = false;
+const answerInput = $("answerInput");
+const submitButton = $("submitButton");
 
-const videoTiles = new Map();
+const answerBox = $("answerBox");
+const correctAnswer = $("correctAnswer");
+const resultText = $("resultText");
 
+const startButton = $("startButton");
+const revealButton = $("revealButton");
+const nextButton = $("nextButton");
+const finishButton = $("finishButton");
 
-/* ==========================================================
-   DOM
-   ========================================================== */
-
-const connectionStatus =
-    document.getElementById(
-        "connectionStatus"
-    );
-
-const connectionText =
-    document.getElementById(
-        "connectionText"
-    );
-
-const micButton =
-    document.getElementById(
-        "micButton"
-    );
-
-const cameraButton =
-    document.getElementById(
-        "cameraButton"
-    );
-
-const leaveButton =
-    document.getElementById(
-        "leaveButton"
-    );
-
-const videoGrid =
-    document.getElementById(
-        "videoGrid"
-    );
-
-const waitingCard =
-    document.getElementById(
-        "waitingCard"
-    );
-
-const gameCard =
-    document.getElementById(
-        "gameCard"
-    );
-
-const roundLabel =
-    document.getElementById(
-        "roundLabel"
-    );
-
-const clue =
-    document.getElementById(
-        "clue"
-    );
-
-const answerInput =
-    document.getElementById(
-        "answerInput"
-    );
-
-const submitButton =
-    document.getElementById(
-        "submitButton"
-    );
-
-const resultBox =
-    document.getElementById(
-        "resultBox"
-    );
-
-const correctAnswer =
-    document.getElementById(
-        "correctAnswer"
-    );
-
-const resultMessage =
-    document.getElementById(
-        "resultMessage"
-    );
-
-const results =
-    document.getElementById(
-        "results"
-    );
-
-const resultsList =
-    document.getElementById(
-        "resultsList"
-    );
-
-const players =
-    document.getElementById(
-        "players"
-    );
-
-const hostPanel =
-    document.getElementById(
-        "hostPanel"
-    );
-
-const startButton =
-    document.getElementById(
-        "startButton"
-    );
-
-const revealButton =
-    document.getElementById(
-        "revealButton"
-    );
-
-const nextButton =
-    document.getElementById(
-        "nextButton"
-    );
-
-const winnerCard =
-    document.getElementById(
-        "winnerCard"
-    );
-
-const winnerTitle =
-    document.getElementById(
-        "winnerTitle"
-    );
-
-const winnerScore =
-    document.getElementById(
-        "winnerScore"
-    );
-
-const toast =
-    document.getElementById(
-        "toast"
-    );
-
+const winnerName = $("winnerName");
 
 /* ==========================================================
-   HELPERS
-   ========================================================== */
+   INIT
+========================================================== */
 
-function apiUrl(url) {
+document.addEventListener("DOMContentLoaded", () => {
 
-    return (
-        `${url}` +
-        `?room=${encodeURIComponent(ROOM_ID)}` +
-        `&player_key=${encodeURIComponent(PLAYER_KEY)}`
-    );
-}
+    roomIdDisplay.textContent = ROOM_ID || "---";
+    playerNameDisplay.textContent = PLAYER_NAME || "Player";
 
+    answerInput.addEventListener("keydown", event => {
 
-function setConnection(
-    type,
-    message
-) {
+        if(event.key === "Enter"){
+            event.preventDefault();
 
-    connectionStatus.className =
-        `connection ${type}`;
-
-    connectionText.textContent =
-        message;
-}
-
-
-function showToast(message) {
-
-    toast.textContent =
-        message;
-
-    toast.classList.add(
-        "show"
-    );
-
-    clearTimeout(
-        showToast.timer
-    );
-
-    showToast.timer =
-        setTimeout(
-            () => {
-                toast.classList.remove(
-                    "show"
-                );
-            },
-            2800
-        );
-}
-
-
-function escapeHtml(value) {
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-    div.textContent =
-        value == null
-            ? ""
-            : String(value);
-
-    return div.innerHTML;
-}
-
-
-/* ==========================================================
-   FETCH GAME STATE
-   ========================================================== */
-
-async function fetchGameState() {
-
-    try {
-
-        const response =
-            await fetch(
-                apiUrl(STATE_URL),
-                {
-                    method: "GET",
-                    cache: "no-store"
-                }
-            );
-
-        const data =
-            await response.json();
-
-        if (!response.ok ||
-            !data.success) {
-
-            throw new Error(
-                data.error ||
-                "Unable to load game."
-            );
+            if(!submitButton.disabled){
+                submitAnswer();
+            }
         }
 
-        gameState =
-            data.state;
+    });
 
-        renderGame();
+    loadState();
 
-    } catch (error) {
+    polling = setInterval(loadState, 1500);
 
-        console.error(
-            "Game state error:",
-            error
-        );
-
-        setConnection(
-            "error",
-            "Game connection error"
-        );
-    }
-}
-
+});
 
 /* ==========================================================
-   START POLLING
-   ========================================================== */
+   API
+========================================================== */
 
-function startPolling() {
+async function apiRequest(url, options = {}){
 
-    if (pollingTimer) {
+    const config = {
+        ...options,
+        headers:{
+            "Content-Type":"application/json",
+            ...(options.headers || {})
+        }
+    };
+
+    const response = await fetch(url, config);
+
+    let data = null;
+
+    try{
+        data = await response.json();
+    }catch{
+        data = {};
+    }
+
+    if(!response.ok || data.success === false){
+
+        throw new Error(
+            data.error ||
+            data.message ||
+            `Request failed (${response.status})`
+        );
+
+    }
+
+    return data;
+}
+
+/* ==========================================================
+   LOAD STATE
+========================================================== */
+
+async function loadState(){
+
+    try{
+
+        const url =
+            `${API_BASE}/state` +
+            `?room=${encodeURIComponent(ROOM_ID)}` +
+            `&player_key=${encodeURIComponent(PLAYER_KEY)}`;
+
+        const data = await apiRequest(url);
+
+        currentState =
+            data.state ||
+            data.room ||
+            data;
+
+        renderState(currentState);
+
+    }catch(error){
+
+        console.error("Dirty Minds state error:", error);
+
+        setStatus(
+            error.message || "Unable to connect to game room.",
+            "error"
+        );
+
+    }
+
+}
+
+/* ==========================================================
+   RENDER
+========================================================== */
+
+function renderState(state){
+
+    if(!state){
         return;
     }
 
-    fetchGameState();
+    loadingPanel.classList.add("hidden");
 
-    pollingTimer =
-        setInterval(
-            fetchGameState,
-            1000
-        );
-}
+    roomPanel.classList.remove("hidden");
+    playersPanel.classList.remove("hidden");
 
+    renderPlayers(state);
+    renderStatus(state);
+    renderGame(state);
+    renderHostControls(state);
 
-/* ==========================================================
-   RENDER GAME
-   ========================================================== */
+    if(
+        state.finished === true ||
+        state.status === "finished"
+    ){
 
-function renderGame() {
+        winnerPanel.classList.remove("hidden");
 
-    if (!gameState) {
-        return;
-    }
+        const winner =
+            state.winner ||
+            state.winner_name ||
+            "No winner";
 
-    renderPlayers();
-
-    renderHostControls();
-
-    const status =
-        gameState.status;
-
-    const isWaiting =
-        status === "waiting";
-
-    const isPlaying =
-        status === "playing";
-
-    const isRevealed =
-        status === "revealed";
-
-    const isFinished =
-        status === "finished";
-
-
-    /* ------------------------------------------------------
-       Waiting / game visibility
-       ------------------------------------------------------ */
-
-    waitingCard.style.display =
-        isWaiting
-            ? "block"
-            : "none";
-
-    gameCard.style.display =
-        isWaiting
-            ? "none"
-            : "block";
-
-
-    /* ------------------------------------------------------
-       Round
-       ------------------------------------------------------ */
-
-    if (gameState.round > 0) {
-
-        roundLabel.textContent =
-            `ROUND ${gameState.round} OF ${gameState.total_rounds}`;
-
-    } else {
-
-        roundLabel.textContent =
-            "GET READY";
-
-    }
-
-
-    /* ------------------------------------------------------
-       Clue
-       ------------------------------------------------------ */
-
-    clue.textContent =
-        gameState.clue ||
-        "Waiting for the host...";
-
-
-    /* ------------------------------------------------------
-       Answer box
-       ------------------------------------------------------ */
-
-    if (isPlaying) {
-
-        answerInput.disabled =
-            Boolean(
-                gameState.my_submitted
-            );
-
-        submitButton.disabled =
-            Boolean(
-                gameState.my_submitted
-            ) ||
-            submittingAnswer;
-
-        if (gameState.my_submitted) {
-
-            submitButton.textContent =
-                "✅ ANSWER SUBMITTED";
-
-        } else {
-
-            submitButton.textContent =
-                "SUBMIT ANSWER";
-
+        if(typeof winner === "object"){
+            winnerName.textContent =
+                winner.name ||
+                winner.display_name ||
+                "Winner";
+        }else{
+            winnerName.textContent = winner;
         }
 
-    } else {
+    }else{
 
-        answerInput.disabled =
-            true;
-
-        submitButton.disabled =
-            true;
-
-        submitButton.textContent =
-            "SUBMIT ANSWER";
-    }
-
-
-    /* ------------------------------------------------------
-       Reveal
-       ------------------------------------------------------ */
-
-    resultBox.style.display =
-        gameState.revealed
-            ? "block"
-            : "none";
-
-    if (gameState.revealed) {
-
-        correctAnswer.textContent =
-            `Answer: ${gameState.answer || "—"}`;
-
-        if (
-            gameState.my_correct === true
-        ) {
-
-            resultMessage.textContent =
-                "🔥 You got it! +1 point.";
-
-        } else if (
-            gameState.my_submitted
-        ) {
-
-            resultMessage.textContent =
-                "❌ Not this time.";
-
-        } else {
-
-            resultMessage.textContent =
-                "You didn't submit an answer.";
-
-        }
+        winnerPanel.classList.add("hidden");
 
     }
 
-
-    /* ------------------------------------------------------
-       Round results
-       ------------------------------------------------------ */
-
-    results.style.display =
-        gameState.revealed
-            ? "block"
-            : "none";
-
-    if (gameState.revealed) {
-
-        renderResults(
-            gameState.round_results || []
-        );
-
-    }
-
-
-    /* ------------------------------------------------------
-       Winner
-       ------------------------------------------------------ */
-
-    winnerCard.classList.toggle(
-        "visible",
-        isFinished
-    );
-
-    if (isFinished) {
-
-        renderWinner(
-            gameState.winner
-        );
-
-    }
 }
 
-
 /* ==========================================================
-   RENDER PLAYERS
-   ========================================================== */
+   PLAYERS
+========================================================== */
 
-function renderPlayers() {
+function renderPlayers(state){
 
-    players.innerHTML = "";
+    const players =
+        Array.isArray(state.players)
+            ? state.players
+            : [];
 
-    const list =
-        gameState.players || [];
+    playersList.innerHTML = "";
 
-    if (!list.length) {
+    if(players.length === 0){
 
-        players.innerHTML =
-            `
-            <div class="waiting-text">
-                Waiting for players...
+        playersList.innerHTML = `
+            <div class="player">
+                <div class="player-name">
+                    No players yet
+                </div>
             </div>
-            `;
+        `;
 
         return;
     }
 
-    list.forEach(
-        (player) => {
+    players.forEach(player => {
 
-            const row =
-                document.createElement(
-                    "div"
-                );
+        const name =
+            player.name ||
+            player.display_name ||
+            "Player";
 
-            row.className =
-                "player-row";
+        const score =
+            player.score ??
+            player.points ??
+            0;
 
-            const hostMark =
-                player.host
-                    ? `<span class="host-mark">👑</span>`
-                    : "";
+        const isHost =
+            player.is_host === true ||
+            player.host === true;
 
-            row.innerHTML =
-                `
-                <div class="player-left">
-                    <span class="player-name">
-                        ${escapeHtml(player.name)}
-                    </span>
-                    ${hostMark}
-                </div>
+        const submitted =
+            player.submitted === true;
 
-                <div class="player-score">
-                    ${Number(player.score || 0)} pts
-                </div>
-                `;
+        const div =
+            document.createElement("div");
 
-            players.appendChild(
-                row
-            );
-        }
-    );
+        div.className =
+            "player" +
+            (isHost ? " host" : "");
+
+        div.innerHTML = `
+            <div class="player-name">
+                ${escapeHtml(name)}
+                ${isHost ? '<span class="host-badge">👑</span>' : ''}
+            </div>
+
+            <div class="player-score">
+                ${escapeHtml(String(score))} point${score == 1 ? "" : "s"}
+                ${submitted ? " • ✅ Answered" : ""}
+            </div>
+        `;
+
+        playersList.appendChild(div);
+
+    });
+
 }
 
+/* ==========================================================
+   STATUS
+========================================================== */
+
+function renderStatus(state){
+
+    const count =
+        state.player_count ??
+        (Array.isArray(state.players)
+            ? state.players.length
+            : 0);
+
+    const min =
+        state.min_players ??
+        2;
+
+    const started =
+        state.started === true ||
+        state.status === "playing";
+
+    const finished =
+        state.finished === true ||
+        state.status === "finished";
+
+    if(finished){
+
+        setStatus(
+            "🏁 The game has ended.",
+            "good"
+        );
+
+        return;
+    }
+
+    if(started){
+
+        setStatus(
+            `🎮 Game in progress • ${count} player${count === 1 ? "" : "s"}`,
+            "good"
+        );
+
+        return;
+    }
+
+    if(count < min){
+
+        setStatus(
+            `Waiting for players — ${count}/${min} needed to start.`,
+            "warn"
+        );
+
+        return;
+    }
+
+    setStatus(
+        `Ready to start — ${count} players in the room.`,
+        "good"
+    );
+
+}
+
+/* ==========================================================
+   GAME
+========================================================== */
+
+function renderGame(state){
+
+    const started =
+        state.started === true ||
+        state.status === "playing";
+
+    const finished =
+        state.finished === true ||
+        state.status === "finished";
+
+    if(!started || finished){
+
+        gamePanel.classList.add("hidden");
+
+        if(!finished){
+            startPanel.classList.remove("hidden");
+        }
+
+        return;
+    }
+
+    startPanel.classList.add("hidden");
+    gamePanel.classList.remove("hidden");
+
+    const round =
+        state.round ??
+        state.current_round ??
+        state.round_number ??
+        1;
+
+    const total =
+        state.total_rounds ??
+        10;
+
+    roundDisplay.textContent =
+        `Round ${round} of ${total}`;
+
+    const clue =
+        state.clue ||
+        state.current_clue ||
+        "Waiting for clue...";
+
+    clueDisplay.textContent = clue;
+
+    const revealed =
+        state.revealed === true ||
+        state.answer_revealed === true;
+
+    const submitted =
+        state.my_submission !== undefined
+            ? state.my_submission !== null
+            : state.has_submitted === true ||
+              state.submitted === true;
+
+    const myCorrect =
+        state.my_correct === true ||
+        state.correct === true;
+
+    lastRound = round;
+
+    if(revealed){
+
+        answerInput.disabled = true;
+        submitButton.disabled = true;
+
+        answerBox.classList.remove("hidden");
+
+        const answer =
+            state.answer ||
+            state.correct_answer ||
+            state.current_answer ||
+            "Answer unavailable";
+
+        correctAnswer.textContent = answer;
+
+        if(submitted){
+
+            resultText.textContent =
+                myCorrect
+                    ? "✅ Your answer was correct!"
+                    : "❌ Your answer was incorrect.";
+
+        }else{
+
+            resultText.textContent =
+                "You did not submit an answer.";
+
+        }
+
+        instructions.textContent =
+            "The answer has been revealed.";
+
+    }else{
+
+        answerBox.classList.add("hidden");
+
+        if(submitted){
+
+            answerInput.disabled = true;
+            submitButton.disabled = true;
+
+            instructions.textContent =
+                "✅ Answer submitted. Waiting for the host to reveal the answer.";
+
+        }else{
+
+            answerInput.disabled = false;
+            submitButton.disabled = false;
+
+            instructions.textContent =
+                "Think of the clean answer and submit it.";
+
+        }
+
+    }
+
+}
 
 /* ==========================================================
    HOST CONTROLS
-   ========================================================== */
+========================================================== */
 
-function renderHostControls() {
+function renderHostControls(state){
 
     const isHost =
-        Boolean(
-            gameState.is_host
-        );
+        state.is_host === true ||
+        state.host === true;
 
-    hostPanel.classList.toggle(
-        "visible",
-        isHost
-    );
+    if(!isHost){
 
-    if (!isHost) {
+        hostPanel.classList.add("hidden");
+        startPanel.classList.add("hidden");
+
         return;
     }
 
-    startButton.disabled =
-        !gameState.can_start;
+    hostPanel.classList.remove("hidden");
+
+    const started =
+        state.started === true ||
+        state.status === "playing";
+
+    const finished =
+        state.finished === true ||
+        state.status === "finished";
+
+    const canStart =
+        state.can_start === true;
+
+    const canReveal =
+        state.can_reveal === true;
+
+    const canNext =
+        state.can_next === true;
+
+    if(!started && !finished){
+
+        startPanel.classList.remove("hidden");
+
+        startButton.disabled =
+            !canStart;
+
+        if(canStart){
+
+            startMessage.textContent =
+                "Everyone is ready. Start the game when you are ready.";
+
+        }else{
+
+            const count =
+                state.player_count ??
+                0;
+
+            const min =
+                state.min_players ??
+                2;
+
+            startMessage.textContent =
+                `Need at least ${min} players. Currently ${count}.`;
+
+        }
+
+    }else{
+
+        startPanel.classList.add("hidden");
+
+    }
 
     revealButton.disabled =
-        !gameState.can_reveal;
+        !canReveal;
 
     nextButton.disabled =
-        !gameState.can_next;
+        !canNext;
+
+    finishButton.disabled =
+        finished;
+
 }
 
-
 /* ==========================================================
-   ROUND RESULTS
-   ========================================================== */
+   START
+========================================================== */
 
-function renderResults(
-    resultList
-) {
+async function startGame(){
 
-    resultsList.innerHTML = "";
-
-    if (!resultList.length) {
-
-        resultsList.innerHTML =
-            `
-            <div class="waiting-text">
-                Nobody submitted an answer.
-            </div>
-            `;
-
+    if(!currentState){
         return;
     }
 
-    resultList.forEach(
-        (item) => {
+    startButton.disabled = true;
 
-            const row =
-                document.createElement(
-                    "div"
-                );
+    try{
 
-            row.className =
-                "result-row " +
-                (
-                    item.correct
-                        ? "correct"
-                        : "wrong"
-                );
-
-            const answer =
-                item.did_not_answer
-                    ? "No answer"
-                    : (
-                        item.answer ||
-                        "No answer"
-                    );
-
-            row.innerHTML =
-                `
-                <div class="result-player">
-                    ${item.correct ? "✅" : "❌"}
-                    ${escapeHtml(item.name)}
-                </div>
-
-                <div class="result-submitted">
-                    ${escapeHtml(answer)}
-                </div>
-                `;
-
-            resultsList.appendChild(
-                row
-            );
-        }
-    );
-}
-
-
-/* ==========================================================
-   WINNER
-   ========================================================== */
-
-function renderWinner(
-    winner
-) {
-
-    if (!winner) {
-
-        winnerTitle.textContent =
-            "Game Over";
-
-        winnerScore.textContent =
-            "";
-
-        return;
-    }
-
-    if (
-        Array.isArray(
-            winner.players
-        )
-    ) {
-
-        winnerTitle.textContent =
-            "🤝 It's a Tie!";
-
-        winnerScore.textContent =
-            `${winner.players.join(", ")} — ${winner.score} points`;
-
-        return;
-    }
-
-    winnerTitle.textContent =
-        `🏆 ${winner.name}`;
-
-    winnerScore.textContent =
-        `${winner.score} points`;
-}
-
-
-/* ==========================================================
-   START GAME
-   ========================================================== */
-
-async function startGame() {
-
-    if (!gameState ||
-        !gameState.is_host) {
-
-        return;
-    }
-
-    try {
-
-        startButton.disabled =
-            true;
-
-        const response =
-            await fetch(
-                apiUrl(START_URL),
-                {
-                    method: "POST"
-                }
-            );
-
-        const data =
-            await response.json();
-
-        if (!response.ok ||
-            !data.success) {
-
-            throw new Error(
-                data.error ||
-                "Unable to start game."
-            );
-        }
-
-        gameState =
-            data.state;
-
-        renderGame();
-
-        showToast(
-            "🎭 Game started!"
+        await apiRequest(
+            `${API_BASE}/start`,
+            {
+                method:"POST",
+                body:JSON.stringify({
+                    room_id:ROOM_ID,
+                    player_key:PLAYER_KEY
+                })
+            }
         );
 
-    } catch (error) {
+        await loadState();
 
-        showToast(
-            error.message
+    }catch(error){
+
+        console.error(error);
+
+        setStatus(
+            error.message ||
+            "Unable to start the game.",
+            "error"
         );
 
-    } finally {
+        startButton.disabled = false;
 
-        startButton.disabled =
-            false;
-
-        fetchGameState();
     }
+
 }
 
-
 /* ==========================================================
-   SUBMIT ANSWER
-   ========================================================== */
+   SUBMIT
+========================================================== */
 
-async function submitAnswer() {
+async function submitAnswer(){
 
-    if (submittingAnswer) {
+    if(submitting){
         return;
     }
 
     const answer =
         answerInput.value.trim();
 
-    if (!answer) {
+    if(!answer){
 
-        showToast(
-            "Enter an answer first."
+        setStatus(
+            "Enter an answer first.",
+            "warn"
         );
 
         answerInput.focus();
@@ -2003,1104 +1311,221 @@ async function submitAnswer() {
         return;
     }
 
-    if (
-        !gameState ||
-        gameState.status !== "playing"
-    ) {
+    submitting = true;
 
+    answerInput.disabled = true;
+    submitButton.disabled = true;
+
+    try{
+
+        await apiRequest(
+            `${API_BASE}/answer`,
+            {
+                method:"POST",
+                body:JSON.stringify({
+                    room_id:ROOM_ID,
+                    player_key:PLAYER_KEY,
+                    answer:answer
+                })
+            }
+        );
+
+        answerInput.value = "";
+
+        await loadState();
+
+    }catch(error){
+
+        console.error(error);
+
+        answerInput.disabled = false;
+        submitButton.disabled = false;
+
+        setStatus(
+            error.message ||
+            "Unable to submit answer.",
+            "error"
+        );
+
+    }finally{
+
+        submitting = false;
+
+    }
+
+}
+
+/* ==========================================================
+   REVEAL
+========================================================== */
+
+async function revealRound(){
+
+    if(!currentState){
         return;
     }
 
-    submittingAnswer =
-        true;
+    revealButton.disabled = true;
 
-    submitButton.disabled =
-        true;
+    try{
 
-    try {
-
-        const response =
-            await fetch(
-                apiUrl(ANSWER_URL),
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body: JSON.stringify({
-                        answer
-                    })
-                }
-            );
-
-        const data =
-            await response.json();
-
-        if (!response.ok ||
-            !data.success) {
-
-            throw new Error(
-                data.error ||
-                "Unable to submit answer."
-            );
-        }
-
-        gameState =
-            data.state;
-
-        renderGame();
-
-        if (data.correct) {
-
-            showToast(
-                "🔥 Correct!"
-            );
-
-        } else {
-
-            showToast(
-                "Answer submitted!"
-            );
-        }
-
-    } catch (error) {
-
-        showToast(
-            error.message
+        await apiRequest(
+            `${API_BASE}/reveal`,
+            {
+                method:"POST",
+                body:JSON.stringify({
+                    room_id:ROOM_ID,
+                    player_key:PLAYER_KEY
+                })
+            }
         );
 
-        submitButton.disabled =
-            false;
+        await loadState();
 
-    } finally {
+    }catch(error){
 
-        submittingAnswer =
-            false;
+        console.error(error);
+
+        setStatus(
+            error.message ||
+            "Unable to reveal answer.",
+            "error"
+        );
+
+        revealButton.disabled = false;
+
     }
+
 }
-
-
-/* ==========================================================
-   REVEAL ANSWER
-   ========================================================== */
-
-async function revealAnswer() {
-
-    try {
-
-        revealButton.disabled =
-            true;
-
-        const response =
-            await fetch(
-                apiUrl(REVEAL_URL),
-                {
-                    method: "POST"
-                }
-            );
-
-        const data =
-            await response.json();
-
-        if (!response.ok ||
-            !data.success) {
-
-            throw new Error(
-                data.error ||
-                "Unable to reveal answer."
-            );
-        }
-
-        gameState =
-            data.state;
-
-        renderGame();
-
-        showToast(
-            `👀 Answer: ${gameState.answer}`
-        );
-
-    } catch (error) {
-
-        showToast(
-            error.message
-        );
-
-    } finally {
-
-        fetchGameState();
-    }
-}
-
 
 /* ==========================================================
    NEXT ROUND
-   ========================================================== */
+========================================================== */
 
-async function nextRound() {
+async function nextRound(){
 
-    try {
-
-        nextButton.disabled =
-            true;
-
-        const response =
-            await fetch(
-                apiUrl(NEXT_URL),
-                {
-                    method: "POST"
-                }
-            );
-
-        const data =
-            await response.json();
-
-        if (!response.ok ||
-            !data.success) {
-
-            throw new Error(
-                data.error ||
-                "Unable to advance round."
-            );
-        }
-
-        gameState =
-            data.state;
-
-        renderGame();
-
-        if (
-            gameState.status ===
-            "finished"
-        ) {
-
-            showToast(
-                "🏆 Game complete!"
-            );
-
-        } else {
-
-            answerInput.value =
-                "";
-
-            showToast(
-                `Round ${gameState.round} started!`
-            );
-        }
-
-    } catch (error) {
-
-        showToast(
-            error.message
-        );
-
-    } finally {
-
-        fetchGameState();
-    }
-}
-
-
-/* ==========================================================
-   MICROPHONE
-   ========================================================== */
-
-async function toggleMicrophone() {
-
-    if (!livekitRoom) {
-
-        showToast(
-            "Voice connection is not ready yet."
-        );
-
+    if(!currentState){
         return;
     }
 
-    try {
+    nextButton.disabled = true;
 
-        const nextState =
-            !localMicEnabled;
+    try{
 
-        await livekitRoom.localParticipant
-            .setMicrophoneEnabled(
-                nextState
-            );
-
-        localMicEnabled =
-            nextState;
-
-        updateMediaButtons();
-
-    } catch (error) {
-
-        console.error(
-            "Microphone error:",
-            error
-        );
-
-        showToast(
-            "Microphone could not be changed."
-        );
-    }
-}
-
-
-/* ==========================================================
-   CAMERA
-   ========================================================== */
-
-async function toggleCamera() {
-
-    if (!livekitRoom) {
-
-        showToast(
-            "Camera connection is not ready yet."
-        );
-
-        return;
-    }
-
-    try {
-
-        const nextState =
-            !localCameraEnabled;
-
-        await livekitRoom.localParticipant
-            .setCameraEnabled(
-                nextState
-            );
-
-        localCameraEnabled =
-            nextState;
-
-        updateMediaButtons();
-
-    } catch (error) {
-
-        console.error(
-            "Camera error:",
-            error
-        );
-
-        showToast(
-            "Camera could not be changed."
-        );
-    }
-}
-
-
-/* ==========================================================
-   MEDIA BUTTONS
-   ========================================================== */
-
-function updateMediaButtons() {
-
-    if (localMicEnabled) {
-
-        micButton.textContent =
-            "🎤 Mic On";
-
-        micButton.classList.add(
-            "active"
-        );
-
-        micButton.classList.remove(
-            "off"
-        );
-
-    } else {
-
-        micButton.textContent =
-            "🎤 Mic Off";
-
-        micButton.classList.remove(
-            "active"
-        );
-
-        micButton.classList.add(
-            "off"
-        );
-    }
-
-
-    if (localCameraEnabled) {
-
-        cameraButton.textContent =
-            "📷 Camera On";
-
-        cameraButton.classList.add(
-            "active"
-        );
-
-        cameraButton.classList.remove(
-            "off"
-        );
-
-    } else {
-
-        cameraButton.textContent =
-            "📷 Camera Off";
-
-        cameraButton.classList.remove(
-            "active"
-        );
-
-        cameraButton.classList.add(
-            "off"
-        );
-    }
-}
-
-
-/* ==========================================================
-   LIVEKIT TOKEN
-   ========================================================== */
-
-async function getLiveKitToken() {
-
-    const response =
-        await fetch(
-            apiUrl(TOKEN_URL),
+        await apiRequest(
+            `${API_BASE}/next`,
             {
-                method: "GET",
-                cache: "no-store"
+                method:"POST",
+                body:JSON.stringify({
+                    room_id:ROOM_ID,
+                    player_key:PLAYER_KEY
+                })
             }
         );
 
-    const data =
-        await response.json();
+        answerInput.value = "";
 
-    if (!response.ok ||
-        !data.success) {
+        await loadState();
 
-        throw new Error(
-            data.error ||
-            "Unable to connect voice/video."
-        );
-    }
+    }catch(error){
 
-    return data;
-}
+        console.error(error);
 
-
-/* ==========================================================
-   CREATE VIDEO TILE
-   ========================================================== */
-
-function createVideoTile(
-    participant,
-    isLocal = false
-) {
-
-    const identity =
-        participant.identity;
-
-    if (videoTiles.has(identity)) {
-
-        return videoTiles.get(
-            identity
-        );
-    }
-
-    const tile =
-        document.createElement(
-            "div"
-        );
-
-    tile.className =
-        "video-tile" +
-        (
-            isLocal
-                ? " local"
-                : ""
-        );
-
-    tile.dataset.identity =
-        identity;
-
-
-    const placeholder =
-        document.createElement(
-            "div"
-        );
-
-    placeholder.className =
-        "video-placeholder";
-
-    const avatar =
-        document.createElement(
-            "div"
-        );
-
-    avatar.className =
-        "avatar";
-
-    avatar.textContent =
-        getInitial(
-            participant.name ||
-            participant.identity
-        );
-
-    const placeholderName =
-        document.createElement(
-            "div"
-        );
-
-    placeholderName.className =
-        "placeholder-name";
-
-    placeholderName.textContent =
-        participant.name ||
-        participant.identity ||
-        "Player";
-
-    placeholder.appendChild(
-        avatar
-    );
-
-    placeholder.appendChild(
-        placeholderName
-    );
-
-
-    const name =
-        document.createElement(
-            "div"
-        );
-
-    name.className =
-        "video-name";
-
-    name.textContent =
-        participant.name ||
-        participant.identity ||
-        "Player";
-
-
-    const status =
-        document.createElement(
-            "div"
-        );
-
-    status.className =
-        "video-status";
-
-
-    tile.appendChild(
-        placeholder
-    );
-
-    tile.appendChild(
-        name
-    );
-
-    tile.appendChild(
-        status
-    );
-
-    videoGrid.appendChild(
-        tile
-    );
-
-    videoTiles.set(
-        identity,
-        {
-            tile,
-            placeholder,
-            status
-        }
-    );
-
-    return videoTiles.get(
-        identity
-    );
-}
-
-
-/* ==========================================================
-   INITIAL
-   ========================================================== */
-
-function getInitial(
-    name
-) {
-
-    const text =
-        String(
-            name ||
-            "P"
-        ).trim();
-
-    return (
-        text.charAt(0)
-        || "P"
-    ).toUpperCase();
-}
-
-
-/* ==========================================================
-   ATTACH TRACK
-   ========================================================== */
-
-function attachTrack(
-    track,
-    participant
-) {
-
-    const isLocal =
-        participant ===
-        livekitRoom.localParticipant;
-
-    const info =
-        createVideoTile(
-            participant,
-            isLocal
-        );
-
-    const element =
-        track.attach();
-
-    if (track.kind === "video") {
-
-        element.autoplay =
-            true;
-
-        element.playsInline =
-            true;
-
-        element.muted =
-            true;
-
-        info.tile
-            .insertBefore(
-                element,
-                info.tile.firstChild
-            );
-
-        info.placeholder.style.display =
-            "none";
-
-    } else if (
-        track.kind === "audio"
-    ) {
-
-        element.autoplay =
-            true;
-
-        element.style.display =
-            "none";
-
-        info.tile.appendChild(
-            element
-        );
-    }
-}
-
-
-/* ==========================================================
-   REMOVE TRACK
-   ========================================================== */
-
-function removeTrack(
-    track
-) {
-
-    try {
-
-        track.detach().forEach(
-            element => {
-                element.remove();
-            }
-        );
-
-    } catch (error) {
-
-        console.warn(
-            "Track detach error:",
-            error
-        );
-    }
-}
-
-
-/* ==========================================================
-   REMOVE PARTICIPANT
-   ========================================================== */
-
-function removeParticipant(
-    participant
-) {
-
-    const identity =
-        participant.identity;
-
-    const info =
-        videoTiles.get(
-            identity
-        );
-
-    if (!info) {
-        return;
-    }
-
-    info.tile.remove();
-
-    videoTiles.delete(
-        identity
-    );
-}
-
-
-/* ==========================================================
-   LIVEKIT PARTICIPANTS
-   ========================================================== */
-
-function renderExistingParticipants() {
-
-    if (!livekitRoom) {
-        return;
-    }
-
-    const local =
-        livekitRoom.localParticipant;
-
-    createVideoTile(
-        local,
-        true
-    );
-
-    livekitRoom.remoteParticipants
-        .forEach(
-            participant => {
-
-                createVideoTile(
-                    participant,
-                    false
-                );
-
-                participant.trackPublications
-                    .forEach(
-                        publication => {
-
-                            if (
-                                publication.track
-                            ) {
-
-                                attachTrack(
-                                    publication.track,
-                                    participant
-                                );
-                            }
-                        }
-                    );
-            }
-        );
-}
-
-
-/* ==========================================================
-   CONNECT LIVEKIT
-   ========================================================== */
-
-async function connectLiveKit() {
-
-    if (
-        typeof LivekitClient ===
-        "undefined"
-    ) {
-
-        setConnection(
-            "error",
-            "Video system unavailable"
-        );
-
-        showToast(
-            "Live video library could not load."
-        );
-
-        return;
-    }
-
-    try {
-
-        setConnection(
-            "connecting",
-            "Connecting voice/video..."
-        );
-
-        const tokenData =
-            await getLiveKitToken();
-
-        livekitRoom =
-            new LivekitClient.Room({
-                adaptiveStream: true,
-                dynacast: true
-            });
-
-
-        /* --------------------------------------------------
-           Track subscribed
-           -------------------------------------------------- */
-
-        livekitRoom.on(
-            LivekitClient.RoomEvent.TrackSubscribed,
-            (
-                track,
-                publication,
-                participant
-            ) => {
-
-                attachTrack(
-                    track,
-                    participant
-                );
-            }
-        );
-
-
-        /* --------------------------------------------------
-           Track unsubscribed
-           -------------------------------------------------- */
-
-        livekitRoom.on(
-            LivekitClient.RoomEvent.TrackUnsubscribed,
-            (
-                track
-            ) => {
-
-                removeTrack(
-                    track
-                );
-            }
-        );
-
-
-        /* --------------------------------------------------
-           Participant connected
-           -------------------------------------------------- */
-
-        livekitRoom.on(
-            LivekitClient.RoomEvent.ParticipantConnected,
-            participant => {
-
-                createVideoTile(
-                    participant,
-                    false
-                );
-
-                showToast(
-                    `👋 ${participant.name || "A player"} joined.`
-                );
-            }
-        );
-
-
-        /* --------------------------------------------------
-           Participant disconnected
-           -------------------------------------------------- */
-
-        livekitRoom.on(
-            LivekitClient.RoomEvent.ParticipantDisconnected,
-            participant => {
-
-                removeParticipant(
-                    participant
-                );
-
-                showToast(
-                    `👋 ${participant.name || "A player"} left.`
-                );
-            }
-        );
-
-
-        /* --------------------------------------------------
-           Active speakers
-           -------------------------------------------------- */
-
-        livekitRoom.on(
-            LivekitClient.RoomEvent.ActiveSpeakersChanged,
-            speakers => {
-
-                updateSpeakingIndicators(
-                    speakers
-                );
-            }
-        );
-
-
-        /* --------------------------------------------------
-           Room disconnected
-           -------------------------------------------------- */
-
-        livekitRoom.on(
-            LivekitClient.RoomEvent.Disconnected,
-            () => {
-
-                setConnection(
-                    "error",
-                    "Voice/video disconnected"
-                );
-            }
-        );
-
-
-        /* --------------------------------------------------
-           Connect
-           -------------------------------------------------- */
-
-        await livekitRoom.connect(
-            tokenData.url,
-            tokenData.token
-        );
-
-
-        setConnection(
-            "connected",
-            "Voice/video connected"
-        );
-
-
-        renderExistingParticipants();
-
-
-        /*
-         * IMPORTANT:
-         * Do NOT automatically enable camera or microphone.
-         *
-         * Both remain OFF until the user chooses.
-         *
-         * This means:
-         *
-         *   Mic only       = supported
-         *   Camera only    = supported
-         *   Both           = supported
-         *   Neither        = supported
-         */
-
-        localMicEnabled =
-            false;
-
-        localCameraEnabled =
-            false;
-
-        updateMediaButtons();
-
-    } catch (error) {
-
-        console.error(
-            "LiveKit connection error:",
-            error
-        );
-
-        setConnection(
-            "error",
-            "Voice/video unavailable"
-        );
-
-        showToast(
+        setStatus(
             error.message ||
-            "Unable to connect voice/video."
+            "Unable to start the next round.",
+            "error"
         );
+
+        nextButton.disabled = false;
+
     }
+
 }
 
-
 /* ==========================================================
-   SPEAKING INDICATORS
-   ========================================================== */
+   FINISH
+========================================================== */
 
-function updateSpeakingIndicators(
-    speakers
-) {
+async function finishGame(){
 
-    const speakingIds =
-        new Set(
-            speakers.map(
-                participant =>
-                    participant.identity
-            )
-        );
-
-    videoTiles.forEach(
-        (info, identity) => {
-
-            if (
-                speakingIds.has(
-                    identity
-                )
-            ) {
-
-                info.tile.style.borderColor =
-                    "#ffffff";
-
-            } else {
-
-                info.tile.style.borderColor =
-                    "#292929";
-            }
-        }
-    );
-}
-
-
-/* ==========================================================
-   LEAVE GAME
-   ========================================================== */
-
-async function leaveGame() {
-
-    const confirmed =
-        window.confirm(
-            "Leave Dirty Minds?"
-        );
-
-    if (!confirmed) {
+    if(!confirm("Are you sure you want to end the game?")){
         return;
     }
 
-    try {
+    finishButton.disabled = true;
 
-        if (livekitRoom) {
+    try{
 
-            livekitRoom.disconnect();
-
-        }
-
-    } catch (error) {
-
-        console.warn(
-            "Disconnect error:",
-            error
-        );
-    }
-
-    window.location.href =
-        "/real-games/";
-}
-
-
-/* ==========================================================
-   EVENTS
-   ========================================================== */
-
-micButton.addEventListener(
-    "click",
-    toggleMicrophone
-);
-
-cameraButton.addEventListener(
-    "click",
-    toggleCamera
-);
-
-leaveButton.addEventListener(
-    "click",
-    leaveGame
-);
-
-startButton.addEventListener(
-    "click",
-    startGame
-);
-
-revealButton.addEventListener(
-    "click",
-    revealAnswer
-);
-
-nextButton.addEventListener(
-    "click",
-    nextRound
-);
-
-submitButton.addEventListener(
-    "click",
-    submitAnswer
-);
-
-
-/* ----------------------------------------------------------
-   ENTER submits answer
-   ---------------------------------------------------------- */
-
-answerInput.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key ===
-            "Enter"
-        ) {
-
-            event.preventDefault();
-
-            submitAnswer();
-        }
-    }
-);
-
-
-/* ==========================================================
-   PAGE START
-   ========================================================== */
-
-async function initialize() {
-
-    if (!ROOM_ID ||
-        !PLAYER_KEY) {
-
-        setConnection(
-            "error",
-            "Invalid game session"
-        );
-
-        showToast(
-            "This game link is invalid."
-        );
-
-        return;
-    }
-
-    startPolling();
-
-    await connectLiveKit();
-}
-
-
-initialize();
-
-
-/* ==========================================================
-   PAGE CLEANUP
-   ========================================================== */
-
-window.addEventListener(
-    "beforeunload",
-    () => {
-
-        if (pollingTimer) {
-
-            clearInterval(
-                pollingTimer
-            );
-
-            pollingTimer = null;
-        }
-
-        if (livekitRoom) {
-
-            try {
-                livekitRoom.disconnect();
-            } catch (error) {
-                // Nothing else to do during page unload.
+        await apiRequest(
+            `${API_BASE}/finish`,
+            {
+                method:"POST",
+                body:JSON.stringify({
+                    room_id:ROOM_ID,
+                    player_key:PLAYER_KEY
+                })
             }
-        }
+        );
+
+        await loadState();
+
+    }catch(error){
+
+        console.error(error);
+
+        setStatus(
+            error.message ||
+            "Unable to finish game.",
+            "error"
+        );
+
+        finishButton.disabled = false;
+
     }
-);
+
+}
+
+/* ==========================================================
+   STATUS HELPER
+========================================================== */
+
+function setStatus(message, type = ""){
+
+    statusMessage.textContent = message;
+
+    statusMessage.className =
+        "status" +
+        (type ? ` ${type}` : "");
+
+}
+
+/* ==========================================================
+   HTML ESCAPE
+========================================================== */
+
+function escapeHtml(value){
+
+    return String(value)
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+
+}
+
+/* ==========================================================
+   CLEANUP
+========================================================== */
+
+window.addEventListener("beforeunload", () => {
+
+    if(polling){
+        clearInterval(polling);
+    }
+
+});
 
 </script>
 
