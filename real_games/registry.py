@@ -1,9 +1,10 @@
-"""
-Melanated AZ Bot
-Real Games - Game Registry
-
-PC + MOBILE COMPATIBLE GAMES
-"""
+# ==========================================================
+# Melanated AZ Real Games
+# real_games/registry.py
+#
+# SINGLE SOURCE OF TRUTH FOR REAL GAMES
+# PC + MOBILE COMPATIBLE
+# ==========================================================
 
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ class GameDefinition:
     name: str
     category: str
     description: str
-    endpoint: str
+    endpoint: str = "real_games.play_game"
     mode: str = "solo"
     max_players: int = 1
     min_players: int = 1
@@ -35,14 +36,18 @@ class GameDefinition:
 
 CATEGORY_ORDER = [
     "Arcade",
+    "Board Games",
     "Sports",
     "Shooting",
-    "Party",
 ]
 
 
 # ==========================================================
 # PLAYABLE GAME REGISTRY
+#
+# IMPORTANT:
+# A game should only be added here when game.html contains
+# a matching playable JavaScript game engine.
 # ==========================================================
 
 GAMES: dict[str, GameDefinition] = {
@@ -52,210 +57,234 @@ GAMES: dict[str, GameDefinition] = {
     # ======================================================
 
     "snake": GameDefinition(
-        "snake",
-        "Snake",
-        "Arcade",
-        "Eat the food, grow longer, and avoid hitting yourself.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🐍",
+        game_id="snake",
+        name="Snake",
+        category="Arcade",
+        description="Eat the food, grow longer, and avoid hitting yourself.",
+        icon="🐍",
     ),
 
     "pong": GameDefinition(
-        "pong",
-        "Pong",
-        "Arcade",
-        "Classic paddle action against the computer.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🏓",
+        game_id="pong",
+        name="Pong",
+        category="Arcade",
+        description="Classic paddle action against the computer.",
+        icon="🏓",
     ),
 
     "breakout": GameDefinition(
-        "breakout",
-        "Breakout",
-        "Arcade",
-        "Break the blocks and keep the ball alive.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🧱",
+        game_id="breakout",
+        name="Breakout",
+        category="Arcade",
+        description="Break the blocks and keep the ball alive.",
+        icon="🧱",
     ),
 
-    "dodge": GameDefinition(
-        "dodge",
-        "Dodge",
-        "Arcade",
-        "Avoid falling obstacles for as long as possible.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "💨",
+    "tetris": GameDefinition(
+        game_id="tetris",
+        name="Tetris",
+        category="Arcade",
+        description="Clear lines by fitting falling blocks together.",
+        icon="🟦",
+    ),
+
+    "flappy": GameDefinition(
+        game_id="flappy",
+        name="Flappy",
+        category="Arcade",
+        description="Fly through the pipes without hitting them.",
+        icon="🐦",
+    ),
+
+    "space_invaders": GameDefinition(
+        game_id="space_invaders",
+        name="Space Invaders",
+        category="Arcade",
+        description="Destroy the invading aliens before they reach you.",
+        icon="👾",
+    ),
+
+    "asteroids": GameDefinition(
+        game_id="asteroids",
+        name="Asteroids",
+        category="Arcade",
+        description="Pilot your ship and destroy incoming asteroids.",
+        icon="☄️",
+    ),
+
+    "pac_man": GameDefinition(
+        game_id="pac_man",
+        name="Pac-Man",
+        category="Arcade",
+        description="Eat the pellets and avoid the ghosts.",
+        icon="🟡",
     ),
 
     "2048": GameDefinition(
-        "2048",
-        "2048",
-        "Arcade",
-        "Combine matching tiles and reach 2048.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🔢",
+        game_id="2048",
+        name="2048",
+        category="Arcade",
+        description="Combine matching tiles and reach 2048.",
+        icon="🔢",
     ),
 
     "memory_match": GameDefinition(
-        "memory_match",
-        "Memory Match",
-        "Arcade",
-        "Flip cards and match all the hidden pairs.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🧠",
+        game_id="memory_match",
+        name="Memory Match",
+        category="Arcade",
+        description="Flip cards and match all the hidden pairs.",
+        icon="🧠",
     ),
 
-    "reaction": GameDefinition(
-        "reaction",
-        "Reaction Test",
-        "Arcade",
-        "Test how quickly you can react.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "⚡",
-    ),
 
-    "whack_a_mole": GameDefinition(
-        "whack_a_mole",
-        "Whack-a-Mole",
-        "Arcade",
-        "Tap the mole before it moves.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🔨",
+    # ======================================================
+    # 🎲 BOARD GAMES
+    # ======================================================
+
+    "monopoly": GameDefinition(
+        game_id="monopoly",
+        name="Monopoly",
+        category="Board Games",
+        description="Roll, move, buy properties, and collect rent.",
+        icon="🎩",
     ),
 
     "chess": GameDefinition(
-        "chess",
-        "Chess",
-        "Arcade",
-        "Two-player local chess match.",
-        "real_games.play_game",
-        "solo",
-        1,
-        2,
-        False,
-        "♟️",
+        game_id="chess",
+        name="Chess",
+        category="Board Games",
+        description="Classic strategy chess.",
+        icon="♟️",
     ),
 
     "checkers": GameDefinition(
-        "checkers",
-        "Checkers",
-        "Arcade",
-        "Two-player local checkers match.",
-        "real_games.play_game",
-        "solo",
-        1,
-        2,
-        False,
-        "🔴",
+        game_id="checkers",
+        name="Checkers",
+        category="Board Games",
+        description="Jump your opponent's pieces and capture them.",
+        icon="🔴",
     ),
 
-    "monopoly": GameDefinition(
-        "monopoly",
-        "Monopoly",
-        "Arcade",
-        "Buy properties and collect rent.",
-        "real_games.play_game",
-        "solo",
-        1,
-        4,
-        False,
-        "🎲",
+    "connect_four": GameDefinition(
+        game_id="connect_four",
+        name="Connect Four",
+        category="Board Games",
+        description="Connect four pieces in a row before your opponent.",
+        icon="🔵",
     ),
 
-    "race_car": GameDefinition(
-        "race_car",
-        "Race Car Racing",
-        "Arcade",
-        "Dodge traffic and drive as far as possible.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🏎️",
+    "tic_tac_toe": GameDefinition(
+        game_id="tic_tac_toe",
+        name="Tic-Tac-Toe",
+        category="Board Games",
+        description="Get three symbols in a row.",
+        icon="❌",
     ),
+
+    "battleship": GameDefinition(
+        game_id="battleship",
+        name="Battleship",
+        category="Board Games",
+        description="Find and sink the opponent's ships.",
+        icon="🚢",
+    ),
+
+    "yahtzee": GameDefinition(
+        game_id="yahtzee",
+        name="Yahtzee",
+        category="Board Games",
+        description="Roll the dice and build the highest score.",
+        icon="🎲",
+    ),
+
+    "ludo": GameDefinition(
+        game_id="ludo",
+        name="Ludo",
+        category="Board Games",
+        description="Race your pieces around the board and reach home.",
+        icon="🎯",
+    ),
+
 
     # ======================================================
     # 🏀 SPORTS
     # ======================================================
 
     "basketball": GameDefinition(
-        "basketball",
-        "Basketball",
-        "Sports",
-        "Shoot hoops and build your score.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🏀",
+        game_id="basketball",
+        name="Basketball",
+        category="Sports",
+        description="Shoot hoops and build your score.",
+        icon="🏀",
     ),
 
+    "football": GameDefinition(
+        game_id="football",
+        name="Football",
+        category="Sports",
+        description="Play a quick football challenge.",
+        icon="🏈",
+    ),
+
+    "soccer": GameDefinition(
+        game_id="soccer",
+        name="Soccer",
+        category="Sports",
+        description="Score goals and beat the goalkeeper.",
+        icon="⚽",
+    ),
+
+    "bowling": GameDefinition(
+        game_id="bowling",
+        name="Bowling",
+        category="Sports",
+        description="Roll the ball and knock down the pins.",
+        icon="🎳",
+    ),
+
+    "cricket": GameDefinition(
+        game_id="cricket",
+        name="Cricket",
+        category="Sports",
+        description="Bat, score runs, and test your timing.",
+        icon="🏏",
+    ),
+
+
     # ======================================================
-    # 🎯 SHOOTING
+    # 🔫 SHOOTING
     # ======================================================
+
+    "alien_blaster": GameDefinition(
+        game_id="alien_blaster",
+        name="Alien Blaster",
+        category="Shooting",
+        description="Blast incoming aliens and survive the attack.",
+        icon="👽",
+    ),
+
+    "space_fighter": GameDefinition(
+        game_id="space_fighter",
+        name="Space Fighter",
+        category="Shooting",
+        description="Pilot your fighter and destroy enemy ships.",
+        icon="🚀",
+    ),
 
     "target_shooter": GameDefinition(
-        "target_shooter",
-        "Target Shooter",
-        "Shooting",
-        "Tap the targets and test your accuracy.",
-        "real_games.play_game",
-        "solo",
-        1,
-        1,
-        False,
-        "🎯",
+        game_id="target_shooter",
+        name="Target Shooter",
+        category="Shooting",
+        description="Hit the targets and test your accuracy.",
+        icon="🎯",
     ),
 
-    # ======================================================
-    # 🎭 PARTY
-    # ======================================================
-
-    "dirty_minds": GameDefinition(
-        "dirty_minds",
-        "Dirty Minds",
-        "Party",
-        "Multiplayer clue party game for groups.",
-        "real_games.play_game",
-        "multiplayer",
-        1,
-        20,
-        True,
-        "🧠",
+    "zombie_blaster": GameDefinition(
+        game_id="zombie_blaster",
+        name="Zombie Blaster",
+        category="Shooting",
+        description="Stop the zombies before they reach you.",
+        icon="🧟",
     ),
 }
 
@@ -265,10 +294,19 @@ GAMES: dict[str, GameDefinition] = {
 # ==========================================================
 
 def get_game(game_id: str) -> Optional[GameDefinition]:
+    """
+    Return a game definition by ID.
+
+    Accepts IDs such as:
+        snake
+        2048
+        rg_snake
+    """
+
     if not game_id:
         return None
 
-    game_id = game_id.strip().lower()
+    game_id = str(game_id).strip().lower()
 
     if game_id.startswith("rg_"):
         game_id = game_id[3:]
@@ -276,7 +314,10 @@ def get_game(game_id: str) -> Optional[GameDefinition]:
     return GAMES.get(game_id)
 
 
-def get_games_by_category(category: str) -> list[GameDefinition]:
+def get_games_by_category(
+    category: str,
+) -> list[GameDefinition]:
+
     if not category:
         return []
 
@@ -290,6 +331,10 @@ def get_games_by_category(category: str) -> list[GameDefinition]:
 
 
 def get_categories() -> list[str]:
+    """
+    Return categories in the desired display order.
+    """
+
     return [
         category
         for category in CATEGORY_ORDER
@@ -301,6 +346,10 @@ def get_categories() -> list[str]:
 
 
 def get_games_grouped() -> dict[str, list[GameDefinition]]:
+    """
+    Return games grouped by category.
+    """
+
     grouped: dict[str, list[GameDefinition]] = {
         category: []
         for category in CATEGORY_ORDER
@@ -318,14 +367,26 @@ def get_games_grouped() -> dict[str, list[GameDefinition]]:
 
 
 def all_games() -> list[GameDefinition]:
+    """
+    Return every registered game.
+    """
+
     return list(GAMES.values())
 
 
 def get_game_ids() -> list[str]:
+    """
+    Return all registered game IDs.
+    """
+
     return list(GAMES.keys())
 
 
 def game_exists(game_id: str) -> bool:
+    """
+    Check whether a game exists.
+    """
+
     return get_game(game_id) is not None
 
 
@@ -334,48 +395,82 @@ def game_exists(game_id: str) -> bool:
 # ==========================================================
 
 def validate_registry() -> list[str]:
+
     errors: list[str] = []
 
     for game_id, game in GAMES.items():
 
+        # Dictionary key must match internal ID
         if game_id != game.game_id:
             errors.append(
                 f"Dictionary key '{game_id}' does not match "
                 f"game_id '{game.game_id}'."
             )
 
+        # Required fields
         if not game.name:
-            errors.append(f"{game_id}: missing name.")
-
-        if not game.category:
-            errors.append(f"{game_id}: missing category.")
-
-        if game.category not in CATEGORY_ORDER:
             errors.append(
-                f"{game_id}: invalid category '{game.category}'."
+                f"{game_id}: missing name."
             )
 
-        if game.mode not in {"solo", "multiplayer", "both"}:
-            errors.append(f"{game_id}: invalid mode.")
+        if not game.category:
+            errors.append(
+                f"{game_id}: missing category."
+            )
 
+        if not game.description:
+            errors.append(
+                f"{game_id}: missing description."
+            )
+
+        # Category
+        if game.category not in CATEGORY_ORDER:
+            errors.append(
+                f"{game_id}: invalid category "
+                f"'{game.category}'."
+            )
+
+        # Mode
+        if game.mode not in {
+            "solo",
+            "multiplayer",
+            "both",
+        }:
+            errors.append(
+                f"{game_id}: invalid mode."
+            )
+
+        # Player counts
         if game.min_players < 1:
-            errors.append(f"{game_id}: min_players must be >= 1.")
+            errors.append(
+                f"{game_id}: min_players must be >= 1."
+            )
 
         if game.max_players < 1:
-            errors.append(f"{game_id}: max_players must be >= 1.")
+            errors.append(
+                f"{game_id}: max_players must be >= 1."
+            )
 
         if game.min_players > game.max_players:
             errors.append(
-                f"{game_id}: min_players cannot exceed max_players."
+                f"{game_id}: min_players cannot exceed "
+                f"max_players."
             )
 
     return errors
 
+
+# ==========================================================
+# RUN VALIDATION WHEN IMPORTED
+# ==========================================================
 
 REGISTRY_ERRORS = validate_registry()
 
 if REGISTRY_ERRORS:
     raise RuntimeError(
         "Real Games registry validation failed:\n"
-        + "\n".join(f" - {error}" for error in REGISTRY_ERRORS)
+        + "\n".join(
+            f" - {error}"
+            for error in REGISTRY_ERRORS
+        )
     )
