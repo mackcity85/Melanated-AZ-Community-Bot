@@ -2748,31 +2748,31 @@ function chessGame(){
                                 m[1]===tc
                         )
                     ){
-                        return true;
+                        return true;cat << 'EOF' > solution.html
                     }
                 }
             }
-        }
+        }0
 
         return false;
     }
 
     function inCheck(b,col){
 
-        let kr=-1;
+        let kr=- serve1;
         let kc=-1;
 
-        for(let r=0;r<8;r++){
+        for(let r=0;r<8 header;r++){
 
             for(let c=0;c<8;c++){
 
                 if(
                     b[r][c]===
-                    (col==="w"?"K":"k")
+                    (col==="w"?"K":"k me") expanded
                 ){
 
                     kr=r;
-                    kc=c;
+                    kc=c; keep
                 }
             }
         }
@@ -4633,102 +4633,50 @@ function raceCarGame(){
 
 
 /* ==========================================================
-   DIRTY MINDS — MULTIPLAYER
-   FIXED HOST / START SYSTEM
+   DIRTY MINDS — MULTIPLAYER WITH HOST CONTROLS
    ========================================================== */
 
 function dirtyMindsGame(){
 
-    const params=
-        new URLSearchParams(
-            window.location.search
-        );
+    const params = new URLSearchParams(window.location.search);
 
-    let roomId=
-        params.get("room") || "";
+    let roomId = params.get("room") || "";
+    let playerId = params.get("player_id") || "";
+    let playerName = params.get("player_name") || "";
 
-    let playerId=
-        params.get("player_id") || "";
-
-    let playerName=
-        params.get("player_name") || "";
-
-    /*
-     * IMPORTANT:
-     * The creator of a room is immediately
-     * marked as the host on the frontend.
-     *
-     * This prevents the Start button from
-     * disappearing when the server does not
-     * immediately return host_id.
-     */
-
-    let room=null;
-    let pollId=null;
-    let joined=false;
-    let isHost=false;
+    let room = null;
+    let pollId = null;
+    let joined = false;
+    let isHost = false;
 
     function createPlayerId(){
-
-        return "web_"+
-            Date.now()+
-            "_"+
-            Math.random()
-                .toString(36)
-                .slice(2,9);
+        return "web_" + Date.now() + "_" + Math.random().toString(36).slice(2,9);
     }
 
     if(!playerId){
-        playerId=createPlayerId();
+        playerId = createPlayerId();
     }
 
-    /*
-     * Preserve host status when the player
-     * refreshes the page.
-     */
-
     function hostStorageKey(){
-
-        return roomId
-            ? "dirty_minds_host_"+roomId
-            : "";
+        return roomId ? "dirty_minds_host_" + roomId : "";
     }
 
     function saveHost(){
-
-        if(!roomId)return;
-
+        if(!roomId) return;
         try{
-
             if(isHost){
-                localStorage.setItem(
-                    hostStorageKey(),
-                    playerId
-                );
+                localStorage.setItem(hostStorageKey(), playerId);
             }
-
         }catch(e){
-            console.warn(
-                "Unable to save host state",
-                e
-            );
+            console.warn("Unable to save host state", e);
         }
     }
 
     function loadHost(){
-
-        if(!roomId)return false;
-
+        if(!roomId) return false;
         try{
-
-            return String(
-                localStorage.getItem(
-                    hostStorageKey()
-                ) || ""
-            )===String(playerId);
-
+            return String(localStorage.getItem(hostStorageKey()) || "") === String(playerId);
         }catch(e){
-
             return false;
         }
     }
@@ -4746,100 +4694,41 @@ function dirtyMindsGame(){
 
             <div id="dmSetup">
 
-                <input
-                    id="dmName"
-                    placeholder="Enter your player name"
-                    maxlength="40"
-                    value="${escapeHtml(playerName)}"
-                    autocomplete="nickname"
-                >
+                <input id="dmName"
+                       placeholder="Enter your player name"
+                       maxlength="40"
+                       value="${escapeHtml(playerName)}"
+                       autocomplete="nickname">
 
                 <div style="margin-top:14px">
-
-                    <input
-                        id="dmRoom"
-                        placeholder="Room code"
-                        maxlength="12"
-                        value="${escapeHtml(roomId)}"
-                        autocomplete="off"
-                    >
-
+                    <input id="dmRoom"
+                           placeholder="Room code"
+                           maxlength="12"
+                           value="${escapeHtml(roomId)}"
+                           autocomplete="off">
                 </div>
 
                 <div class="controls">
-
-                    <button
-                        id="dmCreate"
-                        class="primary">
-                        🎮 Create Game
-                    </button>
-
-                    <button
-                        id="dmJoin">
-                        🔗 Join Room
-                    </button>
-
+                    <button id="dmCreate" class="primary">🎮 Create Game</button>
+                    <button id="dmJoin">🔗 Join Room</button>
                 </div>
 
-                <div
-                    id="dmError"
-                    class="status"
-                    style="color:#ff7777">
-                </div>
+                <div id="dmError" class="status" style="color:#ff7777"></div>
 
             </div>
 
-            <div
-                id="dmGame"
-                style="display:none">
+            <div id="dmGame" style="display:none">
 
-                <div
-                    id="dmRoomLabel"
-                    class="status">
-                </div>
-
-                <div
-                    id="dmHostBadge"
-                    style="text-align:center">
-                </div>
-
+                <div id="dmRoomLabel" class="status"></div>
+                <div id="dmHostBadge" style="text-align:center"></div>
                 <div id="dmPhase"></div>
-
-                <div
-                    id="dmPlayers"
-                    class="dm-players">
-                </div>
+                <div id="dmPlayers" class="dm-players"></div>
 
                 <div class="controls">
-
-                    <button
-                        id="dmStart"
-                        class="primary"
-                        style="display:none">
-                        ▶️ Start Game
-                    </button>
-
-                    <button
-                        id="dmShare"
-                        class="dm-share"
-                        style="display:none">
-                        📋 Copy Invite Link
-                    </button>
-
-                    <button
-                        id="dmReveal"
-                        class="gold"
-                        style="display:none">
-                        👀 Reveal Answer
-                    </button>
-
-                    <button
-                        id="dmNext"
-                        class="primary"
-                        style="display:none">
-                        ➡️ Next Round
-                    </button>
-
+                    <button id="dmStart" class="primary" style="display:none">▶️ Start Game</button>
+                    <button id="dmShare" class="dm-share" style="display:none">📋 Copy Invite Link</button>
+                    <button id="dmReveal" class="gold" style="display:none">👀 Reveal Answer</button>
+                    <button id="dmNext" class="primary" style="display:none">➡️ Next Round</button>
                 </div>
 
             </div>
@@ -4847,1260 +4736,535 @@ function dirtyMindsGame(){
         </div>
     `);
 
-    const API="/real-games";
+    const API = "/real-games";
 
-    const nameInput=$("#dmName");
-    const roomInput=$("#dmRoom");
+    const nameInput = $("#dmName");
+    const roomInput = $("#dmRoom");
 
     function myName(){
-
-        return (
-            nameInput.value.trim() ||
-            "Player"
-        ).slice(0,40);
+        return (nameInput.value.trim() || "Player").slice(0,40);
     }
 
-    async function api(
-        url,
-        options={}
-    ){
-
-        const response=
-            await fetch(
-                url,
-                {
-                    ...options,
-                    headers:{
-                        "Content-Type":
-                            "application/json",
-                        ...(options.headers || {})
-                    }
-                }
-            );
+    async function api(url, options={}){
+        const response = await fetch(url, {
+            ...options,
+            headers:{
+                "Content-Type": "application/json",
+                ...(options.headers || {})
+            }
+        });
 
         let data;
-
         try{
-
-            data=
-                await response.json();
-
+            data = await response.json();
         }catch(e){
-
-            throw new Error(
-                "Invalid server response."
-            );
+            throw new Error("Invalid server response.");
         }
 
         if(!response.ok){
-
-            throw new Error(
-                data.error ||
-                data.message ||
-                "Request failed."
-            );
+            throw new Error(data.error || data.message || "Request failed.");
         }
 
         return data;
     }
 
     function showError(msg){
-
-        const el=$("#dmError");
-
-        if(el){
-            el.textContent=
-                msg || "";
-        }
+        const el = $("#dmError");
+        if(el) el.textContent = msg || "";
     }
 
     function getReturnedRoom(data){
-
-        return (
-            data &&
-            (
-                data.room ||
-                data.data ||
-                null
-            )
-        );
+        return data && (data.room || data.data || null);
     }
 
     function establishHostFromRoom(){
+        if(!room) return;
 
-        if(!room)return;
-
-        /*
-         * If backend supplies host_id,
-         * always trust it.
-         */
-
-        const backendHost=
-            room.host_id ||
-            room.host_player_id ||
-            room.host;
+        const backendHost = room.host_id || room.host_player_id || room.host;
 
         if(backendHost){
-
-            room.host_id=
-                String(backendHost);
-
-            isHost=
-                String(backendHost)===
-                String(playerId);
-
-            if(isHost){
-                saveHost();
-            }
-
+            room.host_id = String(backendHost);
+            isHost = String(backendHost) === String(playerId);
+            if(isHost) saveHost();
             return;
         }
 
-        /*
-         * If this browser created the room,
-         * remain host even if backend omitted
-         * host_id from its response.
-         */
-
         if(loadHost()){
-
-            isHost=true;
-
-            room.host_id=
-                room.host_id ||
-                playerId;
+            isHost = true;
+            room.host_id = room.host_id || playerId;
         }
     }
 
     async function createGame(){
-
         showError("");
-
-        const name=myName();
+        const name = myName();
 
         try{
+            const data = await api(API + "/create-room", {
+                method: "POST",
+                body: JSON.stringify({
+                    game_id: "dirty_minds",
+                    player_id: playerId,
+                    player_name: name
+                })
+            });
 
-            const data=
-                await api(
-                    API+"/create-room",
-                    {
-                        method:"POST",
-                        body:JSON.stringify({
-                            game_id:
-                                "dirty_minds",
-                            player_id:
-                                playerId,
-                            player_name:
-                                name
-                        })
-                    }
-                );
-
-            roomId=
-                data.room_id ||
-                (
-                    data.room &&
-                    data.room.room_id
-                ) ||
-                "";
-
-            room=
-                getReturnedRoom(data);
+            roomId = data.room_id || (data.room && data.room.room_id) || "";
+            room = getReturnedRoom(data);
 
             if(!roomId){
-
-                throw new Error(
-                    "No room code returned."
-                );
+                throw new Error("No room code returned.");
             }
 
-            /*
-             * THE CREATOR IS THE HOST.
-             */
-
-            isHost=true;
-
-            if(!room){
-                room={};
-            }
-
-            room.room_id=roomId;
-            room.host_id=playerId;
+            isHost = true;
+            if(!room) room = {};
+            room.room_id = roomId;
+            room.host_id = playerId;
 
             saveHost();
+            roomInput.value = roomId;
+            joined = true;
 
-            roomInput.value=roomId;
-
-            joined=true;
-
-            history.replaceState(
-                {},
-                "",
-                "?room="+
-                encodeURIComponent(roomId)+
-                "&player_id="+
-                encodeURIComponent(playerId)+
-                "&player_name="+
-                encodeURIComponent(name)
-            );
+            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId) + "&player_name=" + encodeURIComponent(name));
 
             showGame();
-
             startPolling();
 
         }catch(err){
-
-            showError(
-                err.message
-            );
+            showError(err.message);
         }
     }
 
     async function joinGame(){
-
         showError("");
 
         try{
-
-            roomId=
-                roomInput.value
-                    .trim()
-                    .toUpperCase();
+            roomId = roomInput.value.trim().toUpperCase();
 
             if(!roomId){
-
-                showError(
-                    "Enter a room code first."
-                );
-
+                showError("Enter a room code first.");
                 return;
             }
 
-            const data=
-                await api(
-                    API+
-                    "/room/"+
-                    encodeURIComponent(roomId)+
-                    "/join",
-                    {
-                        method:"POST",
-                        body:JSON.stringify({
-                            player_id:
-                                playerId,
-                            player_name:
-                                myName()
-                        })
-                    }
-                );
+            const data = await api(API + "/room/" + encodeURIComponent(roomId) + "/join", {
+                method: "POST",
+                body: JSON.stringify({
+                    player_id: playerId,
+                    player_name: myName()
+                })
+            });
 
-            room=
-                getReturnedRoom(data);
-
-            joined=true;
+            room = getReturnedRoom(data);
+            joined = true;
 
             establishHostFromRoom();
 
-            history.replaceState(
-                {},
-                "",
-                "?room="+
-                encodeURIComponent(roomId)+
-                "&player_id="+
-                encodeURIComponent(playerId)+
-                "&player_name="+
-                encodeURIComponent(myName())
-            );
+            history.replaceState({}, "", "?room=" + encodeURIComponent(roomId) + "&player_id=" + encodeURIComponent(playerId) + "&player_name=" + encodeURIComponent(myName()));
 
             showGame();
-
             startPolling();
 
         }catch(err){
-
-            showError(
-                err.message
-            );
+            showError(err.message);
         }
     }
 
     function showGame(){
+        const setup = $("#dmSetup");
+        const game = $("#dmGame");
 
-        const setup=$("#dmSetup");
-        const game=$("#dmGame");
-
-        if(setup){
-            setup.style.display="none";
-        }
-
-        if(game){
-            game.style.display="block";
-        }
+        if(setup) setup.style.display = "none";
+        if(game) game.style.display = "block";
 
         renderRoom();
     }
 
     async function refresh(){
-
-        if(!roomId)return;
+        if(!roomId) return;
 
         try{
+            const data = await api(API + "/room/" + encodeURIComponent(roomId));
+            const newRoom = getReturnedRoom(data);
 
-            const data=
-                await api(
-                    API+
-                    "/room/"+
-                    encodeURIComponent(roomId)
-                );
+            if(!newRoom) return;
 
-            const newRoom=
-                getReturnedRoom(data);
+            const previousHostId = room && room.host_id ? room.host_id : null;
+            room = newRoom;
 
-            if(!newRoom){
-                return;
+            if(!room.host_id && previousHostId){
+                room.host_id = previousHostId;
             }
 
-            /*
-             * Preserve our local host identity
-             * if the backend response doesn't
-             * include host_id.
-             */
-
-            const previousHostId=
-                room &&
-                room.host_id
-                ? room.host_id
-                : null;
-
-            room=newRoom;
-
-            if(
-                !room.host_id &&
-                previousHostId
-            ){
-
-                room.host_id=
-                    previousHostId;
-            }
-
-            if(
-                !room.host_id &&
-                loadHost()
-            ){
-
-                room.host_id=
-                    playerId;
+            if(!room.host_id && loadHost()){
+                room.host_id = playerId;
             }
 
             establishHostFromRoom();
 
             if(!joined){
-
-                joined=true;
-
+                joined = true;
                 showGame();
             }
 
             renderRoom();
 
         }catch(err){
-
-            console.error(
-                "Dirty Minds refresh error:",
-                err
-            );
+            console.error("Dirty Minds refresh error:", err);
         }
     }
 
     function startPolling(){
-
-        if(pollId){
-            clearInterval(pollId);
-        }
-
-        pollId=
-            setInterval(
-                refresh,
-                1000
-            );
-
-        activeIntervals.push(
-            pollId
-        );
-
+        if(pollId) clearInterval(pollId);
+        pollId = setInterval(refresh, 1000);
+        activeIntervals.push(pollId);
         refresh();
     }
 
     function getStatus(){
-
-        if(!room){
-            return "waiting";
-        }
-
-        if(
-            room.finished ||
-            room.game_over
-        ){
-            return "finished";
-        }
-
-        if(room.status){
-
-            return String(
-                room.status
-            ).toLowerCase();
-        }
-
+        if(!room) return "waiting";
+        if(room.finished || room.game_over) return "finished";
+        if(room.status) return String(room.status).toLowerCase();
         if(room.phase){
-
-            const p=
-                String(
-                    room.phase
-                ).toLowerCase();
-
-            if(
-                p==="question" ||
-                p==="playing"
-            ){
-                return "playing";
-            }
-
-            if(
-                p==="reveal" ||
-                p==="revealed"
-            ){
-                return "revealed";
-            }
+            const p = String(room.phase).toLowerCase();
+            if(p === "question" || p === "playing") return "playing";
+            if(p === "reveal" || p === "revealed") return "revealed";
         }
-
-        if(room.started){
-            return "playing";
-        }
-
+        if(room.started) return "playing";
         return "waiting";
     }
 
     function getClue(){
-
-        return (
-            room.clue ||
-            room.question ||
-            room.current_clue ||
-            (
-                room.data &&
-                room.data.clue
-            ) ||
-            ""
-        );
+        return room.clue || room.question || room.current_clue || (room.data && room.data.clue) || "";
     }
 
     function getRevealedAnswer(){
-
-        return (
-            room.answer ||
-            room.current_answer ||
-            (
-                room.data &&
-                room.data.answer
-            ) ||
-            ""
-        );
+        return room.answer || room.current_answer || (room.data && room.data.answer) || "";
     }
 
     function renderRoom(){
+        if(!room) return;
 
-        if(!room)return;
-
-        const players=
-            Array.isArray(room.players)
-            ? room.players
-            : [];
-
-        const roomCode=
-            room.room_id ||
-            roomId;
-
-        /*
-         * Recalculate host status every render.
-         */
+        const players = Array.isArray(room.players) ? room.players : [];
+        const roomCode = room.room_id || roomId;
 
         establishHostFromRoom();
 
-        $("#dmRoomLabel").innerHTML=
-            `Room: <b>${
-                escapeHtml(roomCode)
-            }</b> · ${
-                players.length
-            } player${
-                players.length===1
-                ? ""
-                : "s"
-            }`;
+        $("#dmRoomLabel").innerHTML = `Room: <b>${escapeHtml(roomCode)}</b> · ${players.length} player${players.length === 1 ? "" : "s"}`;
 
-        const hostBadge=
-            $("#dmHostBadge");
-
+        const hostBadge = $("#dmHostBadge");
         if(hostBadge){
-
-            hostBadge.innerHTML=
-                isHost
-                ? `<span class="dm-host-badge">
-                       👑 YOU ARE THE HOST
-                   </span>`
-                : "";
+            hostBadge.innerHTML = isHost ? `<span class="dm-host-badge">👑 YOU ARE THE HOST</span>` : "";
         }
 
-        const playersEl=
-            $("#dmPlayers");
+        const playersEl = $("#dmPlayers");
+        playersEl.innerHTML = "";
 
-        playersEl.innerHTML="";
+        players.forEach(p => {
+            const row = document.createElement("div");
+            row.className = "dm-player";
 
-        players.forEach(p=>{
-
-            const row=
-                document.createElement("div");
-
-            row.className="dm-player";
-
-            if(
-                String(p.player_id)===
-                String(playerId)
-            ){
-
+            if(String(p.player_id) === String(playerId)){
                 row.classList.add("me");
             }
 
-            const answered=
-                room.answers &&
-                room.answers[p.player_id];
+            const answered = room.answers && room.answers[p.player_id];
+            const isHostPlayer = room.host_id && String(p.player_id) === String(room.host_id);
 
-            const isHostPlayer=
-                room.host_id &&
-                String(p.player_id)===
-                String(room.host_id);
-
-            row.innerHTML=`
+            row.innerHTML = `
                 <span>
-                    ${escapeHtml(
-                        p.name ||
-                        p.player_name ||
-                        "Player"
-                    )}
-
-                    ${isHostPlayer
-                        ? " 👑"
-                        : ""}
+                    ${escapeHtml(p.name || p.player_name || "Player")}
+                    ${isHostPlayer ? " 👑" : ""}
                 </span>
-
                 <span>
-
-                    ${
-                        room.started
-                        ? (
-                            p.score ?? 0
-                        )+" pts"
-                        : ""
-                    }
-
-                    ${
-                        answered
-                        ? '<span class="dm-submitted"> ✓</span>'
-                        : ""
-                    }
-
+                    ${room.started ? (p.score ?? 0) + " pts" : ""}
+                    ${answered ? '<span class="dm-submitted"> ✓</span>' : ""}
                 </span>
             `;
 
             playersEl.appendChild(row);
         });
 
-        const status=
-            getStatus();
+        const status = getStatus();
 
-        const startButton=
-            $("#dmStart");
+        const startButton = $("#dmStart");
+        const shareButton = $("#dmShare");
+        const revealButton = $("#dmReveal");
+        const nextButton = $("#dmNext");
 
-        const shareButton=
-            $("#dmShare");
-
-        const revealButton=
-            $("#dmReveal");
-
-        const nextButton=
-            $("#dmNext");
-
-        /*
-         * START BUTTON:
-         * Only host sees it.
-         */
-
+        /* ONLY HOST SEES START, REVEAL, NEXT */
         if(startButton){
-
-            startButton.style.display=
-                isHost &&
-                !room.started &&
-                !room.finished
-                ? "inline-block"
-                : "none";
+            startButton.style.display = isHost && !room.started && !room.finished ? "inline-block" : "none";
         }
 
-        /*
-         * Copy invite link is useful
-         * while waiting for players.
-         */
-
         if(shareButton){
-
-            shareButton.style.display=
-                !room.started &&
-                !room.finished
-                ? "inline-block"
-                : "none";
+            shareButton.style.display = !room.started && !room.finished ? "inline-block" : "none";
         }
 
         if(revealButton){
-
-            revealButton.style.display=
-                isHost &&
-                room.started &&
-                (
-                    status==="playing" ||
-                    status==="question"
-                )
-                ? "inline-block"
-                : "none";
+            revealButton.style.display = isHost && room.started && (status === "playing" || status === "question") ? "inline-block" : "none";
         }
 
         if(nextButton){
-
-            nextButton.style.display=
-                isHost &&
-                room.started &&
-                (
-                    status==="revealed" ||
-                    status==="reveal"
-                )
-                ? "inline-block"
-                : "none";
+            nextButton.style.display = isHost && room.started && (status === "revealed" || status === "reveal") ? "inline-block" : "none";
         }
 
-        if(
-            !room.started &&
-            !room.finished
-        ){
-
-            $("#dmPhase").innerHTML=`
-
-                <div class="dm-question">
-                    👥 Waiting for Players
-                </div>
-
+        if(!room.started && !room.finished){
+            $("#dmPhase").innerHTML = `
+                <div class="dm-question">👥 Waiting for Players</div>
                 <div class="help">
-
                     Room Code:
-
-                    <div class="dm-room-code">
-                        ${escapeHtml(roomCode)}
-                    </div>
-
-                    Give this code to everyone
-                    who wants to play.
-
-                    <br><br>
-
-                    ${
-                        isHost
-                        ? `
-                            <b>
-                                👑 You are the host.
-                            </b>
-
-                            <br><br>
-
-                            When everyone has joined,
-                            press
-                            <b>▶️ Start Game</b>.
-                        `
-                        : `
-                            Waiting for the host
-                            to start the game.
-                        `
-                    }
-
+                    <div class="dm-room-code">${escapeHtml(roomCode)}</div>
+                    Give this code to everyone who wants to play.<br><br>
+                    ${isHost ? `<b>👑 You are the host.</b><br>When everyone has joined, press <b>▶️ Start Game</b>.` : `Waiting for the host to start the game...`}
                 </div>
             `;
-
             return;
         }
 
-        if(
-            room.finished ||
-            status==="finished"
-        ){
-
-            const winner=
-                room.winner;
-
-            $("#dmPhase").innerHTML=`
-
-                <div class="dm-question">
-                    🏆 GAME OVER
-                </div>
-
+        if(room.finished || status === "finished"){
+            const winner = room.winner;
+            $("#dmPhase").innerHTML = `
+                <div class="dm-question">🏆 GAME OVER</div>
                 <div class="dm-answer">
-
-                    ${
-                        winner
-                        ? escapeHtml(
-                            winner.name ||
-                            winner.player_name ||
-                            "Winner"
-                        )+
-                        " — "+
-                        (
-                            winner.score ??
-                            0
-                        )+
-                        " points"
-                        : "Game Complete"
-                    }
-
+                    ${winner ? escapeHtml(winner.name || winner.player_name || "Winner") + " — " + (winner.score ?? 0) + " points" : "Game Complete"}
                 </div>
             `;
-
             return;
         }
 
-        if(
-            status==="playing" ||
-            status==="question"
-        ){
-
+        if(status === "playing" || status === "question"){
             renderQuestion();
-
             return;
         }
 
-        if(
-            status==="revealed" ||
-            status==="reveal"
-        ){
-
+        if(status === "revealed" || status === "reveal"){
             renderReveal();
-
             return;
         }
     }
 
     function renderQuestion(){
+        const clue = getClue();
+        const answered = room.answers && room.answers[playerId];
 
-        const clue=getClue();
-
-        const answered=
-            room.answers &&
-            room.answers[playerId];
-
-        $("#dmPhase").innerHTML=`
-
-            <div class="status">
-
-                Round
-                <b>
-                    ${room.round || 1}
-                </b>
-
-                of
-
-                <b>
-                    ${room.total_rounds || 10}
-                </b>
-
-            </div>
+        $("#dmPhase").innerHTML = `
+            <div class="status">Round <b>${room.round || 1}</b> of <b>${room.total_rounds || 10}</b></div>
 
             <div class="dm-question">
-
-                ${
-                    clue
-                    ? escapeHtml(clue)
-                    : "Loading clue..."
-                }
-
+                ${clue ? escapeHtml(clue) : "Loading clue..."}
             </div>
 
             <div>
-
-                <input
-                    id="dmAnswer"
-                    maxlength="200"
-                    autocomplete="off"
-                    placeholder="What's your answer?"
-                    ${answered ? "disabled" : ""}
-                >
-
+                <input id="dmAnswer"
+                       maxlength="200"
+                       autocomplete="off"
+                       placeholder="What's your answer?"
+                       ${answered ? "disabled" : ""}>
             </div>
 
             <div class="controls">
-
-                <button
-                    id="dmSubmit"
-                    class="primary"
-                    ${answered ? "disabled" : ""}>
-
-                    ${
-                        answered
-                        ? "✓ Answer Submitted"
-                        : "Submit Answer"
-                    }
-
+                <button id="dmSubmit" class="primary" ${answered ? "disabled" : ""}>
+                    ${answered ? "✓ Answer Submitted" : "Submit Answer"}
                 </button>
-
             </div>
 
-            ${
-                answered
-                ? `
-                    <div
-                        class="status"
-                        style="color:#6ee7a0">
-
-                        ✓ Your answer has been submitted.
-                        Waiting for the reveal.
-
-                    </div>
-                `
-                : ""
-            }
+            ${answered ? `<div class="status" style="color:#6ee7a0">✓ Your answer has been submitted. Waiting for the reveal.</div>` : ""}
         `;
 
-        const submit=$("#dmSubmit");
+        const submit = $("#dmSubmit");
+        if(submit) submit.onclick = submitAnswer;
 
-        if(submit){
-            submit.onclick=
-                submitAnswer;
-        }
-
-        const answerInput=
-            $("#dmAnswer");
-
+        const answerInput = $("#dmAnswer");
         if(answerInput){
-
-            answerInput.addEventListener(
-                "keydown",
-                e=>{
-
-                    if(
-                        e.key==="Enter" &&
-                        !answered
-                    ){
-
-                        e.preventDefault();
-
-                        submitAnswer();
-                    }
+            answerInput.addEventListener("keydown", e => {
+                if(e.key === "Enter" && !answered){
+                    e.preventDefault();
+                    submitAnswer();
                 }
-            );
+            });
         }
     }
 
     function renderReveal(){
+        const clue = getClue();
+        const answer = getRevealedAnswer();
 
-        const clue=getClue();
+        let answersHtml = "";
+        const players = Array.isArray(room.players) ? room.players : [];
 
-        const answer=
-            getRevealedAnswer();
-
-        let answersHtml="";
-
-        const players=
-            Array.isArray(room.players)
-            ? room.players
-            : [];
-
-        players.forEach(p=>{
-
-            const submitted=
-                room.answers &&
-                room.answers[p.player_id];
-
-            answersHtml+=`
-
+        players.forEach(p => {
+            const submitted = room.answers && room.answers[p.player_id];
+            answersHtml += `
                 <div class="dm-player">
-
-                    <span>
-                        ${escapeHtml(
-                            p.name ||
-                            p.player_name ||
-                            "Player"
-                        )}
-                    </span>
-
-                    <span>
-                        ${
-                            submitted
-                            ? escapeHtml(
-                                String(submitted)
-                              )
-                            : "No answer"
-                        }
-                    </span>
-
+                    <span>${escapeHtml(p.name || p.player_name || "Player")}</span>
+                    <span>${submitted ? escapeHtml(String(submitted)) : "No answer"}</span>
                 </div>
             `;
         });
 
-        $("#dmPhase").innerHTML=`
-
-            <div class="status">
-
-                Round
-                <b>
-                    ${room.round || 1}
-                </b>
-
-                of
-
-                <b>
-                    ${room.total_rounds || 10}
-                </b>
-
-            </div>
-
-            <div class="dm-question">
-                ${escapeHtml(clue)}
-            </div>
-
+        $("#dmPhase").innerHTML = `
+            <div class="status">Round <b>${room.round || 1}</b> of <b>${room.total_rounds || 10}</b></div>
+            <div class="dm-question">${escapeHtml(clue)}</div>
             <div class="dm-answer">
-
-                ✅ Innocent Answer:
-
-                <br><br>
-
+                ✅ Innocent Answer:<br><br>
                 ${escapeHtml(answer)}
-
             </div>
-
-            <div class="status">
-                Answers Submitted
-            </div>
-
+            <div class="status">Answers Submitted</div>
             ${answersHtml}
         `;
     }
 
     async function submitAnswer(){
+        const input = $("#dmAnswer");
+        if(!input) return;
 
-        const input=$("#dmAnswer");
-
-        if(!input)return;
-
-        const answer=
-            input.value.trim();
-
+        const answer = input.value.trim();
         if(!answer){
-
-            alert(
-                "Enter an answer first."
-            );
-
+            alert("Enter an answer first.");
             return;
         }
 
-        const submit=
-            $("#dmSubmit");
-
-        if(submit){
-            submit.disabled=true;
-        }
+        const submit = $("#dmSubmit");
+        if(submit) submit.disabled = true;
 
         try{
-
-            await api(
-                API+
-                "/room/"+
-                encodeURIComponent(roomId)+
-                "/dirty-minds/answer",
-                {
-                    method:"POST",
-                    body:JSON.stringify({
-                        player_id:
-                            playerId,
-                        answer:
-                            answer
-                    })
-                }
-            );
+            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/answer", {
+                method: "POST",
+                body: JSON.stringify({
+                    player_id: playerId,
+                    answer: answer
+                })
+            });
 
             await refresh();
 
         }catch(err){
-
-            if(submit){
-                submit.disabled=false;
-            }
-
-            alert(
-                err.message
-            );
+            if(submit) submit.disabled = false;
+            alert(err.message);
         }
     }
 
     async function startGame(){
-
-        /*
-         * HARD HOST CHECK
-         */
-
         establishHostFromRoom();
 
         if(!isHost){
-
-            alert(
-                "Only the host can start the game."
-            );
-
+            alert("Only the host can start the game.");
             return;
         }
 
         if(!roomId){
-
-            alert(
-                "No room code is available."
-            );
-
+            alert("No room code is available.");
             return;
         }
 
-        const button=
-            $("#dmStart");
-
+        const button = $("#dmStart");
         if(button){
-
-            button.disabled=true;
-
-            button.textContent=
-                "⏳ Starting...";
+            button.disabled = true;
+            button.textContent = "⏳ Starting...";
         }
 
         try{
+            const hostId = room && room.host_id ? room.host_id : playerId;
 
-            /*
-             * Always send a valid host_id.
-             */
-
-            const hostId=
-                room &&
-                room.host_id
-                ? room.host_id
-                : playerId;
-
-            await api(
-                API+
-                "/room/"+
-                encodeURIComponent(roomId)+
-                "/dirty-minds/start",
-                {
-                    method:"POST",
-                    body:JSON.stringify({
-
-                        player_id:
-                            playerId,
-
-                        host_id:
-                            hostId
-                    })
-                }
-            );
+            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/start", {
+                method: "POST",
+                body: JSON.stringify({
+                    player_id: playerId,
+                    host_id: hostId
+                })
+            });
 
             await refresh();
 
         }catch(err){
-
             if(button){
-
-                button.disabled=false;
-
-                button.textContent=
-                    "▶️ Start Game";
+                button.disabled = false;
+                button.textContent = "▶️ Start Game";
             }
-
-            alert(
-                err.message
-            );
+            alert(err.message);
         }
     }
 
     async function reveal(){
-
         if(!isHost){
-
-            alert(
-                "Only the host can reveal the answer."
-            );
-
+            alert("Only the host can reveal the answer.");
             return;
         }
 
         try{
-
-            await api(
-                API+
-                "/room/"+
-                encodeURIComponent(roomId)+
-                "/dirty-minds/reveal",
-                {
-                    method:"POST",
-                    body:JSON.stringify({
-                        player_id:
-                            playerId
-                    })
-                }
-            );
+            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/reveal", {
+                method: "POST",
+                body: JSON.stringify({
+                    player_id: playerId
+                })
+            });
 
             await refresh();
 
         }catch(err){
-
-            alert(
-                err.message
-            );
+            alert(err.message);
         }
     }
 
     async function nextRound(){
-
         if(!isHost){
-
-            alert(
-                "Only the host can start the next round."
-            );
-
+            alert("Only the host can start the next round.");
             return;
         }
 
-        const button=
-            $("#dmNext");
-
-        if(button){
-            button.disabled=true;
-        }
+        const button = $("#dmNext");
+        if(button) button.disabled = true;
 
         try{
-
-            await api(
-                API+
-                "/room/"+
-                encodeURIComponent(roomId)+
-                "/dirty-minds/next",
-                {
-                    method:"POST",
-                    body:JSON.stringify({
-                        player_id:
-                            playerId
-                    })
-                }
-            );
+            await api(API + "/room/" + encodeURIComponent(roomId) + "/dirty-minds/next", {
+                method: "POST",
+                body: JSON.stringify({
+                    player_id: playerId
+                })
+            });
 
             await refresh();
 
         }catch(err){
-
-            if(button){
-                button.disabled=false;
-            }
-
-            alert(
-                err.message
-            );
+            if(button) button.disabled = false;
+            alert(err.message);
         }
     }
 
     async function copyInvite(){
+        if(!roomId) return;
 
-        if(!roomId)return;
-
-        const url=
-            window.location.origin+
-            window.location.pathname+
-            "?room="+
-            encodeURIComponent(roomId)+
-            "&game=dirty_minds";
+        const url = window.location.origin + window.location.pathname + "?room=" + encodeURIComponent(roomId) + "&game=dirty_minds";
 
         try{
-
             await navigator.clipboard.writeText(url);
-
-            const button=
-                $("#dmShare");
+            const button = $("#dmShare");
 
             if(button){
-
-                const old=
-                    button.textContent;
-
-                button.textContent=
-                    "✅ Link Copied!";
-
-                timer(()=>{
-
-                    button.textContent=
-                        old;
-
-                },2000);
+                const old = button.textContent;
+                button.textContent = "✅ Link Copied!";
+                timer(() => { button.textContent = old; }, 2000);
             }
-
         }catch(err){
-
-            /*
-             * Clipboard can be blocked by
-             * some mobile browsers.
-             */
-
-            prompt(
-                "Copy this invite link:",
-                url
-            );
+            prompt("Copy this invite link:", url);
         }
     }
 
-    $("#dmCreate").onclick=
-        createGame;
-
-    $("#dmJoin").onclick=
-        joinGame;
-
-    $("#dmStart").onclick=
-        startGame;
-
-    $("#dmShare").onclick=
-        copyInvite;
-
-    $("#dmReveal").onclick=
-        reveal;
-
-    $("#dmNext").onclick=
-        nextRound;
-
-    /*
-     * If someone opens a room link,
-     * automatically join the room.
-     */
+    $("#dmCreate").onclick = createGame;
+    $("#dmJoin").onclick = joinGame;
+    $("#dmStart").onclick = startGame;
+    $("#dmShare").onclick = copyInvite;
+    $("#dmReveal").onclick = reveal;
+    $("#dmNext").onclick = nextRound;
 
     if(roomId){
-
-        timer(
-            joinGame,
-            100
-        );
+        timer(joinGame, 100);
     }
 
-    activeCleanup=()=>{
-
+    activeCleanup = () => {
         if(pollId){
-
-            clearInterval(
-                pollId
-            );
-
-            pollId=null;
+            clearInterval(pollId);
+            pollId = null;
         }
     };
 }
@@ -6111,45 +5275,25 @@ function dirtyMindsGame(){
    ========================================================== */
 
 const PLAYABLE_GAMES={
-
     snake:snakeGame,
-
     pong:pongGame,
-
     breakout:breakoutGame,
-
     dodge:dodgeGame,
-
     "2048":game2048,
-
     memory_match:memoryGame,
-
     memory:memoryGame,
-
     reaction:reactionGame,
-
     whack_a_mole:whackGame,
-
     whack:whackGame,
-
     basketball:basketballGame,
-
     target_shooter:targetGame,
-
     targetshooter:targetGame,
-
     chess:chessGame,
-
     checkers:checkersGame,
-
     monopoly:monopolyGame,
-
     dirty_minds:dirtyMindsGame,
-
     dirtyminds:dirtyMindsGame,
-
     race_car:raceCarGame,
-
     racing:raceCarGame
 };
 
@@ -6162,116 +5306,58 @@ function launch(){
 
     clearGame();
 
-    const id=
-        String(GAME_ID)
-            .toLowerCase()
-            .trim()
-            .replaceAll("-","_")
-            .replaceAll(" ","_");
+    const id = String(GAME_ID)
+        .toLowerCase()
+        .trim()
+        .replaceAll("-","_")
+        .replaceAll(" ","_");
 
-    const game=
-        PLAYABLE_GAMES[id];
+    const game = PLAYABLE_GAMES[id];
 
     if(!game){
-
         html(`
-
             <div class="panel">
-
                 <div class="game-title">
                     ❌ Game Not Available
                 </div>
-
                 <div class="help">
-
-                    The game engine for
-                    <b>
-                        ${escapeHtml(GAME_ID)}
-                    </b>
-                    has not been installed.
-
+                    The game engine for <b>${escapeHtml(GAME_ID)}</b> has not been installed.
                 </div>
-
                 <div class="controls">
-
-                    <a
-                        class="back"
-                        href="/real-games/">
-
-                        Return to Real Games
-
-                    </a>
-
+                    <a class="back" href="/real-games/">Return to Real Games</a>
                 </div>
-
             </div>
-
         `);
-
         return;
     }
 
     try{
-
         game();
-
     }catch(error){
-
-        console.error(
-            "Real Game Error:",
-            error
-        );
-
+        console.error("Real Game Error:", error);
         html(`
-
             <div class="panel">
-
                 <div class="game-title">
                     ⚠️ Game Error
                 </div>
-
                 <div class="help">
-
-                    Something went wrong
-                    while loading this game.
-
+                    Something went wrong while loading this game.
                 </div>
-
                 <div class="controls">
-
-                    <button
-                        onclick="location.reload()"
-                        class="primary">
-
-                        Reload Game
-
-                    </button>
-
+                    <button onclick="location.reload()" class="primary">Reload Game</button>
                 </div>
-
             </div>
-
         `);
     }
 }
 
-document.addEventListener(
-    "DOMContentLoaded",
-    function(){
-
-        try{
-
-            launch();
-
-        }catch(error){
-
-            console.error(
-                "Launch Error:",
-                error
-            );
-        }
+document.addEventListener("DOMContentLoaded", function(){
+    try{
+        launch();
+    }catch(error){
+        console.error("Launch Error:", error);
     }
-);
+});
 </script>
 
 </body>
