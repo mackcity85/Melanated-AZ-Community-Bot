@@ -3,14 +3,9 @@
 # real_games/__init__.py
 #
 # Public exports for the Real Games package.
-#
-# Includes:
-#   - Flask Real Games blueprint
-#   - Telegram deep-link handler
-#   - Real Games URL helpers
 # ==========================================================
 
-from .routes import real_games_bp
+from .real_games import real_games_bp
 
 from .deep_links import (
     real_games_start,
@@ -21,7 +16,6 @@ from .deep_links import (
     make_dirty_minds_url,
     get_real_games_handler,
 )
-
 
 __all__ = [
     "real_games_bp",
