@@ -60,7 +60,14 @@ function zombieBlaster(){canvasGame('🧟 Zombie Blaster','Tap/click zombies bef
 function generic(name,icon){ui(`<div class="panel"><div class="title">${icon} ${name}</div><div class="message" id="m">Tap PLAY to start.</div><div class="controls"><button id="play" class="bigbtn">PLAY</button><button id="restart">Restart</button></div></div>`);let n=0;$('#play').onclick=()=>{$('#m').textContent='Playing! Score: '+(++n)};$('#restart').onclick=()=>{clearGame();generic(name,icon)}}
 
 const games={snake,pong,breakout,tetris,flappy,space_invaders:spaceInvaders,asteroids,pac_man:pacman,'2048':game2048,memory_match:memory,monopoly,chess,checkers,connect_four:connect,tic_tac_toe:ttt,battleship,yahtzee,ludo,basketball,football,soccer,bowling,cricket,alien_blaster:alienBlaster,space_fighter:spaceFighter,target_shooter:targetShooter,zombie_blaster:zombieBlaster};
-function launch(){clearGame();let fn=games[GAME_ID];if(fn)fn();else generic({dirty_minds:'Dirty Minds'}[GAME_ID]||'Game','🎮')}
+function launch(){
+  clearGame();
+  const name={{ game.name|default('Real Game')|tojson }};
+  const icon={{ game.icon|default('🎮')|tojson }};
+  const desc={{ game.description|default('Tap Start Game to begin.')|tojson }};
+  ui(`<div class="panel" style="text-align:center;padding:28px 16px"><div style="font-size:64px">${icon}</div><div class="title" style="font-size:28px;margin:10px 0">${esc(name)}</div><div class="help" style="margin:12px auto 22px;max-width:600px">${esc(desc)}</div><div class="controls"><button id="startGame" class="bigbtn">▶️ START GAME</button></div><div class="help">Mobile friendly • Tap the button above to begin</div></div>`);
+  $('#startGame').onclick=()=>{clearGame();let fn=games[GAME_ID];if(fn)fn();else generic(name,icon)};
+}
 launch();
 </script>
 </body>
