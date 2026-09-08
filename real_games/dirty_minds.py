@@ -1215,44 +1215,22 @@ def submit_answer(
         round_number - 1
     ]
 
-    correct = answer_is_correct(
-        clue,
-        answer,
-    )
-
     answers[player_key] = {
         "answer": answer,
-        "correct": correct,
+        "correct": None,
+        "result": None,
+        "points": 0.0,
+        "graded": False,
         "submitted_at": time.time(),
     }
-
-    # Award the point immediately.
-    #
-    # A player can only submit once,
-    # so repeated submissions cannot
-    # be used to exploit scoring.
-    if correct:
-        room.add_score(
-            player["user_id"],
-            POINTS_PER_CORRECT_ANSWER,
-        )
-
-        if not state.get("round_winner"):
-            state["round_winner"] = (
-                player["user_id"]
-            )
 
     room.touch()
 
     return {
         "success": True,
         "submitted": True,
-        "correct": correct,
-        "message": (
-            "🔥 Correct!"
-            if correct
-            else "❌ Not quite! Wait for the reveal."
-        ),
+        "correct": None,
+        "message": "✅ Answer submitted. The host will grade it after the reveal.",
         "state": public_room_state(
             room,
             player_key=player_key,
@@ -1265,110 +1243,118 @@ def submit_answer(
 # ==========================================================
 
 def reveal_round(room) -> dict[str, Any]:
-    """
-    Reveal the correct answer and all submitted answers.
+    """Reveal the answer and expose all submitted answers.
 
-    Host-only validation should be performed by the Flask route.
+    Scoring is intentionally NOT automatic. The host grades each
+    submitted answer as correct (1), partial (0.5), or wrong (0).
     """
-
     state = room.state
-
     if state.get("status") != "playing":
-        raise ValueError(
-            "This round is not active."
-        )
-
+        raise ValueError("This round is not active.")
     if state.get("revealed"):
         return public_room_state(room)
 
-    round_number = int(
-        state.get("round", 0)
-    )
-
-    rounds = state.get(
-        "rounds",
-        []
-    )
-
-    if (
-        round_number < 1
-        or round_number > len(rounds)
-    ):
-        raise ValueError(
-            "Invalid current round."
-        )
-
-    answers = state.get(
-        "answers",
-        {}
-    )
+    round_number = int(state.get("round", 0))
+    rounds = state.get("rounds", [])
+    if round_number < 1 or round_number > len(rounds):
+        raise ValueError("Invalid current round.")
 
     results = []
-
+    answers = state.get("answers", {})
     for player_key, submission in answers.items():
-
-        player = room.get_player_by_key(
-            player_key
-        )
-
+        player = room.get_player_by_key(player_key)
         if not player:
             continue
+        results.append({
+            "player_key": player_key,
+            "name": player.get("name", "Player"),
+            "answer": submission.get("answer", ""),
+            "result": submission.get("result"),
+            "points": float(submission.get("points", 0.0)),
+            "graded": bool(submission.get("graded", False)),
+        })
 
-        results.append(
-            {
-                "name": player.get(
-                    "name",
-                    "Player",
-                ),
-                "answer": submission.get(
-                    "answer",
-                    "",
-                ),
-                "correct": bool(
-                    submission.get(
-                        "correct",
-                        False,
-                    )
-                ),
-            }
-        )
-
-    # Include players who did not submit.
-    submitted_keys = set(
-        answers.keys()
-    )
-
+    submitted_keys = set(answers.keys())
     for player in room.players.values():
-
-        player_key = player.get(
-            "player_key"
-        )
-
-        if player_key in submitted_keys:
+        key = player.get("player_key")
+        if key in submitted_keys:
             continue
-
-        results.append(
-            {
-                "name": player.get(
-                    "name",
-                    "Player",
-                ),
-                "answer": "",
-                "correct": False,
-                "did_not_answer": True,
-            }
-        )
+        results.append({
+            "player_key": key,
+            "name": player.get("name", "Player"),
+            "answer": "",
+            "result": "wrong",
+            "points": 0.0,
+            "graded": True,
+            "did_not_answer": True,
+        })
 
     state["revealed"] = True
-
     state["status"] = "revealed"
-
     state["round_results"] = results
-
     room.touch()
-
     return public_room_state(room)
 
+
+# ==========================================================
+# GRADE ANSWER
+# ==========================================================
+
+def grade_answer(room, host_player_key: str, target_player_key: str, grade: str) -> dict[str, Any]:
+    """Host grades one submitted answer: correct=1, partial=0.5, wrong=0."""
+    host = room.get_player_by_key(host_player_key)
+    if not host or not host.get("host", False):
+        raise ValueError("Only the host can grade answers.")
+
+    state = room.state
+    if not state.get("revealed") or state.get("status") != "revealed":
+        raise ValueError("Reveal the round before grading answers.")
+
+    if grade not in {"correct", "partial", "wrong"}:
+        raise ValueError("Invalid grade.")
+
+    submission = state.get("answers", {}).get(target_player_key)
+    player = room.get_player_by_key(target_player_key)
+    if not submission or not player:
+        raise ValueError("Submitted answer not found.")
+
+    if submission.get("graded"):
+        raise ValueError("That answer has already been graded.")
+
+    points = {"correct": 1.0, "partial": 0.5, "wrong": 0.0}[grade]
+    submission["result"] = grade
+    submission["points"] = points
+    submission["correct"] = grade == "correct"
+    submission["graded"] = True
+    room.add_score(player["user_id"], points)
+
+    # Rebuild visible results and determine the round winner.
+    results = []
+    best = -1.0
+    winners = []
+    for key, sub in state.get("answers", {}).items():
+        pl = room.get_player_by_key(key)
+        if not pl:
+            continue
+        pts = float(sub.get("points", 0.0))
+        results.append({
+            "player_key": key,
+            "name": pl.get("name", "Player"),
+            "answer": sub.get("answer", ""),
+            "result": sub.get("result"),
+            "points": pts,
+            "graded": bool(sub.get("graded", False)),
+        })
+        if sub.get("graded"):
+            if pts > best:
+                best = pts; winners = [pl]
+            elif pts == best:
+                winners.append(pl)
+    if best > 0 and winners:
+        state["round_winner"] = winners[0]["user_id"] if len(winners) == 1 else None
+    state["round_results"] = results
+    room.touch()
+    return {"success": True, "graded": True, "grade": grade, "points": points, "state": public_room_state(room, player_key=host_player_key)}
 
 # ==========================================================
 # NEXT ROUND
@@ -1394,6 +1380,14 @@ def next_round(room) -> dict[str, Any]:
         raise ValueError(
             "The game is not ready for the next round."
         )
+
+    if status == "revealed":
+        ungraded = [
+            item for item in state.get("answers", {}).values()
+            if not item.get("graded", False)
+        ]
+        if ungraded:
+            raise ValueError("Grade all submitted answers before starting the next round.")
 
     current_round = int(
         state.get("round", 0)
@@ -1608,17 +1602,12 @@ def public_room_state(
     )
 
     my_correct = None
-
-    if (
-        submission is not None
-        and revealed
-    ):
-        my_correct = bool(
-            submission.get(
-                "correct",
-                False,
-            )
-        )
+    my_result = None
+    my_points = 0.0
+    if submission is not None and revealed and submission.get("graded"):
+        my_correct = bool(submission.get("correct", False))
+        my_result = submission.get("result")
+        my_points = float(submission.get("points", 0.0))
 
     # Build player list without exposing:
     #
@@ -1701,8 +1690,10 @@ def public_room_state(
         "my_submitted": my_submitted,
 
         "my_correct": my_correct,
-
+        "my_result": my_result,
+        "my_points": my_points,
         "round_winner": None,
+        "submissions": [],
 
         "round_results": [],
 
@@ -1769,7 +1760,23 @@ def public_room_state(
     result["can_next"] = (
         result["is_host"]
         and status == "revealed"
+        and all(item.get("graded", False) for item in state.get("answers", {}).values())
     )
+
+    # Only the host may see submitted answers before grading is complete.
+    if result["is_host"] and status == "revealed":
+        result["submissions"] = [
+            {
+                "player_key": key,
+                "name": room.get_player_by_key(key).get("name", "Player") if room.get_player_by_key(key) else "Player",
+                "answer": sub.get("answer", ""),
+                "result": sub.get("result"),
+                "points": float(sub.get("points", 0.0)),
+                "graded": bool(sub.get("graded", False)),
+            }
+            for key, sub in state.get("answers", {}).items()
+            if room.get_player_by_key(key)
+        ]
 
     # ======================================================
     # REVEAL INFORMATION
