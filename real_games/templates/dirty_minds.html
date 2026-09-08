@@ -14,7 +14,7 @@
 <div class="card" id="hostCard"><h2>👑 Host Controls</h2><div class="btns"><button class="btn primary" id="startBtn">▶️ Start Game</button><button class="btn primary hidden" id="revealBtn">👀 Reveal Answer</button><button class="btn primary hidden" id="nextBtn">➡️ Next Round</button><button class="btn danger hidden" id="finishBtn">🏁 End Game</button></div><div id="hostMsg" class="notice hidden"></div></div>
 <div class="card"><div id="status" class="muted">Waiting for the host…</div><div id="round" class="small"></div><div id="clue" class="clue">Waiting for game to start.</div><div id="answerReveal" class="notice hidden" style="font-size:22px;font-weight:900;text-align:center">✅ Correct Answer: <span id="correctAnswer"></span></div><form id="answerForm" class="hidden"><input id="answer" class="answer" maxlength="100" autocomplete="off" placeholder="Your clean answer…"><div class="btns" style="margin-top:8px"><button class="btn primary" type="submit">Submit Answer</button></div></form><div id="myResult"></div></div>
 <div class="card"><h2>🏆 Scores</h2><div id="players" class="players"></div></div>
-<div class="card hidden" id="gradingCard"><h2>📝 Grade Submitted Answers</h2><div class="small muted">Correct = 1 point · Partial = ½ point · Wrong = 0</div><div id="submissions" class="submissions" style="margin-top:10px"></div></div>
+<div class="card hidden" id="gradingCard"><h2>📝 Grade Submitted Answers</h2><div class="small muted">Correct = 1 point · Partial = ½ point · Wrong = 0 · Unrated answers become 0 when you continue</div><div id="submissions" class="submissions" style="margin-top:10px"></div></div>
 <div class="card hidden" id="resultsCard"><h2>📋 Round Results</h2><div id="results" class="submissions"></div></div>
 <div class="card hidden" id="winnerCard"><h2>👑 Winner</h2><div id="winner"></div></div>
 </main>
@@ -22,20 +22,112 @@
 const ROOM_ID={{ room_id|tojson }},PLAYER_KEY={{ player_key|tojson }},PLAYER_NAME={{ player_name|default('Player')|tojson }};
 const API='/real-games/api/dirty-minds';let lastState=null,stream=null,micOn=false,camOn=false;
 const $=id=>document.getElementById(id); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function call(path,body={}){const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,...body})});const j=await r.json();if(!r.ok||j.success===false)throw new Error(j.error||'Request failed');return j}
+async function call(path,body={}){
+  const r=await fetch(API+path,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
+    cache:'no-store',
+    body:JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,...body})
+  });
+  const text=await r.text();
+  let j={};
+  try{j=JSON.parse(text)}catch(e){throw new Error('Server returned an invalid response.')}
+  if(!r.ok||j.success===false)throw new Error(j.error||'Request failed');
+  return j
+}
 function msg(t){$('hostMsg').textContent=t;$('hostMsg').classList.remove('hidden')}
 function render(s){lastState=s;$('roomLine').textContent=`Room ${s.room_id} · You: ${PLAYER_NAME} · ${s.player_count}/${s.max_players} players`;$('status').textContent=s.status==='waiting'?'Waiting for the host…':s.status==='playing'?'Submit one answer.':s.status==='revealed'?'Answer revealed — host is grading.':'Game finished.';$('round').textContent=s.round?`Round ${s.round} of ${s.total_rounds}`:'';$('clue').textContent=s.clue||'Waiting for game to start.';$('answerReveal').classList.toggle('hidden',!s.revealed);$('correctAnswer').textContent=s.revealed?(s.answer||'Answer unavailable') : '';$('answerForm').classList.toggle('hidden',s.status!=='playing'||s.my_submitted);$('answer').disabled=s.my_submitted;
-$('startBtn').classList.toggle('hidden',!s.can_start);$('revealBtn').classList.toggle('hidden',!s.can_reveal);$('nextBtn').classList.toggle('hidden',!s.can_next);$('finishBtn').classList.toggle('hidden',!s.is_host||s.finished);$('hostCard').classList.toggle('hostbox',s.is_host);
+$('startBtn').classList.toggle('hidden',!s.can_start);$('revealBtn').classList.toggle('hidden',!s.can_reveal);$('nextBtn').classList.toggle('hidden',!(s.is_host&&s.status==='revealed'));$('finishBtn').classList.toggle('hidden',!s.is_host||s.finished);$('hostCard').classList.toggle('hostbox',s.is_host);
 $('players').innerHTML=(s.players||[]).map(p=>`<div class="row"><span>${esc(p.name)} ${p.host?'👑':''} ${p.name===PLAYER_NAME?'<span class="tag">You</span>':''}</span><b>${Number(p.score).toFixed(1)}</b></div>`).join('');
 if(s.revealed){$('myResult').innerHTML=s.my_result?`<div class="notice">Your answer: <b>${esc(s.my_result)}</b> · ${s.my_points} point(s)</div>`:'';$('resultsCard').classList.remove('hidden');$('results').innerHTML=(s.round_results||[]).map(r=>`<div class="row"><span><b>${esc(r.name)}</b><br>${r.did_not_answer?'Did not answer':esc(r.answer)}</span><b>${r.result||'ungraded'} · ${Number(r.points||0).toFixed(1)}</b></div>`).join('');}else $('resultsCard').classList.add('hidden');
-if(s.is_host&&s.revealed){$('gradingCard').classList.remove('hidden');$('submissions').innerHTML=(s.submissions||[]).map(r=>`<div class="row"><span><b>${esc(r.name)}</b><br>${esc(r.answer)}</span><div class="btns">${r.graded?`<span class="tag">${r.result} · ${r.points}</span>`:`<button class="btn good" onclick="grade('${r.player_key}','correct')">+1</button><button class="btn partial" onclick="grade('${r.player_key}','partial')">+½</button><button class="btn bad" onclick="grade('${r.player_key}','wrong')">0</button>`}</div></div>`).join('')||'<div class="muted">No submitted answers.</div>';}else $('gradingCard').classList.add('hidden');
+if(s.is_host&&s.revealed){
+  $('gradingCard').classList.remove('hidden');
+  $('submissions').innerHTML=(s.submissions||[]).map(r=>`<div class="row"><span><b>${esc(r.name)}</b><br>${esc(r.answer)}</span><div class="btns">${r.graded?`<span class="tag">${esc(r.result)} · ${Number(r.points||0).toFixed(1)}</span>`:`<button type="button" class="btn good grade-btn" data-player-key="${esc(r.player_key)}" data-grade="correct">+1 Correct</button><button type="button" class="btn partial grade-btn" data-player-key="${esc(r.player_key)}" data-grade="partial">+½ Partial</button><button type="button" class="btn bad grade-btn" data-player-key="${esc(r.player_key)}" data-grade="wrong">0 Wrong</button>`}</div></div>`).join('')||'<div class="muted">No submitted answers.</div>';
+}else $('gradingCard').classList.add('hidden');
 if(s.winner){$('winnerCard').classList.remove('hidden');$('winner').innerHTML=`<b>${esc(s.winner.name)}</b> — ${Number(s.winner.score).toFixed(1)} point(s)`;}else $('winnerCard').classList.add('hidden');}
 async function refresh(){try{const r=await fetch(`${API}/state?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`);const j=await r.json();if(j.success)render(j.state)}catch(e){console.error(e)}}
 $('startBtn').onclick=async()=>{try{await call('/start');await refresh()}catch(e){msg(e.message)}};$('revealBtn').onclick=async()=>{try{await call('/reveal');await refresh()}catch(e){msg(e.message)}};$('nextBtn').onclick=async()=>{try{await call('/next');await refresh()}catch(e){msg(e.message)}};$('finishBtn').onclick=async()=>{if(!confirm('End this Dirty Minds game?'))return;try{await call('/finish');await refresh()}catch(e){msg(e.message)}};
 $('answerForm').onsubmit=async e=>{e.preventDefault();const a=$('answer').value.trim();if(!a)return;try{await call('/answer',{answer:a});$('answer').value='';await refresh()}catch(e){alert(e.message)}};
-window.grade=async(key,grade)=>{try{await call('/grade',{target_player_key:key,grade});await refresh()}catch(e){msg(e.message)}};
-async function media(){if(!stream){try{stream=await navigator.mediaDevices.getUserMedia({audio:true,video:true});$('video').srcObject=stream;camOn=true;micOn=true;$('video').style.display='block';updateMedia()}catch(e){$('mediaMsg').textContent='Camera/mic permission was not granted.';}}}
-function updateMedia(){if(!stream)return;stream.getAudioTracks().forEach(t=>t.enabled=micOn);stream.getVideoTracks().forEach(t=>t.enabled=camOn);$('micBtn').textContent=micOn?'🎤 Mic On':'🔇 Mic Off';$('camBtn').textContent=camOn?'📷 Camera On':'📷 Camera Off'}
-$('shareBtn').onclick=media;$('micBtn').onclick=async()=>{if(!stream)await media();micOn=!micOn;updateMedia()};$('camBtn').onclick=async()=>{if(!stream)await media();camOn=!camOn;updateMedia()};
+$('submissions').addEventListener('click',async e=>{
+  const btn=e.target.closest('.grade-btn');
+  if(!btn)return;
+  const key=btn.dataset.playerKey;
+  const gradeValue=btn.dataset.grade;
+  if(!key||!gradeValue)return;
+  const buttons=Array.from(btn.parentElement.querySelectorAll('.grade-btn'));
+  buttons.forEach(b=>{b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Saving…'});
+  try{
+    const result=await call('/grade',{target_player_key:key,grade:gradeValue});
+    if(result.state)render(result.state);
+    else await refresh();
+  }catch(e){
+    buttons.forEach(b=>{b.disabled=false;b.textContent=b.dataset.oldText||b.textContent});
+    msg('⚠️ '+e.message);
+  }
+});
+async function startMic(){
+  try{
+    const audio=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    if(!stream)stream=new MediaStream();
+    audio.getAudioTracks().forEach(t=>stream.addTrack(t));
+    micOn=true;
+    updateMedia();
+    $('mediaMsg').textContent='🎤 Microphone is on. Other players will only hear you if shared voice/WebRTC is connected.';
+  }catch(e){
+    console.error(e);
+    $('mediaMsg').textContent='Microphone permission was not granted.';
+  }
+}
+
+async function startCamera(){
+  try{
+    const videoStream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
+    if(!stream)stream=new MediaStream();
+    videoStream.getVideoTracks().forEach(t=>stream.addTrack(t));
+    $('video').srcObject=stream;
+    $('video').style.display='block';
+    camOn=true;
+    updateMedia();
+    $('mediaMsg').textContent='📷 Camera is on. Your local preview is active.';
+  }catch(e){
+    console.error(e);
+    $('mediaMsg').textContent='Camera permission was not granted.';
+  }
+}
+
+function updateMedia(){
+  if(stream){
+    stream.getAudioTracks().forEach(t=>t.enabled=micOn);
+    stream.getVideoTracks().forEach(t=>t.enabled=camOn);
+  }
+  $('micBtn').textContent=micOn?'🎤 Mic On':'🔇 Mic Off';
+  $('camBtn').textContent=camOn?'📷 Camera On':'📷 Camera Off';
+}
+
+$('shareBtn').onclick=async()=>{
+  if(!camOn) await startCamera();
+  else {
+    camOn=false;
+    updateMedia();
+  }
+};
+
+$('micBtn').onclick=async()=>{
+  if(!stream || stream.getAudioTracks().length===0){
+    await startMic();
+    return;
+  }
+  micOn=!micOn;
+  updateMedia();
+};
+
+$('camBtn').onclick=async()=>{
+  if(!stream || stream.getVideoTracks().length===0){
+    await startCamera();
+    return;
+  }
+  camOn=!camOn;
+  updateMedia();
+};
 window.addEventListener('beforeunload',()=>stream?.getTracks().forEach(t=>t.stop()));refresh();setInterval(refresh,1500);
 </script></body></html>
