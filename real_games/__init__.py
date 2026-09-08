@@ -10,7 +10,7 @@
 #   - Real Games URL helpers
 # ==========================================================
 
-from .real_games import real_games_bp
+from .routes import real_games_bp
 
 from .deep_links import (
     real_games_start,
