@@ -1,8 +1,6 @@
 # ==========================================================
 # Melanated AZ Real Games
 # real_games/__init__.py
-#
-# Public exports for the Real Games package.
 # ==========================================================
 
 from .real_games import real_games_bp
