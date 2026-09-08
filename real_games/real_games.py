@@ -4,23 +4,18 @@
 #
 # Main Flask blueprint for Real Games.
 #
-# Includes:
-#   - Game launcher
-#   - Single-player game routing
-#   - Multiplayer room creation
-#   - Room information
-#   - Dirty Minds API
-#   - LiveKit token generation
-#   - Player authentication through private player keys
+# Uses registry.py as the SINGLE source of truth for the
+# 27 launcher games.
 #
-# IMPORTANT:
-# Game rooms are managed ONLY by GAME_MANAGER.
-# Do not create another rooms = {} dictionary.
+# Dirty Minds remains supported separately as a multiplayer
+# Telegram game.
 # ==========================================================
 
 from __future__ import annotations
 
 import os
+
+from dataclasses import asdict
 
 from flask import (
     Blueprint,
@@ -30,6 +25,7 @@ from flask import (
 )
 
 from .game_manager import GAME_MANAGER
+
 from .dirty_minds import (
     create_dirty_minds_state,
     finish_game,
@@ -38,6 +34,12 @@ from .dirty_minds import (
     reveal_round,
     start_game,
     submit_answer,
+)
+
+from .registry import (
+    CATEGORY_ORDER,
+    all_games,
+    get_game as registry_get_game,
 )
 
 
@@ -55,127 +57,55 @@ real_games_bp = Blueprint(
 
 # ==========================================================
 # GAME REGISTRY
+#
+# registry.py contains the 27 public games.
+#
+# Dirty Minds is intentionally kept separate because it is
+# a multiplayer Telegram game and is not part of the four
+# launcher categories.
 # ==========================================================
 
+def _game_dict(game):
+    """
+    Convert a GameDefinition dataclass into the dictionary
+    format expected by the existing templates and APIs.
+    """
+
+    if game is None:
+        return None
+
+    return asdict(game)
+
+
+# Public launcher games
 GAMES = [
-    {
-        "game_id": "snake",
-        "name": "Snake",
-        "icon": "🐍",
-        "category": "Arcade",
-        "description": (
-            "Eat the food, grow longer, "
-            "and don't hit yourself."
-        ),
-    },
-    {
-        "game_id": "pong",
-        "name": "Pong",
-        "icon": "🏓",
-        "category": "Arcade",
-        "description": (
-            "Classic paddle battle against "
-            "the computer."
-        ),
-    },
-    {
-        "game_id": "breakout",
-        "name": "Breakout",
-        "icon": "🧱",
-        "category": "Arcade",
-        "description": (
-            "Break the blocks and keep "
-            "the ball alive."
-        ),
-    },
-    {
-        "game_id": "dodge",
-        "name": "Dodge",
-        "icon": "💥",
-        "category": "Arcade",
-        "description": (
-            "Move around and survive "
-            "as long as possible."
-        ),
-    },
-    {
-        "game_id": "2048",
-        "name": "2048",
-        "icon": "🔢",
-        "category": "Arcade",
-        "description": (
-            "Combine matching numbers "
-            "and reach 2048."
-        ),
-    },
-    {
-        "game_id": "memory_match",
-        "name": "Memory Match",
-        "icon": "🧠",
-        "category": "Arcade",
-        "description": (
-            "Find every matching pair."
-        ),
-    },
-    {
-        "game_id": "reaction",
-        "name": "Reaction Test",
-        "icon": "⚡",
-        "category": "Arcade",
-        "description": (
-            "Wait for the signal and "
-            "react as quickly as possible."
-        ),
-    },
-    {
-        "game_id": "whack_a_mole",
-        "name": "Whack-a-Mole",
-        "icon": "🔨",
-        "category": "Arcade",
-        "description": (
-            "Tap the mole before it disappears."
-        ),
-    },
-    {
-        "game_id": "basketball",
-        "name": "Basketball",
-        "icon": "🏀",
-        "category": "Sports",
-        "description": (
-            "Shoot the ball and score "
-            "as many baskets as possible."
-        ),
-    },
-    {
-        "game_id": "target_shooter",
-        "name": "Target Shooter",
-        "icon": "🎯",
-        "category": "Shooting",
-        "description": (
-            "Hit as many targets as possible "
-            "before time runs out."
-        ),
-    },
-    {
-        "game_id": "dirty_minds",
-        "name": "Dirty Minds",
-        "icon": "🎭",
-        "category": "Party",
-        "description": (
-            "A multiplayer guessing game "
-            "where the clues sound dirty "
-            "but the answers are clean."
-        ),
-        "multiplayer": True,
-        "max_players": 20,
-        "min_players": 2,
-    },
+    _game_dict(game)
+    for game in all_games()
 ]
 
 
-VALID_GAME_IDS = {
-    game["game_id"]
-    for game in GAMES
+# ==========================================================
+# DIRTY MINDS
+#
+# Keep Dirty Minds available to the existing Telegram
+# deep-link / multiplayer system without displaying it in
+# the four-section launcher.
+# ==========================================================
+
+DIRTY_MINDS_GAME = {
+    "game_id": "dirty_minds",
+    "name": "Dirty Minds",
+    "icon": "🎭",
+    "category": "Party",
+    "description": (
+        "A multiplayer guessing game where the clues "
+        "sound dirty but the answers are clean."
+    ),
+    "multiplayer": True,
+    "max_players": 20,
+    "min_players": 2,
+    "mode": "multiplayer",
+    "uses_rooms": True,
 }
 
 
@@ -185,7 +115,36 @@ VALID_GAME_IDS = {
 
 def get_game(game_id: str):
     """
-    Find a game by ID.
+    Find a Real Game by ID.
+
+    Supports:
+        snake
+        pong
+        tetris
+        flappy
+        space_invaders
+        asteroids
+        pac_man
+        2048
+        memory_match
+        monopoly
+        chess
+        checkers
+        connect_four
+        tic_tac_toe
+        battleship
+        yahtzee
+        ludo
+        basketball
+        football
+        soccer
+        bowling
+        cricket
+        alien_blaster
+        space_fighter
+        target_shooter
+        zombie_blaster
+        dirty_minds
     """
 
     if not game_id:
@@ -193,11 +152,33 @@ def get_game(game_id: str):
 
     game_id = str(game_id).strip().lower()
 
-    for game in GAMES:
-        if game["game_id"] == game_id:
-            return game
+    # Support old/deep-link style rg_ IDs.
+    if game_id.startswith("rg_"):
+        game_id = game_id[3:]
 
-    return None
+    # Dirty Minds is intentionally outside the public
+    # four-category registry.
+    if game_id == "dirty_minds":
+        return DIRTY_MINDS_GAME
+
+    game = registry_get_game(game_id)
+
+    if not game:
+        return None
+
+    return _game_dict(game)
+
+
+# ==========================================================
+# VALID GAME IDS
+# ==========================================================
+
+VALID_GAME_IDS = {
+    game["game_id"]
+    for game in GAMES
+}
+
+VALID_GAME_IDS.add("dirty_minds")
 
 
 # ==========================================================
@@ -208,11 +189,18 @@ def get_game(game_id: str):
 def real_games_home():
     """
     Main Real Games launcher.
+
+    Only the four configured categories are supplied:
+        Arcade
+        Board Games
+        Sports
+        Shooting
     """
 
     return render_template(
         "real_games.html",
         games=GAMES,
+        categories=CATEGORY_ORDER,
     )
 
 
@@ -225,29 +213,45 @@ def play_game(game_id):
     """
     Open a game.
 
-    Single-player games:
+    Examples:
+
         /real-games/play/snake
+        /real-games/play/tetris
+        /real-games/play/chess
+        /real-games/play/basketball
 
     Dirty Minds:
-        /real-games/play/dirty_minds?room=ABC123&player_key=...
+
+        /real-games/play/dirty_minds
+            ?room=ABC123
+            &player_key=...
     """
 
-    game = get_game(game_id)
+    normalized_id = str(
+        game_id or ""
+    ).strip().lower()
+
+    if normalized_id.startswith("rg_"):
+        normalized_id = normalized_id[3:]
+
+    game = get_game(normalized_id)
 
     if not game:
         return (
             render_template(
                 "real_games.html",
                 games=GAMES,
+                categories=CATEGORY_ORDER,
             ),
             404,
         )
 
     # ------------------------------------------------------
-    # Dirty Minds requires a room.
+    # Dirty Minds requires a room and player key.
     # ------------------------------------------------------
 
-    if game_id == "dirty_minds":
+    if normalized_id == "dirty_minds":
+
         room_id = request.args.get(
             "room",
             "",
@@ -261,11 +265,28 @@ def play_game(game_id):
         if not room_id or not player_key:
             return (
                 """
-                <h2>Dirty Minds</h2>
-                <p>
-                    This game must be opened from the
-                    Telegram JOIN button.
-                </p>
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport"
+                          content="width=device-width,
+                                   initial-scale=1">
+                    <title>Dirty Minds</title>
+                </head>
+                <body style="
+                    background:#080808;
+                    color:#fff;
+                    font-family:Arial;
+                    text-align:center;
+                    padding:40px 20px;
+                ">
+                    <h2>🎭 Dirty Minds</h2>
+                    <p>
+                        This game must be opened from
+                        the Telegram JOIN button.
+                    </p>
+                </body>
+                </html>
                 """,
                 400,
             )
@@ -275,11 +296,28 @@ def play_game(game_id):
         if not room:
             return (
                 """
-                <h2>Game Room Not Found</h2>
-                <p>
-                    This Dirty Minds room has expired
-                    or no longer exists.
-                </p>
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport"
+                          content="width=device-width,
+                                   initial-scale=1">
+                    <title>Game Room Not Found</title>
+                </head>
+                <body style="
+                    background:#080808;
+                    color:#fff;
+                    font-family:Arial;
+                    text-align:center;
+                    padding:40px 20px;
+                ">
+                    <h2>🎭 Game Room Not Found</h2>
+                    <p>
+                        This Dirty Minds room has expired
+                        or no longer exists.
+                    </p>
+                </body>
+                </html>
                 """,
                 404,
             )
@@ -291,12 +329,29 @@ def play_game(game_id):
         if not player:
             return (
                 """
-                <h2>Player Not Found</h2>
-                <p>
-                    Your game session is invalid.
-                    Please use the Telegram JOIN button
-                    again.
-                </p>
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport"
+                          content="width=device-width,
+                                   initial-scale=1">
+                    <title>Player Not Found</title>
+                </head>
+                <body style="
+                    background:#080808;
+                    color:#fff;
+                    font-family:Arial;
+                    text-align:center;
+                    padding:40px 20px;
+                ">
+                    <h2>🎭 Player Not Found</h2>
+                    <p>
+                        Your game session is invalid.
+                        Please use the Telegram JOIN
+                        button again.
+                    </p>
+                </body>
+                </html>
                 """,
                 403,
             )
@@ -313,7 +368,7 @@ def play_game(game_id):
         )
 
     # ------------------------------------------------------
-    # Existing single-player games.
+    # All public single-player games.
     # ------------------------------------------------------
 
     return render_template(
@@ -334,6 +389,8 @@ def create_room():
     """
     Create a multiplayer room.
 
+    Dirty Minds currently uses this endpoint.
+
     Expected JSON:
 
         {
@@ -341,10 +398,6 @@ def create_room():
             "user_id": "123",
             "name": "Dexter"
         }
-
-    The Telegram bot normally creates the room itself,
-    but this endpoint is also available for future
-    browser-based multiplayer games.
     """
 
     data = request.get_json(
@@ -404,14 +457,14 @@ def create_room():
             }
         ), 400
 
-    # Prevent a player from accidentally creating
-    # multiple rooms for the same multiplayer game.
+    # Prevent duplicate rooms for the same player.
     existing = GAME_MANAGER.find_player_room(
         user_id,
         game_id=game_id,
     )
 
     if existing:
+
         player = existing.get_player(
             user_id
         )
@@ -428,9 +481,11 @@ def create_room():
                 ),
                 "game_url": _build_game_url(
                     existing.room_id,
-                    player.get("player_key")
-                    if player
-                    else "",
+                    (
+                        player.get("player_key")
+                        if player
+                        else ""
+                    ),
                 ),
             }
         )
@@ -491,7 +546,9 @@ def room_info(room_id):
     Return public information about a room.
     """
 
-    room = GAME_MANAGER.get(room_id)
+    room = GAME_MANAGER.get(
+        room_id
+    )
 
     if not room:
         return jsonify(
@@ -507,6 +564,7 @@ def room_info(room_id):
     ).strip()
 
     if room.game_id == "dirty_minds":
+
         return jsonify(
             {
                 "success": True,
@@ -550,6 +608,7 @@ def _get_dirty_minds_player():
 
     # Also accept JSON values.
     if not room_id or not player_key:
+
         data = request.get_json(
             silent=True
         ) or {}
@@ -619,11 +678,9 @@ def _get_dirty_minds_player():
     methods=["GET"],
 )
 def dirty_minds_state():
-    """
-    Get synchronized Dirty Minds state.
-    """
 
     try:
+
         room, player = (
             _get_dirty_minds_player()
         )
@@ -643,6 +700,7 @@ def dirty_minds_state():
         )
 
     except ValueError as exc:
+
         return jsonify(
             {
                 "success": False,
@@ -660,13 +718,9 @@ def dirty_minds_state():
     methods=["POST"],
 )
 def dirty_minds_start():
-    """
-    Start a Dirty Minds game.
-
-    Only the host may start.
-    """
 
     try:
+
         room, player = (
             _get_dirty_minds_player()
         )
@@ -678,7 +732,9 @@ def dirty_minds_start():
                 "Only the host can start the game."
             )
 
-        state = start_game(room)
+        state = start_game(
+            room
+        )
 
         return jsonify(
             {
@@ -688,6 +744,7 @@ def dirty_minds_start():
         )
 
     except ValueError as exc:
+
         return jsonify(
             {
                 "success": False,
@@ -705,11 +762,9 @@ def dirty_minds_start():
     methods=["POST"],
 )
 def dirty_minds_answer():
-    """
-    Submit an answer for the current round.
-    """
 
     try:
+
         room, player = (
             _get_dirty_minds_player()
         )
@@ -738,6 +793,7 @@ def dirty_minds_answer():
         )
 
     except ValueError as exc:
+
         return jsonify(
             {
                 "success": False,
@@ -755,13 +811,9 @@ def dirty_minds_answer():
     methods=["POST"],
 )
 def dirty_minds_reveal():
-    """
-    Reveal the current answer.
-
-    Only the host may reveal.
-    """
 
     try:
+
         room, player = (
             _get_dirty_minds_player()
         )
@@ -785,6 +837,7 @@ def dirty_minds_reveal():
         )
 
     except ValueError as exc:
+
         return jsonify(
             {
                 "success": False,
@@ -802,13 +855,9 @@ def dirty_minds_reveal():
     methods=["POST"],
 )
 def dirty_minds_next():
-    """
-    Move to the next round.
-
-    Only the host may advance.
-    """
 
     try:
+
         room, player = (
             _get_dirty_minds_player()
         )
@@ -832,6 +881,7 @@ def dirty_minds_next():
         )
 
     except ValueError as exc:
+
         return jsonify(
             {
                 "success": False,
@@ -849,13 +899,9 @@ def dirty_minds_next():
     methods=["POST"],
 )
 def dirty_minds_finish():
-    """
-    Manually finish a Dirty Minds game.
-
-    Only the host may finish.
-    """
 
     try:
+
         room, player = (
             _get_dirty_minds_player()
         )
@@ -879,6 +925,7 @@ def dirty_minds_finish():
         )
 
     except ValueError as exc:
+
         return jsonify(
             {
                 "success": False,
@@ -892,14 +939,6 @@ def dirty_minds_finish():
 # ==========================================================
 
 def _get_livekit_settings():
-    """
-    Read LiveKit configuration from environment variables.
-
-    Required:
-        LIVEKIT_URL
-        LIVEKIT_API_KEY
-        LIVEKIT_API_SECRET
-    """
 
     url = os.getenv(
         "LIVEKIT_URL",
@@ -932,23 +971,18 @@ def _get_livekit_settings():
     methods=["GET", "POST"],
 )
 def dirty_minds_livekit_token():
-    """
-    Generate a LiveKit access token.
-
-    The API secret NEVER goes to the browser.
-
-    Each player receives a token for:
-        dirty-minds-<ROOM_ID>
-    """
 
     try:
+
         room, player = (
             _get_dirty_minds_player()
         )
 
-        livekit_url, api_key, api_secret = (
-            _get_livekit_settings()
-        )
+        (
+            livekit_url,
+            api_key,
+            api_secret,
+        ) = _get_livekit_settings()
 
         if not livekit_url:
             raise ValueError(
@@ -965,8 +999,7 @@ def dirty_minds_livekit_token():
                 "LIVEKIT_API_SECRET is not configured."
             )
 
-        # Import only when needed so the rest of the
-        # Real Games launcher can still load cleanly.
+        # Import only when needed.
         from livekit import api
 
         livekit_room_name = (
@@ -1017,6 +1050,7 @@ def dirty_minds_livekit_token():
         )
 
     except ValueError as exc:
+
         return jsonify(
             {
                 "success": False,
@@ -1025,8 +1059,7 @@ def dirty_minds_livekit_token():
         ), 400
 
     except Exception:
-        # Do not expose API keys, secrets, or internal
-        # LiveKit exceptions to the browser.
+
         return jsonify(
             {
                 "success": False,
@@ -1048,8 +1081,6 @@ def _build_game_url(
 ) -> str:
     """
     Build the browser URL for a multiplayer player.
-
-    Uses the Render application URL when configured.
     """
 
     base_url = os.getenv(
@@ -1079,9 +1110,6 @@ def _build_game_url(
     methods=["GET"],
 )
 def real_games_status():
-    """
-    Basic Real Games service status.
-    """
 
     GAME_MANAGER.cleanup()
 
@@ -1089,10 +1117,25 @@ def real_games_status():
         {
             "success": True,
             "service": "Melanated AZ Real Games",
+
+            # 27 public games
             "games": len(GAMES),
-            "active_rooms": GAME_MANAGER.count(),
-            "dirty_minds_rooms": GAME_MANAGER.count(
-                "dirty_minds"
+
+            "game_ids": [
+                game["game_id"]
+                for game in GAMES
+            ],
+
+            "categories": CATEGORY_ORDER,
+
+            "active_rooms": (
+                GAME_MANAGER.count()
+            ),
+
+            "dirty_minds_rooms": (
+                GAME_MANAGER.count(
+                    "dirty_minds"
+                )
             ),
         }
     )
