@@ -2,13 +2,7 @@
 Melanated AZ Bot
 Real Games - Game Registry
 
-PC + MOBILE COMPATIBLE GAMES ONLY
-
-This registry contains metadata only.
-The actual playable engines are inside game.html.
-
-Every game listed here MUST have a matching game engine
-in game.html.
+PC + MOBILE COMPATIBLE GAMES
 """
 
 from __future__ import annotations
@@ -43,14 +37,12 @@ CATEGORY_ORDER = [
     "Arcade",
     "Sports",
     "Shooting",
+    "Party",
 ]
 
 
 # ==========================================================
 # PLAYABLE GAME REGISTRY
-#
-# DO NOT ADD A GAME HERE UNLESS game.html HAS A WORKING
-# ENGINE FOR THAT GAME.
 # ==========================================================
 
 GAMES: dict[str, GameDefinition] = {
@@ -163,32 +155,57 @@ GAMES: dict[str, GameDefinition] = {
         "🔨",
     ),
 
-    "tic_tac_toe": GameDefinition(
-        "tic_tac_toe",
-        "Tic-Tac-Toe",
+    "chess": GameDefinition(
+        "chess",
+        "Chess",
         "Arcade",
-        "Get three in a row.",
+        "Two-player local chess match.",
         "real_games.play_game",
         "solo",
         1,
-        1,
+        2,
         False,
-        "⭕",
+        "♟️",
     ),
 
-    "connect_four": GameDefinition(
-        "connect_four",
-        "Connect Four",
+    "checkers": GameDefinition(
+        "checkers",
+        "Checkers",
         "Arcade",
-        "Connect four pieces before the board fills.",
+        "Two-player local checkers match.",
         "real_games.play_game",
         "solo",
         1,
-        1,
+        2,
         False,
         "🔴",
     ),
 
+    "monopoly": GameDefinition(
+        "monopoly",
+        "Monopoly",
+        "Arcade",
+        "Buy properties and collect rent.",
+        "real_games.play_game",
+        "solo",
+        1,
+        4,
+        False,
+        "🎲",
+    ),
+
+    "race_car": GameDefinition(
+        "race_car",
+        "Race Car Racing",
+        "Arcade",
+        "Dodge traffic and drive as far as possible.",
+        "real_games.play_game",
+        "solo",
+        1,
+        1,
+        False,
+        "🏎️",
+    ),
 
     # ======================================================
     # 🏀 SPORTS
@@ -207,7 +224,6 @@ GAMES: dict[str, GameDefinition] = {
         "🏀",
     ),
 
-
     # ======================================================
     # 🎯 SHOOTING
     # ======================================================
@@ -224,6 +240,23 @@ GAMES: dict[str, GameDefinition] = {
         False,
         "🎯",
     ),
+
+    # ======================================================
+    # 🎭 PARTY
+    # ======================================================
+
+    "dirty_minds": GameDefinition(
+        "dirty_minds",
+        "Dirty Minds",
+        "Party",
+        "Multiplayer clue party game for groups.",
+        "real_games.play_game",
+        "multiplayer",
+        1,
+        20,
+        True,
+        "🧠",
+    ),
 }
 
 
@@ -232,16 +265,6 @@ GAMES: dict[str, GameDefinition] = {
 # ==========================================================
 
 def get_game(game_id: str) -> Optional[GameDefinition]:
-    """
-    Get a game by ID.
-
-    Accepts:
-
-        snake
-        SNAKE
-        rg_snake
-    """
-
     if not game_id:
         return None
 
@@ -253,10 +276,7 @@ def get_game(game_id: str) -> Optional[GameDefinition]:
     return GAMES.get(game_id)
 
 
-def get_games_by_category(
-    category: str,
-) -> list[GameDefinition]:
-
+def get_games_by_category(category: str) -> list[GameDefinition]:
     if not category:
         return []
 
@@ -270,10 +290,6 @@ def get_games_by_category(
 
 
 def get_categories() -> list[str]:
-    """
-    Return categories in the correct display order.
-    """
-
     return [
         category
         for category in CATEGORY_ORDER
@@ -285,22 +301,13 @@ def get_categories() -> list[str]:
 
 
 def get_games_grouped() -> dict[str, list[GameDefinition]]:
-    """
-    Return games grouped by category.
-    """
-
     grouped: dict[str, list[GameDefinition]] = {
         category: []
         for category in CATEGORY_ORDER
     }
 
     for game in GAMES.values():
-
-        grouped.setdefault(
-            game.category,
-            []
-        )
-
+        grouped.setdefault(game.category, [])
         grouped[game.category].append(game)
 
     return {
@@ -311,26 +318,14 @@ def get_games_grouped() -> dict[str, list[GameDefinition]]:
 
 
 def all_games() -> list[GameDefinition]:
-    """
-    Return every registered game.
-    """
-
     return list(GAMES.values())
 
 
 def get_game_ids() -> list[str]:
-    """
-    Return every playable game ID.
-    """
-
     return list(GAMES.keys())
 
 
 def game_exists(game_id: str) -> bool:
-    """
-    Check whether a game exists.
-    """
-
     return get_game(game_id) is not None
 
 
@@ -339,10 +334,6 @@ def game_exists(game_id: str) -> bool:
 # ==========================================================
 
 def validate_registry() -> list[str]:
-    """
-    Validate registry metadata.
-    """
-
     errors: list[str] = []
 
     for game_id, game in GAMES.items():
@@ -354,66 +345,37 @@ def validate_registry() -> list[str]:
             )
 
         if not game.name:
-            errors.append(
-                f"{game_id}: missing name."
-            )
+            errors.append(f"{game_id}: missing name.")
 
         if not game.category:
-            errors.append(
-                f"{game_id}: missing category."
-            )
+            errors.append(f"{game_id}: missing category.")
 
         if game.category not in CATEGORY_ORDER:
             errors.append(
-                f"{game_id}: invalid category "
-                f"'{game.category}'."
+                f"{game_id}: invalid category '{game.category}'."
             )
 
-        if game.mode not in {
-            "solo",
-            "multiplayer",
-            "both",
-        }:
-            errors.append(
-                f"{game_id}: invalid mode."
-            )
+        if game.mode not in {"solo", "multiplayer", "both"}:
+            errors.append(f"{game_id}: invalid mode.")
 
         if game.min_players < 1:
-            errors.append(
-                f"{game_id}: min_players must be >= 1."
-            )
+            errors.append(f"{game_id}: min_players must be >= 1.")
 
         if game.max_players < 1:
-            errors.append(
-                f"{game_id}: max_players must be >= 1."
-            )
+            errors.append(f"{game_id}: max_players must be >= 1.")
 
         if game.min_players > game.max_players:
             errors.append(
-                f"{game_id}: min_players cannot exceed "
-                f"max_players."
-            )
-
-        # Current system is PC/mobile solo gameplay.
-        if game.uses_rooms:
-            errors.append(
-                f"{game_id}: room-based games are disabled."
+                f"{game_id}: min_players cannot exceed max_players."
             )
 
     return errors
 
-
-# ==========================================================
-# STARTUP VALIDATION
-# ==========================================================
 
 REGISTRY_ERRORS = validate_registry()
 
 if REGISTRY_ERRORS:
     raise RuntimeError(
         "Real Games registry validation failed:\n"
-        + "\n".join(
-            f" - {error}"
-            for error in REGISTRY_ERRORS
-        )
+        + "\n".join(f" - {error}" for error in REGISTRY_ERRORS)
     )
