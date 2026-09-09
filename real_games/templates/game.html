@@ -3285,329 +3285,211 @@ function connect(){
 /* ---------------- CHECKERS ---------------- */
 
 function checkers(){
+  clearGame();
+  const SIZE=8;
+  let board=[];
+  let turn='red';
+  let selected=null;
+  let mustContinue=null;
 
-    ui(`
-        <div class="panel">
-
-            <div class="title">
-                🔴 Checkers
-            </div>
-
-            <div
-                class="message"
-                id="m">
-                Red: select a piece
-            </div>
-
-            <div
-                class="board"
-                id="b">
-            </div>
-
-            <div class="controls">
-                <button id="restart">
-                    🔄 Restart
-                </button>
-            </div>
-
-        </div>
-    `);
-
-    let board=
-        Array.from(
-            {length:8},
-            ()=>Array(8).fill('')
-        );
-
-    let selected=null;
-    let turn='r';
-
-    for(let r=0;r<3;r++){
-
-        for(let c=0;c<8;c++){
-
-            if((r+c)%2){
-                board[r][c]='b';
-            }
-        }
+  function makeBoard(){
+    board=Array.from({length:SIZE},()=>Array(SIZE).fill(null));
+    for(let r=0;r<3;r++) for(let c=0;c<SIZE;c++) if((r+c)%2) board[r][c]={color:'black',king:false};
+    for(let r=5;r<8;r++) for(let c=0;c<SIZE;c++) if((r+c)%2) board[r][c]={color:'red',king:false};
+  }
+  function name(c){return c==='red'?'Red':'Black'}
+  function inside(r,c){return r>=0&&r<8&&c>=0&&c<8}
+  function capturesFor(r,c,p=board[r][c]){
+    if(!p) return [];
+    const dirs=p.king?[-1,1]:[p.color==='red'?-1:1];
+    const out=[];
+    for(const dr of dirs) for(const dc of [-1,1]){
+      const mr=r+dr, mc=c+dc, tr=r+2*dr, tc=c+2*dc;
+      if(inside(tr,tc)&&inside(mr,mc)&&board[mr][mc]&&board[mr][mc].color!==p.color&&!board[tr][tc]) out.push({r:tr,c:tc,mr,mc});
     }
-
-    for(let r=5;r<8;r++){
-
-        for(let c=0;c<8;c++){
-
-            if((r+c)%2){
-                board[r][c]='r';
-            }
-        }
+    return out;
+  }
+  function movesFor(r,c,p=board[r][c]){
+    if(!p) return [];
+    const dirs=p.king?[-1,1]:[p.color==='red'?-1:1];
+    const out=[];
+    for(const dr of dirs) for(const dc of [-1,1]){
+      const tr=r+dr,tc=c+dc;
+      if(inside(tr,tc)&&!board[tr][tc]) out.push({r:tr,c:tc});
     }
-
-    function draw(){
-
-        $('#b').innerHTML=
-            board.flat().map(
-                (value,index)=>{
-
-                    const r=
-                        Math.floor(index/8);
-
-                    const c=
-                        index%8;
-
-                    const dark=
-                        (r+c)%2;
-
-                    return `
-                        <div
-                            class="sq ${
-                                dark
-                                ? 'dark'
-                                : 'light'
-                            } ${
-                                selected===index
-                                ? 'selected'
-                                : ''
-                            }"
-                            data-i="${index}">
-                            ${
-                                value==='r'
-                                ? '🔴'
-                                : value==='b'
-                                ? '⚫'
-                                : ''
-                            }
-                        </div>
-                    `;
-                }
-            ).join('');
-
-        $('#b')
-            .querySelectorAll('.sq')
-            .forEach(square=>{
-                square.onclick=()=>{
-                    clickSquare(
-                        Number(
-                            square.dataset.i
-                        )
-                    );
-                };
-            });
+    return out;
+  }
+  function playerHasCapture(color){
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++) if(board[r][c]?.color===color && capturesFor(r,c).length) return true;
+    return false;
+  }
+  function legalPieces(){
+    const forced=playerHasCapture(turn);
+    const list=[];
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      if(board[r][c]?.color!==turn) continue;
+      if((forced?capturesFor(r,c):movesFor(r,c)).length) list.push(`${r}-${c}`);
     }
-
-    function clickSquare(index){
-
-        const r=
-            Math.floor(index/8);
-
-        const c=
-            index%8;
-
-        if(selected===null){
-
-            if(board[r][c]===turn){
-
-                selected=index;
-
-                $('#m').textContent=
-                    'Select a destination square.';
-            }
-
-            draw();
-
-            return;
-        }
-
-        const sr=
-            Math.floor(selected/8);
-
-        const sc=
-            selected%8;
-
-        const dr=
-            r-sr;
-
-        const dc=
-            c-sc;
-
-        if(
-            !board[r][c] &&
-            Math.abs(dr)===1 &&
-            Math.abs(dc)===1
-        ){
-
-            board[r][c]=
-                board[sr][sc];
-
-            board[sr][sc]='';
-
-            turn=
-                turn==='r'
-                ? 'b'
-                : 'r';
-
-            $('#m').textContent=
-                turn==='r'
-                ? 'Red: select a piece'
-                : 'Black: select a piece';
-        }
-
-        selected=null;
-
-        draw();
+    return {forced,list};
+  }
+  function status(){
+    const {forced,list}=legalPieces();
+    if(!list.length){ ui(`<div class="panel"><h2>🏁 ${name(turn==='red'?'black':'red')} wins!</h2><p>${name(turn)} has no legal moves.</p><button class="btn" onclick="checkers()">Play Again</button></div>`); return; }
+    ui(`<div class="panel"><h2>♟️ Checkers</h2><p><b>${name(turn)}</b>'s turn ${forced?'— a jump is required.':'— move or jump.'}</p><div id="checkersBoard" class="board-game"></div><p id="checkersMsg">Tap a ${name(turn)} piece, then tap a highlighted square.</p><button class="btn" onclick="checkers()">Restart</button></div>`);
+    const el=document.getElementById('checkersBoard');
+    el.style.cssText='display:grid;grid-template-columns:repeat(8,minmax(34px,1fr));width:min(94vw,520px);aspect-ratio:1;margin:12px auto;touch-action:manipulation;border:2px solid #555;';
+    const forcedKeys=new Set(list);
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const sq=document.createElement('button'); sq.type='button'; sq.dataset.r=r; sq.dataset.c=c;
+      sq.style.cssText=`border:0;min-width:0;min-height:0;font-size:clamp(22px,7vw,42px);display:flex;align-items:center;justify-content:center;background:${(r+c)%2?'#4d4d4d':'#d7d7d7'};color:#111;touch-action:manipulation;`;
+      if(selected&&selected.r===r&&selected.c===c) sq.style.outline='4px solid #00e5ff';
+      if(forcedKeys.has(`${r}-${c}`)) sq.style.boxShadow='inset 0 0 0 3px #ffd54a';
+      const p=board[r][c];
+      if(p) sq.textContent=p.king?(p.color==='red'?'♛':'♚'):(p.color==='red'?'●':'●');
+      if(p) sq.style.color=p.color==='red'?'#e53935':'#111';
+      sq.onclick=()=>checkersTap(r,c);
+      el.appendChild(sq);
     }
-
-    $('#restart').onclick=()=>{
-        clearGame();
-        checkers();
-    };
-
-    draw();
+  }
+  window.checkersTap=function(r,c){
+    const p=board[r][c];
+    const forced=playerHasCapture(turn);
+    if(selected){
+      const {r:sr,c:sc}=selected;
+      const piece=board[sr][sc];
+      const caps=capturesFor(sr,sc);
+      const normals=movesFor(sr,sc);
+      let mv=caps.find(x=>x.r===r&&x.c===c);
+      if(!mv && !forced) mv=normals.find(x=>x.r===r&&x.c===c);
+      if(mv){
+        board[r][c]=piece; board[sr][sc]=null;
+        let jumped=false;
+        if(mv.mr!==undefined){board[mv.mr][mv.mc]=null;jumped=true;}
+        if(piece.color==='red'&&r===0) piece.king=true;
+        if(piece.color==='black'&&r===7) piece.king=true;
+        if(jumped){
+          const more=capturesFor(r,c);
+          if(more.length){ selected={r,c}; status(); return; }
+        }
+        selected=null; turn=turn==='red'?'black':'red'; status(); return;
+      }
+      if(p?.color===turn){selected={r,c};status();return;}
+      selected=null;status();return;
+    }
+    if(p?.color===turn){
+      if(forced && !capturesFor(r,c).length){return;}
+      selected={r,c};status();
+    }
+  };
+  makeBoard(); status();
 }
-
-
-/* ---------------- CHESS ---------------- */
 
 function chess(){
+  clearGame();
+  const backRank=['r','n','b','q','k','b','n','r'];
+  let board=[];
+  let turn='w';
+  let selected=null;
+  let enPassant=null;
+  let gameOver=false;
 
-    ui(`
-        <div class="panel">
-
-            <div class="title">
-                ♟️ Chess
-            </div>
-
-            <div class="message">
-                Local two-player board.
-                Tap a piece, then a square.
-            </div>
-
-            <div
-                class="board"
-                id="b">
-            </div>
-
-            <div class="controls">
-                <button id="restart">
-                    🔄 Restart
-                </button>
-            </div>
-
-        </div>
-    `);
-
-    const rows=[
-        '♜♞♝♛♚♝♞♜',
-        '♟♟♟♟♟♟♟♟',
-        '',
-        '',
-        '',
-        '',
-        '♙♙♙♙♙♙♙♙',
-        '♖♘♗♕♔♗♘♖'
-    ];
-
-    let board=
-        Array.from(
-            {length:8},
-            ()=>Array(8).fill('')
-        );
-
-    rows.forEach(
-        (row,r)=>{
-            [...row].forEach(
-                (piece,c)=>{
-                    board[r][c]=piece;
-                }
-            );
-        }
-    );
-
-    let selected=null;
-
-    function draw(){
-
-        $('#b').innerHTML=
-            board.flat().map(
-                (value,index)=>{
-
-                    const r=
-                        Math.floor(index/8);
-
-                    return `
-                        <div
-                            class="sq ${
-                                (r+index)%2
-                                ? 'dark'
-                                : 'light'
-                            } ${
-                                selected===index
-                                ? 'selected'
-                                : ''
-                            }"
-                            data-i="${index}">
-                            ${value}
-                        </div>
-                    `;
-                }
-            ).join('');
-
-        $('#b')
-            .querySelectorAll('.sq')
-            .forEach(square=>{
-                square.onclick=()=>{
-                    clickSquare(
-                        Number(
-                            square.dataset.i
-                        )
-                    );
-                };
-            });
+  function init(){
+    board=Array.from({length:8},()=>Array(8).fill(null));
+    for(let c=0;c<8;c++){board[0][c]={t:backRank[c],c:'b',m:false};board[1][c]={t:'p',c:'b',m:false};board[6][c]={t:'p',c:'w',m:false};board[7][c]={t:backRank[c],c:'w',m:false};}
+  }
+  const glyph={w:{k:'♔',q:'♕',r:'♖',b:'♗',n:'♘',p:'♙'},b:{k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'}};
+  const inside=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+  const enemy=(p,c)=>p&&p.c!==c;
+  function pseudo(r,c,ignoreCheck=false){
+    const p=board[r][c], out=[]; if(!p)return out;
+    const add=(tr,tc)=>{if(!inside(tr,tc))return false;if(!board[tr][tc]){out.push({r:tr,c:tc});return true;}if(enemy(board[tr][tc],p.c)&&board[tr][tc].t!=='k')out.push({r:tr,c:tc});return false;};
+    if(p.t==='p'){
+      const d=p.c==='w'?-1:1, start=p.c==='w'?6:1;
+      if(inside(r+d,c)&&!board[r+d][c]){out.push({r:r+d,c});if(r===start&&!board[r+2*d][c])out.push({r:r+2*d,c});}
+      for(const dc of [-1,1]){const tr=r+d,tc=c+dc;if(inside(tr,tc)&&enemy(board[tr][tc],p.c))out.push({r:tr,c:tc}); if(enPassant&&enPassant.r===tr&&enPassant.c===tc)out.push({r:tr,c:tc,en:true});}
+    } else if(p.t==='n'){
+      for(const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) add(r+dr,c+dc);
+    } else if(['b','r','q'].includes(p.t)){
+      const dirs=p.t==='b'?[[-1,-1],[-1,1],[1,-1],[1,1]]:p.t==='r'?[[-1,0],[1,0],[0,-1],[0,1]]:[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]];
+      for(const [dr,dc] of dirs){let tr=r+dr,tc=c+dc;while(add(tr,tc)){tr+=dr;tc+=dc;}}
+    } else if(p.t==='k'){
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(dr||dc)add(r+dr,c+dc);
+      if(!p.m&&!isInCheck(p.c)){
+        const row=p.c==='w'?7:0;
+        if(board[row][7]?.t==='r'&&!board[row][7].m&&!board[row][5]&&!board[row][6]&&!isAttacked(row,5,p.c)&&!isAttacked(row,6,p.c))out.push({r:row,c:6,castle:'K'});
+        if(board[row][0]?.t==='r'&&!board[row][0].m&&!board[row][1]&&!board[row][2]&&!board[row][3]&&!isAttacked(row,3,p.c)&&!isAttacked(row,2,p.c))out.push({r:row,c:2,castle:'Q'});
+      }
     }
-
-    function clickSquare(index){
-
-        const r=
-            Math.floor(index/8);
-
-        const c=
-            index%8;
-
-        if(selected===null){
-
-            if(board[r][c]){
-
-                selected=index;
-            }
-
-        }else{
-
-            const sr=
-                Math.floor(selected/8);
-
-            const sc=
-                selected%8;
-
-            board[r][c]=
-                board[sr][sc];
-
-            board[sr][sc]='';
-
-            selected=null;
-        }
-
-        draw();
+    return out;
+  }
+  function isAttacked(r,c,byColor){
+    for(let rr=0;rr<8;rr++)for(let cc=0;cc<8;cc++){
+      const p=board[rr][cc]; if(!p||p.c===byColor)continue;
+      // Here p is an opponent of the square owner; to test attacks, use its attack geometry directly.
+      const dr=r-rr,dc=c-cc;
+      if(p.t==='p'&&dr===(p.c==='w'?-1:1)&&Math.abs(dc)===1)return true;
+      if(p.t==='n'&&[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].some(x=>x[0]===dr&&x[1]===dc))return true;
+      if(p.t==='k'&&Math.max(Math.abs(dr),Math.abs(dc))===1)return true;
+      const diag=Math.abs(dr)===Math.abs(dc)&&dr!==0, straight=(dr===0||dc===0)&&(dr!==0||dc!==0);
+      if((p.t==='b'&&diag)||(p.t==='r'&&straight)||(p.t==='q'&&(diag||straight))){const sr=Math.sign(dr),sc=Math.sign(dc);let x=rr+sr,y=cc+sc,clear=true;while(x!==r||y!==c){if(board[x][y]){clear=false;break;}x+=sr;y+=sc;}if(clear)return true;}
     }
-
-    $('#restart').onclick=()=>{
-        clearGame();
-        chess();
-    };
-
-    draw();
+    return false;
+  }
+  function kingPos(color){for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(board[r][c]?.c===color&&board[r][c].t==='k')return {r,c};return null;}
+  function isInCheck(color){const k=kingPos(color);return k?isAttacked(k.r,k.c,color):true;}
+  function legalMoves(r,c){
+    const p=board[r][c]; if(!p||p.c!==turn)return [];
+    const out=[];
+    for(const m of pseudo(r,c)){
+      const saved=board[m.r][m.c], epTarget=m.en?board[r][m.c]:null;
+      board[m.r][m.c]=p; board[r][c]=null;
+      if(m.en) board[r][m.c]=null;
+      const oldRook=m.castle?board[r][m.castle==='K'?7:0]:null;
+      if(m.castle){const from=m.castle==='K'?7:0,to=m.castle==='K'?5:3;board[r][to]=oldRook;board[r][from]=null;}
+      if(!isInCheck(p.c))out.push(m);
+      board[r][c]=p; board[m.r][m.c]=saved;
+      if(m.en)board[r][m.c]=epTarget;
+      if(m.castle){const from=m.castle==='K'?7:0,to=m.castle==='K'?5:3;board[r][from]=oldRook;board[r][to]=null;}
+    }
+    return out;
+  }
+  function allLegal(color){const old=turn;turn=color;let n=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++)n+=legalMoves(r,c).length;turn=old;return n;}
+  function status(){
+    if(gameOver)return;
+    const inCheck=isInCheck(turn), moves=allLegal(turn);
+    if(moves===0){gameOver=true;ui(`<div class="panel"><h2>${inCheck?'♚ Checkmate':'🤝 Stalemate'}</h2><p>${inCheck?(turn==='w'?'Black':'White')+' wins!':'No legal moves.'}</p><button class="btn" onclick="chess()">Play Again</button></div>`);return;}
+    ui(`<div class="panel"><h2>♟️ Chess</h2><p><b>${turn==='w'?'White':'Black'}</b>'s turn${inCheck?' — CHECK!':''}</p><div id="chessBoard" class="board-game"></div><p>Tap a piece, then tap a highlighted destination. Knights can jump over pieces.</p><button class="btn" onclick="chess()">Restart</button></div>`);
+    const el=document.getElementById('chessBoard');el.style.cssText='display:grid;grid-template-columns:repeat(8,minmax(34px,1fr));width:min(94vw,520px);aspect-ratio:1;margin:12px auto;touch-action:manipulation;border:2px solid #555;';
+    const legal=selected?legalMoves(selected.r,selected.c):[];const targets=new Set(legal.map(m=>`${m.r}-${m.c}`));
+    for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+      const sq=document.createElement('button');sq.type='button';sq.style.cssText=`border:0;min-width:0;min-height:0;font-size:clamp(26px,7.5vw,46px);display:flex;align-items:center;justify-content:center;background:${(r+c)%2?'#555':'#ddd'};color:${board[r][c]?.c==='w'?'#fff':'#111'};text-shadow:${board[r][c]?.c==='w'?'0 1px 2px #000':'none'};touch-action:manipulation;`;
+      if(selected?.r===r&&selected?.c===c)sq.style.outline='4px solid #00e5ff';
+      if(targets.has(`${r}-${c}`))sq.style.boxShadow='inset 0 0 0 5px #ffd54a';
+      if(board[r][c])sq.textContent=glyph[board[r][c].c][board[r][c].t];
+      sq.onclick=()=>chessTap(r,c);el.appendChild(sq);
+    }
+  }
+  window.chessTap=function(r,c){
+    if(gameOver)return;
+    const p=board[r][c];
+    if(selected){
+      const legal=legalMoves(selected.r,selected.c),m=legal.find(x=>x.r===r&&x.c===c);
+      if(m){
+        const sr=selected.r,sc=selected.c,piece=board[sr][sc];
+        if(m.en)board[sr][m.c]=null;
+        board[r][c]=piece;board[sr][sc]=null;piece.m=true;
+        if(piece.t==='p'&&((piece.c==='w'&&r===0)||(piece.c==='b'&&r===7)))piece.t='q';
+        if(m.castle){const from=m.castle==='K'?7:0,to=m.castle==='K'?5:3;board[r][to]=board[r][from];board[r][from]=null;board[r][to].m=true;}
+        enPassant=null;if(piece.t==='p'&&Math.abs(r-sr)===2)enPassant={r:(r+sr)/2,c:sc};
+        turn=turn==='w'?'b':'w';selected=null;status();return;
+      }
+      if(p?.c===turn){selected={r,c};status();return;}
+      selected=null;status();return;
+    }
+    if(p?.c===turn){selected={r,c};status();}
+  };
+  init();status();
 }
-
-
-/* ---------------- MONOPOLY ---------------- */
 
 function monopoly(){
 
