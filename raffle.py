@@ -272,6 +272,54 @@ async def safe_answer(
 
 
 # ==========================================================
+# TEMPORARY PAYMENT MESSAGE CLEANUP
+# ==========================================================
+
+async def delete_temporary_payment_message(context):
+    """
+    Delete a payment-instruction message after its timer expires.
+
+    The permanent raffle announcement is never deleted.
+    """
+
+    job = context.job
+
+    if not job or not job.data:
+        return
+
+    chat_id = job.data.get("chat_id")
+    message_id = job.data.get("message_id")
+
+    if not chat_id or not message_id:
+        return
+
+    try:
+
+        await context.bot.delete_message(
+            chat_id=int(chat_id),
+            message_id=int(message_id),
+        )
+
+        logger.info(
+            "TEMP PAYMENT MESSAGE DELETED | chat=%s | message=%s",
+            chat_id,
+            message_id,
+        )
+
+    except TelegramError:
+
+        # The message may already have been deleted manually
+        # or removed by Telegram. Nothing else is required.
+        logger.debug(
+            "Could not delete temporary payment message | "
+            "chat=%s | message=%s",
+            chat_id,
+            message_id,
+            exc_info=True,
+        )
+
+
+# ==========================================================
 # START RAFFLE
 # ==========================================================
 
@@ -1426,34 +1474,17 @@ async def payment_method(
         return
 
     # ------------------------------------------------------
-    # USER MUST HAVE PENDING ENTRY
+    # PAYMENT BUTTON
+    #
+    # IMPORTANT:
+    # The user does NOT have to enter the raffle first.
+    # They can tap Cash App or Zelle simply to view the
+    # payment instructions.
+    #
+    # The payment instructions are temporary and are
+    # automatically deleted 2 minutes after the button is
+    # clicked. The permanent raffle announcement remains.
     # ------------------------------------------------------
-
-    entries = get_raffle_entries(
-        raffle_id
-    )
-
-    entry = next(
-        (
-            x
-            for x in entries
-            if (
-                int(x["user_id"]) == int(user.id)
-                and x["status"] == "pending"
-            )
-        ),
-        None,
-    )
-
-    if not entry:
-
-        await safe_answer(
-            query,
-            "Enter the raffle first.",
-            True,
-        )
-
-        return
 
     # ------------------------------------------------------
     # CASH APP
@@ -1489,12 +1520,50 @@ async def payment_method(
 
     try:
 
-        await query.message.reply_text(
+        payment_message = await query.message.reply_text(
             body
             + "\n\nAfter payment, your entry remains "
             "pending until an admin verifies it.",
             parse_mode=ParseMode.HTML,
         )
+
+        # --------------------------------------------------
+        # AUTO-DELETE PAYMENT MESSAGE AFTER 2 MINUTES
+        # --------------------------------------------------
+        #
+        # Only the newly-created payment message is deleted.
+        # query.message is the permanent raffle announcement
+        # and is intentionally left untouched.
+        #
+        if context.job_queue:
+
+            context.job_queue.run_once(
+                delete_temporary_payment_message,
+                120,
+                data={
+                    "chat_id": payment_message.chat_id,
+                    "message_id": payment_message.message_id,
+                },
+                name=(
+                    f"raffle_payment_cleanup_"
+                    f"{payment_message.chat_id}_"
+                    f"{payment_message.message_id}"
+                ),
+            )
+
+            logger.info(
+                "TEMP PAYMENT MESSAGE SCHEDULED | "
+                "chat=%s | message=%s | delete_in=120s",
+                payment_message.chat_id,
+                payment_message.message_id,
+            )
+
+        else:
+
+            logger.warning(
+                "Job queue unavailable; payment message "
+                "cannot be auto-deleted."
+            )
 
     except TelegramError:
 
