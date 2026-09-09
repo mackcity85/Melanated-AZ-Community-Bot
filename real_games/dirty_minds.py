@@ -1127,6 +1127,7 @@ def start_game(room) -> dict[str, Any]:
 
     room.winner_id = None
 
+    room.reset_scores()
 
     _load_current_round(room)
 
@@ -1242,55 +1243,185 @@ def submit_answer(
 # ==========================================================
 
 def reveal_round(room) -> dict[str, Any]:
-    """Reveal the correct answer and every player's submitted answer."""
+    """Reveal the answer and expose all submitted answers.
+
+    Scoring is intentionally NOT automatic. The host grades each
+    submitted answer as correct (1), partial (0.5), or wrong (0).
+    """
     state = room.state
     if state.get("status") != "playing":
         raise ValueError("This round is not active.")
     if state.get("revealed"):
         return public_room_state(room)
 
-    answers = state.get("answers", {})
-    player_keys = {p.get("player_key") for p in room.players.values() if p.get("player_key")}
-    missing = player_keys - set(answers.keys())
-    if missing:
-        raise ValueError(f"Waiting for {len(missing)} player(s) to submit an answer.")
+    round_number = int(state.get("round", 0))
+    rounds = state.get("rounds", [])
+    if round_number < 1 or round_number > len(rounds):
+        raise ValueError("Invalid current round.")
 
     results = []
-    for player in room.players.values():
-        key = player.get("player_key")
-        if not key:
+    answers = state.get("answers", {})
+    for player_key, submission in answers.items():
+        player = room.get_player_by_key(player_key)
+        if not player:
             continue
         results.append({
+            "player_key": player_key,
             "name": player.get("name", "Player"),
-            "answer": answers.get(key, {}).get("answer", ""),
+            "answer": submission.get("answer", ""),
+            "result": submission.get("result"),
+            "points": float(submission.get("points", 0.0)),
+            "graded": bool(submission.get("graded", False)),
+        })
+
+    submitted_keys = set(answers.keys())
+    for player in room.players.values():
+        key = player.get("player_key")
+        if key in submitted_keys:
+            continue
+        results.append({
+            "player_key": key,
+            "name": player.get("name", "Player"),
+            "answer": "",
+            "result": "wrong",
+            "points": 0.0,
+            "graded": True,
+            "did_not_answer": True,
         })
 
     state["revealed"] = True
     state["status"] = "revealed"
     state["round_results"] = results
-    state["round_winner"] = None
-    state["winner"] = None
     room.touch()
     return public_room_state(room)
 
+
+# ==========================================================
+# GRADE ANSWER
+# ==========================================================
+
+def grade_answer(room, host_player_key: str, target_player_key: str, grade: str) -> dict[str, Any]:
+    """Host grades one submitted answer: correct=1, partial=0.5, wrong=0."""
+    host = room.get_player_by_key(host_player_key)
+    if not host or not host.get("host", False):
+        raise ValueError("Only the host can grade answers.")
+
+    state = room.state
+    if not state.get("revealed") or state.get("status") != "revealed":
+        raise ValueError("Reveal the round before grading answers.")
+
+    if grade not in {"correct", "partial", "wrong"}:
+        raise ValueError("Invalid grade.")
+
+    submission = state.get("answers", {}).get(target_player_key)
+    player = room.get_player_by_key(target_player_key)
+    if not submission or not player:
+        raise ValueError("Submitted answer not found.")
+
+    if submission.get("graded"):
+        raise ValueError("That answer has already been graded.")
+
+    points = {"correct": 1.0, "partial": 0.5, "wrong": 0.0}[grade]
+    submission["result"] = grade
+    submission["points"] = points
+    submission["correct"] = grade == "correct"
+    submission["graded"] = True
+
+    # Dirty Minds supports half-points.  The generic GameRoom score helper
+    # converts points to int, which would turn 0.5 into 0.  Keep the score
+    # directly on the player as a float so both +1 and +0.5 are preserved.
+    current_score = float(player.get("score", 0) or 0)
+    player["score"] = current_score + points
+    room.touch()
+
+    # Rebuild visible results and determine the round winner.
+    results = []
+    best = -1.0
+    winners = []
+    for key, sub in state.get("answers", {}).items():
+        pl = room.get_player_by_key(key)
+        if not pl:
+            continue
+        pts = float(sub.get("points", 0.0))
+        results.append({
+            "player_key": key,
+            "name": pl.get("name", "Player"),
+            "answer": sub.get("answer", ""),
+            "result": sub.get("result"),
+            "points": pts,
+            "graded": bool(sub.get("graded", False)),
+        })
+        if sub.get("graded"):
+            if pts > best:
+                best = pts; winners = [pl]
+            elif pts == best:
+                winners.append(pl)
+    if best > 0 and winners:
+        state["round_winner"] = winners[0]["user_id"] if len(winners) == 1 else None
+    state["round_results"] = results
+    room.touch()
+    return {"success": True, "graded": True, "grade": grade, "points": points, "state": public_room_state(room, player_key=host_player_key)}
 
 # ==========================================================
 # NEXT ROUND
 # ==========================================================
 
 def next_round(room) -> dict[str, Any]:
-    """Advance after the answer has been revealed. No scoring is used."""
+    """
+    Advance to the next round.
+
+    Host-only validation should be performed by the Flask route.
+    """
+
     state = room.state
-    if state.get("status") != "revealed":
-        raise ValueError("Reveal the answer before starting the next round.")
-    current_round = int(state.get("round", 0))
-    total_rounds = int(state.get("total_rounds", TOTAL_ROUNDS))
+
+    status = state.get(
+        "status"
+    )
+
+    if status not in {
+        "playing",
+        "revealed",
+    }:
+        raise ValueError(
+            "The game is not ready for the next round."
+        )
+
+    if status == "revealed":
+        # Do not trap the host on the reveal screen. Any answer the host
+        # leaves ungraded is treated as 0 points when advancing. Answers
+        # that were explicitly graded keep their awarded points.
+        for submission in state.get("answers", {}).values():
+            if not submission.get("graded", False):
+                submission["result"] = "wrong"
+                submission["points"] = 0.0
+                submission["correct"] = False
+                submission["graded"] = True
+
+    current_round = int(
+        state.get("round", 0)
+    )
+
+    total_rounds = int(
+        state.get(
+            "total_rounds",
+            TOTAL_ROUNDS,
+        )
+    )
+
     if current_round >= total_rounds:
         return finish_game(room)
-    state["round"] = current_round + 1
+
+    state["round"] = (
+        current_round + 1
+    )
+
     _load_current_round(room)
+
     state["status"] = "playing"
+
     room.touch()
+
     return public_room_state(room)
 
 
@@ -1299,16 +1430,88 @@ def next_round(room) -> dict[str, Any]:
 # ==========================================================
 
 def finish_game(room) -> dict[str, Any]:
-    """Finish the game. Dirty Minds does not keep scores or declare a winner."""
+    """
+    Finish the game and determine the winner.
+    """
+
     state = room.state
+
     state["status"] = "finished"
+
     state["revealed"] = True
-    state["winner"] = None
+
     state["game_finished_at"] = time.time()
+
+    # Sort highest score first.
+    players = sorted(
+        room.players.values(),
+        key=lambda player: (
+            float(player.get("score", 0) or 0),
+            -float(
+                player.get(
+                    "joined_at",
+                    0,
+                )
+            ),
+        ),
+        reverse=True,
+    )
+
+    winner = None
+
+    if players:
+
+        top_score = float(players[0].get("score", 0) or 0)
+
+        # Tie handling.
+        tied = [
+            player
+            for player in players
+            if float(player.get("score", 0) or 0) == top_score
+        ]
+
+        if len(tied) == 1:
+
+            winner = {
+                "name": tied[0].get(
+                    "name",
+                    "Player",
+                ),
+                "score": top_score,
+            }
+
+            room.winner_id = tied[0][
+                "user_id"
+            ]
+
+        else:
+
+            winner = {
+                "name": "Tie Game",
+                "score": top_score,
+                "players": [
+                    player.get(
+                        "name",
+                        "Player",
+                    )
+                    for player in tied
+                ],
+            }
+
+            room.winner_id = None
+
+    state["winner"] = winner
+
     room.finished = True
+
     room.touch()
+
     return public_room_state(room)
 
+
+# ==========================================================
+# RESET GAME
+# ==========================================================
 
 def reset_game(room) -> dict[str, Any]:
     """
@@ -1325,6 +1528,7 @@ def reset_game(room) -> dict[str, Any]:
 
     room.winner_id = None
 
+    room.reset_scores()
 
     room.touch()
 
@@ -1358,51 +1562,239 @@ def _player_submission(
 # PUBLIC GAME STATE
 # ==========================================================
 
-def public_room_state(room, player_key: str | None = None) -> dict[str, Any]:
-    """Return browser-safe state; answers are hidden until reveal."""
+def public_room_state(
+    room,
+    player_key: str | None = None,
+) -> dict[str, Any]:
+    """
+    Return information safe to send to a browser.
+
+    IMPORTANT:
+    The correct answer is hidden until the round is revealed.
+    """
+
     state = room.state
-    status = state.get("status", "waiting")
-    revealed = bool(state.get("revealed", False))
-    answers = state.get("answers", {})
 
+    status = state.get(
+        "status",
+        "waiting",
+    )
+
+    revealed = bool(
+        state.get(
+            "revealed",
+            False,
+        )
+    )
+
+    current_answer = ""
+
+    if revealed:
+        current_answer = state.get(
+            "current_answer",
+            "",
+        )
+
+    submission = _player_submission(
+        room,
+        player_key,
+    )
+
+    my_submitted = (
+        submission is not None
+    )
+
+    my_correct = None
+    my_result = None
+    my_points = 0.0
+    if submission is not None and revealed and submission.get("graded"):
+        my_correct = bool(submission.get("correct", False))
+        my_result = submission.get("result")
+        my_points = float(submission.get("points", 0.0))
+
+    # Build player list without exposing:
+    #
+    #   - Telegram user IDs
+    #   - player keys
+    #   - internal timestamps
+    #
     players = []
+
     for player in room.players.values():
-        key = player.get("player_key")
-        players.append({
-            "name": player.get("name", "Player"),
-            "host": bool(player.get("host", False)),
-            "submitted": bool(key and key in answers),
-        })
 
-    me = room.get_player_by_key(player_key) if player_key else None
-    mine = answers.get(player_key, {}) if player_key else {}
+        players.append(
+            {
+                "name": player.get(
+                    "name",
+                    "Player",
+                ),
+                "score": float(player.get("score", 0) or 0),
+                "host": bool(
+                    player.get(
+                        "host",
+                        False,
+                    )
+                ),
+            }
+        )
 
-    return {
+    result = {
         "room_id": room.room_id,
+
         "game_id": room.game_id,
+
         "game_name": room.game_name,
+
         "status": status,
-        "round": int(state.get("round", 0)),
-        "total_rounds": int(state.get("total_rounds", TOTAL_ROUNDS)),
-        "clue": state.get("current_clue", ""),
-        "answer": state.get("current_answer", "") if revealed else "",
+
+        "round": int(
+            state.get(
+                "round",
+                0,
+            )
+        ),
+
+        "total_rounds": int(
+            state.get(
+                "total_rounds",
+                TOTAL_ROUNDS,
+            )
+        ),
+
+        "clue": state.get(
+            "current_clue",
+            "",
+        ),
+
+        # Answer remains hidden until reveal.
+        "answer": current_answer,
+
         "revealed": revealed,
+
         "player_count": room.player_count(),
+
         "max_players": room.max_players,
+
         "min_players": room.min_players,
+
         "players": players,
-        "submitted_count": len(answers),
-        "my_submitted": bool(mine),
-        "my_answer": mine.get("answer", "") if revealed else "",
-        "round_results": list(state.get("round_results", [])) if revealed else [],
-        "winner": None,
-        "started": bool(room.started),
-        "finished": bool(room.finished),
-        "is_host": bool(me and me.get("host", False)),
-        "can_start": bool(me and me.get("host", False)) and status in {"waiting", "finished"} and room.player_count() >= room.min_players,
-        "can_reveal": bool(me and me.get("host", False)) and status == "playing" and not revealed and room.player_count() > 0 and len(answers) >= room.player_count(),
-        "can_next": bool(me and me.get("host", False)) and status == "revealed",
+
+        "submitted_count": len(
+            state.get(
+                "answers",
+                {},
+            )
+        ),
+
+        "my_submitted": my_submitted,
+
+        "my_correct": my_correct,
+        "my_result": my_result,
+        "my_points": my_points,
+        "round_winner": None,
+        "submissions": [],
+
+        "round_results": [],
+
+        "winner": state.get(
+            "winner"
+        ),
+
+        "started": bool(
+            room.started
+        ),
+
+        "finished": bool(
+            room.finished
+        ),
+
+        "is_host": False,
+
+        "can_start": False,
+
+        "can_reveal": False,
+
+        "can_next": False,
     }
+
+    # ======================================================
+    # CURRENT PLAYER HOST STATUS
+    # ======================================================
+
+    if player_key:
+
+        player = room.get_player_by_key(
+            player_key
+        )
+
+        if player:
+
+            result["is_host"] = bool(
+                player.get(
+                    "host",
+                    False,
+                )
+            )
+
+    # ======================================================
+    # HOST CONTROLS
+    # ======================================================
+
+    result["can_start"] = (
+        result["is_host"]
+        and status in {
+            "waiting",
+            "finished",
+        }
+        and room.player_count()
+        >= room.min_players
+    )
+
+    result["can_reveal"] = (
+        result["is_host"]
+        and status == "playing"
+        and not revealed
+    )
+
+    result["can_next"] = (
+        result["is_host"]
+        and status == "revealed"
+        and all(item.get("graded", False) for item in state.get("answers", {}).values())
+    )
+
+    # Only the host may see submitted answers before grading is complete.
+    if result["is_host"] and status == "revealed":
+        result["submissions"] = [
+            {
+                "player_key": key,
+                "name": room.get_player_by_key(key).get("name", "Player") if room.get_player_by_key(key) else "Player",
+                "answer": sub.get("answer", ""),
+                "result": sub.get("result"),
+                "points": float(sub.get("points", 0.0)),
+                "graded": bool(sub.get("graded", False)),
+            }
+            for key, sub in state.get("answers", {}).items()
+            if room.get_player_by_key(key)
+        ]
+
+    # ======================================================
+    # REVEAL INFORMATION
+    # ======================================================
+
+    if revealed:
+
+        result["round_winner"] = state.get(
+            "round_winner"
+        )
+
+        result["round_results"] = list(
+            state.get(
+                "round_results",
+                [],
+            )
+        )
+
+    return result
 
 
 # ==========================================================
