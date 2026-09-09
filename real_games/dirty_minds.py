@@ -1326,7 +1326,13 @@ def grade_answer(room, host_player_key: str, target_player_key: str, grade: str)
     submission["points"] = points
     submission["correct"] = grade == "correct"
     submission["graded"] = True
-    room.add_score(player["user_id"], points)
+
+    # Dirty Minds supports half-points.  The generic GameRoom score helper
+    # converts points to int, which would turn 0.5 into 0.  Keep the score
+    # directly on the player as a float so both +1 and +0.5 are preserved.
+    current_score = float(player.get("score", 0) or 0)
+    player["score"] = current_score + points
+    room.touch()
 
     # Rebuild visible results and determine the round winner.
     results = []
@@ -1373,21 +1379,23 @@ def next_round(room) -> dict[str, Any]:
         "status"
     )
 
-    if status not in {
-        "playing",
-        "revealed",
-    }:
+    if status != "revealed":
         raise ValueError(
-            "The game is not ready for the next round."
+            "Reveal the answer before starting the next round."
         )
 
-    if status == "revealed":
-        ungraded = [
-            item for item in state.get("answers", {}).values()
-            if not item.get("graded", False)
-        ]
-        if ungraded:
-            raise ValueError("Grade all submitted answers before starting the next round.")
+    # Every submitted answer must be explicitly graded before the host
+    # can advance.  This prevents the Next Round button from silently
+    # awarding 0 points to an answer the host forgot to grade.
+    ungraded = [
+        submission
+        for submission in state.get("answers", {}).values()
+        if not submission.get("graded", False)
+    ]
+    if ungraded:
+        raise ValueError(
+            "Grade all submitted answers before starting the next round."
+        )
 
     current_round = int(
         state.get("round", 0)
@@ -1437,9 +1445,7 @@ def finish_game(room) -> dict[str, Any]:
     players = sorted(
         room.players.values(),
         key=lambda player: (
-            room.get_score(
-                player["user_id"]
-            ),
+            float(player.get("score", 0) or 0),
             -float(
                 player.get(
                     "joined_at",
@@ -1454,17 +1460,13 @@ def finish_game(room) -> dict[str, Any]:
 
     if players:
 
-        top_score = room.get_score(
-            players[0]["user_id"]
-        )
+        top_score = float(players[0].get("score", 0) or 0)
 
         # Tie handling.
         tied = [
             player
             for player in players
-            if room.get_score(
-                player["user_id"]
-            ) == top_score
+            if float(player.get("score", 0) or 0) == top_score
         ]
 
         if len(tied) == 1:
@@ -1625,11 +1627,7 @@ def public_room_state(
                     "name",
                     "Player",
                 ),
-                "score": room.get_score(
-                    player.get(
-                        "user_id"
-                    )
-                ),
+                "score": float(player.get("score", 0) or 0),
                 "host": bool(
                     player.get(
                         "host",
