@@ -14,7 +14,6 @@
 
 <!-- ==========================================================
      LIVEKIT
-     Primary CDN
 ========================================================== -->
 
 <script
@@ -249,6 +248,147 @@ h2{
     font-size:12px;
 }
 
+
+/* ==========================================================
+   SMALL LOCAL CAMERA
+   Floats over the page instead of taking up game space.
+========================================================== */
+
+.local-camera{
+    position:fixed;
+
+    right:16px;
+    bottom:16px;
+
+    width:110px;
+    height:82px;
+
+    background:#000;
+
+    border:2px solid #7c3aed;
+
+    border-radius:12px;
+
+    overflow:hidden;
+
+    z-index:9999;
+
+    box-shadow:
+        0 5px 20px rgba(0,0,0,.65);
+}
+
+.local-camera video{
+    width:100%;
+    height:100%;
+
+    object-fit:cover;
+
+    display:block;
+}
+
+.local-camera-name{
+    position:absolute;
+
+    left:5px;
+    bottom:5px;
+
+    padding:3px 6px;
+
+    border-radius:7px;
+
+    background:rgba(0,0,0,.75);
+
+    font-size:9px;
+    font-weight:800;
+
+    z-index:2;
+}
+
+
+/* ==========================================================
+   JOIN GREETING
+========================================================== */
+
+.join-greeting{
+    position:fixed;
+
+    left:50%;
+    top:18px;
+
+    transform:translateX(-50%);
+
+    width:calc(100% - 24px);
+    max-width:650px;
+
+    background:#7c3aed;
+
+    border:1px solid #a78bfa;
+
+    border-radius:16px;
+
+    padding:14px 18px;
+
+    text-align:center;
+
+    font-weight:800;
+
+    z-index:10000;
+
+    box-shadow:
+        0 8px 30px rgba(0,0,0,.55);
+
+    animation:
+        greetingIn .35s ease;
+}
+
+@keyframes greetingIn{
+
+    from{
+        opacity:0;
+        transform:
+            translate(-50%,-15px);
+    }
+
+    to{
+        opacity:1;
+        transform:
+            translate(-50%,0);
+    }
+
+}
+
+
+/* ==========================================================
+   MOBILE
+========================================================== */
+
+@media(max-width:600px){
+
+    body{
+        padding:8px;
+    }
+
+    .btn{
+        flex:1;
+        min-width:120px;
+    }
+
+    .local-camera{
+        right:10px;
+        bottom:10px;
+
+        width:90px;
+        height:68px;
+
+        border-radius:10px;
+    }
+
+    .local-camera-name{
+        font-size:8px;
+    }
+
+}
+
 </style>
 </head>
 
@@ -404,8 +544,6 @@ h2{
     </div>
 
 
-    <!-- ANSWER FORM -->
-
     <form
         id="answerForm"
         class="hidden">
@@ -425,9 +563,7 @@ h2{
                 class="btn primary"
                 type="submit"
                 id="submitBtn">
-
                 Submit Answer
-
             </button>
 
         </div>
@@ -463,8 +599,6 @@ h2{
         </div>
 
 
-        <!-- THIS IS THE ACTUAL CLEAN ANSWER -->
-
         <div class="correct-answer">
 
             <div class="correct-label">
@@ -480,10 +614,6 @@ h2{
 
     </div>
 
-
-    <!-- ======================================================
-         GAME FINISHED
-    ====================================================== -->
 
     <div
         id="finished"
@@ -576,15 +706,76 @@ function hostMessage(text){
 
 
 /* ==========================================================
+   JOIN GREETING
+========================================================== */
+
+function showJoinGreeting(){
+
+    const old =
+        document.querySelector(
+            ".join-greeting"
+        );
+
+    if(old){
+        old.remove();
+    }
+
+
+    const greeting =
+        document.createElement("div");
+
+
+    greeting.className =
+        "join-greeting";
+
+
+    greeting.innerHTML =
+        "👋 Welcome, " +
+        esc(PLAYER_NAME) +
+        "! You're in Dirty Minds. " +
+        "The clues sound dirty, but your answers must be clean! 😈";
+
+
+    document.body.appendChild(
+        greeting
+    );
+
+
+    /*
+     * Automatically disappear after 5 seconds.
+     */
+
+    setTimeout(
+        () => {
+
+            if(greeting){
+
+                greeting.style.opacity =
+                    "0";
+
+                greeting.style.transition =
+                    "opacity .4s ease";
+
+                setTimeout(
+                    () =>
+                        greeting.remove(),
+                    450
+                );
+
+            }
+
+        },
+        5000
+    );
+
+}
+
+
+/* ==========================================================
    LIVEKIT LOADER
 ========================================================== */
 
 function getLiveKit(){
-
-    /*
-     * Different UMD builds can expose the global
-     * under LivekitClient.
-     */
 
     if(window.LivekitClient){
         return window.LivekitClient;
@@ -595,6 +786,7 @@ function getLiveKit(){
     }
 
     return null;
+
 }
 
 
@@ -604,11 +796,9 @@ function getLiveKit(){
 
 async function connectLiveKit(){
 
-    let LK = getLiveKit();
+    let LK =
+        getLiveKit();
 
-    /*
-     * Give the fallback CDN a few seconds to finish loading.
-     */
 
     if(!LK){
 
@@ -616,16 +806,24 @@ async function connectLiveKit(){
 
             let attempts = 0;
 
+
             const timer =
                 setInterval(() => {
 
                     attempts++;
 
-                    LK = getLiveKit();
+                    LK =
+                        getLiveKit();
 
-                    if(LK || attempts >= 30){
 
-                        clearInterval(timer);
+                    if(
+                        LK ||
+                        attempts >= 30
+                    ){
+
+                        clearInterval(
+                            timer
+                        );
 
                         resolve();
 
@@ -638,16 +836,21 @@ async function connectLiveKit(){
     }
 
 
-    LK = getLiveKit();
+    LK =
+        getLiveKit();
 
 
     if(!LK){
 
-        setStatus("LiveKit unavailable");
+        setStatus(
+            "LiveKit unavailable"
+        );
+
 
         $("mediaMsg").textContent =
             "LiveKit JavaScript could not be loaded. " +
             "The game itself can still be tested.";
+
 
         return;
 
@@ -656,15 +859,22 @@ async function connectLiveKit(){
 
     try{
 
-        setStatus("Connecting video...");
+        setStatus(
+            "Connecting video..."
+        );
+
 
         const response =
             await fetch(
                 TOKEN_API +
                 "?room=" +
-                encodeURIComponent(ROOM_ID) +
+                encodeURIComponent(
+                    ROOM_ID
+                ) +
                 "&player_key=" +
-                encodeURIComponent(PLAYER_KEY),
+                encodeURIComponent(
+                    PLAYER_KEY
+                ),
                 {
                     cache:"no-store"
                 }
@@ -675,7 +885,10 @@ async function connectLiveKit(){
             await response.json();
 
 
-        if(!response.ok || !data.success){
+        if(
+            !response.ok ||
+            !data.success
+        ){
 
             throw new Error(
                 data.error ||
@@ -693,14 +906,21 @@ async function connectLiveKit(){
 
 
         /* ==================================================
-           REMOTE VIDEO/AUDIO
+           REMOTE TRACK
         ================================================== */
 
         livekitRoom.on(
             LK.RoomEvent.TrackSubscribed,
-            (track,publication,participant) => {
+            (
+                track,
+                publication,
+                participant
+            ) => {
 
-                createPlayer(participant);
+                createPlayer(
+                    participant
+                );
+
 
                 attachTrack(
                     track,
@@ -716,7 +936,9 @@ async function connectLiveKit(){
             track => {
 
                 try{
+
                     track.detach();
+
                 }catch(e){}
 
             }
@@ -727,7 +949,9 @@ async function connectLiveKit(){
             LK.RoomEvent.ParticipantConnected,
             participant => {
 
-                createPlayer(participant);
+                createPlayer(
+                    participant
+                );
 
             }
         );
@@ -749,15 +973,13 @@ async function connectLiveKit(){
             LK.RoomEvent.Disconnected,
             () => {
 
-                setStatus("LiveKit disconnected");
+                setStatus(
+                    "LiveKit disconnected"
+                );
 
             }
         );
 
-
-        /* ==================================================
-           CONNECT
-        ================================================== */
 
         await livekitRoom.connect(
             data.url,
@@ -765,7 +987,10 @@ async function connectLiveKit(){
         );
 
 
-        setStatus("LiveKit connected");
+        setStatus(
+            "LiveKit connected"
+        );
+
 
         $("mediaMsg").textContent =
             "Camera and microphone are ready.";
@@ -775,34 +1000,41 @@ async function connectLiveKit(){
 
 
         /*
-         * Add existing remote participants.
+         * Existing players.
          */
 
-        livekitRoom.remoteParticipants.forEach(
-            participant => {
+        livekitRoom
+            .remoteParticipants
+            .forEach(
+                participant => {
 
-                createPlayer(participant);
+                    createPlayer(
+                        participant
+                    );
 
-                participant.trackPublications.forEach(
-                    publication => {
 
-                        if(
-                            publication.isSubscribed &&
-                            publication.track
-                        ){
+                    participant
+                        .trackPublications
+                        .forEach(
+                            publication => {
 
-                            attachTrack(
-                                publication.track,
-                                participant
-                            );
+                                if(
+                                    publication.isSubscribed &&
+                                    publication.track
+                                ){
 
-                        }
+                                    attachTrack(
+                                        publication.track,
+                                        participant
+                                    );
 
-                    }
-                );
+                                }
 
-            }
-        );
+                            }
+                        );
+
+                }
+            );
 
 
     }catch(error){
@@ -812,7 +1044,11 @@ async function connectLiveKit(){
             error
         );
 
-        setStatus("LiveKit connection error");
+
+        setStatus(
+            "LiveKit connection error"
+        );
+
 
         $("mediaMsg").textContent =
             error.message ||
@@ -824,7 +1060,7 @@ async function connectLiveKit(){
 
 
 /* ==========================================================
-   LOCAL PLAYER TILE
+   LOCAL PLAYER
 ========================================================== */
 
 function createLocalPlayer(){
@@ -833,8 +1069,11 @@ function createLocalPlayer(){
         return;
     }
 
+
     const identity =
-        livekitRoom.localParticipant.identity;
+        livekitRoom
+            .localParticipant
+            .identity;
 
 
     if(
@@ -844,15 +1083,21 @@ function createLocalPlayer(){
             '"]'
         )
     ){
+
         return;
+
     }
 
 
     const player =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     player.className =
         "player";
+
 
     player.dataset.player =
         identity;
@@ -874,16 +1119,20 @@ function createLocalPlayer(){
 
 
     $("players")
-        .appendChild(player);
+        .appendChild(
+            player
+        );
 
 }
 
 
 /* ==========================================================
-   REMOTE PLAYER TILE
+   REMOTE PLAYER
 ========================================================== */
 
-function createPlayer(participant){
+function createPlayer(
+    participant
+){
 
     const identity =
         participant.identity;
@@ -896,15 +1145,21 @@ function createPlayer(participant){
             '"]'
         )
     ){
+
         return;
+
     }
 
 
     const player =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     player.className =
         "player";
+
 
     player.dataset.player =
         identity;
@@ -926,13 +1181,15 @@ function createPlayer(participant){
 
 
     $("players")
-        .appendChild(player);
+        .appendChild(
+            player
+        );
 
 }
 
 
 /* ==========================================================
-   ATTACH VIDEO / AUDIO
+   ATTACH TRACK
 ========================================================== */
 
 function attachTrack(
@@ -940,13 +1197,17 @@ function attachTrack(
     participant
 ){
 
-    createPlayer(participant);
+    createPlayer(
+        participant
+    );
 
 
     const tile =
         document.querySelector(
             '[data-player="' +
-            CSS.escape(participant.identity) +
+            CSS.escape(
+                participant.identity
+            ) +
             '"]'
         );
 
@@ -957,7 +1218,9 @@ function attachTrack(
 
 
     const videoArea =
-        tile.querySelector(".video");
+        tile.querySelector(
+            ".video"
+        );
 
 
     if(!videoArea){
@@ -971,18 +1234,20 @@ function attachTrack(
             track.attach();
 
 
-        element.autoplay = true;
+        element.autoplay =
+            true;
 
-        element.playsInline = true;
+
+        element.playsInline =
+            true;
 
 
-        /*
-         * Remote audio must NOT be muted.
-         */
+        if(
+            track.kind === "audio"
+        ){
 
-        if(track.kind === "audio"){
-
-            element.autoplay = true;
+            element.autoplay =
+                true;
 
         }
 
@@ -1008,7 +1273,9 @@ function attachTrack(
    REMOVE PLAYER
 ========================================================== */
 
-function removePlayer(identity){
+function removePlayer(
+    identity
+){
 
     const tile =
         document.querySelector(
@@ -1019,7 +1286,9 @@ function removePlayer(identity){
 
 
     if(tile){
+
         tile.remove();
+
     }
 
 }
@@ -1043,15 +1312,19 @@ async function toggleMic(){
 
     try{
 
-        micOn =
+        const next =
             !micOn;
 
 
         await livekitRoom
             .localParticipant
             .setMicrophoneEnabled(
-                micOn
+                next
             );
+
+
+        micOn =
+            next;
 
 
         $("micBtn").textContent =
@@ -1060,18 +1333,44 @@ async function toggleMic(){
                 : "🎤 Mic Off";
 
 
+        $("mediaMsg").textContent =
+            micOn
+                ? "🎤 Your microphone is on."
+                : "🔇 Your microphone is off.";
+
+
     }catch(error){
 
-        console.error(error);
+        console.error(
+            "Microphone error:",
+            error
+        );
 
-        micOn = false;
+
+        micOn =
+            false;
+
 
         $("micBtn").textContent =
             "🎤 Mic Off";
 
 
-        $("mediaMsg").textContent =
-            "Microphone permission was denied or unavailable.";
+        if(
+            error.name ===
+                "NotAllowedError" ||
+            error.name ===
+                "PermissionDeniedError"
+        ){
+
+            $("mediaMsg").textContent =
+                "🎤 Microphone permission was blocked. Allow microphone access for this website and try again.";
+
+        }else{
+
+            $("mediaMsg").textContent =
+                "🎤 Microphone permission was denied or unavailable.";
+
+        }
 
     }
 
@@ -1080,6 +1379,7 @@ async function toggleMic(){
 
 /* ==========================================================
    CAMERA
+   Explicitly request browser permission first.
 ========================================================== */
 
 async function toggleCamera(){
@@ -1094,117 +1394,321 @@ async function toggleCamera(){
     }
 
 
-    try{
+    /* ======================================================
+       CAMERA OFF
+    ====================================================== */
 
-        camOn =
-            !camOn;
+    if(camOn){
+
+        try{
+
+            await livekitRoom
+                .localParticipant
+                .setCameraEnabled(
+                    false
+                );
 
 
-        await livekitRoom
-            .localParticipant
-            .setCameraEnabled(
-                camOn
+            camOn =
+                false;
+
+
+            $("camBtn").textContent =
+                "📷 Camera Off";
+
+
+            $("mediaMsg").textContent =
+                "📷 Camera is off. Your microphone is still available.";
+
+
+            /*
+             * Remove the floating local camera.
+             */
+
+            const local =
+                document.querySelector(
+                    ".local-camera"
+                );
+
+
+            if(local){
+
+                local.remove();
+
+            }
+
+
+        }catch(error){
+
+            console.error(
+                "Camera off error:",
+                error
             );
 
 
-        $("camBtn").textContent =
-            camOn
-                ? "📷 Camera On"
-                : "📷 Camera Off";
+            $("mediaMsg").textContent =
+                "Unable to turn the camera off.";
+
+        }
+
+
+        return;
+
+    }
+
+
+    /* ======================================================
+       CAMERA ON
+    ====================================================== */
+
+    try{
+
+        if(
+            !navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia
+        ){
+
+            throw new Error(
+                "This browser does not support camera access."
+            );
+
+        }
+
+
+        if(!window.isSecureContext){
+
+            throw new Error(
+                "Camera access requires a secure HTTPS connection."
+            );
+
+        }
 
 
         /*
-         * Attach local camera.
+         * Explicitly request browser permission.
          */
 
-        if(camOn){
-
-            const LK =
-                getLiveKit();
+        let permissionStream =
+            null;
 
 
-            const publication =
-                livekitRoom
-                    .localParticipant
-                    .getTrackPublication(
-                        LK.Track.Source.Camera
+        try{
+
+            permissionStream =
+                await navigator
+                    .mediaDevices
+                    .getUserMedia({
+                        video:{
+                            facingMode:"user"
+                        },
+                        audio:false
+                    });
+
+
+        }finally{
+
+            if(permissionStream){
+
+                permissionStream
+                    .getTracks()
+                    .forEach(
+                        track =>
+                            track.stop()
                     );
-
-
-            if(
-                publication &&
-                publication.track
-            ){
-
-                const tile =
-                    document.querySelector(
-                        '[data-player="' +
-                        CSS.escape(
-                            livekitRoom.localParticipant.identity
-                        ) +
-                        '"]'
-                    );
-
-
-                if(tile){
-
-                    const area =
-                        tile.querySelector(
-                            ".local-video"
-                        );
-
-
-                    if(area){
-
-                        const existing =
-                            area.querySelector(
-                                "video"
-                            );
-
-
-                        if(!existing){
-
-                            const video =
-                                publication.track.attach();
-
-
-                            video.autoplay =
-                                true;
-
-                            video.playsInline =
-                                true;
-
-                            video.muted =
-                                true;
-
-
-                            area.appendChild(
-                                video
-                            );
-
-                        }
-
-                    }
-
-                }
 
             }
 
         }
 
 
+        /*
+         * Now enable the actual LiveKit camera.
+         */
+
+        await livekitRoom
+            .localParticipant
+            .setCameraEnabled(
+                true
+            );
+
+
+        camOn =
+            true;
+
+
+        $("camBtn").textContent =
+            "📷 Camera On";
+
+
+        $("mediaMsg").textContent =
+            "📷 Camera is on. Other players can now see you.";
+
+
+        /* ==================================================
+           SMALL LOCAL CAMERA
+        ================================================== */
+
+        const LK =
+            getLiveKit();
+
+
+        const publication =
+            livekitRoom
+                .localParticipant
+                .getTrackPublication(
+                    LK.Track.Source.Camera
+                );
+
+
+        if(
+            publication &&
+            publication.track
+        ){
+
+            /*
+             * Remove any old preview first.
+             */
+
+            const old =
+                document.querySelector(
+                    ".local-camera"
+                );
+
+
+            if(old){
+
+                old.remove();
+
+            }
+
+
+            const camera =
+                document.createElement(
+                    "div"
+                );
+
+
+            camera.className =
+                "local-camera";
+
+
+            const video =
+                publication
+                    .track
+                    .attach();
+
+
+            video.autoplay =
+                true;
+
+
+            video.playsInline =
+                true;
+
+
+            video.muted =
+                true;
+
+
+            camera.appendChild(
+                video
+            );
+
+
+            const label =
+                document.createElement(
+                    "div"
+                );
+
+
+            label.className =
+                "local-camera-name";
+
+
+            label.textContent =
+                PLAYER_NAME +
+                " (You)";
+
+
+            camera.appendChild(
+                label
+            );
+
+
+            document.body.appendChild(
+                camera
+            );
+
+        }
+
+
     }catch(error){
 
-        console.error(error);
+        console.error(
+            "Camera permission/access error:",
+            error
+        );
 
-        camOn = false;
+
+        camOn =
+            false;
+
 
         $("camBtn").textContent =
             "📷 Camera Off";
 
 
+        let message =
+            "📷 Camera could not be turned on.";
+
+
+        if(
+            error.name ===
+                "NotAllowedError" ||
+            error.name ===
+                "PermissionDeniedError"
+        ){
+
+            message =
+                "📷 Camera permission was blocked. Allow Camera for this website in your browser's site settings, then try Camera On again.";
+
+        }else if(
+            error.name ===
+                "NotFoundError"
+        ){
+
+            message =
+                "📷 No camera was found on this device.";
+
+        }else if(
+            error.name ===
+                "NotReadableError"
+        ){
+
+            message =
+                "📷 Your camera is being used by another app. Close the other app and try again.";
+
+        }else if(
+            error.name ===
+                "OverconstrainedError"
+        ){
+
+            message =
+                "📷 The selected camera settings are not available.";
+
+        }else if(
+            error.message
+        ){
+
+            message =
+                "📷 " +
+                error.message;
+
+        }
+
+
         $("mediaMsg").textContent =
-            "Camera permission was denied or unavailable.";
+            message;
 
     }
 
@@ -1300,9 +1804,13 @@ async function getState(){
         await fetch(
             API +
             "/state?room=" +
-            encodeURIComponent(ROOM_ID) +
+            encodeURIComponent(
+                ROOM_ID
+            ) +
             "&player_key=" +
-            encodeURIComponent(PLAYER_KEY),
+            encodeURIComponent(
+                PLAYER_KEY
+            ),
             {
                 cache:"no-store"
             }
@@ -1362,13 +1870,18 @@ function render(state){
        WAITING
     ====================================================== */
 
-    if(state.status === "waiting"){
+    if(
+        state.status ===
+        "waiting"
+    ){
 
         $("status").textContent =
             "Waiting for the host…";
 
+
         $("clue").textContent =
             "Waiting for game to start.";
+
 
         hide("answerForm");
 
@@ -1386,6 +1899,7 @@ function render(state){
         if(state.is_host){
 
             show("startBtn");
+
 
             $("startBtn").disabled =
                 !state.can_start;
@@ -1406,10 +1920,14 @@ function render(state){
        PLAYING
     ====================================================== */
 
-    if(state.status === "playing"){
+    if(
+        state.status ===
+        "playing"
+    ){
 
         $("status").textContent =
             "Submit one clean answer.";
+
 
         $("round").textContent =
             "Round " +
@@ -1437,26 +1955,19 @@ function render(state){
         }
 
 
-        /*
-         * Number of submitted answers.
-         */
-
         const submitted =
             Number(
-                state.submitted_count || 0
+                state.submitted_count ||
+                0
             );
 
 
         const total =
             Number(
-                state.player_count || 0
+                state.player_count ||
+                0
             );
 
-
-        /*
-         * Determine whether THIS player
-         * already submitted.
-         */
 
         const me =
             (state.players || [])
@@ -1466,12 +1977,6 @@ function render(state){
                         PLAYER_KEY
                 );
 
-
-        /*
-         * Some backend versions don't expose
-         * player_key publicly, so also use
-         * my_submitted when available.
-         */
 
         const alreadySubmitted =
             state.my_submitted === true ||
@@ -1493,19 +1998,16 @@ function render(state){
 
             hide("submittedMsg");
 
+
             $("answer").disabled =
                 false;
+
 
             $("submitBtn").disabled =
                 false;
 
         }
 
-
-        /*
-         * Host can reveal only when EVERYONE
-         * has submitted.
-         */
 
         if(
             state.is_host &&
@@ -1514,6 +2016,7 @@ function render(state){
         ){
 
             show("revealBtn");
+
 
             $("revealBtn").disabled =
                 false;
@@ -1534,10 +2037,14 @@ function render(state){
        REVEALED
     ====================================================== */
 
-    if(state.status === "revealed"){
+    if(
+        state.status ===
+        "revealed"
+    ){
 
         $("status").textContent =
             "Round revealed.";
+
 
         $("round").textContent =
             "Round " +
@@ -1558,24 +2065,14 @@ function render(state){
         hide("revealBtn");
 
 
-        /*
-         * IMPORTANT:
-         *
-         * The backend calls the actual clean answer
-         * "answer", NOT "correct_answer".
-         */
-
         $("correctAnswer").textContent =
             state.answer ||
             "Answer unavailable";
 
 
-        /*
-         * Show every player's submitted answer.
-         */
-
         renderAnswers(
-            state.round_results || []
+            state.round_results ||
+            []
         );
 
 
@@ -1606,10 +2103,14 @@ function render(state){
        FINISHED
     ====================================================== */
 
-    if(state.status === "finished"){
+    if(
+        state.status ===
+        "finished"
+    ){
 
         $("status").textContent =
             "Game finished.";
+
 
         $("clue").textContent =
             "🎉 Thanks for playing Dirty Minds!";
@@ -1630,18 +2131,18 @@ function render(state){
         show("finished");
 
 
-        return;
-
     }
 
 }
 
 
 /* ==========================================================
-   RENDER SUBMITTED ANSWERS
+   RENDER ANSWERS
 ========================================================== */
 
-function renderAnswers(results){
+function renderAnswers(
+    results
+){
 
     const container =
         $("answers");
@@ -1665,46 +2166,48 @@ function renderAnswers(results){
     }
 
 
-    results.forEach(result => {
+    results.forEach(
+        result => {
 
-        const card =
-            document.createElement(
-                "div"
+            const card =
+                document.createElement(
+                    "div"
+                );
+
+
+            card.className =
+                "answer-card";
+
+
+            const name =
+                result.name ||
+                "Player";
+
+
+            const answer =
+                result.answer ||
+                "(No answer submitted)";
+
+
+            card.innerHTML = `
+
+                <div class="answer-player">
+                    👤 ${esc(name)}
+                </div>
+
+                <div class="answer-text">
+                    ${esc(answer)}
+                </div>
+
+            `;
+
+
+            container.appendChild(
+                card
             );
 
-
-        card.className =
-            "answer-card";
-
-
-        const name =
-            result.name ||
-            "Player";
-
-
-        const answer =
-            result.answer ||
-            "(No answer submitted)";
-
-
-        card.innerHTML = `
-
-            <div class="answer-player">
-                👤 ${esc(name)}
-            </div>
-
-            <div class="answer-text">
-                ${esc(answer)}
-            </div>
-
-        `;
-
-
-        container.appendChild(
-            card
-        );
-
-    });
+        }
+    );
 
 }
 
@@ -1731,7 +2234,9 @@ async function startGame(){
 
     }catch(error){
 
-        console.error(error);
+        console.error(
+            error
+        );
 
 
         hostMessage(
@@ -1752,7 +2257,9 @@ async function startGame(){
    SUBMIT ANSWER
 ========================================================== */
 
-async function submitAnswer(event){
+async function submitAnswer(
+    event
+){
 
     event.preventDefault();
 
@@ -1780,6 +2287,7 @@ async function submitAnswer(event){
         $("submitBtn").disabled =
             true;
 
+
         input.disabled =
             true;
 
@@ -1802,7 +2310,9 @@ async function submitAnswer(event){
 
     }catch(error){
 
-        console.error(error);
+        console.error(
+            error
+        );
 
 
         $("mediaMsg").textContent =
@@ -1812,6 +2322,7 @@ async function submitAnswer(event){
 
         $("submitBtn").disabled =
             false;
+
 
         input.disabled =
             false;
@@ -1843,7 +2354,9 @@ async function reveal(){
 
     }catch(error){
 
-        console.error(error);
+        console.error(
+            error
+        );
 
 
         hostMessage(
@@ -1886,7 +2399,9 @@ async function nextRound(){
 
     }catch(error){
 
-        console.error(error);
+        console.error(
+            error
+        );
 
 
         hostMessage(
@@ -1932,7 +2447,9 @@ async function finishGame(){
 
     }catch(error){
 
-        console.error(error);
+        console.error(
+            error
+        );
 
 
         hostMessage(
@@ -1957,7 +2474,9 @@ async function refresh(){
             await getState();
 
 
-        render(state);
+        render(
+            state
+        );
 
 
     }catch(error){
@@ -2041,6 +2560,13 @@ pollTimer =
 ========================================================== */
 
 (async function(){
+
+    /*
+     * Greet the player as soon as the game page loads.
+     */
+
+    showJoinGreeting();
+
 
     await connectLiveKit();
 
