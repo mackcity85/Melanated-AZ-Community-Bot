@@ -10,7 +10,7 @@
 <body>
 <main>
 <div class="card"><h1>🎭 Dirty Minds</h1><div class="muted">Clues sound dirty. Answers are clean.</div><div id="roomLine" class="small"></div></div>
-<div class="card"><h2>🎤 Camera & Mic</h2><div class="btns"><button class="btn" id="micBtn">🎤 Mic On</button><button class="btn" id="camBtn">📷 Camera On</button><button class="btn" id="shareBtn">📺 Start Camera</button></div><video id="video" class="video" autoplay playsinline muted></video><div id="mediaMsg" class="small muted">Camera/mic controls use your device browser. They do not create shared audio/video by themselves.</div></div>
+<div class="card"><h2>🎤 Camera & Mic</h2><div class="btns"><button class="btn" id="micBtn">🎤 Turn Mic On</button><button class="btn" id="camBtn">📷 Turn Camera On</button><button class="btn" id="shareBtn">📺 Start Camera</button></div><video id="video" class="video" autoplay playsinline muted></video><div id="remoteAudio" class="hidden"></div><div id="mediaMsg" class="small muted">Turn on your mic to join voice chat. Your microphone will be sent to the other players in this room.</div></div>
 <div class="card" id="hostCard"><h2>👑 Host Controls</h2><div class="btns"><button class="btn primary" id="startBtn">▶️ Start Game</button><button class="btn primary hidden" id="revealBtn">👀 Reveal Answer</button><button class="btn primary hidden" id="nextBtn">➡️ Next Round</button><button class="btn danger hidden" id="finishBtn">🏁 End Game</button></div><div id="hostMsg" class="notice hidden"></div></div>
 <div class="card"><div id="status" class="muted">Waiting for the host…</div><div id="round" class="small"></div><div id="clue" class="clue">Waiting for game to start.</div><div id="answerReveal" class="notice hidden" style="font-size:22px;font-weight:900;text-align:center">✅ Correct Answer: <span id="correctAnswer"></span></div><form id="answerForm" class="hidden"><input id="answer" class="answer" maxlength="100" autocomplete="off" placeholder="Your clean answer…"><div class="btns" style="margin-top:8px"><button class="btn primary" type="submit">Submit Answer</button></div></form><div id="myResult"></div></div>
 <div class="card"><h2>🏆 Scores</h2><div id="players" class="players"></div></div>
@@ -65,17 +65,148 @@ $('submissions').addEventListener('click',async e=>{
     msg('⚠️ '+e.message);
   }
 });
+const voicePeers=new Map();
+let voicePollTimer=null,voiceStarted=false;
+
+async function voiceFetch(path, options={}){
+  const url=API+path;
+  const init={...options,headers:{'Content-Type':'application/json',...(options.headers||{})},cache:'no-store'};
+  if(init.body && typeof init.body!=='string') init.body=JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,...init.body});
+  const r=await fetch(url,init);
+  const j=await r.json().catch(()=>({success:false,error:'Invalid voice response'}));
+  if(!r.ok||j.success===false) throw new Error(j.error||'Voice request failed');
+  return j;
+}
+
+function makeVoiceConnection(peerKey, peerName){
+  let entry=voicePeers.get(peerKey);
+  if(entry) return entry.pc;
+  const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  entry={pc,peerName,pendingCandidates:[]};
+  voicePeers.set(peerKey,entry);
+
+  if(stream) stream.getAudioTracks().forEach(track=>pc.addTrack(track,stream));
+
+  pc.onicecandidate=async e=>{
+    if(!e.candidate)return;
+    try{await voiceFetch('/voice/signal',{method:'POST',body:{target_player_key:peerKey,type:'candidate',data:e.candidate.toJSON()}})}catch(err){console.warn('ICE signal failed',err)}
+  };
+  pc.ontrack=e=>{
+    let audio=document.getElementById('voice-'+CSS.escape(peerKey));
+    if(!audio){
+      audio=document.createElement('audio');
+      audio.id='voice-'+peerKey;
+      audio.autoplay=true;
+      audio.playsInline=true;
+      audio.controls=false;
+      $('remoteAudio').appendChild(audio);
+    }
+    audio.srcObject=e.streams[0]||new MediaStream([e.track]);
+    audio.play().catch(()=>{
+      $('mediaMsg').textContent='🔊 Voice connected. If you cannot hear anyone, tap the Mic button once to allow audio playback.';
+    });
+  };
+  pc.onconnectionstatechange=()=>{
+    if(['failed','closed','disconnected'].includes(pc.connectionState)){
+      const audio=document.getElementById('voice-'+CSS.escape(peerKey));
+      audio?.remove();
+      if(pc.connectionState!=='closed') setTimeout(()=>{if(voicePeers.get(peerKey)?.pc===pc){voicePeers.delete(peerKey)}},2000);
+    }
+  };
+  return pc;
+}
+
+async function createVoiceOffer(peerKey,peerName){
+  const pc=makeVoiceConnection(peerKey,peerName);
+  const offer=await pc.createOffer({offerToReceiveAudio:true});
+  await pc.setLocalDescription(offer);
+  await voiceFetch('/voice/signal',{method:'POST',body:{target_player_key:peerKey,type:'offer',data:pc.localDescription.toJSON()}});
+}
+
+async function handleVoiceSignal(msg){
+  const peerKey=msg.from_player_key;
+  const entry=voicePeers.get(peerKey);
+  if(msg.type==='leave'){
+    if(entry){entry.pc.close();voicePeers.delete(peerKey)}
+    document.getElementById('voice-'+CSS.escape(peerKey))?.remove();
+    return;
+  }
+  const pc=makeVoiceConnection(peerKey,'Player');
+  if(msg.type==='offer'){
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+    const e=voicePeers.get(peerKey);
+    for(const candidate of e.pendingCandidates.splice(0)){
+      try{await pc.addIceCandidate(new RTCIceCandidate(candidate))}catch(err){console.warn(err)}
+    }
+    const answer=await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await voiceFetch('/voice/signal',{method:'POST',body:{target_player_key:peerKey,type:'answer',data:pc.localDescription.toJSON()}});
+  }else if(msg.type==='answer'){
+    if(pc.signalingState!=='have-local-offer') return;
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+    const e=voicePeers.get(peerKey);
+    for(const candidate of e.pendingCandidates.splice(0)){
+      try{await pc.addIceCandidate(new RTCIceCandidate(candidate))}catch(err){console.warn(err)}
+    }
+  }else if(msg.type==='candidate'){
+    const e=voicePeers.get(peerKey);
+    if(pc.remoteDescription && pc.remoteDescription.type){
+      try{await pc.addIceCandidate(new RTCIceCandidate(msg.data))}catch(err){console.warn('ICE add failed',err)}
+    }else e.pendingCandidates.push(msg.data);
+  }
+}
+
+async function voicePoll(){
+  if(!voiceStarted)return;
+  try{
+    const peers=await voiceFetch(`/voice/peers?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`,{method:'GET'});
+    const active=new Set((peers.peers||[]).map(p=>p.player_key));
+    for(const [key,entry] of voicePeers){
+      if(!active.has(key)){entry.pc.close();voicePeers.delete(key);document.getElementById('voice-'+CSS.escape(key))?.remove();}
+    }
+    for(const peer of (peers.peers||[])){
+      const key=peer.player_key;
+      // One side of every pair creates the offer. This prevents duplicate offers.
+      if(!voicePeers.has(key) && String(PLAYER_KEY)<String(key)){
+        await createVoiceOffer(key,peer.name);
+      }else if(voicePeers.has(key)){
+        // Existing connection is kept alive.
+      }
+    }
+    const incoming=await voiceFetch(`/voice/signals?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`,{method:'GET'});
+    for(const signal of (incoming.signals||[])){
+      try{await handleVoiceSignal(signal)}catch(err){console.warn('Voice signal error',err)}
+    }
+  }catch(err){console.warn('Voice polling error',err)}
+}
+
+function startVoicePolling(){
+  if(voicePollTimer)return;
+  voiceStarted=true;
+  voicePoll();
+  voicePollTimer=setInterval(voicePoll,1000);
+}
+
 async function startMic(){
   try{
-    const audio=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    const audio=await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},
+      video:false
+    });
     if(!stream)stream=new MediaStream();
     audio.getAudioTracks().forEach(t=>stream.addTrack(t));
     micOn=true;
     updateMedia();
-    $('mediaMsg').textContent='🎤 Microphone is on. Other players will only hear you if shared voice/WebRTC is connected.';
+    startVoicePolling();
+    // Add the mic track to any peers that were already connected.
+    for(const entry of voicePeers.values()){
+      const already=entry.pc.getSenders().some(sender=>sender.track&&sender.track.kind==='audio');
+      if(!already) audio.getAudioTracks().forEach(t=>entry.pc.addTrack(t,stream));
+    }
+    $('mediaMsg').textContent='🎤 Mic is ON — your voice is being connected to the other players.';
   }catch(e){
     console.error(e);
-    $('mediaMsg').textContent='Microphone permission was not granted.';
+    $('mediaMsg').textContent='⚠️ Microphone permission was not granted. Check your browser microphone settings.';
   }
 }
 
@@ -84,14 +215,14 @@ async function startCamera(){
     const videoStream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
     if(!stream)stream=new MediaStream();
     videoStream.getVideoTracks().forEach(t=>stream.addTrack(t));
-    $('video').srcObject=stream;
+    $('video').srcObject=new MediaStream(stream.getVideoTracks());
     $('video').style.display='block';
     camOn=true;
     updateMedia();
-    $('mediaMsg').textContent='📷 Camera is on. Your local preview is active.';
+    $('mediaMsg').textContent='📷 Camera is on. Voice chat remains separate.';
   }catch(e){
     console.error(e);
-    $('mediaMsg').textContent='Camera permission was not granted.';
+    $('mediaMsg').textContent='⚠️ Camera permission was not granted.';
   }
 }
 
@@ -106,28 +237,22 @@ function updateMedia(){
 
 $('shareBtn').onclick=async()=>{
   if(!camOn) await startCamera();
-  else {
-    camOn=false;
-    updateMedia();
-  }
+  else {camOn=false;updateMedia();}
 };
 
 $('micBtn').onclick=async()=>{
-  if(!stream || stream.getAudioTracks().length===0){
-    await startMic();
-    return;
-  }
+  if(!stream || stream.getAudioTracks().length===0){await startMic();return;}
   micOn=!micOn;
   updateMedia();
+  $('mediaMsg').textContent=micOn?'🎤 Mic is ON — other players can hear you.':'🔇 Mic is OFF.';
 };
 
 $('camBtn').onclick=async()=>{
-  if(!stream || stream.getVideoTracks().length===0){
-    await startCamera();
-    return;
-  }
+  if(!stream || stream.getVideoTracks().length===0){await startCamera();return;}
   camOn=!camOn;
   updateMedia();
 };
-window.addEventListener('beforeunload',()=>stream?.getTracks().forEach(t=>t.stop()));refresh();setInterval(refresh,1500);
+
+startVoicePolling();
+window.addEventListener('beforeunload',()=>{for(const key of voicePeers.keys()){navigator.sendBeacon?.(API+'/voice/leave',new Blob([JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,target_player_key:key})],{type:'application/json'}));}voicePeers.forEach(e=>e.pc.close());stream?.getTracks().forEach(t=>t.stop());});refresh();setInterval(refresh,1500);
 </script></body></html>
