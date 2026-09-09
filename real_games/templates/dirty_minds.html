@@ -1,16 +1,27 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>🎭 Dirty Minds</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;background:#09090d;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:14px}main{max-width:850px;margin:auto}.card{background:#15151d;border:1px solid #30303d;border-radius:18px;padding:16px;margin:10px 0;box-shadow:0 8px 28px #0005}h1{margin:0 0 6px;font-size:clamp(25px,7vw,40px)}h2{margin:8px 0}.muted{color:#aaa}.clue{font-size:clamp(22px,6vw,34px);font-weight:800;line-height:1.2;padding:22px 4px}.answer{font-size:18px;padding:13px;width:100%;border-radius:12px;border:1px solid #444;background:#0d0d13;color:#fff}.btns{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:12px 15px;font-weight:800;cursor:pointer;background:#29293a;color:#fff}.primary{background:#7c3aed}.good{background:#16803c}.partial{background:#b7791f}.bad{background:#a33}.danger{background:#8b1e3f}.video{width:100%;max-height:330px;background:#000;border-radius:14px;margin-top:10px;display:none}.players,.submissions{display:grid;gap:8px}.row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#20202a;border-radius:12px}.small{font-size:13px}.tag{padding:3px 7px;border-radius:8px;background:#333}.hostbox{border:1px solid #6d28d9}.notice{padding:10px;border-radius:10px;background:#222233;margin-top:8px}.hidden{display:none!important}@media(max-width:600px){body{padding:8px}.btn{flex:1;min-width:120px}.row{align-items:flex-start;flex-direction:column}.row .btns{width:100%}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#09090d;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:14px}
+main{max-width:850px;margin:auto}.card{background:#15151d;border:1px solid #30303d;border-radius:18px;padding:16px;margin:10px 0;box-shadow:0 8px 28px #0005}
+h1{margin:0 0 6px;font-size:clamp(25px,7vw,40px)}h2{margin:8px 0}.muted{color:#aaa}.clue{font-size:clamp(22px,6vw,34px);font-weight:800;line-height:1.2;padding:22px 4px}
+.answer{font-size:18px;padding:13px;width:100%;border-radius:12px;border:1px solid #444;background:#0d0d13;color:#fff}.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:12px;padding:12px 15px;font-weight:800;cursor:pointer;background:#29293a;color:#fff}.btn:disabled{opacity:.55;cursor:not-allowed}
+.primary{background:#7c3aed}.good{background:#16803c}.partial{background:#b7791f}.bad{background:#a33}.danger{background:#8b1e3f}
+.video{width:100%;max-height:330px;background:#000;border-radius:14px;margin-top:10px;display:none}.players,.submissions{display:grid;gap:8px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#20202a;border-radius:12px}.small{font-size:13px}.tag{padding:3px 7px;border-radius:8px;background:#333}
+.hostbox{border:1px solid #6d28d9}.notice{padding:10px;border-radius:10px;background:#222233;margin-top:8px}.hidden{display:none!important}
+@media(max-width:600px){body{padding:8px}.btn{flex:1;min-width:120px}.row{align-items:flex-start;flex-direction:column}.row .btns{width:100%}}
 </style>
 </head>
 <body>
 <main>
 <div class="card"><h1>🎭 Dirty Minds</h1><div class="muted">Clues sound dirty. Answers are clean.</div><div id="roomLine" class="small"></div></div>
-<div class="card"><h2>🎤 Camera & Mic</h2><div class="btns"><button class="btn" id="micBtn">🎤 Turn Mic On</button><button class="btn" id="camBtn">📷 Turn Camera On</button><button class="btn" id="shareBtn">📺 Start Camera</button></div><video id="video" class="video" autoplay playsinline muted></video><div id="remoteAudio" class="hidden"></div><div id="mediaMsg" class="small muted">Turn on your mic to join voice chat. Your microphone will be sent to the other players in this room.</div></div>
+<div class="card"><h2>🎤 Camera & Mic</h2><div class="btns"><button class="btn" id="micBtn">🎤 Turn Mic On</button><button class="btn" id="camBtn">📷 Turn Camera On</button><button class="btn" id="shareBtn">📺 Start Camera</button></div><video id="video" class="video" autoplay playsinline muted></video><audio id="remoteAudio" autoplay></audio><div id="mediaMsg" class="small muted">Turn on your mic to connect your voice to the other players. Camera is local-only.</div></div>
 <div class="card" id="hostCard"><h2>👑 Host Controls</h2><div class="btns"><button class="btn primary" id="startBtn">▶️ Start Game</button><button class="btn primary hidden" id="revealBtn">👀 Reveal Answer</button><button class="btn primary hidden" id="nextBtn">➡️ Next Round</button><button class="btn danger hidden" id="finishBtn">🏁 End Game</button></div><div id="hostMsg" class="notice hidden"></div></div>
 <div class="card"><div id="status" class="muted">Waiting for the host…</div><div id="round" class="small"></div><div id="clue" class="clue">Waiting for game to start.</div><div id="answerReveal" class="notice hidden" style="font-size:22px;font-weight:900;text-align:center">✅ Correct Answer: <span id="correctAnswer"></span></div><form id="answerForm" class="hidden"><input id="answer" class="answer" maxlength="100" autocomplete="off" placeholder="Your clean answer…"><div class="btns" style="margin-top:8px"><button class="btn primary" type="submit">Submit Answer</button></div></form><div id="myResult"></div></div>
 <div class="card"><h2>🏆 Scores</h2><div id="players" class="players"></div></div>
@@ -20,239 +31,157 @@
 </main>
 <script>
 const ROOM_ID={{ room_id|tojson }},PLAYER_KEY={{ player_key|tojson }},PLAYER_NAME={{ player_name|default('Player')|tojson }};
-const API='/real-games/api/dirty-minds';let lastState=null,stream=null,micOn=false,camOn=false;
-const $=id=>document.getElementById(id); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const API='/real-games/api/dirty-minds';
+let lastState=null,stream=null,micOn=false,camOn=false;
+let voiceStarted=false,voicePollTimer=null;
+const voicePeers=new Map();
+const pendingCandidates=new Map();
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 async function call(path,body={}){
-  const r=await fetch(API+path,{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
-    cache:'no-store',
-    body:JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,...body})
-  });
-  const text=await r.text();
-  let j={};
-  try{j=JSON.parse(text)}catch(e){throw new Error('Server returned an invalid response.')}
-  if(!r.ok||j.success===false)throw new Error(j.error||'Request failed');
-  return j
+  const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},cache:'no-store',body:JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,...body})});
+  const text=await r.text();let j={};try{j=JSON.parse(text)}catch(e){throw new Error('Server returned an invalid response.')}
+  if(!r.ok||j.success===false)throw new Error(j.error||'Request failed');return j;
 }
+
+async function voiceFetch(path,body=null){
+  const options={method:body?'POST':'GET',headers:{'Cache-Control':'no-cache'},cache:'no-store'};
+  if(body){options.headers['Content-Type']='application/json';options.body=JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,...body})}
+  const r=await fetch(API+path+(body?'':`?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`),options);
+  const text=await r.text();let j={};try{j=JSON.parse(text)}catch(e){throw new Error('Voice server returned an invalid response.')}
+  if(!r.ok||j.success===false)throw new Error(j.error||'Voice request failed');return j;
+}
+
 function msg(t){$('hostMsg').textContent=t;$('hostMsg').classList.remove('hidden')}
-function render(s){lastState=s;$('roomLine').textContent=`Room ${s.room_id} · You: ${PLAYER_NAME} · ${s.player_count}/${s.max_players} players`;$('status').textContent=s.status==='waiting'?'Waiting for the host…':s.status==='playing'?'Submit one answer.':s.status==='revealed'?'Answer revealed — host is grading.':'Game finished.';$('round').textContent=s.round?`Round ${s.round} of ${s.total_rounds}`:'';$('clue').textContent=s.clue||'Waiting for game to start.';$('answerReveal').classList.toggle('hidden',!s.revealed);$('correctAnswer').textContent=s.revealed?(s.answer||'Answer unavailable') : '';$('answerForm').classList.toggle('hidden',s.status!=='playing'||s.my_submitted);$('answer').disabled=s.my_submitted;
-$('startBtn').classList.toggle('hidden',!s.can_start);$('revealBtn').classList.toggle('hidden',!s.can_reveal);$('nextBtn').classList.toggle('hidden',!(s.is_host&&s.status==='revealed'));$('nextBtn').disabled=!(s.can_next);$('nextBtn').textContent=s.can_next?'➡️ Next Round':'📝 Grade All Answers';$('finishBtn').classList.toggle('hidden',!s.is_host||s.finished);$('hostCard').classList.toggle('hostbox',s.is_host);
-$('players').innerHTML=(s.players||[]).map(p=>`<div class="row"><span>${esc(p.name)} ${p.host?'👑':''} ${p.name===PLAYER_NAME?'<span class="tag">You</span>':''}</span><b>${Number(p.score).toFixed(1)}</b></div>`).join('');
-if(s.revealed){$('myResult').innerHTML=s.my_result?`<div class="notice">Your answer: <b>${esc(s.my_result)}</b> · ${s.my_points} point(s)</div>`:'';$('resultsCard').classList.remove('hidden');$('results').innerHTML=(s.round_results||[]).map(r=>`<div class="row"><span><b>${esc(r.name)}</b><br>${r.did_not_answer?'Did not answer':esc(r.answer)}</span><b>${r.result||'ungraded'} · ${Number(r.points||0).toFixed(1)}</b></div>`).join('');}else $('resultsCard').classList.add('hidden');
-if(s.is_host&&s.revealed){
-  $('gradingCard').classList.remove('hidden');
-  $('submissions').innerHTML=(s.submissions||[]).map(r=>`<div class="row"><span><b>${esc(r.name)}</b><br>${esc(r.answer)}</span><div class="btns">${r.graded?`<span class="tag">${esc(r.result)} · ${Number(r.points||0).toFixed(1)}</span>`:`<button type="button" class="btn good grade-btn" data-player-key="${esc(r.player_key)}" data-grade="correct">+1 Correct</button><button type="button" class="btn partial grade-btn" data-player-key="${esc(r.player_key)}" data-grade="partial">+½ Partial</button><button type="button" class="btn bad grade-btn" data-player-key="${esc(r.player_key)}" data-grade="wrong">0 Wrong</button>`}</div></div>`).join('')||'<div class="muted">No submitted answers.</div>';
-}else $('gradingCard').classList.add('hidden');
-if(s.winner){$('winnerCard').classList.remove('hidden');$('winner').innerHTML=`<b>${esc(s.winner.name)}</b> — ${Number(s.winner.score).toFixed(1)} point(s)`;}else $('winnerCard').classList.add('hidden');}
-async function refresh(){try{const r=await fetch(`${API}/state?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`);const j=await r.json();if(j.success)render(j.state)}catch(e){console.error(e)}}
-$('startBtn').onclick=async()=>{try{await call('/start');await refresh()}catch(e){msg(e.message)}};$('revealBtn').onclick=async()=>{try{await call('/reveal');await refresh()}catch(e){msg(e.message)}};$('nextBtn').onclick=async()=>{try{await call('/next');await refresh()}catch(e){msg(e.message)}};$('finishBtn').onclick=async()=>{if(!confirm('End this Dirty Minds game?'))return;try{await call('/finish');await refresh()}catch(e){msg(e.message)}};
+function render(s){
+  lastState=s;$('roomLine').textContent=`Room ${s.room_id} · You: ${PLAYER_NAME} · ${s.player_count}/${s.max_players} players`;
+  $('status').textContent=s.status==='waiting'?'Waiting for the host…':s.status==='playing'?'Submit one answer.':s.status==='revealed'?'Answer revealed — host is grading.':'Game finished.';
+  $('round').textContent=s.round?`Round ${s.round} of ${s.total_rounds}`:'';$('clue').textContent=s.clue||'Waiting for game to start.';
+  $('answerReveal').classList.toggle('hidden',!s.revealed);$('correctAnswer').textContent=s.revealed?(s.answer||'Answer unavailable'):'';
+  $('answerForm').classList.toggle('hidden',s.status!=='playing'||s.my_submitted);$('answer').disabled=s.my_submitted;
+  $('startBtn').classList.toggle('hidden',!s.can_start);$('revealBtn').classList.toggle('hidden',!s.can_reveal);
+  const canNext=!!(s.is_host&&s.status==='revealed'&&s.can_next);$('nextBtn').classList.toggle('hidden',!s.is_host||s.status!=='revealed');
+  $('nextBtn').disabled=!canNext;$('nextBtn').textContent=canNext?'➡️ Next Round':'📝 Grade All Answers';
+  $('finishBtn').classList.toggle('hidden',!s.is_host||s.finished);$('hostCard').classList.toggle('hostbox',s.is_host);
+  $('players').innerHTML=(s.players||[]).map(p=>`<div class="row"><span>${esc(p.name)} ${p.host?'👑':''} ${p.name===PLAYER_NAME?'<span class="tag">You</span>':''}</span><b>${Number(p.score).toFixed(1)}</b></div>`).join('');
+  if(s.revealed){
+    $('myResult').innerHTML=s.my_result?`<div class="notice">Your answer: <b>${esc(s.my_result)}</b> · ${s.my_points} point(s)</div>`:'';
+    $('resultsCard').classList.remove('hidden');
+    $('results').innerHTML=(s.round_results||[]).map(r=>`<div class="row"><span><b>${esc(r.name)}</b><br>${r.did_not_answer?'Did not answer':esc(r.answer)}</span><b>${r.result||'ungraded'} · ${Number(r.points||0).toFixed(1)}</b></div>`).join('');
+  }else $('resultsCard').classList.add('hidden');
+  if(s.is_host&&s.revealed){
+    $('gradingCard').classList.remove('hidden');
+    $('submissions').innerHTML=(s.submissions||[]).map(r=>`<div class="row"><span><b>${esc(r.name)}</b><br>${esc(r.answer)}</span><div class="btns">${r.graded?`<span class="tag">${esc(r.result)} · ${Number(r.points||0).toFixed(1)}</span>`:`<button type="button" class="btn good grade-btn" data-player-key="${esc(r.player_key)}" data-grade="correct">+1 Correct</button><button type="button" class="btn partial grade-btn" data-player-key="${esc(r.player_key)}" data-grade="partial">+½ Partial</button><button type="button" class="btn bad grade-btn" data-player-key="${esc(r.player_key)}" data-grade="wrong">0 Wrong</button>`}</div></div>`).join('')||'<div class="muted">No submitted answers.</div>';
+  }else $('gradingCard').classList.add('hidden');
+  if(s.winner){$('winnerCard').classList.remove('hidden');$('winner').innerHTML=`<b>${esc(s.winner.name)}</b> — ${Number(s.winner.score).toFixed(1)} point(s)`}else $('winnerCard').classList.add('hidden');
+}
+
+async function refresh(){try{const r=await fetch(`${API}/state?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`,{cache:'no-store'});const j=await r.json();if(j.success)render(j.state)}catch(e){console.error(e)}}
+
+$('startBtn').onclick=async()=>{try{await call('/start');await refresh()}catch(e){msg(e.message)}};
+$('revealBtn').onclick=async()=>{try{await call('/reveal');await refresh()}catch(e){msg(e.message)}};
+$('nextBtn').onclick=async()=>{if($('nextBtn').disabled)return;try{await call('/next');await refresh()}catch(e){msg(e.message)}};
+$('finishBtn').onclick=async()=>{if(!confirm('End this Dirty Minds game?'))return;try{await call('/finish');await refresh()}catch(e){msg(e.message)}};
 $('answerForm').onsubmit=async e=>{e.preventDefault();const a=$('answer').value.trim();if(!a)return;try{await call('/answer',{answer:a});$('answer').value='';await refresh()}catch(e){alert(e.message)}};
 $('submissions').addEventListener('click',async e=>{
-  const btn=e.target.closest('.grade-btn');
-  if(!btn)return;
-  const key=btn.dataset.playerKey;
-  const gradeValue=btn.dataset.grade;
-  if(!key||!gradeValue)return;
-  const buttons=Array.from(btn.parentElement.querySelectorAll('.grade-btn'));
-  buttons.forEach(b=>{b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Saving…'});
-  try{
-    const result=await call('/grade',{target_player_key:key,grade:gradeValue});
-    if(result.state)render(result.state);
-    else await refresh();
-  }catch(e){
-    buttons.forEach(b=>{b.disabled=false;b.textContent=b.dataset.oldText||b.textContent});
-    msg('⚠️ '+e.message);
-  }
+  const btn=e.target.closest('.grade-btn');if(!btn)return;const key=btn.dataset.playerKey,gradeValue=btn.dataset.grade;if(!key||!gradeValue)return;
+  const buttons=Array.from(btn.parentElement.querySelectorAll('.grade-btn'));buttons.forEach(b=>{b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Saving…'});
+  try{const result=await call('/grade',{target_player_key:key,grade:gradeValue});if(result.state)render(result.state);else await refresh()}
+  catch(e){buttons.forEach(b=>{b.disabled=false;b.textContent=b.dataset.oldText||b.textContent});msg('⚠️ '+e.message)}
 });
-const voicePeers=new Map();
-let voicePollTimer=null,voiceStarted=false;
 
-async function voiceFetch(path, options={}){
-  const url=API+path;
-  const init={...options,headers:{'Content-Type':'application/json',...(options.headers||{})},cache:'no-store'};
-  if(init.body && typeof init.body!=='string') init.body=JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,...init.body});
-  const r=await fetch(url,init);
-  const j=await r.json().catch(()=>({success:false,error:'Invalid voice response'}));
-  if(!r.ok||j.success===false) throw new Error(j.error||'Voice request failed');
-  return j;
+function removeVoicePeer(peerKey){
+  const item=voicePeers.get(peerKey);if(!item)return;
+  try{item.pc.ontrack=null;item.pc.onicecandidate=null;item.pc.onconnectionstatechange=null;item.pc.close()}catch(e){}
+  if(item.audio){item.audio.srcObject=null;item.audio.remove()}
+  voicePeers.delete(peerKey);pendingCandidates.delete(peerKey);
 }
 
-function makeVoiceConnection(peerKey, peerName){
-  let entry=voicePeers.get(peerKey);
-  if(entry) return entry.pc;
+function makeVoiceConnection(peerKey,peerName){
+  if(voicePeers.has(peerKey))return voicePeers.get(peerKey);
   const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-  entry={pc,peerName,pendingCandidates:[]};
-  voicePeers.set(peerKey,entry);
-
-  if(stream) stream.getAudioTracks().forEach(track=>pc.addTrack(track,stream));
-
-  pc.onicecandidate=async e=>{
-    if(!e.candidate)return;
-    try{await voiceFetch('/voice/signal',{method:'POST',body:{target_player_key:peerKey,type:'candidate',data:e.candidate.toJSON()}})}catch(err){console.warn('ICE signal failed',err)}
-  };
-  pc.ontrack=e=>{
-    let audio=document.getElementById('voice-'+CSS.escape(peerKey));
-    if(!audio){
-      audio=document.createElement('audio');
-      audio.id='voice-'+peerKey;
-      audio.autoplay=true;
-      audio.playsInline=true;
-      audio.controls=false;
-      $('remoteAudio').appendChild(audio);
-    }
-    audio.srcObject=e.streams[0]||new MediaStream([e.track]);
-    audio.play().catch(()=>{
-      $('mediaMsg').textContent='🔊 Voice connected. If you cannot hear anyone, tap the Mic button once to allow audio playback.';
-    });
-  };
-  pc.onconnectionstatechange=()=>{
-    if(['failed','closed','disconnected'].includes(pc.connectionState)){
-      const audio=document.getElementById('voice-'+CSS.escape(peerKey));
-      audio?.remove();
-      if(pc.connectionState!=='closed') setTimeout(()=>{if(voicePeers.get(peerKey)?.pc===pc){voicePeers.delete(peerKey)}},2000);
-    }
-  };
-  return pc;
+  const audio=document.createElement('audio');audio.autoplay=true;audio.playsInline=true;audio.setAttribute('playsinline','');audio.volume=1;audio.style.display='none';document.body.appendChild(audio);
+  const item={pc,audio,name:peerName||'Player',remoteSet:false,queuedCandidates:[]};voicePeers.set(peerKey,item);
+  if(stream){stream.getAudioTracks().filter(t=>t.enabled).forEach(track=>{try{pc.addTrack(track,stream)}catch(e){console.error(e)}})}
+  pc.onicecandidate=async e=>{if(e.candidate){try{await voiceFetch('/voice/signal',{target_player_key:peerKey,type:'candidate',data:e.candidate})}catch(err){console.error('ICE signal failed',err)}}};
+  pc.ontrack=e=>{if(e.streams&&e.streams[0])audio.srcObject=e.streams[0];else audio.srcObject=new MediaStream([e.track]);audio.play().catch(()=>{$('mediaMsg').textContent='🔊 Voice connected. Tap the Mic button once if your browser blocks remote audio.'})};
+  pc.onconnectionstatechange=()=>{if(['failed','closed','disconnected'].includes(pc.connectionState))removeVoicePeer(peerKey)};
+  return item;
 }
 
 async function createVoiceOffer(peerKey,peerName){
-  const pc=makeVoiceConnection(peerKey,peerName);
-  const offer=await pc.createOffer({offerToReceiveAudio:true});
-  await pc.setLocalDescription(offer);
-  await voiceFetch('/voice/signal',{method:'POST',body:{target_player_key:peerKey,type:'offer',data:pc.localDescription.toJSON()}});
+  const item=makeVoiceConnection(peerKey,peerName);if(!item)return;
+  try{const offer=await item.pc.createOffer({offerToReceiveAudio:true});await item.pc.setLocalDescription(offer);await voiceFetch('/voice/signal',{target_player_key:peerKey,type:'offer',data:item.pc.localDescription})}catch(e){console.error('Voice offer failed',e);removeVoicePeer(peerKey)}
 }
 
-async function handleVoiceSignal(msg){
-  const peerKey=msg.from_player_key;
-  const entry=voicePeers.get(peerKey);
-  if(msg.type==='leave'){
-    if(entry){entry.pc.close();voicePeers.delete(peerKey)}
-    document.getElementById('voice-'+CSS.escape(peerKey))?.remove();
-    return;
-  }
-  const pc=makeVoiceConnection(peerKey,'Player');
-  if(msg.type==='offer'){
-    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
-    const e=voicePeers.get(peerKey);
-    for(const candidate of e.pendingCandidates.splice(0)){
-      try{await pc.addIceCandidate(new RTCIceCandidate(candidate))}catch(err){console.warn(err)}
+async function flushCandidates(peerKey,item){
+  const list=item.queuedCandidates||[];item.queuedCandidates=[];
+  for(const c of list){try{await item.pc.addIceCandidate(c)}catch(e){console.error('ICE candidate failed',e)}}
+}
+
+async function handleVoiceSignal(msgData){
+  const peerKey=msgData.from_player_key||msgData.player_key;if(!peerKey||peerKey===PLAYER_KEY)return;
+  const peerName=msgData.from_player_name||msgData.name||'Player';
+  if(msgData.type==='leave'){removeVoicePeer(peerKey);return}
+  const item=makeVoiceConnection(peerKey,peerName);if(!item)return;
+  try{
+    if(msgData.type==='offer'){
+      await item.pc.setRemoteDescription(new RTCSessionDescription(msgData.data));item.remoteSet=true;await flushCandidates(peerKey,item);
+      const answer=await item.pc.createAnswer();await item.pc.setLocalDescription(answer);await voiceFetch('/voice/signal',{target_player_key:peerKey,type:'answer',data:item.pc.localDescription});
+    }else if(msgData.type==='answer'){
+      await item.pc.setRemoteDescription(new RTCSessionDescription(msgData.data));item.remoteSet=true;await flushCandidates(peerKey,item);
+    }else if(msgData.type==='candidate'){
+      if(item.remoteSet)await item.pc.addIceCandidate(msgData.data);else item.queuedCandidates.push(msgData.data);
     }
-    const answer=await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await voiceFetch('/voice/signal',{method:'POST',body:{target_player_key:peerKey,type:'answer',data:pc.localDescription.toJSON()}});
-  }else if(msg.type==='answer'){
-    if(pc.signalingState!=='have-local-offer') return;
-    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
-    const e=voicePeers.get(peerKey);
-    for(const candidate of e.pendingCandidates.splice(0)){
-      try{await pc.addIceCandidate(new RTCIceCandidate(candidate))}catch(err){console.warn(err)}
-    }
-  }else if(msg.type==='candidate'){
-    const e=voicePeers.get(peerKey);
-    if(pc.remoteDescription && pc.remoteDescription.type){
-      try{await pc.addIceCandidate(new RTCIceCandidate(msg.data))}catch(err){console.warn('ICE add failed',err)}
-    }else e.pendingCandidates.push(msg.data);
-  }
+  }catch(e){console.error('Voice signal handling failed',e)}
 }
 
 async function voicePoll(){
   if(!voiceStarted)return;
   try{
-    const peers=await voiceFetch(`/voice/peers?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`,{method:'GET'});
-    const active=new Set((peers.peers||[]).map(p=>p.player_key));
-    for(const [key,entry] of voicePeers){
-      if(!active.has(key)){entry.pc.close();voicePeers.delete(key);document.getElementById('voice-'+CSS.escape(key))?.remove();}
+    const peers=(await voiceFetch('/voice/peers')).peers||[];const active=new Set(peers.map(p=>p.player_key));
+    for(const key of voicePeers.keys())if(!active.has(key))removeVoicePeer(key);
+    for(const peer of peers){
+      if(!voicePeers.has(peer.player_key)&&String(PLAYER_KEY)<String(peer.player_key))await createVoiceOffer(peer.player_key,peer.name);
     }
-    for(const peer of (peers.peers||[])){
-      const key=peer.player_key;
-      // One side of every pair creates the offer. This prevents duplicate offers.
-      if(!voicePeers.has(key) && String(PLAYER_KEY)<String(key)){
-        await createVoiceOffer(key,peer.name);
-      }else if(voicePeers.has(key)){
-        // Existing connection is kept alive.
-      }
-    }
-    const incoming=await voiceFetch(`/voice/signals?room=${encodeURIComponent(ROOM_ID)}&player_key=${encodeURIComponent(PLAYER_KEY)}`,{method:'GET'});
-    for(const signal of (incoming.signals||[])){
-      try{await handleVoiceSignal(signal)}catch(err){console.warn('Voice signal error',err)}
-    }
-  }catch(err){console.warn('Voice polling error',err)}
+    const signals=(await voiceFetch('/voice/signals')).signals||[];for(const signal of signals)await handleVoiceSignal(signal);
+  }catch(e){console.error('Voice polling failed',e)}
 }
 
 function startVoicePolling(){
-  if(voicePollTimer)return;
-  voiceStarted=true;
-  voicePoll();
-  voicePollTimer=setInterval(voicePoll,1000);
+  if(voiceStarted)return;voiceStarted=true;voicePoll();voicePollTimer=setInterval(voicePoll,1000);
 }
 
 async function startMic(){
   try{
-    const audio=await navigator.mediaDevices.getUserMedia({
-      audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},
-      video:false
-    });
-    if(!stream)stream=new MediaStream();
-    audio.getAudioTracks().forEach(t=>stream.addTrack(t));
-    micOn=true;
-    updateMedia();
+    if(!navigator.mediaDevices?.getUserMedia)throw new Error('This browser does not support microphone access.');
+    const audio=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1},video:false});
+    if(!stream)stream=new MediaStream();audio.getAudioTracks().forEach(t=>stream.addTrack(t));
+    micOn=true;updateMedia();
+    $('mediaMsg').textContent='🎤 Microphone is on. Connecting your voice to the other players…';
     startVoicePolling();
-    // Add the mic track to any peers that were already connected.
-    for(const entry of voicePeers.values()){
-      const already=entry.pc.getSenders().some(sender=>sender.track&&sender.track.kind==='audio');
-      if(!already) audio.getAudioTracks().forEach(t=>entry.pc.addTrack(t,stream));
-    }
-    $('mediaMsg').textContent='🎤 Mic is ON — your voice is being connected to the other players.';
-  }catch(e){
-    console.error(e);
-    $('mediaMsg').textContent='⚠️ Microphone permission was not granted. Check your browser microphone settings.';
-  }
+    for(const [peerKey,item] of voicePeers){audio.getAudioTracks().forEach(track=>{try{item.pc.addTrack(track,stream)}catch(e){}});}
+  }catch(e){console.error(e);$('mediaMsg').textContent='Microphone permission was not granted or is unavailable.'}
 }
 
 async function startCamera(){
-  try{
-    const videoStream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
-    if(!stream)stream=new MediaStream();
-    videoStream.getVideoTracks().forEach(t=>stream.addTrack(t));
-    $('video').srcObject=new MediaStream(stream.getVideoTracks());
-    $('video').style.display='block';
-    camOn=true;
-    updateMedia();
-    $('mediaMsg').textContent='📷 Camera is on. Voice chat remains separate.';
-  }catch(e){
-    console.error(e);
-    $('mediaMsg').textContent='⚠️ Camera permission was not granted.';
-  }
+  try{const videoStream=await navigator.mediaDevices.getUserMedia({audio:false,video:true});if(!stream)stream=new MediaStream();videoStream.getVideoTracks().forEach(t=>stream.addTrack(t));$('video').srcObject=stream;$('video').style.display='block';camOn=true;updateMedia();$('mediaMsg').textContent='📷 Camera is on. Your local preview is active.'}
+  catch(e){console.error(e);$('mediaMsg').textContent='Camera permission was not granted.'}
 }
+function updateMedia(){if(stream){stream.getAudioTracks().forEach(t=>t.enabled=micOn);stream.getVideoTracks().forEach(t=>t.enabled=camOn)}$('micBtn').textContent=micOn?'🎤 Mic On':'🔇 Mic Off';$('camBtn').textContent=camOn?'📷 Camera On':'📷 Camera Off'}
+$('shareBtn').onclick=async()=>{if(!camOn)await startCamera();else{camOn=false;updateMedia()}};
+$('micBtn').onclick=async()=>{if(!stream||stream.getAudioTracks().length===0){await startMic();return}micOn=!micOn;updateMedia();if(micOn&&!voiceStarted)startVoicePolling()};
+$('camBtn').onclick=async()=>{if(!stream||stream.getVideoTracks().length===0){await startCamera();return}camOn=!camOn;updateMedia()};
 
-function updateMedia(){
-  if(stream){
-    stream.getAudioTracks().forEach(t=>t.enabled=micOn);
-    stream.getVideoTracks().forEach(t=>t.enabled=camOn);
-  }
-  $('micBtn').textContent=micOn?'🎤 Mic On':'🔇 Mic Off';
-  $('camBtn').textContent=camOn?'📷 Camera On':'📷 Camera Off';
-}
+window.addEventListener('beforeunload',()=>{
+  for(const peerKey of voicePeers.keys()){try{navigator.sendBeacon(API+'/voice/leave',new Blob([JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,target_player_key:peerKey})],{type:'application/json'}))}catch(e){}}
+  if(voicePollTimer)clearInterval(voicePollTimer);for(const item of voicePeers.values())try{item.pc.close()}catch(e){};
+  stream?.getTracks().forEach(t=>t.stop());
+});
 
-$('shareBtn').onclick=async()=>{
-  if(!camOn) await startCamera();
-  else {camOn=false;updateMedia();}
-};
-
-$('micBtn').onclick=async()=>{
-  if(!stream || stream.getAudioTracks().length===0){await startMic();return;}
-  micOn=!micOn;
-  updateMedia();
-  $('mediaMsg').textContent=micOn?'🎤 Mic is ON — other players can hear you.':'🔇 Mic is OFF.';
-};
-
-$('camBtn').onclick=async()=>{
-  if(!stream || stream.getVideoTracks().length===0){await startCamera();return;}
-  camOn=!camOn;
-  updateMedia();
-};
-
-startVoicePolling();
-window.addEventListener('beforeunload',()=>{for(const key of voicePeers.keys()){navigator.sendBeacon?.(API+'/voice/leave',new Blob([JSON.stringify({room_id:ROOM_ID,player_key:PLAYER_KEY,target_player_key:key})],{type:'application/json'}));}voicePeers.forEach(e=>e.pc.close());stream?.getTracks().forEach(t=>t.stop());});refresh();setInterval(refresh,1500);
-</script></body></html>
+refresh();setInterval(refresh,1500);
+</script>
+</body>
+</html>
