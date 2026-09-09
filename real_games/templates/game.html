@@ -3,72 +3,5386 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+
 <title>{{ game.name|default('Real Game') }} — Melanated AZ Real Games</title>
+
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;background:#080808;color:#fff;font-family:Arial,sans-serif}body{padding:12px}button{font:inherit;border:0;border-radius:12px;padding:11px 15px;background:#252525;color:#fff;font-weight:800}button:active{transform:scale(.97)}input{font:inherit;background:#111;color:#fff;border:1px solid #444;border-radius:10px;padding:11px;width:100%}.page{max-width:900px;margin:auto}.header{text-align:center}.header h1{font-size:clamp(25px,7vw,40px);margin:8px 0}.header p{color:#aaa}.back{display:inline-block;color:#fff;text-decoration:none;background:#191919;padding:9px 13px;border-radius:10px}.panel{background:#111;border:1px solid #292929;border-radius:18px;padding:14px;margin:12px 0}.title{text-align:center;font-size:22px;font-weight:900}.score{text-align:center;font-size:18px;margin:8px}.controls{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px 0}.help{text-align:center;color:#aaa;line-height:1.45}.canvas{display:block;width:min(96vw,700px);height:auto;background:#050505;border:1px solid #333;border-radius:14px;margin:auto;touch-action:none}.grid{display:grid;gap:7px;width:min(94vw,480px);margin:auto}.grid4{grid-template-columns:repeat(4,1fr)}.cell{aspect-ratio:1;background:#222;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:clamp(20px,7vw,42px);font-weight:900;user-select:none}.cell.on{background:#53338b}.board{width:min(94vw,560px);aspect-ratio:1;margin:auto;display:grid;grid-template-columns:repeat(8,1fr);border:4px solid #333}.sq{display:flex;align-items:center;justify-content:center;font-size:clamp(23px,7vw,54px);user-select:none}.light{background:#d8b98c}.dark{background:#765433}.selected{outline:4px solid #5ee7ff;outline-offset:-4px}.bigbtn{font-size:26px;min-width:100px;min-height:70px}.target{border-radius:50%;background:#e33;position:absolute;width:55px;height:55px;touch-action:none}.playfield{position:relative;width:min(94vw,650px);height:min(70vh,500px);min-height:360px;background:#050505;border:1px solid #333;border-radius:14px;margin:auto;overflow:hidden;touch-action:none}.card{background:#191919;border:1px solid #333;border-radius:14px;padding:15px;text-align:center}.list{display:grid;gap:8px}.dice{font-size:70px;text-align:center}.message{text-align:center;min-height:28px;color:#ddd}.ttt{width:min(90vw,420px);display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:auto}.ttt button{aspect-ratio:1;font-size:42px;background:#191919}.connect{width:min(90vw,480px);display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:auto;background:#173b80;padding:8px;border-radius:14px}.disc{aspect-ratio:1;border-radius:50%;background:#080808}.formrow{display:flex;gap:8px}.formrow>*{flex:1}@media(max-width:600px){body{padding:9px}.panel{padding:10px}.controls button{flex:1 1 auto}.playfield{min-height:330px}}
+*{
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+    margin:0;
+    min-height:100%;
+    background:#080808;
+    color:#fff;
+    font-family:Arial,sans-serif;
+}
+
+body{
+    padding:12px;
+}
+
+button{
+    font:inherit;
+    border:0;
+    border-radius:12px;
+    padding:11px 15px;
+    background:#252525;
+    color:#fff;
+    font-weight:800;
+    cursor:pointer;
+    touch-action:manipulation;
+}
+
+button:active{
+    transform:scale(.97);
+}
+
+button:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+input{
+    font:inherit;
+    background:#111;
+    color:#fff;
+    border:1px solid #444;
+    border-radius:10px;
+    padding:11px;
+    width:100%;
+}
+
+.page{
+    max-width:900px;
+    margin:auto;
+}
+
+.header{
+    text-align:center;
+}
+
+.header h1{
+    font-size:clamp(25px,7vw,40px);
+    margin:8px 0;
+}
+
+.header p{
+    color:#aaa;
+}
+
+.back{
+    display:inline-block;
+    color:#fff;
+    text-decoration:none;
+    background:#191919;
+    padding:9px 13px;
+    border-radius:10px;
+}
+
+.panel{
+    background:#111;
+    border:1px solid #292929;
+    border-radius:18px;
+    padding:14px;
+    margin:12px 0;
+}
+
+.title{
+    text-align:center;
+    font-size:22px;
+    font-weight:900;
+}
+
+.score{
+    text-align:center;
+    font-size:18px;
+    margin:8px;
+}
+
+.controls{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:8px;
+    margin:12px 0;
+}
+
+.help{
+    text-align:center;
+    color:#aaa;
+    line-height:1.45;
+}
+
+.canvas{
+    display:block;
+    width:min(96vw,700px);
+    height:auto;
+    background:#050505;
+    border:1px solid #333;
+    border-radius:14px;
+    margin:auto;
+    touch-action:none;
+}
+
+.grid{
+    display:grid;
+    gap:7px;
+    width:min(94vw,480px);
+    margin:auto;
+}
+
+.grid4{
+    grid-template-columns:repeat(4,1fr);
+}
+
+.cell{
+    aspect-ratio:1;
+    background:#222;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(20px,7vw,42px);
+    font-weight:900;
+    user-select:none;
+}
+
+.cell.on{
+    background:#53338b;
+}
+
+.board{
+    width:min(94vw,560px);
+    aspect-ratio:1;
+    margin:auto;
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    border:4px solid #333;
+}
+
+.sq{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(23px,7vw,54px);
+    user-select:none;
+    cursor:pointer;
+}
+
+.light{
+    background:#d8b98c;
+}
+
+.dark{
+    background:#765433;
+}
+
+.selected{
+    outline:4px solid #5ee7ff;
+    outline-offset:-4px;
+}
+
+.bigbtn{
+    font-size:26px;
+    min-width:100px;
+    min-height:70px;
+}
+
+.target{
+    border-radius:50%;
+    background:#e33;
+    position:absolute;
+    width:55px;
+    height:55px;
+    touch-action:none;
+    padding:0;
+}
+
+.playfield{
+    position:relative;
+    width:min(94vw,650px);
+    height:min(70vh,500px);
+    min-height:360px;
+    background:#050505;
+    border:1px solid #333;
+    border-radius:14px;
+    margin:auto;
+    overflow:hidden;
+    touch-action:none;
+}
+
+.card{
+    background:#191919;
+    border:1px solid #333;
+    border-radius:14px;
+    padding:15px;
+    text-align:center;
+}
+
+.list{
+    display:grid;
+    gap:8px;
+}
+
+.dice{
+    font-size:70px;
+    text-align:center;
+}
+
+.message{
+    text-align:center;
+    min-height:28px;
+    color:#ddd;
+    margin:8px 0;
+}
+
+.ttt{
+    width:min(90vw,420px);
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:7px;
+    margin:auto;
+}
+
+.ttt button{
+    aspect-ratio:1;
+    font-size:42px;
+    background:#191919;
+}
+
+.connect{
+    width:min(90vw,480px);
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:5px;
+    margin:auto;
+    background:#173b80;
+    padding:8px;
+    border-radius:14px;
+}
+
+.disc{
+    aspect-ratio:1;
+    border-radius:50%;
+    background:#080808;
+    padding:0;
+}
+
+.formrow{
+    display:flex;
+    gap:8px;
+}
+
+.formrow>*{
+    flex:1;
+}
+
+@media(max-width:600px){
+
+    body{
+        padding:9px;
+    }
+
+    .panel{
+        padding:10px;
+    }
+
+    .controls button{
+        flex:1 1 auto;
+    }
+
+    .playfield{
+        min-height:330px;
+    }
+}
 </style>
 </head>
+
 <body>
+
 <div class="page">
-<div class="header"><a class="back" href="/real-games/">← Real Games</a><h1>{{ game.icon|default('🎮') }} {{ game.name|default('Real Game') }}</h1><p>{{ game.description|default('Have fun!') }}</p></div>
-<div id="gameArea"></div>
+
+    <div class="header">
+        <a class="back" href="/real-games/">← Real Games</a>
+
+        <h1>
+            {{ game.icon|default('🎮') }}
+            {{ game.name|default('Real Game') }}
+        </h1>
+
+        <p>
+            {{ game.description|default('Have fun!') }}
+        </p>
+    </div>
+
+    <div id="gameArea"></div>
+
 </div>
+
 <script>
 'use strict';
-const GAME_ID={{ game.game_id|default('unknown')|tojson }};
-const A=document.getElementById('gameArea');let timers=[],intervals=[],frames=[],cleanup=null;
-const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-function clearGame(){if(cleanup)try{cleanup()}catch(e){}cleanup=null;timers.forEach(clearTimeout);intervals.forEach(clearInterval);frames.forEach(cancelAnimationFrame);timers=[];intervals=[];frames=[];A.innerHTML=''}
-function T(f,n){let x=setTimeout(f,n);timers.push(x);return x}function I(f,n){let x=setInterval(f,n);intervals.push(x);return x}function F(f){let x=requestAnimationFrame(f);frames.push(x);return x}function ui(x){A.innerHTML=x}
-function canvasGame(title,help,setup){ui(`<div class="panel"><div class="title">${title}</div><div class="help">${help}</div><canvas class="canvas" id="c" width="700" height="450"></canvas><div class="controls"><button id="restart">Restart</button></div></div>`);let c=$('#c'),ctx=c.getContext('2d');$('#restart').onclick=()=>{clearGame();setup(c,ctx)};setup(c,ctx)}
 
-/* ---------- ARCADE ---------- */
-function snake(){canvasGame('🐍 Snake','Use arrows/WASD or the touch buttons below.',(c,x)=>{let s=[{x:10,y:10},{x:9,y:10}],d={x:1,y:0},food={x:15,y:10},score=0,dead=false;ui(`<div class="panel"><div class="title">🐍 Snake</div><div class="score">Score: <b id="sc">0</b></div><canvas class="canvas" id="c" width="400" height="400"></canvas><div class="controls"><button id="u">⬆️</button><button id="l">⬅️</button><button id="dn">⬇️</button><button id="r">➡️</button></div><div class="controls"><button id="restart">Restart</button></div></div>`);c=$('#c');x=c.getContext('2d');function turn(a,b){if(a!==-d.x||b!==-d.y)d={x:a,y:b}}function key(e){let k=e.key.toLowerCase();if(k==='arrowup'||k==='w')turn(0,-1);if(k==='arrowdown'||k==='s')turn(0,1);if(k==='arrowleft'||k==='a')turn(-1,0);if(k==='arrowright'||k==='d')turn(1,0)}document.addEventListener('keydown',key);['u','l','dn','r'].forEach((id,i)=>$('#'+id).onclick=()=>turn([[0,-1],[-1,0],[0,1],[1,0]][i][0],[[0,-1],[-1,0],[0,1],[1,0]][i][1]));function loop(){if(dead)return;let h={x:s[0].x+d.x,y:s[0].y+d.y};if(h.x<0||h.y<0||h.x>=20||h.y>=20||s.some(q=>q.x===h.x&&q.y===h.y)){dead=true;$('#sc').textContent=score+' — Game Over';return}s.unshift(h);if(h.x===food.x&&h.y===food.y){score++;$('#sc').textContent=score;do{food={x:Math.floor(Math.random()*20),y:Math.floor(Math.random()*20)}}while(s.some(q=>q.x===food.x&&q.y===food.y))}else s.pop();x.fillStyle='#050505';x.fillRect(0,0,400,400);x.fillStyle='#e33';x.fillRect(food.x*20,food.y*20,18,18);x.fillStyle='#39d98a';s.forEach(q=>x.fillRect(q.x*20,q.y*20,18,18))}I(loop,110);cleanup=()=>document.removeEventListener('keydown',key);$('#restart').onclick=()=>{clearGame();snake()}})}
-function pong(){canvasGame('🏓 Pong','Move with your finger/mouse or arrow keys.',(c,x)=>{let py=185,cy=185,b={x:350,y:225,vx:5,vy:3},ps=0,cs=0;function move(y){let r=c.getBoundingClientRect();py=Math.max(0,Math.min(370,(y-r.top)/r.height*450-40))}c.onpointermove=e=>move(e.clientY);c.onpointerdown=e=>move(e.clientY);function key(e){if(e.key==='ArrowUp')py-=25;if(e.key==='ArrowDown')py+=25;py=Math.max(0,Math.min(370,py))}document.addEventListener('keydown',key);function loop(){x.fillStyle='#050505';x.fillRect(0,0,700,450);cy+=(b.y-40-cy)*.04;b.x+=b.vx;b.y+=b.vy;if(b.y<8||b.y>442)b.vy*=-1;if(b.x<42&&b.y>py&&b.y<py+80)b.vx=Math.abs(b.vx);if(b.x>658&&b.y>cy&&b.y<cy+80)b.vx=-Math.abs(b.vx);if(b.x<0){cs++;b={x:350,y:225,vx:5,vy:3}}if(b.x>700){ps++;b={x:350,y:225,vx:-5,vy:3}}x.fillStyle='#fff';x.fillRect(20,py,12,80);x.fillRect(668,cy,12,80);x.beginPath();x.arc(b.x,b.y,8,0,7);x.fill();F(loop)}loop();cleanup=()=>document.removeEventListener('keydown',key)})}
-function breakout(){canvasGame('🧱 Breakout','Move the paddle with your finger/mouse.',(c,x)=>{let px=290,b={x:350,y:390,vx:4,vy:-4},br=[];for(let r=0;r<5;r++)for(let q=0;q<10;q++)br.push({x:10+q*68,y:35+r*24,on:1});c.onpointermove=e=>{let z=c.getBoundingClientRect();px=(e.clientX-z.left)/z.width*700-60;px=Math.max(0,Math.min(580,px))};function key(e){if(e.key==='ArrowLeft')px-=30;if(e.key==='ArrowRight')px+=30}document.addEventListener('keydown',key);function loop(){x.fillStyle='#050505';x.fillRect(0,0,700,450);b.x+=b.vx;b.y+=b.vy;if(b.x<8||b.x>692)b.vx*=-1;if(b.y<8)b.vy*=-1;if(b.y>420){if(b.x>px&&b.x<px+120)b.vy=-Math.abs(b.vy);else{b={x:350,y:390,vx:4,vy:-4};br.forEach(q=>q.on=1)}}br.forEach(q=>{if(q.on&&b.x>q.x&&b.x<q.x+62&&b.y>q.y&&b.y<q.y+18){q.on=0;b.vy*=-1}});x.fillStyle='#fff';x.fillRect(px,420,120,12);br.forEach(q=>{if(q.on)x.fillRect(q.x,q.y,62,18)});x.beginPath();x.arc(b.x,b.y,8,0,7);x.fill();F(loop)}loop();cleanup=()=>document.removeEventListener('keydown',key)})}
-function tetris(){canvasGame('🧩 Tetris','Arrow keys move/rotate. Down drops. Space rotates.',(c,x)=>{let W=10,H=20,g=Array.from({length:H},()=>Array(W).fill(0)),p={x:4,y:0,s:[[1,1],[1,1]]},score=0;function draw(){x.fillStyle='#050505';x.fillRect(0,0,400,400);let a=g.map(r=>r.slice());p.s.forEach((r,i)=>r.forEach((v,j)=>{if(v&&p.y+i>=0)a[p.y+i][p.x+j]=1}));a.forEach((r,i)=>r.forEach((v,j)=>{if(v){x.fillStyle='#7c3aed';x.fillRect(j*20,i*20,19,19)}}));}function spawn(){p={x:4,y:0,s:[[1,1,1],[0,1,0]]};if(p.y<0){} }function hit(nx,ny,shape=p.s){return shape.some((r,i)=>r.some((v,j)=>v&&(nx+j<0||nx+j>=W||ny+i>=H||(ny+i>=0&&g[ny+i][nx+j]))))}function rot(){let s=p.s.map((r,i)=>r.map((_,j)=>p.s[p.s.length-1-j][i]));if(!hit(p.x,p.y,s))p.s=s}function step(){if(!hit(p.x,p.y+1)){p.y++;return}p.s.forEach((r,i)=>r.forEach((v,j)=>{if(v&&p.y+i>=0)g[p.y+i][p.x+j]=1}));g=g.filter(r=>r.some(v=>!v));while(g.length<H)g.unshift(Array(W).fill(0));spawn();score++;draw()}function key(e){if(e.key==='ArrowLeft'&&!hit(p.x-1,p.y))p.x--;if(e.key==='ArrowRight'&&!hit(p.x+1,p.y))p.x++;if(e.key==='ArrowDown')step();if(e.key==='ArrowUp'||e.code==='Space')rot();draw()}document.addEventListener('keydown',key);spawn();draw();I(step,550);cleanup=()=>document.removeEventListener('keydown',key)})}
-function flappy(){canvasGame('🐦 Flappy','Tap/click to flap. Avoid the pipes.',(c,x)=>{let y=220,v=0,px=680,gap=170,top=100,score=0;function flap(){v=-7}c.onpointerdown=flap;function loop(){v+=.35;y+=v;px-=3;if(px<-80){px=680;top=50+Math.random()*220;score++}x.fillStyle='#091b25';x.fillRect(0,0,700,450);x.fillStyle='#fff';x.beginPath();x.arc(120,y,15,0,7);x.fill();x.fillStyle='#39d98a';x.fillRect(px,0,70,top);x.fillRect(px,top+gap,70,450);if(y<0||y>450||(120+15>px&&120-15<px+70&&(y-15<top||y+15>top+gap))){y=220;v=0;score=0}x.fillStyle='#fff';x.font='24px Arial';x.fillText('Score '+score,20,35);F(loop)}loop()})}
-function spaceInvaders(){canvasGame('👾 Space Invaders','Move and tap/click to shoot.',(c,x)=>{let px=330,shots=[],en=[];for(let r=0;r<3;r++)for(let q=0;q<8;q++)en.push({x:80+q*70,y:60+r*45,on:1});c.onpointermove=e=>{let z=c.getBoundingClientRect();px=(e.clientX-z.left)/z.width*700};c.onpointerdown=()=>shots.push({x:px,y:420});function key(e){if(e.key==='ArrowLeft')px-=25;if(e.key==='ArrowRight')px+=25;if(e.code==='Space')shots.push({x:px,y:420})}document.addEventListener('keydown',key);function loop(){x.fillStyle='#050505';x.fillRect(0,0,700,450);shots.forEach(s=>s.y-=7);en.forEach(e=>{if(e.on)e.x+=Math.sin(Date.now()/700)*.5});shots.forEach(s=>en.forEach(e=>{if(e.on&&Math.abs(s.x-e.x)<28&&Math.abs(s.y-e.y)<20)e.on=0}));x.fillStyle='#39d98a';x.fillRect(px-25,420,50,15);x.fillStyle='#e33';shots.forEach(s=>x.fillRect(s.x-2,s.y,4,12));x.fillStyle='#7c3aed';en.forEach(e=>{if(e.on){x.fillRect(e.x-20,e.y-12,40,24)}});F(loop)}loop();cleanup=()=>document.removeEventListener('keydown',key)})}
-function asteroids(){canvasGame('☄️ Asteroids','Move with arrows, shoot with Space/tap.',(c,x)=>{let ship={x:350,y:225,a:0,vx:0,vy:0},shots=[],rocks=[];for(let i=0;i<8;i++)rocks.push({x:Math.random()*700,y:Math.random()*450,vx:Math.random()*2-1,vy:Math.random()*2-1,r:22});function fire(){shots.push({x:ship.x,y:ship.y,vx:Math.cos(ship.a)*7,vy:Math.sin(ship.a)*7})}function key(e){if(e.key==='ArrowLeft')ship.a-=.15;if(e.key==='ArrowRight')ship.a+=.15;if(e.key==='ArrowUp'){ship.vx+=Math.cos(ship.a)*.2;ship.vy+=Math.sin(ship.a)*.2}if(e.code==='Space')fire()}document.addEventListener('keydown',key);c.onpointerdown=fire;function loop(){ship.x=(ship.x+ship.vx+700)%700;ship.y=(ship.y+ship.vy+450)%450;shots.forEach(s=>{s.x=(s.x+s.vx+700)%700;s.y=(s.y+s.vy+450)%450});rocks.forEach(r=>{r.x=(r.x+r.vx+700)%700;r.y=(r.y+r.vy+450)%450});shots.forEach(s=>rocks.forEach(r=>{if(Math.hypot(s.x-r.x,s.y-r.y)<r.r)r.x=-999}));x.fillStyle='#050505';x.fillRect(0,0,700,450);x.fillStyle='#fff';x.save();x.translate(ship.x,ship.y);x.rotate(ship.a);x.beginPath();x.moveTo(18,0);x.lineTo(-14,-11);x.lineTo(-9,0);x.lineTo(-14,11);x.closePath();x.fill();x.restore();rocks.forEach(r=>{if(r.x>-500){x.beginPath();x.arc(r.x,r.y,r.r,0,7);x.stroke()}});shots.forEach(s=>{x.fillRect(s.x,s.y,4,4)});F(loop)}loop();cleanup=()=>document.removeEventListener('keydown',key)})}
-function pacman(){canvasGame('🟡 Pac-Man','Use arrow keys. Eat dots and avoid ghosts.',(c,x)=>{let p={x:60,y:60},d={x:0,y:0},dots=[];for(let i=0;i<14;i++)for(let j=0;j<9;j++)dots.push({x:30+i*45,y:30+j*45,on:1});function key(e){if(e.key==='ArrowUp')d={x:0,y:-3};if(e.key==='ArrowDown')d={x:0,y:3};if(e.key==='ArrowLeft')d={x:-3,y:0};if(e.key==='ArrowRight')d={x:3,y:0}}document.addEventListener('keydown',key);function loop(){p.x=(p.x+d.x+700)%700;p.y=(p.y+d.y+450)%450;dots.forEach(q=>{if(q.on&&Math.hypot(p.x-q.x,p.y-q.y)<15)q.on=0});x.fillStyle='#050505';x.fillRect(0,0,700,450);x.fillStyle='#222';for(let i=0;i<13;i++)x.fillRect(15+i*52,15,30,420);x.fillStyle='#ffd21f';x.beginPath();x.arc(p.x,p.y,14,0,7);x.fill();x.fillStyle='#fff';dots.forEach(q=>{if(q.on){x.beginPath();x.arc(q.x,q.y,3,0,7);x.fill()}});F(loop)}loop();cleanup=()=>document.removeEventListener('keydown',key)})}
-function game2048(){ui(`<div class="panel"><div class="title">🔢 2048</div><div class="score">Score: <b id="score">0</b></div><div id="g" class="grid grid4"></div><div class="controls"><button id="restart">Restart</button></div><div class="help">Swipe or use arrow keys.</div></div>`);let a=Array(16).fill(0),score=0;function add(){let z=a.map((v,i)=>v?null:i).filter(v=>v!==null);if(z.length)a[z[Math.floor(Math.random()*z.length)]]=Math.random()<.9?2:4}function draw(){g.innerHTML=a.map(v=>`<div class="cell">${v||''}</div>`).join('');$('#score').textContent=score}function move(dir){let rows=[];for(let r=0;r<4;r++){let row=a.slice(r*4,r*4+4);if(dir==='R'||dir==='D')row.reverse();row=row.filter(Boolean);for(let i=0;i<row.length-1;i++)if(row[i]===row[i+1]){row[i]*=2;score+=row[i];row.splice(i+1,1)}while(row.length<4)row.push(0);if(dir==='R'||dir==='D')row.reverse();rows.push(row)}if(dir==='L'||dir==='R'){a=rows.flat()}else{a=Array(16).fill(0);for(let r=0;r<4;r++)for(let q=0;q<4;q++)a[q*4+r]=rows[r][q]}}function key(e){let k=e.key;if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(k))return;e.preventDefault();move({ArrowLeft:'L',ArrowRight:'R',ArrowUp:'U',ArrowDown:'D'}[k]);add();draw()}document.addEventListener('keydown',key);add();add();draw();$('#restart').onclick=()=>{clearGame();game2048()};cleanup=()=>document.removeEventListener('keydown',key)}
-function memory(){ui(`<div class="panel"><div class="title">🧠 Memory Match</div><div id="mg" class="grid grid4"></div><div class="controls"><button id="restart">Restart</button></div></div>`);let vals=['🍎','🍎','🍋','🍋','🍒','🍒','⭐','⭐','🐶','🐶','🐱','🐱','🚗','🚗','⚽','⚽'].sort(()=>Math.random()-.5),open=[],done=[];function draw(){mg.innerHTML=vals.map((v,i)=>`<button class="cell ${open.includes(i)||done.includes(i)?'on':''}" data-i="${i}">${open.includes(i)||done.includes(i)?v:'?'}</button>`).join('');mg.querySelectorAll('button').forEach(b=>b.onclick=()=>pick(+b.dataset.i))}function pick(i){if(open.includes(i)||done.includes(i)||open.length===2)return;open.push(i);draw();if(open.length===2){if(vals[open[0]]===vals[open[1]])done.push(...open);T(()=>{open=[];draw()},500)}}draw();$('#restart').onclick=()=>{clearGame();memory()}}
+/* ==========================================================
+   GAME DATA
+========================================================== */
 
-/* ---------- BOARD ---------- */
-function ttt(){ui(`<div class="panel"><div class="title">⭕ Tic-Tac-Toe</div><div class="message" id="m">X goes first</div><div class="ttt" id="b"></div><div class="controls"><button id="restart">Restart</button></div></div>`);let b=Array(9).fill(''),turn='X';function draw(){b.forEach((v,i)=>b[i]=v);$('#b').innerHTML=b.map((v,i)=>`<button data-i="${i}">${v}</button>`).join('');$('#b').querySelectorAll('button').forEach(q=>q.onclick=()=>play(+q.dataset.i));}function win(){return [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]].find(z=>b[z[0]]&&b[z[0]]===b[z[1]]&&b[z[1]]===b[z[2]])}function play(i){if(b[i]||win())return;b[i]=turn;let w=win();if(w)$('#m').textContent=turn+' wins!';else if(b.every(Boolean))$('#m').textContent='Draw!';else{turn=turn==='X'?'O':'X';$('#m').textContent=turn+' turn'}draw()}draw();$('#restart').onclick=()=>{clearGame();ttt()}}
-function connect(){ui(`<div class="panel"><div class="title">🔴 Connect Four</div><div class="message" id="m">Red starts</div><div class="connect" id="b"></div><div class="controls"><button id="restart">Restart</button></div></div>`);let a=Array.from({length:6},()=>Array(7).fill('')),t='R';function draw(){b.innerHTML=a.flat().map((v,i)=>`<button class="disc" data-i="${i}" style="background:${v==='R'?'#e33':v==='Y'?'#ffd21f':'#080808'}"></button>`).join('');b.querySelectorAll('button').forEach(q=>q.onclick=()=>drop(+q.dataset.i%7))}function drop(c){for(let r=5;r>=0;r--)if(!a[r][c]){a[r][c]=t;let w=check(r,c);if(w)$('#m').textContent=(t==='R'?'Red':'Yellow')+' wins!';else{t=t==='R'?'Y':'R';$('#m').textContent=(t==='R'?'Red':'Yellow')+' turn'}draw();return}}function check(r,c){let z=a[r][c],dirs=[[1,0],[0,1],[1,1],[1,-1]];return dirs.some(([dr,dc])=>{let n=1;for(let q=1;q<4;q++)if(a[r+dr*q]?.[c+dc*q]===z)n++;else break;for(let q=1;q<4;q++)if(a[r-dr*q]?.[c-dc*q]===z)n++;else break;return n>=4})}draw();$('#restart').onclick=()=>{clearGame();connect()}}
-function checkers(){ui(`<div class="panel"><div class="title">🔴 Checkers</div><div class="message" id="m">Red: select a piece, then a square</div><div class="board" id="b"></div><div class="controls"><button id="restart">Restart</button></div></div>`);let a=Array.from({length:8},()=>Array(8).fill('')),sel=null,t='r';for(let r=0;r<3;r++)for(let c=0;c<8;c++)if((r+c)%2)a[r][c]='b';for(let r=5;r<8;r++)for(let c=0;c<8;c++)if((r+c)%2)a[r][c]='r';function draw(){b.innerHTML=a.flat().map((v,i)=>`<div class="sq ${(Math.floor(i/8)+i)%2?'dark':'light'} ${sel===i?'selected':''}" data-i="${i}">${v==='r'?'🔴':v==='b'?'⚫':''}</div>`).join('');b.querySelectorAll('.sq').forEach(q=>q.onclick=()=>click(+q.dataset.i))}function click(i){let r=Math.floor(i/8),c=i%8;if(sel===null){if(a[r][c]===t)sel=i}else{let sr=Math.floor(sel/8),sc=sel%8;if(!a[r][c]&&Math.abs(r-sr)===1&&Math.abs(c-sc)===1){a[r][c]=a[sr][sc];a[sr][sc]='';t=t==='r'?'b':'r';$('#m').textContent=(t==='r'?'Red':'Black')+': select a piece, then a square'}sel=null}draw()}draw();$('#restart').onclick=()=>{clearGame();checkers()}}
-function chess(){ui(`<div class="panel"><div class="title">♟️ Chess</div><div class="message">Local two-player board. Tap a piece, then a square.</div><div class="board" id="b"></div><div class="controls"><button id="restart">Restart</button></div></div>`);let pieces=['♜♞♝♛♚♝♞♜','♟♟♟♟♟♟♟♟','','','','','♙♙♙♙♙♙♙♙','♖♘♗♕♔♗♘♖'.split('')],a=Array.from({length:8},()=>Array(8).fill('')),sel=null;pieces.forEach((row,r)=>{if(typeof row==='string')row=row.split('');row.forEach((v,c)=>a[r][c]=v||'')});function draw(){b.innerHTML=a.flat().map((v,i)=>`<div class="sq ${(Math.floor(i/8)+i)%2?'dark':'light'} ${sel===i?'selected':''}" data-i="${i}">${v}</div>`).join('');b.querySelectorAll('.sq').forEach(q=>q.onclick=()=>click(+q.dataset.i))}function click(i){if(sel===null&&a[Math.floor(i/8)][i%8])sel=i;else if(sel!==null){let sr=Math.floor(sel/8),sc=sel%8,r=Math.floor(i/8),c=i%8;a[r][c]=a[sr][sc];a[sr][sc]='';sel=null}draw()}draw();$('#restart').onclick=()=>{clearGame();chess()}}
-function monopoly(){ui(`<div class="panel"><div class="title">🎩 Monopoly</div><div class="score">Position: <b id="p">GO</b> · Cash: $<b id="cash">1500</b></div><div class="card"><div class="dice" id="d">🎲</div><p id="m">Roll the dice.</p><button id="roll" class="bigbtn">ROLL</button></div><div class="controls"><button id="restart">Restart</button></div></div>`);let pos=0,cash=1500,names=['GO','Mediterranean','Baltic','Reading Railroad','Oriental','Vermont','Jail','St. James','Tennessee','New York','Free Parking','Kentucky','Indiana','Illinois','B&O Railroad','Atlantic','Ventnor','Water Works','Marvin Gardens','Go To Jail'];$('#roll').onclick=()=>{let d=Math.ceil(Math.random()*6)+Math.ceil(Math.random()*6);pos=(pos+d)%names.length;if(pos===0)cash+=200;if([2,5,8,11,15,18].includes(pos))cash-=100;$('#p').textContent=names[pos];$('#cash').textContent=cash;$('#d').textContent='🎲 '+d;$('#m').textContent='You moved '+d+' spaces.'};$('#restart').onclick=()=>{clearGame();monopoly()}}
-function battleship(){ui(`<div class="panel"><div class="title">🚢 Battleship</div><div class="message" id="m">Find 5 hidden ships in 20 shots.</div><div id="g" class="grid grid4"></div><div class="controls"><button id="restart">Restart</button></div></div>`);let ships=new Set();while(ships.size<5)ships.add(Math.floor(Math.random()*16));let shots=0,hits=0;g.innerHTML=Array.from({length:16},(_,i)=>`<button class="cell" data-i="${i}">🌊</button>`).join('');g.querySelectorAll('button').forEach(q=>q.onclick=()=>{let i=+q.dataset.i;if(q.disabled)return;q.disabled=true;shots++;if(ships.has(i)){hits++;q.textContent='💥';q.classList.add('on')}else q.textContent='❌';m.textContent=hits===5?'You sank the fleet!':`${hits}/5 ships found · ${20-shots} shots left`;if(shots>=20&&hits<5)m.textContent='Game over — restart to play again.'});$('#restart').onclick=()=>{clearGame();battleship()}}
-function yahtzee(){ui(`<div class="panel"><div class="title">🎲 Yahtzee</div><div class="dice" id="d">⚀ ⚀ ⚀ ⚀ ⚀</div><div class="score">Score: <b id="s">0</b></div><div class="controls"><button id="roll" class="bigbtn">ROLL</button><button id="restart">Restart</button></div></div>`);let score=0,rolls=0;$('#roll').onclick=()=>{let d=Array.from({length:5},()=>1+Math.floor(Math.random()*6));$('#d').textContent=d.map(v=>['','⚀','⚁','⚂','⚃','⚄','⚅'][v]).join(' ');rolls++;let cnt={};d.forEach(v=>cnt[v]=(cnt[v]||0)+1);if(Object.values(cnt).includes(5))score+=50;else score+=d.reduce((a,b)=>a+b,0);$('#s').textContent=score;if(rolls>=10)$('#roll').disabled=true};$('#restart').onclick=()=>{clearGame();yahtzee()}}
-function ludo(){ui(`<div class="panel"><div class="title">🟢 Ludo</div><div class="message" id="m">Race 4 tokens to the finish.</div><div class="card"><div>Token positions: <b id="p">0, 0, 0, 0</b></div><div class="dice" id="d">🎲</div><button id="roll" class="bigbtn">ROLL</button></div><div class="controls"><button id="restart">Restart</button></div></div>`);let p=[0,0,0,0];$('#roll').onclick=()=>{let d=1+Math.floor(Math.random()*6),i=Math.floor(Math.random()*4);p[i]=Math.min(50,p[i]+d);$('#d').textContent='🎲 '+d;$('#p').textContent=p.join(', ');if(p.every(x=>x>=50))$('#m').textContent='🏆 You won!'};$('#restart').onclick=()=>{clearGame();ludo()}}
+const GAME_ID = {{ game.game_id|default('unknown')|tojson }};
 
-/* ---------- SPORTS ---------- */
-function basketball(){ui(`<div class="panel"><div class="title">🏀 Basketball</div><div class="message" id="m">Tap the ball when it reaches the hoop.</div><div class="playfield" id="f"><div id="ball" style="position:absolute;left:30px;bottom:30px;font-size:55px">🏀</div><div style="position:absolute;right:70px;top:80px;font-size:90px">🏀</div></div><div class="score">Score: <b id="s">0</b></div><div class="controls"><button id="shoot" class="bigbtn">SHOOT</button><button id="restart">Restart</button></div></div>`);let score=0,x=30,dir=1;I(()=>{x+=dir*4;if(x>560||x<20)dir*=-1;$('#ball').style.left=x+'px'},30);$('#shoot').onclick=()=>{if(x>470){score++;$('#s').textContent=score;$('#m').textContent='🏀 Swish!'}else $('#m').textContent='Miss! Wait for the ball.'};$('#restart').onclick=()=>{clearGame();basketball()}}
-function football(){ui(`<div class="panel"><div class="title">🏈 Football</div><div class="message" id="m">Tap PASS when the receiver is open.</div><div class="playfield" id="f"><div id="q" style="position:absolute;left:20px;top:200px;font-size:50px">🏈</div><div id="r" style="position:absolute;left:520px;top:80px;font-size:45px">🏃</div></div><div class="score">TDs: <b id="s">0</b></div><div class="controls"><button id="pass" class="bigbtn">PASS</button><button id="restart">Restart</button></div></div>`);let score=0,y=80,dir=1;I(()=>{y+=dir*3;if(y>330||y<30)dir*=-1;$('#r').style.top=y+'px'},30);$('#pass').onclick=()=>{if(y>160&&y<260){score++;s.textContent=score;m.textContent='🏈 TOUCHDOWN!'}else m.textContent='Incomplete pass.'};$('#restart').onclick=()=>{clearGame();football()}}
-function soccer(){ui(`<div class="panel"><div class="title">⚽ Soccer</div><div class="message" id="m">Tap SHOOT when the moving target crosses the goal.</div><div class="playfield"><div id="goal" style="position:absolute;right:20px;top:100px;width:110px;height:250px;border:8px solid #fff"></div><div id="ball" style="position:absolute;left:40px;top:200px;font-size:45px">⚽</div><div id="keeper" style="position:absolute;right:75px;top:160px;font-size:45px">🧍</div></div><div class="score">Goals: <b id="s">0</b></div><div class="controls"><button id="shoot" class="bigbtn">SHOOT</button><button id="restart">Restart</button></div></div>`);let score=0,y=160,dir=1;I(()=>{y+=dir*4;if(y>330||y<60)dir*=-1;keeper.style.top=y+'px'},30);$('#shoot').onclick=()=>{if(y<140||y>290){score++;s.textContent=score;m.textContent='⚽ GOAL!'}else m.textContent='Saved!'};$('#restart').onclick=()=>{clearGame();soccer()}}
-function bowling(){ui(`<div class="panel"><div class="title">🎳 Bowling</div><div class="message" id="m">Tap ROLL and try to knock down 10 pins.</div><div class="playfield"><div style="text-align:center;font-size:90px;padding-top:40px">🎳</div><div id="pins" style="text-align:center;font-size:50px">🎳 🎳 🎳 🎳 🎳</div></div><div class="score">Score: <b id="s">0</b></div><div class="controls"><button id="roll" class="bigbtn">ROLL</button><button id="restart">Restart</button></div></div>`);let score=0;$('#roll').onclick=()=>{let n=Math.floor(Math.random()*11);score+=n;s.textContent=score;m.textContent=n===10?'🎳 STRIKE!':`${n} pins down.`};$('#restart').onclick=()=>{clearGame();bowling()}}
-function cricket(){ui(`<div class="panel"><div class="title">🏏 Cricket</div><div class="message" id="m">Tap HIT as the ball approaches.</div><div class="playfield"><div id="ball" style="position:absolute;left:30px;top:200px;font-size:35px">🔴</div><div style="position:absolute;right:50px;top:180px;font-size:70px">🏏</div></div><div class="score">Runs: <b id="s">0</b></div><div class="controls"><button id="hit" class="bigbtn">HIT</button><button id="restart">Restart</button></div></div>`);let x=30,dir=1,runs=0;I(()=>{x+=dir*6;if(x>570||x<20)dir*=-1;ball.style.left=x+'px'},30);$('#hit').onclick=()=>{if(x>500){let n=1+Math.floor(Math.random()*6);runs+=n;s.textContent=runs;m.textContent=`🏏 ${n} runs!`}else m.textContent='Miss!'};$('#restart').onclick=()=>{clearGame();cricket()}}
+const GAME_NAME = {{ game.name|default('Real Game')|tojson }};
+const GAME_ICON = {{ game.icon|default('🎮')|tojson }};
+const GAME_DESCRIPTION = {{ game.description|default('Have fun!')|tojson }};
 
-/* ---------- SHOOTING ---------- */
-function targetShooter(){ui(`<div class="panel"><div class="title">🎯 Target Shooter</div><div class="score">Hits: <b id="s">0</b></div><div class="playfield" id="f"></div><div class="controls"><button id="restart">Restart</button></div></div>`);let score=0;function spawn(){let z=document.createElement('button');z.className='target';z.style.left=Math.random()*85+'%';z.style.top=Math.random()*80+'%';z.onclick=()=>{score++;s.textContent=score;z.remove();spawn()};f.appendChild(z)}spawn();$('#restart').onclick=()=>{clearGame();targetShooter()}}
-function alienBlaster(){canvasGame('👽 Alien Blaster','Move and shoot aliens.',(c,x)=>{let px=350,shots=[],en=[];for(let i=0;i<10;i++)en.push({x:50+i*65,y:60,on:1});c.onpointermove=e=>{let z=c.getBoundingClientRect();px=(e.clientX-z.left)/z.width*700};c.onpointerdown=()=>shots.push({x:px,y:420});function loop(){shots.forEach(q=>q.y-=8);en.forEach(q=>{if(q.on&&shots.some(s=>Math.abs(s.x-q.x)<25&&Math.abs(s.y-q.y)<20))q.on=0});x.fillStyle='#050505';x.fillRect(0,0,700,450);x.fillStyle='#39d98a';x.fillRect(px-25,420,50,14);x.fillStyle='#e33';en.forEach(q=>{if(q.on)x.fillRect(q.x-18,q.y-12,36,24)});x.fillStyle='#fff';shots.forEach(q=>x.fillRect(q.x,q.y,4,12));F(loop)}loop()})}
-function spaceFighter(){canvasGame('🚀 Space Fighter','Move with arrows and shoot incoming enemies.',(c,x)=>{let px=350,shots=[],en=[];function fire(){shots.push({x:px,y:420})}function key(e){if(e.key==='ArrowLeft')px-=25;if(e.key==='ArrowRight')px+=25;if(e.code==='Space')fire()}document.addEventListener('keydown',key);c.onpointerdown=fire;I(()=>en.push({x:Math.random()*680,y:0}),700);function loop(){shots.forEach(q=>q.y-=8);en.forEach(q=>q.y+=2);en.forEach(q=>{if(shots.some(s=>Math.abs(s.x-q.x)<22&&Math.abs(s.y-q.y)<22))q.y=999});x.fillStyle='#050505';x.fillRect(0,0,700,450);x.fillStyle='#fff';x.fillRect(px-20,420,40,16);x.fillStyle='#e33';en.forEach(q=>{if(q.y<500){x.beginPath();x.arc(q.x,q.y,16,0,7);x.fill()}});shots.forEach(q=>x.fillRect(q.x,q.y,4,12));F(loop)}loop();cleanup=()=>document.removeEventListener('keydown',key)})}
-function zombieBlaster(){canvasGame('🧟 Zombie Blaster','Tap/click zombies before they reach you.',(c,x)=>{let z=[],score=0;function spawn(){z.push({x:Math.random()*680,y:Math.random()*400,r:18})}I(spawn,700);c.onpointerdown=e=>{let r=c.getBoundingClientRect(),mx=(e.clientX-r.left)/r.width*700,my=(e.clientY-r.top)/r.height*450;z.forEach(q=>{if(Math.hypot(q.x-mx,q.y-my)<35){q.r=-1;score++}})};function loop(){z.forEach(q=>{q.x+=(350-q.x)*.003;q.y+=(225-q.y)*.003});z=z.filter(q=>q.r>0);x.fillStyle='#050505';x.fillRect(0,0,700,450);x.fillStyle='#7c3aed';z.forEach(q=>{x.beginPath();x.arc(q.x,q.y,q.r,0,7);x.fill()});x.fillStyle='#fff';x.font='22px Arial';x.fillText('Score '+score,20,30);F(loop)}loop()})}
+const A = document.getElementById('gameArea');
 
-function generic(name,icon){ui(`<div class="panel"><div class="title">${icon} ${name}</div><div class="message" id="m">Tap PLAY to start.</div><div class="controls"><button id="play" class="bigbtn">PLAY</button><button id="restart">Restart</button></div></div>`);let n=0;$('#play').onclick=()=>{$('#m').textContent='Playing! Score: '+(++n)};$('#restart').onclick=()=>{clearGame();generic(name,icon)}}
+let timers = [];
+let intervals = [];
+let frames = [];
+let cleanupFunctions = [];
 
-const games={snake,pong,breakout,tetris,flappy,space_invaders:spaceInvaders,asteroids,pac_man:pacman,'2048':game2048,memory_match:memory,monopoly,chess,checkers,connect_four:connect,tic_tac_toe:ttt,battleship,yahtzee,ludo,basketball,football,soccer,bowling,cricket,alien_blaster:alienBlaster,space_fighter:spaceFighter,target_shooter:targetShooter,zombie_blaster:zombieBlaster};
-function launch(){
-  clearGame();
-  const name={{ game.name|default('Real Game')|tojson }};
-  const icon={{ game.icon|default('🎮')|tojson }};
-  const desc={{ game.description|default('Tap Start Game to begin.')|tojson }};
-  ui(`<div class="panel" style="text-align:center;padding:28px 16px"><div style="font-size:64px">${icon}</div><div class="title" style="font-size:28px;margin:10px 0">${esc(name)}</div><div class="help" style="margin:12px auto 22px;max-width:600px">${esc(desc)}</div><div class="controls"><button id="startGame" class="bigbtn">▶️ START GAME</button></div><div class="help">Mobile friendly • Tap the button above to begin</div></div>`);
-  $('#startGame').onclick=()=>{clearGame();let fn=games[GAME_ID];if(fn)fn();else generic(name,icon)};
+
+/* ==========================================================
+   HELPERS
+========================================================== */
+
+const $ = selector => document.querySelector(selector);
+
+function esc(value){
+    return String(value ?? '').replace(
+        /[&<>"']/g,
+        char => ({
+            '&':'&amp;',
+            '<':'&lt;',
+            '>':'&gt;',
+            '"':'&quot;',
+            "'":'&#039;'
+        }[char])
+    );
 }
-launch();
+
+function T(fn, ms){
+    const id = setTimeout(fn, ms);
+    timers.push(id);
+    return id;
+}
+
+function I(fn, ms){
+    const id = setInterval(fn, ms);
+    intervals.push(id);
+    return id;
+}
+
+function F(fn){
+    const id = requestAnimationFrame(fn);
+    frames.push(id);
+    return id;
+}
+
+function addCleanup(fn){
+    if(typeof fn === 'function'){
+        cleanupFunctions.push(fn);
+    }
+}
+
+function ui(html){
+    A.innerHTML = html;
+}
+
+function clearGame(){
+
+    cleanupFunctions.forEach(fn=>{
+        try{
+            fn();
+        }catch(e){}
+    });
+
+    cleanupFunctions = [];
+
+    timers.forEach(clearTimeout);
+    intervals.forEach(clearInterval);
+    frames.forEach(cancelAnimationFrame);
+
+    timers = [];
+    intervals = [];
+    frames = [];
+
+    A.innerHTML = '';
+}
+
+
+/* ==========================================================
+   STANDARD CANVAS GAME
+========================================================== */
+
+function canvasGame(title, help, setup){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                ${title}
+            </div>
+
+            <div class="help">
+                ${help}
+            </div>
+
+            <canvas
+                class="canvas"
+                id="c"
+                width="700"
+                height="450">
+            </canvas>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    const canvas = $('#c');
+    const ctx = canvas.getContext('2d');
+
+    setup(canvas, ctx);
+
+    const restart = $('#restart');
+
+    if(restart){
+        restart.onclick = ()=>{
+            clearGame();
+            setup();
+            launchCurrentGame();
+        };
+    }
+}
+
+
+/* ==========================================================
+   ARCADE
+========================================================== */
+
+
+/* ---------------- SNAKE ---------------- */
+
+function snake(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">🐍 Snake</div>
+
+            <div class="score">
+                Score:
+                <b id="sc">0</b>
+            </div>
+
+            <canvas
+                class="canvas"
+                id="snakeCanvas"
+                width="400"
+                height="400">
+            </canvas>
+
+            <div class="controls">
+                <button id="u">⬆️</button>
+            </div>
+
+            <div class="controls">
+                <button id="l">⬅️</button>
+                <button id="dn">⬇️</button>
+                <button id="r">➡️</button>
+            </div>
+
+            <div class="controls">
+                <button id="restart">🔄 Restart</button>
+            </div>
+
+            <div class="help">
+                Use arrows/WASD or the buttons.
+            </div>
+
+        </div>
+    `);
+
+    const c = $('#snakeCanvas');
+    const ctx = c.getContext('2d');
+
+    let snakeBody = [
+        {x:10,y:10},
+        {x:9,y:10}
+    ];
+
+    let direction = {
+        x:1,
+        y:0
+    };
+
+    let food = randomFood();
+    let score = 0;
+    let dead = false;
+
+    function randomFood(){
+
+        let f;
+
+        do{
+            f = {
+                x:Math.floor(Math.random()*20),
+                y:Math.floor(Math.random()*20)
+            };
+        }while(
+            snakeBody &&
+            snakeBody.some(
+                part =>
+                    part.x === f.x &&
+                    part.y === f.y
+            )
+        );
+
+        return f;
+    }
+
+    function turn(x,y){
+
+        if(
+            x === -direction.x &&
+            y === -direction.y
+        ){
+            return;
+        }
+
+        direction = {x,y};
+    }
+
+    function key(e){
+
+        const key = e.key.toLowerCase();
+
+        if(
+            [
+                'arrowup',
+                'arrowdown',
+                'arrowleft',
+                'arrowright',
+                'w',
+                'a',
+                's',
+                'd'
+            ].includes(key)
+        ){
+            e.preventDefault();
+        }
+
+        if(key === 'arrowup' || key === 'w'){
+            turn(0,-1);
+        }
+
+        if(key === 'arrowdown' || key === 's'){
+            turn(0,1);
+        }
+
+        if(key === 'arrowleft' || key === 'a'){
+            turn(-1,0);
+        }
+
+        if(key === 'arrowright' || key === 'd'){
+            turn(1,0);
+        }
+    }
+
+    document.addEventListener('keydown',key);
+    addCleanup(()=>{
+        document.removeEventListener('keydown',key);
+    });
+
+    $('#u').onclick = ()=>turn(0,-1);
+    $('#l').onclick = ()=>turn(-1,0);
+    $('#dn').onclick = ()=>turn(0,1);
+    $('#r').onclick = ()=>turn(1,0);
+
+    $('#restart').onclick = ()=>{
+        clearGame();
+        snake();
+    };
+
+    function draw(){
+
+        ctx.fillStyle = '#050505';
+        ctx.fillRect(0,0,400,400);
+
+        ctx.fillStyle = '#e33';
+        ctx.fillRect(
+            food.x*20,
+            food.y*20,
+            18,
+            18
+        );
+
+        ctx.fillStyle = '#39d98a';
+
+        snakeBody.forEach(part=>{
+            ctx.fillRect(
+                part.x*20,
+                part.y*20,
+                18,
+                18
+            );
+        });
+    }
+
+    function loop(){
+
+        if(dead){
+            return;
+        }
+
+        const head = {
+            x:snakeBody[0].x + direction.x,
+            y:snakeBody[0].y + direction.y
+        };
+
+        if(
+            head.x < 0 ||
+            head.y < 0 ||
+            head.x >= 20 ||
+            head.y >= 20 ||
+            snakeBody.some(
+                part =>
+                    part.x === head.x &&
+                    part.y === head.y
+            )
+        ){
+
+            dead = true;
+
+            $('#sc').textContent =
+                score + ' — Game Over';
+
+            return;
+        }
+
+        snakeBody.unshift(head);
+
+        if(
+            head.x === food.x &&
+            head.y === food.y
+        ){
+
+            score++;
+
+            $('#sc').textContent = score;
+
+            food = randomFood();
+
+        }else{
+
+            snakeBody.pop();
+
+        }
+
+        draw();
+    }
+
+    draw();
+
+    I(loop,110);
+}
+
+
+/* ---------------- PONG ---------------- */
+
+function pong(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">🏓 Pong</div>
+
+            <div class="score">
+                You:
+                <b id="ps">0</b>
+                —
+                Computer:
+                <b id="cs">0</b>
+            </div>
+
+            <canvas
+                class="canvas"
+                id="pongCanvas"
+                width="700"
+                height="450">
+            </canvas>
+
+            <div class="controls">
+                <button id="restart">🔄 Restart</button>
+            </div>
+
+            <div class="help">
+                Move with your finger/mouse or arrow keys.
+            </div>
+
+        </div>
+    `);
+
+    const c = $('#pongCanvas');
+    const ctx = c.getContext('2d');
+
+    let playerY = 185;
+    let computerY = 185;
+
+    let ball = {
+        x:350,
+        y:225,
+        vx:5,
+        vy:3
+    };
+
+    let playerScore = 0;
+    let computerScore = 0;
+
+    function resetBall(direction){
+
+        ball = {
+            x:350,
+            y:225,
+            vx:5 * direction,
+            vy:(Math.random() > .5 ? 3 : -3)
+        };
+    }
+
+    function movePlayer(y){
+
+        const rect = c.getBoundingClientRect();
+
+        playerY =
+            ((y - rect.top) / rect.height) * 450 - 40;
+
+        playerY =
+            Math.max(
+                0,
+                Math.min(370,playerY)
+            );
+    }
+
+    c.addEventListener('pointermove',e=>{
+        movePlayer(e.clientY);
+    });
+
+    c.addEventListener('pointerdown',e=>{
+        movePlayer(e.clientY);
+    });
+
+    function key(e){
+
+        if(e.key === 'ArrowUp'){
+            e.preventDefault();
+            playerY -= 25;
+        }
+
+        if(e.key === 'ArrowDown'){
+            e.preventDefault();
+            playerY += 25;
+        }
+
+        playerY =
+            Math.max(
+                0,
+                Math.min(370,playerY)
+            );
+    }
+
+    document.addEventListener('keydown',key);
+
+    addCleanup(()=>{
+        document.removeEventListener('keydown',key);
+    });
+
+    $('#restart').onclick = ()=>{
+        clearGame();
+        pong();
+    };
+
+    function loop(){
+
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        if(
+            ball.y < 8 ||
+            ball.y > 442
+        ){
+            ball.vy *= -1;
+        }
+
+        computerY +=
+            ((ball.y - 40) - computerY) * .045;
+
+        computerY =
+            Math.max(
+                0,
+                Math.min(370,computerY)
+            );
+
+        if(
+            ball.x < 42 &&
+            ball.y > playerY &&
+            ball.y < playerY + 80
+        ){
+            ball.vx = Math.abs(ball.vx);
+        }
+
+        if(
+            ball.x > 658 &&
+            ball.y > computerY &&
+            ball.y < computerY + 80
+        ){
+            ball.vx = -Math.abs(ball.vx);
+        }
+
+        if(ball.x < 0){
+
+            computerScore++;
+
+            $('#cs').textContent = computerScore;
+
+            resetBall(1);
+        }
+
+        if(ball.x > 700){
+
+            playerScore++;
+
+            $('#ps').textContent = playerScore;
+
+            resetBall(-1);
+        }
+
+        ctx.fillStyle='#050505';
+        ctx.fillRect(0,0,700,450);
+
+        ctx.fillStyle='#fff';
+
+        ctx.fillRect(
+            20,
+            playerY,
+            12,
+            80
+        );
+
+        ctx.fillRect(
+            668,
+            computerY,
+            12,
+            80
+        );
+
+        ctx.beginPath();
+
+        ctx.arc(
+            ball.x,
+            ball.y,
+            8,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+
+        F(loop);
+    }
+
+    F(loop);
+}
+
+
+/* ---------------- BREAKOUT ---------------- */
+
+function breakout(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">🧱 Breakout</div>
+
+            <div class="score">
+                Score:
+                <b id="bs">0</b>
+            </div>
+
+            <canvas
+                class="canvas"
+                id="breakCanvas"
+                width="700"
+                height="450">
+            </canvas>
+
+            <div class="controls">
+                <button id="restart">🔄 Restart</button>
+            </div>
+
+            <div class="help">
+                Move the paddle with your finger, mouse or arrow keys.
+            </div>
+
+        </div>
+    `);
+
+    const c = $('#breakCanvas');
+    const ctx = c.getContext('2d');
+
+    let paddleX = 290;
+
+    let ball = {
+        x:350,
+        y:390,
+        vx:4,
+        vy:-4
+    };
+
+    let bricks = [];
+    let score = 0;
+
+    function makeBricks(){
+
+        bricks = [];
+
+        for(let r=0;r<5;r++){
+
+            for(let col=0;col<10;col++){
+
+                bricks.push({
+                    x:10 + col*68,
+                    y:35 + r*24,
+                    on:true
+                });
+            }
+        }
+    }
+
+    makeBricks();
+
+    function movePaddle(clientX){
+
+        const rect =
+            c.getBoundingClientRect();
+
+        paddleX =
+            ((clientX - rect.left) / rect.width) * 700 - 60;
+
+        paddleX =
+            Math.max(
+                0,
+                Math.min(580,paddleX)
+            );
+    }
+
+    c.addEventListener('pointermove',e=>{
+        movePaddle(e.clientX);
+    });
+
+    c.addEventListener('pointerdown',e=>{
+        movePaddle(e.clientX);
+    });
+
+    function key(e){
+
+        if(e.key === 'ArrowLeft'){
+            e.preventDefault();
+            paddleX -= 30;
+        }
+
+        if(e.key === 'ArrowRight'){
+            e.preventDefault();
+            paddleX += 30;
+        }
+
+        paddleX =
+            Math.max(
+                0,
+                Math.min(580,paddleX)
+            );
+    }
+
+    document.addEventListener('keydown',key);
+
+    addCleanup(()=>{
+        document.removeEventListener('keydown',key);
+    });
+
+    $('#restart').onclick = ()=>{
+        clearGame();
+        breakout();
+    };
+
+    function resetBall(){
+
+        ball = {
+            x:350,
+            y:390,
+            vx:Math.random() > .5 ? 4 : -4,
+            vy:-4
+        };
+    }
+
+    function loop(){
+
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        if(
+            ball.x < 8 ||
+            ball.x > 692
+        ){
+            ball.vx *= -1;
+        }
+
+        if(ball.y < 8){
+            ball.vy *= -1;
+        }
+
+        if(ball.y >= 420){
+
+            if(
+                ball.x >= paddleX &&
+                ball.x <= paddleX + 120
+            ){
+                ball.vy =
+                    -Math.abs(ball.vy);
+            }else{
+                resetBall();
+            }
+        }
+
+        bricks.forEach(brick=>{
+
+            if(
+                brick.on &&
+                ball.x > brick.x &&
+                ball.x < brick.x + 62 &&
+                ball.y > brick.y &&
+                ball.y < brick.y + 18
+            ){
+
+                brick.on = false;
+
+                ball.vy *= -1;
+
+                score++;
+
+                $('#bs').textContent = score;
+            }
+        });
+
+        ctx.fillStyle='#050505';
+        ctx.fillRect(0,0,700,450);
+
+        ctx.fillStyle='#fff';
+
+        ctx.fillRect(
+            paddleX,
+            420,
+            120,
+            12
+        );
+
+        bricks.forEach(brick=>{
+
+            if(brick.on){
+
+                ctx.fillRect(
+                    brick.x,
+                    brick.y,
+                    62,
+                    18
+                );
+            }
+        });
+
+        ctx.beginPath();
+
+        ctx.arc(
+            ball.x,
+            ball.y,
+            8,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+
+        F(loop);
+    }
+
+    F(loop);
+}
+
+
+/* ---------------- TETRIS ---------------- */
+
+function tetris(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">🧩 Tetris</div>
+
+            <div class="score">
+                Lines:
+                <b id="ts">0</b>
+            </div>
+
+            <canvas
+                class="canvas"
+                id="tetrisCanvas"
+                width="300"
+                height="600">
+            </canvas>
+
+            <div class="controls">
+                <button id="tl">⬅️</button>
+                <button id="td">⬇️</button>
+                <button id="tr">➡️</button>
+                <button id="rot">🔄</button>
+            </div>
+
+            <div class="controls">
+                <button id="restart">🔄 Restart</button>
+            </div>
+
+            <div class="help">
+                Arrow keys move. Up/Space rotates. Down drops.
+            </div>
+
+        </div>
+    `);
+
+    const c = $('#tetrisCanvas');
+    const ctx = c.getContext('2d');
+
+    const W=10;
+    const H=20;
+    const SIZE=30;
+
+    let board =
+        Array.from(
+            {length:H},
+            ()=>Array(W).fill(0)
+        );
+
+    let piece;
+    let lines=0;
+    let gameOver=false;
+
+    const shapes=[
+        [[1,1,1,1]],
+        [[1,1],[1,1]],
+        [[0,1,0],[1,1,1]],
+        [[1,0,0],[1,1,1]],
+        [[0,0,1],[1,1,1]],
+        [[1,1,0],[0,1,1]],
+        [[0,1,1],[1,1,0]]
+    ];
+
+    function newPiece(){
+
+        const shape =
+            shapes[
+                Math.floor(
+                    Math.random()*shapes.length
+                )
+            ];
+
+        piece={
+            x:Math.floor(W/2)-1,
+            y:0,
+            shape:shape.map(row=>row.slice())
+        };
+
+        if(collides(piece.x,piece.y,piece.shape)){
+            gameOver=true;
+        }
+    }
+
+    function collides(px,py,shape){
+
+        for(let r=0;r<shape.length;r++){
+
+            for(let col=0;col<shape[r].length;col++){
+
+                if(!shape[r][col]){
+                    continue;
+                }
+
+                const x=px+col;
+                const y=py+r;
+
+                if(
+                    x<0 ||
+                    x>=W ||
+                    y>=H
+                ){
+                    return true;
+                }
+
+                if(
+                    y>=0 &&
+                    board[y][x]
+                ){
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    function rotate(){
+
+        const old=piece.shape;
+
+        const rotated =
+            old[0].map(
+                (_,i)=>
+                    old.map(
+                        row=>row[i]
+                    ).reverse()
+            );
+
+        if(
+            !collides(
+                piece.x,
+                piece.y,
+                rotated
+            )
+        ){
+            piece.shape=rotated;
+        }
+    }
+
+    function lock(){
+
+        piece.shape.forEach(
+            (row,r)=>{
+                row.forEach(
+                    (value,col)=>{
+
+                        if(value){
+
+                            const y=
+                                piece.y+r;
+
+                            const x=
+                                piece.x+col;
+
+                            if(
+                                y>=0 &&
+                                y<H
+                            ){
+                                board[y][x]=1;
+                            }
+                        }
+                    }
+                );
+            }
+        );
+
+        const before=board.length;
+
+        board =
+            board.filter(
+                row=>row.some(v=>!v)
+            );
+
+        const cleared =
+            before-board.length;
+
+        lines += cleared;
+
+        $('#ts').textContent=lines;
+
+        while(board.length<H){
+            board.unshift(
+                Array(W).fill(0)
+            );
+        }
+
+        newPiece();
+    }
+
+    function drop(){
+
+        if(gameOver){
+            return;
+        }
+
+        if(
+            !collides(
+                piece.x,
+                piece.y+1,
+                piece.shape
+            )
+        ){
+            piece.y++;
+        }else{
+            lock();
+        }
+
+        draw();
+    }
+
+    function draw(){
+
+        ctx.fillStyle='#050505';
+
+        ctx.fillRect(
+            0,
+            0,
+            c.width,
+            c.height
+        );
+
+        ctx.fillStyle='#7c3aed';
+
+        board.forEach(
+            (row,r)=>{
+                row.forEach(
+                    (value,col)=>{
+
+                        if(value){
+
+                            ctx.fillRect(
+                                col*SIZE,
+                                r*SIZE,
+                                SIZE-1,
+                                SIZE-1
+                            );
+                        }
+                    }
+                );
+            }
+        );
+
+        if(piece){
+
+            piece.shape.forEach(
+                (row,r)=>{
+                    row.forEach(
+                        (value,col)=>{
+
+                            if(value){
+
+                                ctx.fillRect(
+                                    (piece.x+col)*SIZE,
+                                    (piece.y+r)*SIZE,
+                                    SIZE-1,
+                                    SIZE-1
+                                );
+                            }
+                        }
+                    );
+                }
+            );
+        }
+
+        if(gameOver){
+
+            ctx.fillStyle='#fff';
+
+            ctx.font='28px Arial';
+
+            ctx.textAlign='center';
+
+            ctx.fillText(
+                'GAME OVER',
+                c.width/2,
+                c.height/2
+            );
+
+            ctx.textAlign='left';
+        }
+    }
+
+    function key(e){
+
+        if(
+            [
+                'ArrowLeft',
+                'ArrowRight',
+                'ArrowDown',
+                'ArrowUp'
+            ].includes(e.key) ||
+            e.code==='Space'
+        ){
+            e.preventDefault();
+        }
+
+        if(gameOver){
+            return;
+        }
+
+        if(e.key==='ArrowLeft'){
+
+            if(
+                !collides(
+                    piece.x-1,
+                    piece.y,
+                    piece.shape
+                )
+            ){
+                piece.x--;
+            }
+        }
+
+        if(e.key==='ArrowRight'){
+
+            if(
+                !collides(
+                    piece.x+1,
+                    piece.y,
+                    piece.shape
+                )
+            ){
+                piece.x++;
+            }
+        }
+
+        if(e.key==='ArrowDown'){
+            drop();
+        }
+
+        if(
+            e.key==='ArrowUp' ||
+            e.code==='Space'
+        ){
+            rotate();
+        }
+
+        draw();
+    }
+
+    document.addEventListener('keydown',key);
+
+    addCleanup(()=>{
+        document.removeEventListener(
+            'keydown',
+            key
+        );
+    });
+
+    $('#tl').onclick=()=>{
+        if(
+            !collides(
+                piece.x-1,
+                piece.y,
+                piece.shape
+            )
+        ){
+            piece.x--;
+        }
+
+        draw();
+    };
+
+    $('#tr').onclick=()=>{
+        if(
+            !collides(
+                piece.x+1,
+                piece.y,
+                piece.shape
+            )
+        ){
+            piece.x++;
+        }
+
+        draw();
+    };
+
+    $('#td').onclick=drop;
+
+    $('#rot').onclick=()=>{
+        rotate();
+        draw();
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        tetris();
+    };
+
+    newPiece();
+    draw();
+
+    I(drop,550);
+}
+
+
+/* ---------------- FLAPPY ---------------- */
+
+function flappy(){
+
+    canvasGame(
+        '🐦 Flappy',
+        'Tap or click to flap. Avoid the pipes.',
+        (c,ctx)=>{
+
+            let y=220;
+            let velocity=0;
+            let pipeX=700;
+            let gap=170;
+            let top=100;
+            let score=0;
+            let dead=false;
+
+            function flap(){
+                if(dead){
+                    return;
+                }
+
+                velocity=-7;
+            }
+
+            c.addEventListener(
+                'pointerdown',
+                flap
+            );
+
+            addCleanup(()=>{
+                c.removeEventListener(
+                    'pointerdown',
+                    flap
+                );
+            });
+
+            function reset(){
+
+                y=220;
+                velocity=0;
+                pipeX=700;
+                top=100;
+                score=0;
+                dead=false;
+            }
+
+            function loop(){
+
+                if(dead){
+
+                    ctx.fillStyle='#fff';
+
+                    ctx.font='30px Arial';
+
+                    ctx.textAlign='center';
+
+                    ctx.fillText(
+                        'GAME OVER',
+                        350,
+                        220
+                    );
+
+                    ctx.font='20px Arial';
+
+                    ctx.fillText(
+                        'Tap to restart',
+                        350,
+                        255
+                    );
+
+                    ctx.textAlign='left';
+
+                    return;
+                }
+
+                velocity += .35;
+
+                y += velocity;
+
+                pipeX -= 3;
+
+                if(pipeX < -80){
+
+                    pipeX=700;
+
+                    top=
+                        50+
+                        Math.random()*220;
+
+                    score++;
+                }
+
+                if(
+                    y<15 ||
+                    y>435 ||
+                    (
+                        120+15>pipeX &&
+                        120-15<pipeX+70 &&
+                        (
+                            y-15<top ||
+                            y+15>top+gap
+                        )
+                    )
+                ){
+
+                    dead=true;
+
+                    return;
+                }
+
+                ctx.fillStyle='#091b25';
+
+                ctx.fillRect(
+                    0,
+                    0,
+                    700,
+                    450
+                );
+
+                ctx.fillStyle='#39d98a';
+
+                ctx.fillRect(
+                    pipeX,
+                    0,
+                    70,
+                    top
+                );
+
+                ctx.fillRect(
+                    pipeX,
+                    top+gap,
+                    70,
+                    450
+                );
+
+                ctx.fillStyle='#fff';
+
+                ctx.beginPath();
+
+                ctx.arc(
+                    120,
+                    y,
+                    15,
+                    0,
+                    Math.PI*2
+                );
+
+                ctx.fill();
+
+                ctx.font='24px Arial';
+
+                ctx.fillText(
+                    'Score '+score,
+                    20,
+                    35
+                );
+
+                F(loop);
+            }
+
+            F(loop);
+        }
+    );
+}
+
+
+/* ---------------- SPACE INVADERS ---------------- */
+
+function spaceInvaders(){
+
+    canvasGame(
+        '👾 Space Invaders',
+        'Move and tap/click to shoot.',
+        (c,ctx)=>{
+
+            let px=330;
+            let shots=[];
+            let enemies=[];
+            let score=0;
+
+            for(let r=0;r<3;r++){
+
+                for(let q=0;q<8;q++){
+
+                    enemies.push({
+                        x:80+q*70,
+                        y:60+r*45,
+                        on:true
+                    });
+                }
+            }
+
+            function shoot(){
+
+                shots.push({
+                    x:px,
+                    y:420
+                });
+            }
+
+            c.addEventListener(
+                'pointermove',
+                e=>{
+
+                    const rect=
+                        c.getBoundingClientRect();
+
+                    px=
+                        ((e.clientX-rect.left)/
+                        rect.width)*700;
+
+                    px=Math.max(
+                        25,
+                        Math.min(675,px)
+                    );
+                }
+            );
+
+            c.addEventListener(
+                'pointerdown',
+                shoot
+            );
+
+            function key(e){
+
+                if(e.key==='ArrowLeft'){
+
+                    e.preventDefault();
+
+                    px-=25;
+                }
+
+                if(e.key==='ArrowRight'){
+
+                    e.preventDefault();
+
+                    px+=25;
+                }
+
+                if(e.code==='Space'){
+
+                    e.preventDefault();
+
+                    shoot();
+                }
+
+                px=Math.max(
+                    25,
+                    Math.min(675,px)
+                );
+            }
+
+            document.addEventListener(
+                'keydown',
+                key
+            );
+
+            addCleanup(()=>{
+                document.removeEventListener(
+                    'keydown',
+                    key
+                );
+            });
+
+            function loop(){
+
+                shots.forEach(
+                    shot=>shot.y-=7
+                );
+
+                shots=
+                    shots.filter(
+                        shot=>shot.y>-20
+                    );
+
+                enemies.forEach(enemy=>{
+
+                    if(!enemy.on){
+                        return;
+                    }
+
+                    shots.forEach(shot=>{
+
+                        if(
+                            Math.abs(
+                                shot.x-enemy.x
+                            )<28 &&
+                            Math.abs(
+                                shot.y-enemy.y
+                            )<20
+                        ){
+
+                            enemy.on=false;
+                            shot.y=-999;
+
+                            score++;
+                        }
+                    });
+                });
+
+                ctx.fillStyle='#050505';
+
+                ctx.fillRect(
+                    0,
+                    0,
+                    700,
+                    450
+                );
+
+                ctx.fillStyle='#39d98a';
+
+                ctx.fillRect(
+                    px-25,
+                    420,
+                    50,
+                    15
+                );
+
+                ctx.fillStyle='#e33';
+
+                shots.forEach(
+                    shot=>{
+                        ctx.fillRect(
+                            shot.x-2,
+                            shot.y,
+                            4,
+                            12
+                        );
+                    }
+                );
+
+                ctx.fillStyle='#7c3aed';
+
+                enemies.forEach(enemy=>{
+
+                    if(enemy.on){
+
+                        ctx.fillRect(
+                            enemy.x-20,
+                            enemy.y-12,
+                            40,
+                            24
+                        );
+                    }
+                });
+
+                ctx.fillStyle='#fff';
+
+                ctx.font='22px Arial';
+
+                ctx.fillText(
+                    'Score '+score,
+                    20,
+                    30
+                );
+
+                F(loop);
+            }
+
+            F(loop);
+        }
+    );
+}
+
+
+/* ---------------- ASTEROIDS ---------------- */
+
+function asteroids(){
+
+    canvasGame(
+        '☄️ Asteroids',
+        'Move with arrows. Shoot with Space or tap.',
+        (c,ctx)=>{
+
+            let ship={
+                x:350,
+                y:225,
+                angle:0,
+                vx:0,
+                vy:0
+            };
+
+            let shots=[];
+            let rocks=[];
+
+            for(let i=0;i<8;i++){
+
+                rocks.push({
+                    x:Math.random()*700,
+                    y:Math.random()*450,
+                    vx:Math.random()*2-1,
+                    vy:Math.random()*2-1,
+                    r:22
+                });
+            }
+
+            function fire(){
+
+                shots.push({
+                    x:ship.x,
+                    y:ship.y,
+                    vx:Math.cos(ship.angle)*7,
+                    vy:Math.sin(ship.angle)*7
+                });
+            }
+
+            function key(e){
+
+                if(e.key==='ArrowLeft'){
+
+                    e.preventDefault();
+
+                    ship.angle-=.15;
+                }
+
+                if(e.key==='ArrowRight'){
+
+                    e.preventDefault();
+
+                    ship.angle+=.15;
+                }
+
+                if(e.key==='ArrowUp'){
+
+                    e.preventDefault();
+
+                    ship.vx +=
+                        Math.cos(ship.angle)*.2;
+
+                    ship.vy +=
+                        Math.sin(ship.angle)*.2;
+                }
+
+                if(e.code==='Space'){
+
+                    e.preventDefault();
+
+                    fire();
+                }
+            }
+
+            document.addEventListener(
+                'keydown',
+                key
+            );
+
+            c.addEventListener(
+                'pointerdown',
+                fire
+            );
+
+            addCleanup(()=>{
+                document.removeEventListener(
+                    'keydown',
+                    key
+                );
+            });
+
+            function loop(){
+
+                ship.x=
+                    (ship.x+ship.vx+700)%700;
+
+                ship.y=
+                    (ship.y+ship.vy+450)%450;
+
+                shots.forEach(shot=>{
+
+                    shot.x=
+                        (shot.x+shot.vx+700)%700;
+
+                    shot.y=
+                        (shot.y+shot.vy+450)%450;
+                });
+
+                rocks.forEach(rock=>{
+
+                    rock.x=
+                        (rock.x+rock.vx+700)%700;
+
+                    rock.y=
+                        (rock.y+rock.vy+450)%450;
+                });
+
+                shots.forEach(shot=>{
+
+                    rocks.forEach(rock=>{
+
+                        if(
+                            rock.r>0 &&
+                            Math.hypot(
+                                shot.x-rock.x,
+                                shot.y-rock.y
+                            )<rock.r
+                        ){
+
+                            rock.r=0;
+                        }
+                    });
+                });
+
+                ctx.fillStyle='#050505';
+
+                ctx.fillRect(
+                    0,
+                    0,
+                    700,
+                    450
+                );
+
+                ctx.fillStyle='#fff';
+
+                ctx.save();
+
+                ctx.translate(
+                    ship.x,
+                    ship.y
+                );
+
+                ctx.rotate(
+                    ship.angle
+                );
+
+                ctx.beginPath();
+
+                ctx.moveTo(18,0);
+                ctx.lineTo(-14,-11);
+                ctx.lineTo(-9,0);
+                ctx.lineTo(-14,11);
+                ctx.closePath();
+
+                ctx.fill();
+
+                ctx.restore();
+
+                rocks.forEach(rock=>{
+
+                    if(rock.r>0){
+
+                        ctx.beginPath();
+
+                        ctx.arc(
+                            rock.x,
+                            rock.y,
+                            rock.r,
+                            0,
+                            Math.PI*2
+                        );
+
+                        ctx.stroke();
+                    }
+                });
+
+                shots.forEach(shot=>{
+
+                    ctx.fillRect(
+                        shot.x,
+                        shot.y,
+                        4,
+                        4
+                    );
+                });
+
+                F(loop);
+            }
+
+            F(loop);
+        }
+    );
+}
+
+
+/* ---------------- PAC-MAN ---------------- */
+
+function pacman(){
+
+    canvasGame(
+        '🟡 Pac-Man',
+        'Use arrow keys. Eat dots.',
+        (c,ctx)=>{
+
+            let p={
+                x:60,
+                y:60
+            };
+
+            let d={
+                x:0,
+                y:0
+            };
+
+            let dots=[];
+
+            for(let i=0;i<14;i++){
+
+                for(let j=0;j<9;j++){
+
+                    dots.push({
+                        x:30+i*50,
+                        y:30+j*50,
+                        on:true
+                    });
+                }
+            }
+
+            function key(e){
+
+                if(
+                    [
+                        'ArrowUp',
+                        'ArrowDown',
+                        'ArrowLeft',
+                        'ArrowRight'
+                    ].includes(e.key)
+                ){
+                    e.preventDefault();
+                }
+
+                if(e.key==='ArrowUp'){
+                    d={x:0,y:-3};
+                }
+
+                if(e.key==='ArrowDown'){
+                    d={x:0,y:3};
+                }
+
+                if(e.key==='ArrowLeft'){
+                    d={x:-3,y:0};
+                }
+
+                if(e.key==='ArrowRight'){
+                    d={x:3,y:0};
+                }
+            }
+
+            document.addEventListener(
+                'keydown',
+                key
+            );
+
+            addCleanup(()=>{
+                document.removeEventListener(
+                    'keydown',
+                    key
+                );
+            });
+
+            function loop(){
+
+                p.x=
+                    (p.x+d.x+700)%700;
+
+                p.y=
+                    (p.y+d.y+450)%450;
+
+                dots.forEach(dot=>{
+
+                    if(
+                        dot.on &&
+                        Math.hypot(
+                            p.x-dot.x,
+                            p.y-dot.y
+                        )<18
+                    ){
+                        dot.on=false;
+                    }
+                });
+
+                ctx.fillStyle='#050505';
+
+                ctx.fillRect(
+                    0,
+                    0,
+                    700,
+                    450
+                );
+
+                ctx.strokeStyle='#173b80';
+
+                ctx.lineWidth=5;
+
+                ctx.strokeRect(
+                    10,
+                    10,
+                    680,
+                    430
+                );
+
+                ctx.fillStyle='#fff';
+
+                dots.forEach(dot=>{
+
+                    if(dot.on){
+
+                        ctx.beginPath();
+
+                        ctx.arc(
+                            dot.x,
+                            dot.y,
+                            3,
+                            0,
+                            Math.PI*2
+                        );
+
+                        ctx.fill();
+                    }
+                });
+
+                ctx.fillStyle='#ffd21f';
+
+                ctx.beginPath();
+
+                ctx.arc(
+                    p.x,
+                    p.y,
+                    14,
+                    0,
+                    Math.PI*2
+                );
+
+                ctx.fill();
+
+                F(loop);
+            }
+
+            F(loop);
+        }
+    );
+}
+
+
+/* ---------------- 2048 ---------------- */
+
+function game2048(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">🔢 2048</div>
+
+            <div class="score">
+                Score:
+                <b id="score">0</b>
+            </div>
+
+            <div
+                id="g"
+                class="grid grid4">
+            </div>
+
+            <div class="controls">
+                <button id="up">⬆️</button>
+                <button id="left">⬅️</button>
+                <button id="down">⬇️</button>
+                <button id="right">➡️</button>
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+            <div class="help">
+                Swipe, use arrow keys, or use the buttons.
+            </div>
+
+        </div>
+    `);
+
+    let board=Array(16).fill(0);
+    let score=0;
+    let locked=false;
+
+    const grid=$('#g');
+
+    function addTile(){
+
+        const empty=[];
+
+        board.forEach(
+            (value,index)=>{
+                if(!value){
+                    empty.push(index);
+                }
+            }
+        );
+
+        if(!empty.length){
+            return false;
+        }
+
+        const index=
+            empty[
+                Math.floor(
+                    Math.random()*empty.length
+                )
+            ];
+
+        board[index]=
+            Math.random()<.9 ? 2 : 4;
+
+        return true;
+    }
+
+    function draw(){
+
+        grid.innerHTML=
+            board.map(
+                value=>
+                    `<div class="cell">${
+                        value || ''
+                    }</div>`
+            ).join('');
+
+        $('#score').textContent=score;
+    }
+
+    function slideLine(line){
+
+        const values=
+            line.filter(Boolean);
+
+        const result=[];
+
+        for(let i=0;i<values.length;i++){
+
+            if(
+                values[i] ===
+                values[i+1]
+            ){
+
+                const merged=
+                    values[i]*2;
+
+                score+=merged;
+
+                result.push(merged);
+
+                i++;
+
+            }else{
+
+                result.push(values[i]);
+
+            }
+        }
+
+        while(result.length<4){
+            result.push(0);
+        }
+
+        return result;
+    }
+
+    function getLine(index,vertical){
+
+        const line=[];
+
+        for(let i=0;i<4;i++){
+
+            line.push(
+                vertical
+                    ? board[i*4+index]
+                    : board[index*4+i]
+            );
+        }
+
+        return line;
+    }
+
+    function setLine(index,line,vertical){
+
+        for(let i=0;i<4;i++){
+
+            if(vertical){
+                board[i*4+index]=line[i];
+            }else{
+                board[index*4+i]=line[i];
+            }
+        }
+    }
+
+    function move(direction){
+
+        if(locked){
+            return;
+        }
+
+        let changed=false;
+
+        const vertical=
+            direction==='U' ||
+            direction==='D';
+
+        for(let i=0;i<4;i++){
+
+            let line=
+                getLine(i,vertical);
+
+            const original=
+                line.join(',');
+
+            if(
+                direction==='R' ||
+                direction==='D'
+            ){
+                line.reverse();
+            }
+
+            line=slideLine(line);
+
+            if(
+                direction==='R' ||
+                direction==='D'
+            ){
+                line.reverse();
+            }
+
+            if(
+                line.join(',') !== original
+            ){
+                changed=true;
+            }
+
+            setLine(
+                i,
+                line,
+                vertical
+            );
+        }
+
+        if(changed){
+
+            addTile();
+            draw();
+
+            if(!canMove()){
+
+                locked=true;
+
+                T(()=>{
+                    alert(
+                        'Game over! Final score: '+score
+                    );
+                },50);
+            }
+        }
+    }
+
+    function canMove(){
+
+        if(board.some(v=>!v)){
+            return true;
+        }
+
+        for(let r=0;r<4;r++){
+
+            for(let c=0;c<4;c++){
+
+                const i=r*4+c;
+
+                if(
+                    c<3 &&
+                    board[i]===board[i+1]
+                ){
+                    return true;
+                }
+
+                if(
+                    r<3 &&
+                    board[i]===board[i+4]
+                ){
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    function key(e){
+
+        const map={
+            ArrowLeft:'L',
+            ArrowRight:'R',
+            ArrowUp:'U',
+            ArrowDown:'D'
+        };
+
+        if(!map[e.key]){
+            return;
+        }
+
+        e.preventDefault();
+
+        move(map[e.key]);
+    }
+
+    document.addEventListener(
+        'keydown',
+        key
+    );
+
+    addCleanup(()=>{
+        document.removeEventListener(
+            'keydown',
+            key
+        );
+    });
+
+    $('#left').onclick=()=>move('L');
+    $('#right').onclick=()=>move('R');
+    $('#up').onclick=()=>move('U');
+    $('#down').onclick=()=>move('D');
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        game2048();
+    };
+
+    addTile();
+    addTile();
+    draw();
+}
+
+
+/* ---------------- MEMORY ---------------- */
+
+function memory(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🧠 Memory Match
+            </div>
+
+            <div class="score">
+                Matches:
+                <b id="ms">0</b>
+            </div>
+
+            <div
+                id="mg"
+                class="grid grid4">
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    const values=[
+        '🍎','🍎',
+        '🍋','🍋',
+        '🍒','🍒',
+        '⭐','⭐',
+        '🐶','🐶',
+        '🐱','🐱',
+        '🚗','🚗',
+        '⚽','⚽'
+    ].sort(
+        ()=>Math.random()-.5
+    );
+
+    let open=[];
+    let matched=[];
+    let matches=0;
+    let busy=false;
+
+    function draw(){
+
+        $('#mg').innerHTML=
+            values.map(
+                (value,index)=>{
+
+                    const visible=
+                        open.includes(index) ||
+                        matched.includes(index);
+
+                    return `
+                        <button
+                            class="cell ${
+                                visible ? 'on' : ''
+                            }"
+                            data-i="${index}">
+                            ${visible ? value : '?'}
+                        </button>
+                    `;
+                }
+            ).join('');
+
+        $('#mg')
+            .querySelectorAll('button')
+            .forEach(button=>{
+
+                button.onclick=()=>{
+                    pick(
+                        Number(
+                            button.dataset.i
+                        )
+                    );
+                };
+            });
+    }
+
+    function pick(index){
+
+        if(
+            busy ||
+            open.includes(index) ||
+            matched.includes(index)
+        ){
+            return;
+        }
+
+        open.push(index);
+
+        draw();
+
+        if(open.length!==2){
+            return;
+        }
+
+        busy=true;
+
+        if(
+            values[open[0]]===
+            values[open[1]]
+        ){
+
+            matched.push(
+                ...open
+            );
+
+            matches++;
+
+            $('#ms').textContent=matches;
+
+            T(()=>{
+                open=[];
+                busy=false;
+                draw();
+            },400);
+
+        }else{
+
+            T(()=>{
+                open=[];
+                busy=false;
+                draw();
+            },700);
+        }
+    }
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        memory();
+    };
+
+    draw();
+}
+
+
+/* ==========================================================
+   BOARD GAMES
+========================================================== */
+
+
+/* ---------------- TIC TAC TOE VS COMPUTER ---------------- */
+
+function ttt(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                ⭕ Tic-Tac-Toe vs Computer
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Your turn — you are X
+            </div>
+
+            <div
+                class="ttt"
+                id="b">
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    let board=Array(9).fill('');
+    let gameOver=false;
+    let thinking=false;
+
+    function draw(){
+
+        $('#b').innerHTML=
+            board.map(
+                (value,index)=>
+                    `<button
+                        data-i="${index}">
+                        ${value}
+                    </button>`
+            ).join('');
+
+        $('#b')
+            .querySelectorAll('button')
+            .forEach(button=>{
+                button.onclick=()=>{
+                    play(
+                        Number(
+                            button.dataset.i
+                        )
+                    );
+                };
+            });
+    }
+
+    function winner(b=board){
+
+        const wins=[
+            [0,1,2],
+            [3,4,5],
+            [6,7,8],
+            [0,3,6],
+            [1,4,7],
+            [2,5,8],
+            [0,4,8],
+            [2,4,6]
+        ];
+
+        return wins.find(
+            ([a,c,d])=>
+                b[a] &&
+                b[a]===b[c] &&
+                b[c]===b[d]
+        );
+    }
+
+    function available(){
+
+        return board
+            .map(
+                (value,index)=>
+                    value ? null : index
+            )
+            .filter(
+                index=>index!==null
+            );
+    }
+
+    function computerMove(){
+
+        const choices=available();
+
+        if(!choices.length){
+            return;
+        }
+
+        let move=null;
+
+        /* Try to win */
+
+        for(const index of choices){
+
+            board[index]='O';
+
+            if(winner()){
+
+                move=index;
+
+                board[index]='';
+
+                break;
+            }
+
+            board[index]='';
+        }
+
+        /* Block player */
+
+        if(move===null){
+
+            for(const index of choices){
+
+                board[index]='X';
+
+                if(winner()){
+
+                    move=index;
+
+                    board[index]='';
+
+                    break;
+                }
+
+                board[index]='';
+            }
+        }
+
+        /* Center */
+
+        if(
+            move===null &&
+            board[4]===''
+        ){
+            move=4;
+        }
+
+        /* Corners */
+
+        if(move===null){
+
+            const corners=
+                [0,2,6,8]
+                .filter(
+                    i=>board[i]===''
+                );
+
+            if(corners.length){
+
+                move=
+                    corners[
+                        Math.floor(
+                            Math.random()*
+                            corners.length
+                        )
+                    ];
+            }
+        }
+
+        /* Any open square */
+
+        if(move===null){
+
+            move=
+                choices[
+                    Math.floor(
+                        Math.random()*
+                        choices.length
+                    )
+                ];
+        }
+
+        board[move]='O';
+
+        draw();
+
+        const win=winner();
+
+        if(win){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🤖 Computer wins!';
+
+            return;
+        }
+
+        if(board.every(Boolean)){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🤝 Draw!';
+
+            return;
+        }
+
+        thinking=false;
+
+        $('#m').textContent=
+            'Your turn — you are X';
+    }
+
+    function play(index){
+
+        if(
+            gameOver ||
+            thinking ||
+            board[index]
+        ){
+            return;
+        }
+
+        board[index]='X';
+
+        draw();
+
+        if(winner()){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🏆 You win!';
+
+            return;
+        }
+
+        if(board.every(Boolean)){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🤝 Draw!';
+
+            return;
+        }
+
+        thinking=true;
+
+        $('#m').textContent=
+            '🤖 Computer is thinking...';
+
+        T(
+            computerMove,
+            350
+        );
+    }
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        ttt();
+    };
+
+    draw();
+}
+
+
+/* ---------------- CONNECT FOUR VS COMPUTER ---------------- */
+
+function connect(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🔴 Connect Four vs Computer
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Your turn — Red
+            </div>
+
+            <div
+                class="connect"
+                id="b">
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    let board=
+        Array.from(
+            {length:6},
+            ()=>Array(7).fill('')
+        );
+
+    let gameOver=false;
+    let thinking=false;
+
+    function draw(){
+
+        $('#b').innerHTML=
+            board.flat().map(
+                (value,index)=>{
+
+                    let bg='#080808';
+
+                    if(value==='R'){
+                        bg='#e33';
+                    }
+
+                    if(value==='Y'){
+                        bg='#ffd21f';
+                    }
+
+                    return `
+                        <button
+                            class="disc"
+                            data-i="${index}"
+                            style="background:${bg}">
+                        </button>
+                    `;
+                }
+            ).join('');
+
+        $('#b')
+            .querySelectorAll('button')
+            .forEach(button=>{
+                button.onclick=()=>{
+                    drop(
+                        Number(
+                            button.dataset.i
+                        )%7
+                    );
+                };
+            });
+    }
+
+    function check(r,c){
+
+        const value=board[r][c];
+
+        const directions=[
+            [1,0],
+            [0,1],
+            [1,1],
+            [1,-1]
+        ];
+
+        return directions.some(
+            ([dr,dc])=>{
+
+                let count=1;
+
+                for(
+                    let i=1;
+                    i<4;
+                    i++
+                ){
+
+                    if(
+                        board[r+dr*i]?.[c+dc*i]
+                        ===value
+                    ){
+                        count++;
+                    }else{
+                        break;
+                    }
+                }
+
+                for(
+                    let i=1;
+                    i<4;
+                    i++
+                ){
+
+                    if(
+                        board[r-dr*i]?.[c-dc*i]
+                        ===value
+                    ){
+                        count++;
+                    }else{
+                        break;
+                    }
+                }
+
+                return count>=4;
+            }
+        );
+    }
+
+    function availableColumns(){
+
+        return Array.from(
+            {length:7},
+            (_,c)=>c
+        ).filter(
+            c=>!board[0][c]
+        );
+    }
+
+    function place(column,value){
+
+        for(let r=5;r>=0;r--){
+
+            if(!board[r][column]){
+
+                board[r][column]=value;
+
+                return r;
+            }
+        }
+
+        return -1;
+    }
+
+    function computerMove(){
+
+        const columns=
+            availableColumns();
+
+        if(!columns.length){
+            gameOver=true;
+            $('#m').textContent='🤝 Draw!';
+            return;
+        }
+
+        let choice=null;
+
+        /* Try winning move */
+
+        for(const col of columns){
+
+            const row=place(col,'Y');
+
+            if(check(row,col)){
+
+                choice=col;
+
+                board[row][col]='';
+
+                break;
+            }
+
+            board[row][col]='';
+        }
+
+        /* Block player */
+
+        if(choice===null){
+
+            for(const col of columns){
+
+                const row=place(col,'R');
+
+                if(check(row,col)){
+
+                    choice=col;
+
+                    board[row][col]='';
+
+                    break;
+                }
+
+                board[row][col]='';
+            }
+        }
+
+        /* Center preference */
+
+        if(
+            choice===null &&
+            columns.includes(3)
+        ){
+            choice=3;
+        }
+
+        if(choice===null){
+
+            choice=
+                columns[
+                    Math.floor(
+                        Math.random()*
+                        columns.length
+                    )
+                ];
+        }
+
+        const row=
+            place(choice,'Y');
+
+        draw();
+
+        if(check(row,choice)){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🤖 Computer wins!';
+
+            return;
+        }
+
+        if(!availableColumns().length){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🤝 Draw!';
+
+            return;
+        }
+
+        thinking=false;
+
+        $('#m').textContent=
+            'Your turn — Red';
+    }
+
+    function drop(column){
+
+        if(
+            gameOver ||
+            thinking ||
+            board[0][column]
+        ){
+            return;
+        }
+
+        const row=
+            place(column,'R');
+
+        draw();
+
+        if(check(row,column)){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🏆 You win!';
+
+            return;
+        }
+
+        if(!availableColumns().length){
+
+            gameOver=true;
+
+            $('#m').textContent=
+                '🤝 Draw!';
+
+            return;
+        }
+
+        thinking=true;
+
+        $('#m').textContent=
+            '🤖 Computer is thinking...';
+
+        T(
+            computerMove,
+            400
+        );
+    }
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        connect();
+    };
+
+    draw();
+}
+
+
+/* ---------------- CHECKERS ---------------- */
+
+function checkers(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🔴 Checkers
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Red: select a piece
+            </div>
+
+            <div
+                class="board"
+                id="b">
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    let board=
+        Array.from(
+            {length:8},
+            ()=>Array(8).fill('')
+        );
+
+    let selected=null;
+    let turn='r';
+
+    for(let r=0;r<3;r++){
+
+        for(let c=0;c<8;c++){
+
+            if((r+c)%2){
+                board[r][c]='b';
+            }
+        }
+    }
+
+    for(let r=5;r<8;r++){
+
+        for(let c=0;c<8;c++){
+
+            if((r+c)%2){
+                board[r][c]='r';
+            }
+        }
+    }
+
+    function draw(){
+
+        $('#b').innerHTML=
+            board.flat().map(
+                (value,index)=>{
+
+                    const r=
+                        Math.floor(index/8);
+
+                    const c=
+                        index%8;
+
+                    const dark=
+                        (r+c)%2;
+
+                    return `
+                        <div
+                            class="sq ${
+                                dark
+                                ? 'dark'
+                                : 'light'
+                            } ${
+                                selected===index
+                                ? 'selected'
+                                : ''
+                            }"
+                            data-i="${index}">
+                            ${
+                                value==='r'
+                                ? '🔴'
+                                : value==='b'
+                                ? '⚫'
+                                : ''
+                            }
+                        </div>
+                    `;
+                }
+            ).join('');
+
+        $('#b')
+            .querySelectorAll('.sq')
+            .forEach(square=>{
+                square.onclick=()=>{
+                    clickSquare(
+                        Number(
+                            square.dataset.i
+                        )
+                    );
+                };
+            });
+    }
+
+    function clickSquare(index){
+
+        const r=
+            Math.floor(index/8);
+
+        const c=
+            index%8;
+
+        if(selected===null){
+
+            if(board[r][c]===turn){
+
+                selected=index;
+
+                $('#m').textContent=
+                    'Select a destination square.';
+            }
+
+            draw();
+
+            return;
+        }
+
+        const sr=
+            Math.floor(selected/8);
+
+        const sc=
+            selected%8;
+
+        const dr=
+            r-sr;
+
+        const dc=
+            c-sc;
+
+        if(
+            !board[r][c] &&
+            Math.abs(dr)===1 &&
+            Math.abs(dc)===1
+        ){
+
+            board[r][c]=
+                board[sr][sc];
+
+            board[sr][sc]='';
+
+            turn=
+                turn==='r'
+                ? 'b'
+                : 'r';
+
+            $('#m').textContent=
+                turn==='r'
+                ? 'Red: select a piece'
+                : 'Black: select a piece';
+        }
+
+        selected=null;
+
+        draw();
+    }
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        checkers();
+    };
+
+    draw();
+}
+
+
+/* ---------------- CHESS ---------------- */
+
+function chess(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                ♟️ Chess
+            </div>
+
+            <div class="message">
+                Local two-player board.
+                Tap a piece, then a square.
+            </div>
+
+            <div
+                class="board"
+                id="b">
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    const rows=[
+        '♜♞♝♛♚♝♞♜',
+        '♟♟♟♟♟♟♟♟',
+        '',
+        '',
+        '',
+        '',
+        '♙♙♙♙♙♙♙♙',
+        '♖♘♗♕♔♗♘♖'
+    ];
+
+    let board=
+        Array.from(
+            {length:8},
+            ()=>Array(8).fill('')
+        );
+
+    rows.forEach(
+        (row,r)=>{
+            [...row].forEach(
+                (piece,c)=>{
+                    board[r][c]=piece;
+                }
+            );
+        }
+    );
+
+    let selected=null;
+
+    function draw(){
+
+        $('#b').innerHTML=
+            board.flat().map(
+                (value,index)=>{
+
+                    const r=
+                        Math.floor(index/8);
+
+                    return `
+                        <div
+                            class="sq ${
+                                (r+index)%2
+                                ? 'dark'
+                                : 'light'
+                            } ${
+                                selected===index
+                                ? 'selected'
+                                : ''
+                            }"
+                            data-i="${index}">
+                            ${value}
+                        </div>
+                    `;
+                }
+            ).join('');
+
+        $('#b')
+            .querySelectorAll('.sq')
+            .forEach(square=>{
+                square.onclick=()=>{
+                    clickSquare(
+                        Number(
+                            square.dataset.i
+                        )
+                    );
+                };
+            });
+    }
+
+    function clickSquare(index){
+
+        const r=
+            Math.floor(index/8);
+
+        const c=
+            index%8;
+
+        if(selected===null){
+
+            if(board[r][c]){
+
+                selected=index;
+            }
+
+        }else{
+
+            const sr=
+                Math.floor(selected/8);
+
+            const sc=
+                selected%8;
+
+            board[r][c]=
+                board[sr][sc];
+
+            board[sr][sc]='';
+
+            selected=null;
+        }
+
+        draw();
+    }
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        chess();
+    };
+
+    draw();
+}
+
+
+/* ---------------- MONOPOLY ---------------- */
+
+function monopoly(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🎩 Monopoly
+            </div>
+
+            <div class="score">
+                Position:
+                <b id="p">GO</b>
+                · Cash:
+                $<b id="cash">1500</b>
+            </div>
+
+            <div class="card">
+
+                <div
+                    class="dice"
+                    id="d">
+                    🎲
+                </div>
+
+                <p id="m">
+                    Roll the dice.
+                </p>
+
+                <button
+                    id="roll"
+                    class="bigbtn">
+                    ROLL
+                </button>
+
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    let pos=0;
+    let cash=1500;
+
+    const names=[
+        'GO',
+        'Mediterranean',
+        'Baltic',
+        'Reading Railroad',
+        'Oriental',
+        'Vermont',
+        'Jail',
+        'St. James',
+        'Tennessee',
+        'New York',
+        'Free Parking',
+        'Kentucky',
+        'Indiana',
+        'Illinois',
+        'B&O Railroad',
+        'Atlantic',
+        'Ventnor',
+        'Water Works',
+        'Marvin Gardens',
+        'Go To Jail'
+    ];
+
+    $('#roll').onclick=()=>{
+
+        const d1=
+            Math.ceil(Math.random()*6);
+
+        const d2=
+            Math.ceil(Math.random()*6);
+
+        const total=d1+d2;
+
+        const oldPos=pos;
+
+        pos=
+            (pos+total)%
+            names.length;
+
+        if(
+            oldPos+total >=
+            names.length
+        ){
+            cash+=200;
+        }
+
+        if(
+            [2,5,8,11,15,18]
+            .includes(pos)
+        ){
+            cash-=100;
+        }
+
+        $('#p').textContent=
+            names[pos];
+
+        $('#cash').textContent=
+            cash;
+
+        $('#d').textContent=
+            '🎲 '+total;
+
+        $('#m').textContent=
+            'You moved '+total+' spaces.';
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        monopoly();
+    };
+}
+
+
+/* ---------------- BATTLESHIP ---------------- */
+
+function battleship(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🚢 Battleship
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Find 5 hidden ships in 20 shots.
+            </div>
+
+            <div
+                id="g"
+                class="grid grid4">
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    const ships=new Set();
+
+    while(ships.size<5){
+
+        ships.add(
+            Math.floor(
+                Math.random()*16
+            )
+        );
+    }
+
+    let shots=0;
+    let hits=0;
+
+    function draw(){
+
+        $('#g').innerHTML=
+            Array.from(
+                {length:16},
+                (_,i)=>
+                    `<button
+                        class="cell"
+                        data-i="${i}">
+                        🌊
+                    </button>`
+            ).join('');
+
+        $('#g')
+            .querySelectorAll('button')
+            .forEach(button=>{
+
+                button.onclick=()=>{
+
+                    const i=
+                        Number(
+                            button.dataset.i
+                        );
+
+                    if(button.disabled){
+                        return;
+                    }
+
+                    button.disabled=true;
+
+                    shots++;
+
+                    if(ships.has(i)){
+
+                        hits++;
+
+                        button.textContent='💥';
+
+                        button.classList.add('on');
+
+                    }else{
+
+                        button.textContent='❌';
+                    }
+
+                    if(hits===5){
+
+                        $('#m').textContent=
+                            '🏆 You sank the fleet!';
+
+                        return;
+                    }
+
+                    if(shots>=20){
+
+                        $('#m').textContent=
+                            'Game over — restart to play again.';
+
+                        return;
+                    }
+
+                    $('#m').textContent=
+                        `${hits}/5 ships found · ${
+                            20-shots
+                        } shots left`;
+                };
+            });
+    }
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        battleship();
+    };
+
+    draw();
+}
+
+
+/* ---------------- YAHTZEE ---------------- */
+
+function yahtzee(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🎲 Yahtzee
+            </div>
+
+            <div
+                class="dice"
+                id="d">
+                ⚀ ⚀ ⚀ ⚀ ⚀
+            </div>
+
+            <div class="score">
+                Score:
+                <b id="s">0</b>
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="roll"
+                    class="bigbtn">
+                    ROLL
+                </button>
+
+                <button id="restart">
+                    🔄 Restart
+                </button>
+
+            </div>
+
+        </div>
+    `);
+
+    let score=0;
+    let rolls=0;
+
+    $('#roll').onclick=()=>{
+
+        const dice=
+            Array.from(
+                {length:5},
+                ()=>1+Math.floor(
+                    Math.random()*6
+                )
+            );
+
+        const faces=[
+            '',
+            '⚀',
+            '⚁',
+            '⚂',
+            '⚃',
+            '⚄',
+            '⚅'
+        ];
+
+        $('#d').textContent=
+            dice
+            .map(
+                value=>faces[value]
+            )
+            .join(' ');
+
+        rolls++;
+
+        const counts={};
+
+        dice.forEach(
+            value=>{
+                counts[value]=
+                    (counts[value]||0)+1;
+            }
+        );
+
+        if(
+            Object.values(counts)
+                .includes(5)
+        ){
+            score+=50;
+        }else{
+            score+=dice.reduce(
+                (a,b)=>a+b,
+                0
+            );
+        }
+
+        $('#s').textContent=score;
+
+        if(rolls>=10){
+
+            $('#roll').disabled=true;
+        }
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        yahtzee();
+    };
+}
+
+
+/* ---------------- LUDO ---------------- */
+
+function ludo(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🟢 Ludo
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Race 4 tokens to the finish.
+            </div>
+
+            <div class="card">
+
+                <div>
+                    Token positions:
+                    <b id="p">
+                        0, 0, 0, 0
+                    </b>
+                </div>
+
+                <div
+                    class="dice"
+                    id="d">
+                    🎲
+                </div>
+
+                <button
+                    id="roll"
+                    class="bigbtn">
+                    ROLL
+                </button>
+
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    let positions=[
+        0,0,0,0
+    ];
+
+    $('#roll').onclick=()=>{
+
+        const dice=
+            1+Math.floor(
+                Math.random()*6
+            );
+
+        const token=
+            Math.floor(
+                Math.random()*4
+            );
+
+        positions[token]=
+            Math.min(
+                50,
+                positions[token]+dice
+            );
+
+        $('#d').textContent=
+            '🎲 '+dice;
+
+        $('#p').textContent=
+            positions.join(', ');
+
+        if(
+            positions.every(
+                value=>value>=50
+            )
+        ){
+
+            $('#m').textContent=
+                '🏆 You won!';
+        }
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        ludo();
+    };
+}
+
+
+/* ==========================================================
+   SPORTS
+========================================================== */
+
+
+/* ---------------- BASKETBALL ---------------- */
+
+function basketball(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🏀 Basketball
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Tap SHOOT when the ball reaches the hoop.
+            </div>
+
+            <div
+                class="playfield"
+                id="f">
+
+                <div
+                    id="ball"
+                    style="
+                        position:absolute;
+                        left:30px;
+                        bottom:30px;
+                        font-size:55px;">
+                    🏀
+                </div>
+
+                <div
+                    style="
+                        position:absolute;
+                        right:70px;
+                        top:80px;
+                        font-size:90px;">
+                    🏀
+                </div>
+
+            </div>
+
+            <div class="score">
+                Score:
+                <b id="s">0</b>
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="shoot"
+                    class="bigbtn">
+                    SHOOT
+                </button>
+
+                <button id="restart">
+                    🔄 Restart
+                </button>
+
+            </div>
+
+        </div>
+    `);
+
+    let score=0;
+    let x=30;
+    let direction=1;
+
+    I(()=>{
+
+        x+=direction*4;
+
+        if(
+            x>560 ||
+            x<20
+        ){
+            direction*=-1;
+        }
+
+        $('#ball').style.left=
+            x+'px';
+
+    },30);
+
+    $('#shoot').onclick=()=>{
+
+        if(x>470){
+
+            score++;
+
+            $('#s').textContent=score;
+
+            $('#m').textContent=
+                '🏀 Swish!';
+
+        }else{
+
+            $('#m').textContent=
+                'Miss! Wait for the ball.';
+        }
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        basketball();
+    };
+}
+
+
+/* ---------------- FOOTBALL ---------------- */
+
+function football(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🏈 Football
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Tap PASS when the receiver is open.
+            </div>
+
+            <div
+                class="playfield">
+
+                <div
+                    id="q"
+                    style="
+                        position:absolute;
+                        left:20px;
+                        top:200px;
+                        font-size:50px;">
+                    🏈
+                </div>
+
+                <div
+                    id="r"
+                    style="
+                        position:absolute;
+                        left:520px;
+                        top:80px;
+                        font-size:45px;">
+                    🏃
+                </div>
+
+            </div>
+
+            <div class="score">
+                TDs:
+                <b id="s">0</b>
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="pass"
+                    class="bigbtn">
+                    PASS
+                </button>
+
+                <button id="restart">
+                    🔄 Restart
+                </button>
+
+            </div>
+
+        </div>
+    `);
+
+    let score=0;
+    let y=80;
+    let direction=1;
+
+    I(()=>{
+
+        y+=direction*3;
+
+        if(
+            y>330 ||
+            y<30
+        ){
+            direction*=-1;
+        }
+
+        $('#r').style.top=
+            y+'px';
+
+    },30);
+
+    $('#pass').onclick=()=>{
+
+        if(y>160 && y<260){
+
+            score++;
+
+            $('#s').textContent=score;
+
+            $('#m').textContent=
+                '🏈 TOUCHDOWN!';
+
+        }else{
+
+            $('#m').textContent=
+                'Incomplete pass.';
+        }
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        football();
+    };
+}
+
+
+/* ---------------- SOCCER ---------------- */
+
+function soccer(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                ⚽ Soccer
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Shoot when the keeper moves away.
+            </div>
+
+            <div class="playfield">
+
+                <div
+                    style="
+                        position:absolute;
+                        right:20px;
+                        top:100px;
+                        width:110px;
+                        height:250px;
+                        border:8px solid #fff;">
+                </div>
+
+                <div
+                    style="
+                        position:absolute;
+                        left:40px;
+                        top:200px;
+                        font-size:45px;">
+                    ⚽
+                </div>
+
+                <div
+                    id="keeper"
+                    style="
+                        position:absolute;
+                        right:75px;
+                        top:160px;
+                        font-size:45px;">
+                    🧍
+                </div>
+
+            </div>
+
+            <div class="score">
+                Goals:
+                <b id="s">0</b>
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="shoot"
+                    class="bigbtn">
+                    SHOOT
+                </button>
+
+                <button id="restart">
+                    🔄 Restart
+                </button>
+
+            </div>
+
+        </div>
+    `);
+
+    let score=0;
+    let y=160;
+    let direction=1;
+
+    I(()=>{
+
+        y+=direction*4;
+
+        if(
+            y>330 ||
+            y<60
+        ){
+            direction*=-1;
+        }
+
+        $('#keeper').style.top=
+            y+'px';
+
+    },30);
+
+    $('#shoot').onclick=()=>{
+
+        if(
+            y<140 ||
+            y>290
+        ){
+
+            score++;
+
+            $('#s').textContent=score;
+
+            $('#m').textContent=
+                '⚽ GOAL!';
+
+        }else{
+
+            $('#m').textContent=
+                'Saved!';
+        }
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        soccer();
+    };
+}
+
+
+/* ---------------- BOWLING ---------------- */
+
+function bowling(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🎳 Bowling
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Roll and try to knock down 10 pins.
+            </div>
+
+            <div class="playfield">
+
+                <div
+                    style="
+                        text-align:center;
+                        font-size:90px;
+                        padding-top:40px;">
+                    🎳
+                </div>
+
+                <div
+                    id="pins"
+                    style="
+                        text-align:center;
+                        font-size:50px;">
+                    🎳 🎳 🎳 🎳 🎳
+                </div>
+
+            </div>
+
+            <div class="score">
+                Score:
+                <b id="s">0</b>
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="roll"
+                    class="bigbtn">
+                    ROLL
+                </button>
+
+                <button id="restart">
+                    🔄 Restart
+                </button>
+
+            </div>
+
+        </div>
+    `);
+
+    let score=0;
+
+    $('#roll').onclick=()=>{
+
+        const knocked=
+            Math.floor(
+                Math.random()*11
+            );
+
+        score+=knocked;
+
+        $('#s').textContent=score;
+
+        $('#m').textContent=
+            knocked===10
+            ? '🎳 STRIKE!'
+            : `${knocked} pins down.`;
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        bowling();
+    };
+}
+
+
+/* ---------------- CRICKET ---------------- */
+
+function cricket(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🏏 Cricket
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Tap HIT as the ball approaches.
+            </div>
+
+            <div class="playfield">
+
+                <div
+                    id="ball"
+                    style="
+                        position:absolute;
+                        left:30px;
+                        top:200px;
+                        font-size:35px;">
+                    🔴
+                </div>
+
+                <div
+                    style="
+                        position:absolute;
+                        right:50px;
+                        top:180px;
+                        font-size:70px;">
+                    🏏
+                </div>
+
+            </div>
+
+            <div class="score">
+                Runs:
+                <b id="s">0</b>
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="hit"
+                    class="bigbtn">
+                    HIT
+                </button>
+
+                <button id="restart">
+                    🔄 Restart
+                </button>
+
+            </div>
+
+        </div>
+    `);
+
+    let x=30;
+    let direction=1;
+    let runs=0;
+
+    I(()=>{
+
+        x+=direction*6;
+
+        if(
+            x>570 ||
+            x<20
+        ){
+            direction*=-1;
+        }
+
+        $('#ball').style.left=
+            x+'px';
+
+    },30);
+
+    $('#hit').onclick=()=>{
+
+        if(x>500){
+
+            const amount=
+                1+
+                Math.floor(
+                    Math.random()*6
+                );
+
+            runs+=amount;
+
+            $('#s').textContent=runs;
+
+            $('#m').textContent=
+                `🏏 ${amount} runs!`;
+
+        }else{
+
+            $('#m').textContent=
+                'Miss!';
+        }
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        cricket();
+    };
+}
+
+
+/* ==========================================================
+   SHOOTING
+========================================================== */
+
+
+/* ---------------- TARGET SHOOTER ---------------- */
+
+function targetShooter(){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                🎯 Target Shooter
+            </div>
+
+            <div class="score">
+                Hits:
+                <b id="s">0</b>
+            </div>
+
+            <div
+                class="playfield"
+                id="f">
+            </div>
+
+            <div class="controls">
+                <button id="restart">
+                    🔄 Restart
+                </button>
+            </div>
+
+        </div>
+    `);
+
+    let score=0;
+
+    function spawn(){
+
+        const field=$('#f');
+
+        if(!field){
+            return;
+        }
+
+        const target=
+            document.createElement('button');
+
+        target.className='target';
+
+        target.style.left=
+            Math.random()*85+'%';
+
+        target.style.top=
+            Math.random()*80+'%';
+
+        target.textContent='';
+
+        target.onclick=()=>{
+
+            score++;
+
+            $('#s').textContent=score;
+
+            target.remove();
+
+            spawn();
+        };
+
+        field.appendChild(target);
+    }
+
+    spawn();
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        targetShooter();
+    };
+}
+
+
+/* ---------------- ALIEN BLASTER ---------------- */
+
+function alienBlaster(){
+
+    canvasGame(
+        '👽 Alien Blaster',
+        'Move and shoot aliens.',
+        (c,ctx)=>{
+
+            let px=350;
+            let shots=[];
+            let enemies=[];
+            let score=0;
+
+            for(let i=0;i<10;i++){
+
+                enemies.push({
+                    x:50+i*65,
+                    y:60,
+                    on:true
+                });
+            }
+
+            function fire(){
+
+                shots.push({
+                    x:px,
+                    y:420
+                });
+            }
+
+            c.addEventListener(
+                'pointermove',
+                e=>{
+
+                    const rect=
+                        c.getBoundingClientRect();
+
+                    px=
+                        ((e.clientX-rect.left)/
+                        rect.width)*700;
+
+                    px=Math.max(
+                        25,
+                        Math.min(675,px)
+                    );
+                }
+            );
+
+            c.addEventListener(
+                'pointerdown',
+                fire
+            );
+
+            function key(e){
+
+                if(e.key==='ArrowLeft'){
+                    e.preventDefault();
+                    px-=25;
+                }
+
+                if(e.key==='ArrowRight'){
+                    e.preventDefault();
+                    px+=25;
+                }
+
+                if(e.code==='Space'){
+                    e.preventDefault();
+                    fire();
+                }
+
+                px=Math.max(
+                    25,
+                    Math.min(675,px)
+                );
+            }
+
+            document.addEventListener(
+                'keydown',
+                key
+            );
+
+            addCleanup(()=>{
+                document.removeEventListener(
+                    'keydown',
+                    key
+                );
+            });
+
+            function loop(){
+
+                shots.forEach(
+                    shot=>shot.y-=8
+                );
+
+                shots=
+                    shots.filter(
+                        shot=>shot.y>-20
+                    );
+
+                enemies.forEach(enemy=>{
+
+                    if(!enemy.on){
+                        return;
+                    }
+
+                    shots.forEach(shot=>{
+
+                        if(
+                            Math.abs(
+                                shot.x-enemy.x
+                            )<25 &&
+                            Math.abs(
+                                shot.y-enemy.y
+                            )<20
+                        ){
+
+                            enemy.on=false;
+                            shot.y=-999;
+
+                            score++;
+                        }
+                    });
+                });
+
+                ctx.fillStyle='#050505';
+
+                ctx.fillRect(
+                    0,
+                    0,
+                    700,
+                    450
+                );
+
+                ctx.fillStyle='#39d98a';
+
+                ctx.fillRect(
+                    px-25,
+                    420,
+                    50,
+                    14
+                );
+
+                ctx.fillStyle='#e33';
+
+                enemies.forEach(enemy=>{
+
+                    if(enemy.on){
+
+                        ctx.fillRect(
+                            enemy.x-18,
+                            enemy.y-12,
+                            36,
+                            24
+                        );
+                    }
+                });
+
+                ctx.fillStyle='#fff';
+
+                shots.forEach(shot=>{
+
+                    ctx.fillRect(
+                        shot.x,
+                        shot.y,
+                        4,
+                        12
+                    );
+                });
+
+                ctx.font='22px Arial';
+
+                ctx.fillText(
+                    'Score '+score,
+                    20,
+                    30
+                );
+
+                F(loop);
+            }
+
+            F(loop);
+        }
+    );
+}
+
+
+/* ---------------- SPACE FIGHTER ---------------- */
+
+function spaceFighter(){
+
+    canvasGame(
+        '🚀 Space Fighter',
+        'Move with arrows and shoot incoming enemies.',
+        (c,ctx)=>{
+
+            let px=350;
+            let shots=[];
+            let enemies=[];
+            let score=0;
+
+            function fire(){
+
+                shots.push({
+                    x:px,
+                    y:420
+                });
+            }
+
+            function key(e){
+
+                if(e.key==='ArrowLeft'){
+                    e.preventDefault();
+                    px-=25;
+                }
+
+                if(e.key==='ArrowRight'){
+                    e.preventDefault();
+                    px+=25;
+                }
+
+                if(e.code==='Space'){
+                    e.preventDefault();
+                    fire();
+                }
+
+                px=Math.max(
+                    20,
+                    Math.min(680,px)
+                );
+            }
+
+            document.addEventListener(
+                'keydown',
+                key
+            );
+
+            c.addEventListener(
+                'pointerdown',
+                fire
+            );
+
+            addCleanup(()=>{
+                document.removeEventListener(
+                    'keydown',
+                    key
+                );
+            });
+
+            I(()=>{
+
+                enemies.push({
+                    x:Math.random()*680,
+                    y:0,
+                    dead:false
+                });
+
+            },700);
+
+            function loop(){
+
+                shots.forEach(
+                    shot=>shot.y-=8
+                );
+
+                enemies.forEach(
+                    enemy=>{
+                        enemy.y+=2;
+                    }
+                );
+
+                shots.forEach(shot=>{
+
+                    enemies.forEach(enemy=>{
+
+                        if(
+                            !enemy.dead &&
+                            Math.abs(
+                                shot.x-enemy.x
+                            )<22 &&
+                            Math.abs(
+                                shot.y-enemy.y
+                            )<22
+                        ){
+
+                            enemy.dead=true;
+                            shot.y=-999;
+
+                            score++;
+                        }
+                    });
+                });
+
+                enemies=
+                    enemies.filter(
+                        enemy=>
+                            !enemy.dead &&
+                            enemy.y<470
+                    );
+
+                ctx.fillStyle='#050505';
+
+                ctx.fillRect(
+                    0,
+                    0,
+                    700,
+                    450
+                );
+
+                ctx.fillStyle='#fff';
+
+                ctx.fillRect(
+                    px-20,
+                    420,
+                    40,
+                    16
+                );
+
+                ctx.fillStyle='#e33';
+
+                enemies.forEach(enemy=>{
+
+                    ctx.beginPath();
+
+                    ctx.arc(
+                        enemy.x,
+                        enemy.y,
+                        16,
+                        0,
+                        Math.PI*2
+                    );
+
+                    ctx.fill();
+                });
+
+                shots.forEach(shot=>{
+
+                    ctx.fillRect(
+                        shot.x,
+                        shot.y,
+                        4,
+                        12
+                    );
+                });
+
+                ctx.fillStyle='#fff';
+
+                ctx.font='22px Arial';
+
+                ctx.fillText(
+                    'Score '+score,
+                    20,
+                    30
+                );
+
+                F(loop);
+            }
+
+            F(loop);
+        }
+    );
+}
+
+
+/* ---------------- ZOMBIE BLASTER ---------------- */
+
+function zombieBlaster(){
+
+    canvasGame(
+        '🧟 Zombie Blaster',
+        'Tap/click zombies before they reach you.',
+        (c,ctx)=>{
+
+            let zombies=[];
+            let score=0;
+
+            function spawn(){
+
+                zombies.push({
+                    x:Math.random()*680,
+                    y:Math.random()*400,
+                    radius:18,
+                    dead:false
+                });
+            }
+
+            I(spawn,700);
+
+            c.addEventListener(
+                'pointerdown',
+                e=>{
+
+                    const rect=
+                        c.getBoundingClientRect();
+
+                    const mx=
+                        ((e.clientX-rect.left)/
+                        rect.width)*700;
+
+                    const my=
+                        ((e.clientY-rect.top)/
+                        rect.height)*450;
+
+                    zombies.forEach(zombie=>{
+
+                        if(
+                            !zombie.dead &&
+                            Math.hypot(
+                                zombie.x-mx,
+                                zombie.y-my
+                            )<40
+                        ){
+
+                            zombie.dead=true;
+
+                            score++;
+                        }
+                    });
+                }
+            );
+
+            function loop(){
+
+                zombies.forEach(zombie=>{
+
+                    const dx=
+                        350-zombie.x;
+
+                    const dy=
+                        225-zombie.y;
+
+                    const distance=
+                        Math.hypot(dx,dy)||1;
+
+                    zombie.x +=
+                        (dx/distance)*.7;
+
+                    zombie.y +=
+                        (dy/distance)*.7;
+                });
+
+                zombies=
+                    zombies.filter(
+                        zombie=>
+                            !zombie.dead
+                    );
+
+                ctx.fillStyle='#050505';
+
+                ctx.fillRect(
+                    0,
+                    0,
+                    700,
+                    450
+                );
+
+                ctx.fillStyle='#7c3aed';
+
+                zombies.forEach(zombie=>{
+
+                    ctx.beginPath();
+
+                    ctx.arc(
+                        zombie.x,
+                        zombie.y,
+                        zombie.radius,
+                        0,
+                        Math.PI*2
+                    );
+
+                    ctx.fill();
+                });
+
+                ctx.fillStyle='#fff';
+
+                ctx.font='22px Arial';
+
+                ctx.fillText(
+                    'Score '+score,
+                    20,
+                    30
+                );
+
+                F(loop);
+            }
+
+            F(loop);
+        }
+    );
+}
+
+
+/* ==========================================================
+   FALLBACK
+========================================================== */
+
+function generic(name,icon){
+
+    ui(`
+        <div class="panel">
+
+            <div class="title">
+                ${icon} ${esc(name)}
+            </div>
+
+            <div
+                class="message"
+                id="m">
+                Tap PLAY to start.
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="play"
+                    class="bigbtn">
+                    ▶️ PLAY
+                </button>
+
+                <button id="restart">
+                    🔄 Restart
+                </button>
+
+            </div>
+
+        </div>
+    `);
+
+    let score=0;
+
+    $('#play').onclick=()=>{
+
+        score++;
+
+        $('#m').textContent=
+            'Playing! Score: '+score;
+    };
+
+    $('#restart').onclick=()=>{
+        clearGame();
+        generic(name,icon);
+    };
+}
+
+
+/* ==========================================================
+   GAME REGISTRY
+========================================================== */
+
+const games={
+
+    /* Arcade */
+
+    snake,
+    pong,
+    breakout,
+    tetris,
+    flappy,
+
+    space_invaders:
+        spaceInvaders,
+
+    asteroids,
+
+    pac_man:
+        pacman,
+
+    '2048':
+        game2048,
+
+    memory_match:
+        memory,
+
+    /* Board */
+
+    monopoly,
+    chess,
+    checkers,
+
+    connect_four:
+        connect,
+
+    tic_tac_toe:
+        ttt,
+
+    battleship,
+    yahtzee,
+    ludo,
+
+    /* Sports */
+
+    basketball,
+    football,
+    soccer,
+    bowling,
+    cricket,
+
+    /* Shooting */
+
+    alien_blaster:
+        alienBlaster,
+
+    space_fighter:
+        spaceFighter,
+
+    target_shooter:
+        targetShooter,
+
+    zombie_blaster:
+        zombieBlaster
+};
+
+
+/* ==========================================================
+   CURRENT GAME LAUNCHER
+========================================================== */
+
+function launchCurrentGame(){
+
+    clearGame();
+
+    ui(`
+        <div
+            class="panel"
+            style="
+                text-align:center;
+                padding:28px 16px;
+            ">
+
+            <div
+                style="
+                    font-size:64px;">
+                ${esc(GAME_ICON)}
+            </div>
+
+            <div
+                class="title"
+                style="
+                    font-size:28px;
+                    margin:10px 0;">
+                ${esc(GAME_NAME)}
+            </div>
+
+            <div
+                class="help"
+                style="
+                    margin:12px auto 22px;
+                    max-width:600px;">
+                ${esc(GAME_DESCRIPTION)}
+            </div>
+
+            <div class="controls">
+
+                <button
+                    id="startGame"
+                    class="bigbtn">
+                    ▶️ START GAME
+                </button>
+
+            </div>
+
+            <div class="help">
+                Mobile friendly • Tap the button above to begin
+            </div>
+
+        </div>
+    `);
+
+    const start=$('#startGame');
+
+    if(!start){
+        return;
+    }
+
+    start.onclick=()=>{
+
+        clearGame();
+
+        const gameFunction=
+            games[GAME_ID];
+
+        if(
+            typeof gameFunction ===
+            'function'
+        ){
+
+            gameFunction();
+
+        }else{
+
+            generic(
+                GAME_NAME,
+                GAME_ICON
+            );
+        }
+    };
+}
+
+
+/* ==========================================================
+   START
+========================================================== */
+
+launchCurrentGame();
+
 </script>
+
 </body>
 </html>
