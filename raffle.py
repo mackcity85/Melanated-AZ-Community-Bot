@@ -57,6 +57,8 @@
 #   - Duplicate-entry protection
 #   - Admins can enter normally
 #   - Existing raffle buttons remain usable
+#   - Reposts rebuild the full inline keyboard and auto-pin the new post
+#   - Payment instructions auto-delete after 2 minutes
 # ==========================================================
 
 import logging
@@ -106,6 +108,80 @@ from raffle_database import (
 
 
 logger = logging.getLogger("melanated_az_raffle")
+
+
+# Temporary raffle-message cleanup. The permanent raffle announcement
+# is never scheduled for deletion. Payment instructions disappear after
+# 2 minutes so they do not keep reappearing in the chat.
+PAYMENT_MESSAGE_SECONDS = 120
+
+
+async def _delete_temporary_message(context):
+    job = context.job
+    if not job or not job.data:
+        return
+
+    chat_id = job.data.get("chat_id")
+    message_id = job.data.get("message_id")
+
+    if not chat_id or not message_id:
+        return
+
+    try:
+        await context.bot.delete_message(
+            chat_id=int(chat_id),
+            message_id=int(message_id),
+        )
+    except TelegramError:
+        logger.debug(
+            "Temporary raffle message already deleted or unavailable | "
+            "chat=%s message=%s",
+            chat_id,
+            message_id,
+            exc_info=True,
+        )
+
+
+def _schedule_temporary_message(context, sent_message, seconds):
+    if not sent_message:
+        return
+
+    if not getattr(context, "job_queue", None):
+        logger.warning(
+            "JobQueue is unavailable; temporary raffle message cannot "
+            "be auto-deleted. chat=%s message=%s",
+            sent_message.chat_id,
+            sent_message.message_id,
+        )
+        return
+
+    context.job_queue.run_once(
+        _delete_temporary_message,
+        seconds,
+        data={
+            "chat_id": sent_message.chat_id,
+            "message_id": sent_message.message_id,
+        },
+        name=(
+            f"raffle_message_cleanup_"
+            f"{sent_message.chat_id}_"
+            f"{sent_message.message_id}"
+        ),
+    )
+
+
+async def temporary_reply(target, context, *args, **kwargs):
+    seconds = kwargs.pop("cleanup_seconds", 300)
+    sent_message = await target.reply_text(*args, **kwargs)
+    _schedule_temporary_message(context, sent_message, seconds)
+    return sent_message
+
+
+async def temporary_send_message(context, *args, **kwargs):
+    seconds = kwargs.pop("cleanup_seconds", 300)
+    sent_message = await context.bot.send_message(*args, **kwargs)
+    _schedule_temporary_message(context, sent_message, seconds)
+    return sent_message
 
 
 # ==========================================================
@@ -648,6 +724,24 @@ async def publish_raffle(
             sent.message_id,
         )
 
+        # Pin the actual message that contains the inline keyboard.
+        # Telegram's pinned-message banner may not render the buttons,
+        # but opening the pinned message will show them.
+        try:
+            await context.bot.pin_chat_message(
+                chat_id=int(RAFFLE_CHAT_ID),
+                message_id=sent.message_id,
+                disable_notification=True,
+            )
+        except TelegramError:
+            logger.warning(
+                "Raffle published but could not pin message | raffle=%s "
+                "message=%s. Check bot pin permissions.",
+                raffle_id,
+                sent.message_id,
+                exc_info=True,
+            )
+
         logger.info(
             "RAFFLE PUBLISHED | raffle=%s | "
             "chat=%s | message=%s",
@@ -672,12 +766,12 @@ async def publish_raffle(
 # REPOST ACTIVE RAFFLE
 # ==========================================================
 
-async def repost_raffle(update, context):
-    """Repost the active raffle with the current inline buttons.
+async def repost_raffle(
+    update,
+    context,
+):
+    """Repost the active raffle with the complete inline keyboard."""
 
-    Keeps the same raffle ID and existing entries. Does not use
-    Telegram copy_message(), because an old post may have no buttons.
-    """
     query = update.callback_query
     message = update.effective_message
     user = update.effective_user
@@ -686,7 +780,7 @@ async def repost_raffle(update, context):
         if query:
             await safe_answer(query, "⛔ Admins only.", True)
         elif message:
-            await message.reply_text("⛔ Admins only.")
+            await temporary_reply(message, context, "⛔ Admins only.")
         return False
 
     raffle = get_active_raffle()
@@ -695,8 +789,10 @@ async def repost_raffle(update, context):
         if query:
             await safe_answer(query, "There is no active raffle.", True)
         elif message:
-            await message.reply_text(
-                "⚠️ There is no active raffle to repost."
+            await temporary_reply(
+                message,
+                context,
+                "⚠️ There is no active raffle to repost.",
             )
         return False
 
@@ -705,9 +801,11 @@ async def repost_raffle(update, context):
     if query:
         await safe_answer(query, "🔄 Reposting raffle...")
 
-    # Always rebuild through publish_raffle(). This guarantees the
-    # current ENTER / CASH APP / ZELLE buttons are attached.
+    # NEVER copy the old post. A copied post can preserve an old/missing
+    # keyboard. publish_raffle() always creates the current three buttons.
     published = await publish_raffle(raffle_id, context)
+
+    target = query.message if query else message
 
     if published:
         confirmation = (
@@ -715,47 +813,36 @@ async def repost_raffle(update, context):
             f"🎁 Prize: <b>{raffle['prize']}</b>\n"
             f"💵 Entry: <b>{raffle['price']}</b>\n"
             f"🆔 Raffle: <code>{raffle_id}</code>\n\n"
-            "The new raffle post includes:\n"
+            "The new raffle post has:\n"
             "🎟️ <b>ENTER RAFFLE</b>\n"
             "💵 <b>PAY WITH CASH APP</b>\n"
             "🏦 <b>PAY WITH ZELLE</b>"
         )
-
-        target = query.message if query else message
-
         if target:
             try:
-                await target.reply_text(
+                await temporary_reply(
+                    target,
+                    context,
                     confirmation,
                     parse_mode=ParseMode.HTML,
                 )
             except TelegramError:
-                logger.exception(
-                    "Could not send raffle repost confirmation."
-                )
-
+                logger.exception("Could not send repost confirmation.")
         return True
-
-    logger.error(
-        "Could not publish reposted raffle %s.",
-        raffle_id,
-    )
-
-    target = query.message if query else message
 
     if target:
         try:
-            await target.reply_text(
+            await temporary_reply(
+                target,
+                context,
                 "⚠️ I could not repost the active raffle. "
-                "Check RAFFLE_CHAT_ID and the bot's permissions "
-                "in the raffle group."
+                "Check the bot's permissions in the raffle group.",
             )
         except TelegramError:
-            logger.exception(
-                "Could not send raffle repost failure message."
-            )
+            logger.exception("Could not send repost failure message.")
 
     return False
+
 
 # ==========================================================
 # APPROVE RAFFLE
@@ -1329,34 +1416,10 @@ async def payment_method(
         return
 
     # ------------------------------------------------------
-    # USER MUST HAVE PENDING ENTRY
+    # PAYMENT INSTRUCTIONS
     # ------------------------------------------------------
-
-    entries = get_raffle_entries(
-        raffle_id
-    )
-
-    entry = next(
-        (
-            x
-            for x in entries
-            if (
-                int(x["user_id"]) == int(user.id)
-                and x["status"] == "pending"
-            )
-        ),
-        None,
-    )
-
-    if not entry:
-
-        await safe_answer(
-            query,
-            "Enter the raffle first.",
-            True,
-        )
-
-        return
+    # Payment buttons are intentionally usable without first creating an
+    # entry. The member can see the amount/payment method immediately.
 
     # ------------------------------------------------------
     # CASH APP
@@ -1392,11 +1455,14 @@ async def payment_method(
 
     try:
 
-        await query.message.reply_text(
+        await temporary_reply(
+            query.message,
+            context,
             body
             + "\n\nAfter payment, your entry remains "
             "pending until an admin verifies it.",
             parse_mode=ParseMode.HTML,
+            cleanup_seconds=PAYMENT_MESSAGE_SECONDS,
         )
 
     except TelegramError:
