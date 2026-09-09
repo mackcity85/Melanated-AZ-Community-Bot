@@ -272,54 +272,6 @@ async def safe_answer(
 
 
 # ==========================================================
-# TEMPORARY PAYMENT MESSAGE CLEANUP
-# ==========================================================
-
-async def delete_temporary_payment_message(context):
-    """
-    Delete a payment-instruction message after its timer expires.
-
-    The permanent raffle announcement is never deleted.
-    """
-
-    job = context.job
-
-    if not job or not job.data:
-        return
-
-    chat_id = job.data.get("chat_id")
-    message_id = job.data.get("message_id")
-
-    if not chat_id or not message_id:
-        return
-
-    try:
-
-        await context.bot.delete_message(
-            chat_id=int(chat_id),
-            message_id=int(message_id),
-        )
-
-        logger.info(
-            "TEMP PAYMENT MESSAGE DELETED | chat=%s | message=%s",
-            chat_id,
-            message_id,
-        )
-
-    except TelegramError:
-
-        # The message may already have been deleted manually
-        # or removed by Telegram. Nothing else is required.
-        logger.debug(
-            "Could not delete temporary payment message | "
-            "chat=%s | message=%s",
-            chat_id,
-            message_id,
-            exc_info=True,
-        )
-
-
-# ==========================================================
 # START RAFFLE
 # ==========================================================
 
@@ -720,187 +672,90 @@ async def publish_raffle(
 # REPOST ACTIVE RAFFLE
 # ==========================================================
 
-async def repost_raffle(
-    update,
-    context,
-):
+async def repost_raffle(update, context):
+    """Repost the active raffle with the current inline buttons.
+
+    Keeps the same raffle ID and existing entries. Does not use
+    Telegram copy_message(), because an old post may have no buttons.
     """
-    Repost the current active raffle.
-
-    This does NOT create a new raffle or reset entries.
-    It copies the existing raffle post when possible so
-    the same raffle ID and buttons remain attached.
-
-    Intended for:
-        - /repostraffle
-        - Admin panel button
-    """
-
     query = update.callback_query
     message = update.effective_message
     user = update.effective_user
 
     if not user or not is_raffle_admin(user.id):
-
         if query:
-            await safe_answer(
-                query,
-                "⛔ Admins only.",
-                True,
-            )
-
+            await safe_answer(query, "⛔ Admins only.", True)
         elif message:
-            await message.reply_text(
-                "⛔ Admins only."
-            )
-
+            await message.reply_text("⛔ Admins only.")
         return False
 
     raffle = get_active_raffle()
 
     if not raffle:
-
         if query:
-            await safe_answer(
-                query,
-                "There is no active raffle.",
-                True,
-            )
-
+            await safe_answer(query, "There is no active raffle.", True)
         elif message:
             await message.reply_text(
                 "⚠️ There is no active raffle to repost."
             )
-
         return False
 
     raffle_id = int(raffle["id"])
 
-    # Try the most common database field names used by
-    # set_raffle_post(). This keeps the function compatible
-    # with existing raffle_database.py implementations.
-    post_chat_id = (
-        raffle.get("post_chat_id")
-        or raffle.get("post_chat")
-        or raffle.get("chat_id")
-    )
-
-    post_message_id = (
-        raffle.get("post_message_id")
-        or raffle.get("post_message")
-        or raffle.get("message_id")
-    )
-
     if query:
-        await safe_answer(query)
+        await safe_answer(query, "🔄 Reposting raffle...")
 
-    # ------------------------------------------------------
-    # COPY EXISTING RAFFLE POST
-    # ------------------------------------------------------
-
-    if post_chat_id and post_message_id:
-
-        try:
-
-            copied = await context.bot.copy_message(
-                chat_id=int(RAFFLE_CHAT_ID),
-                from_chat_id=int(post_chat_id),
-                message_id=int(post_message_id),
-            )
-
-            set_raffle_post(
-                raffle_id,
-                RAFFLE_CHAT_ID,
-                copied.message_id,
-            )
-
-            logger.info(
-                "RAFFLE REPOSTED | raffle=%s | "
-                "source_chat=%s | source_message=%s | "
-                "new_message=%s",
-                raffle_id,
-                post_chat_id,
-                post_message_id,
-                copied.message_id,
-            )
-
-            if query:
-                try:
-                    await query.message.reply_text(
-                        "✅ Raffle reposted successfully.\n\n"
-                        f"🎁 Prize: {raffle['prize']}\n"
-                        f"🆔 Raffle: {raffle_id}"
-                    )
-                except TelegramError:
-                    pass
-
-            elif message:
-                await message.reply_text(
-                    "✅ Raffle reposted successfully.\n\n"
-                    f"🎁 Prize: {raffle['prize']}\n"
-                    f"🆔 Raffle: {raffle_id}"
-                )
-
-            return True
-
-        except TelegramError:
-            logger.warning(
-                "Could not copy existing raffle post "
-                "%s/%s. Falling back to a fresh raffle post.",
-                post_chat_id,
-                post_message_id,
-                exc_info=True,
-            )
-
-    # ------------------------------------------------------
-    # FALLBACK: REBUILD THE RAFFLE POST
-    # ------------------------------------------------------
-
-    published = await publish_raffle(
-        raffle_id,
-        context,
-    )
+    # Always rebuild through publish_raffle(). This guarantees the
+    # current ENTER / CASH APP / ZELLE buttons are attached.
+    published = await publish_raffle(raffle_id, context)
 
     if published:
+        confirmation = (
+            "✅ <b>RAFFLE REPOSTED</b>\n\n"
+            f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+            f"💵 Entry: <b>{raffle['price']}</b>\n"
+            f"🆔 Raffle: <code>{raffle_id}</code>\n\n"
+            "The new raffle post includes:\n"
+            "🎟️ <b>ENTER RAFFLE</b>\n"
+            "💵 <b>PAY WITH CASH APP</b>\n"
+            "🏦 <b>PAY WITH ZELLE</b>"
+        )
 
-        if query:
+        target = query.message if query else message
+
+        if target:
             try:
-                await query.message.reply_text(
-                    "✅ Raffle reposted.\n\n"
-                    "The original post could not be copied, "
-                    "so the active raffle was published again "
-                    "using the same raffle ID."
+                await target.reply_text(
+                    confirmation,
+                    parse_mode=ParseMode.HTML,
                 )
             except TelegramError:
-                pass
-
-        elif message:
-            await message.reply_text(
-                "✅ Raffle reposted.\n\n"
-                "The original post could not be copied, "
-                "so the active raffle was published again "
-                "using the same raffle ID."
-            )
+                logger.exception(
+                    "Could not send raffle repost confirmation."
+                )
 
         return True
 
-    if query:
+    logger.error(
+        "Could not publish reposted raffle %s.",
+        raffle_id,
+    )
+
+    target = query.message if query else message
+
+    if target:
         try:
-            await query.message.reply_text(
+            await target.reply_text(
                 "⚠️ I could not repost the active raffle. "
-                "Check the bot's permissions in the raffle group."
+                "Check RAFFLE_CHAT_ID and the bot's permissions "
+                "in the raffle group."
             )
         except TelegramError:
-            pass
-
-    elif message:
-        await message.reply_text(
-            "⚠️ I could not repost the active raffle. "
-            "Check the bot's permissions in the raffle group."
-        )
+            logger.exception(
+                "Could not send raffle repost failure message."
+            )
 
     return False
-
 
 # ==========================================================
 # APPROVE RAFFLE
@@ -1474,17 +1329,34 @@ async def payment_method(
         return
 
     # ------------------------------------------------------
-    # PAYMENT BUTTON
-    #
-    # IMPORTANT:
-    # The user does NOT have to enter the raffle first.
-    # They can tap Cash App or Zelle simply to view the
-    # payment instructions.
-    #
-    # The payment instructions are temporary and are
-    # automatically deleted 2 minutes after the button is
-    # clicked. The permanent raffle announcement remains.
+    # USER MUST HAVE PENDING ENTRY
     # ------------------------------------------------------
+
+    entries = get_raffle_entries(
+        raffle_id
+    )
+
+    entry = next(
+        (
+            x
+            for x in entries
+            if (
+                int(x["user_id"]) == int(user.id)
+                and x["status"] == "pending"
+            )
+        ),
+        None,
+    )
+
+    if not entry:
+
+        await safe_answer(
+            query,
+            "Enter the raffle first.",
+            True,
+        )
+
+        return
 
     # ------------------------------------------------------
     # CASH APP
@@ -1520,50 +1392,12 @@ async def payment_method(
 
     try:
 
-        payment_message = await query.message.reply_text(
+        await query.message.reply_text(
             body
             + "\n\nAfter payment, your entry remains "
             "pending until an admin verifies it.",
             parse_mode=ParseMode.HTML,
         )
-
-        # --------------------------------------------------
-        # AUTO-DELETE PAYMENT MESSAGE AFTER 2 MINUTES
-        # --------------------------------------------------
-        #
-        # Only the newly-created payment message is deleted.
-        # query.message is the permanent raffle announcement
-        # and is intentionally left untouched.
-        #
-        if context.job_queue:
-
-            context.job_queue.run_once(
-                delete_temporary_payment_message,
-                120,
-                data={
-                    "chat_id": payment_message.chat_id,
-                    "message_id": payment_message.message_id,
-                },
-                name=(
-                    f"raffle_payment_cleanup_"
-                    f"{payment_message.chat_id}_"
-                    f"{payment_message.message_id}"
-                ),
-            )
-
-            logger.info(
-                "TEMP PAYMENT MESSAGE SCHEDULED | "
-                "chat=%s | message=%s | delete_in=120s",
-                payment_message.chat_id,
-                payment_message.message_id,
-            )
-
-        else:
-
-            logger.warning(
-                "Job queue unavailable; payment message "
-                "cannot be auto-deleted."
-            )
 
     except TelegramError:
 
