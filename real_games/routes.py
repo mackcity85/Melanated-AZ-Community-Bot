@@ -1,6 +1,7 @@
 """Melanated AZ Bot - Real Games Flask routes."""
 from __future__ import annotations
 import logging
+import time
 from flask import Blueprint, abort, jsonify, redirect, render_template, request, url_for
 from .game_manager import GAME_MANAGER
 from .registry import CATEGORY_ORDER, all_games, get_game, get_games_grouped
@@ -214,6 +215,108 @@ def dirty_minds_finish():
     try:finish_game(room)
     except ValueError as exc:return jsonify(success=False,ok=False,error=str(exc)),400
     return jsonify(success=True,ok=True,state=public_room_state(room,key))
+
+
+# ==========================================================
+# DIRTY MINDS WEBRTC VOICE SIGNALING
+# ==========================================================
+
+@real_games_bp.get("/api/dirty-minds/voice/peers")
+def dirty_minds_voice_peers():
+    """Return the other players in the room for WebRTC peer discovery."""
+    room_id = str(request.args.get("room", request.args.get("room_id", "")) or "").strip().upper()
+    key = str(request.args.get("player_key", "") or "").strip()
+    if not room_id or not key:
+        return jsonify(success=False, ok=False, error="Room ID and player key are required."), 400
+    room = GAME_MANAGER.get(room_id)
+    if not room:
+        return jsonify(success=False, ok=False, error="Game room not found."), 404
+    if room.game_id != DIRTY_MINDS_ID:
+        return jsonify(success=False, ok=False, error="This is not a Dirty Minds room."), 400
+    if not room.get_player_by_key(key):
+        return jsonify(success=False, ok=False, error="Player is not in this room."), 403
+    peers = []
+    for peer_key, player in room.players.items():
+        if peer_key == key:
+            continue
+        peers.append({
+            "player_key": peer_key,
+            "name": player.get("name", "Player"),
+        })
+    return jsonify(success=True, ok=True, peers=peers)
+
+
+@real_games_bp.post("/api/dirty-minds/voice/signal")
+def dirty_minds_voice_signal():
+    """Store one WebRTC signaling message for its target player."""
+    data, room, key, error = _dirty_request()
+    if error:
+        return error
+    target = str(data.get("target_player_key", "") or "").strip()
+    signal_type = str(data.get("type", "") or "").strip().lower()
+    payload = data.get("data")
+    if not target or target == key:
+        return jsonify(success=False, ok=False, error="A different target player is required."), 400
+    if not room.get_player_by_key(target):
+        return jsonify(success=False, ok=False, error="Target player is not in this room."), 404
+    if signal_type not in {"offer", "answer", "candidate", "leave"}:
+        return jsonify(success=False, ok=False, error="Invalid signaling message type."), 400
+
+    signals = room.state.setdefault("voice_signals", {})
+    signals.setdefault(target, []).append({
+        "from_player_key": key,
+        "type": signal_type,
+        "data": payload,
+        "created_at": time.time(),
+    })
+    # Keep the queue bounded in case a browser disappears without consuming it.
+    signals[target] = signals[target][-50:]
+    room.touch()
+    return jsonify(success=True, ok=True, queued=True)
+
+
+@real_games_bp.get("/api/dirty-minds/voice/signals")
+def dirty_minds_voice_signals():
+    """Return and consume pending WebRTC signaling messages for this player."""
+    room_id = str(request.args.get("room", request.args.get("room_id", "")) or "").strip().upper()
+    key = str(request.args.get("player_key", "") or "").strip()
+    if not room_id or not key:
+        return jsonify(success=False, ok=False, error="Room ID and player key are required."), 400
+    room = GAME_MANAGER.get(room_id)
+    if not room:
+        return jsonify(success=False, ok=False, error="Game room not found."), 404
+    if room.game_id != DIRTY_MINDS_ID:
+        return jsonify(success=False, ok=False, error="This is not a Dirty Minds room."), 400
+    if not room.get_player_by_key(key):
+        return jsonify(success=False, ok=False, error="Player is not in this room."), 403
+    signals = room.state.setdefault("voice_signals", {})
+    messages = signals.pop(key, [])
+    # Drop anything older than 5 minutes.
+    cutoff = time.time() - 300
+    messages = [m for m in messages if float(m.get("created_at", 0)) >= cutoff]
+    if messages:
+        room.touch()
+    return jsonify(success=True, ok=True, signals=messages)
+
+
+@real_games_bp.post("/api/dirty-minds/voice/leave")
+def dirty_minds_voice_leave():
+    """Tell a peer that this browser closed its WebRTC connection."""
+    data, room, key, error = _dirty_request()
+    if error:
+        return error
+    target = str(data.get("target_player_key", "") or "").strip()
+    if target and room.get_player_by_key(target):
+        signals = room.state.setdefault("voice_signals", {})
+        signals.setdefault(target, []).append({
+            "from_player_key": key,
+            "type": "leave",
+            "data": None,
+            "created_at": time.time(),
+        })
+        signals[target] = signals[target][-50:]
+        room.touch()
+    return jsonify(success=True, ok=True)
 
 @real_games_bp.get("/api/game/<game_id>")
 def game_information(game_id):
