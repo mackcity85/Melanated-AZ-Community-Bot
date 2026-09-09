@@ -240,6 +240,12 @@ def dirty_minds_livekit_token():
     api_secret = os.getenv("LIVEKIT_API_SECRET", "").strip()
     if not livekit_url:
         return jsonify(success=False, ok=False, error="LIVEKIT_URL is not configured on the server."), 500
+
+    # LiveKit browser SDK expects a WebSocket URL. Accept either wss:// or https:// in Render.
+    if livekit_url.startswith("https://"):
+        livekit_url = "wss://" + livekit_url[len("https://"): ]
+    elif livekit_url.startswith("http://"):
+        livekit_url = "ws://" + livekit_url[len("http://"): ]
     if not api_key or not api_secret:
         return jsonify(success=False, ok=False, error="LiveKit server credentials are not configured."), 500
 
@@ -261,9 +267,12 @@ def dirty_minds_livekit_token():
             .with_ttl(timedelta(hours=2))
             .to_jwt()
         )
-    except Exception:
+    except ModuleNotFoundError:
+        logger.exception("LiveKit Python SDK is missing")
+        return jsonify(success=False, ok=False, error="LiveKit Python SDK is not installed. Add livekit-api to requirements.txt and redeploy."), 500
+    except Exception as exc:
         logger.exception("Failed to create LiveKit token")
-        return jsonify(success=False, ok=False, error="Unable to create the LiveKit token."), 500
+        return jsonify(success=False, ok=False, error=f"LiveKit token error: {type(exc).__name__}"), 500
 
     return jsonify(success=True, ok=True, url=livekit_url, token=token, identity=identity, name=name, room=room.room_id)
 
