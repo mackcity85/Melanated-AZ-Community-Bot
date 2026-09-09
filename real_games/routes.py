@@ -1,10 +1,13 @@
 """Melanated AZ Bot - Real Games Flask routes."""
 from __future__ import annotations
 import logging
+import os
+from datetime import timedelta
+import time
 from flask import Blueprint, abort, jsonify, redirect, render_template, request, url_for
 from .game_manager import GAME_MANAGER
 from .registry import CATEGORY_ORDER, all_games, get_game, get_games_grouped
-from .dirty_minds import create_dirty_minds_state, finish_game, grade_answer, next_round, public_room_state, reveal_round, start_game, submit_answer
+from .dirty_minds import create_dirty_minds_state, finish_game, next_round, public_room_state, reveal_round, start_game, submit_answer
 
 logger = logging.getLogger(__name__)
 real_games_bp = Blueprint("real_games", __name__, url_prefix="/real-games", template_folder="templates")
@@ -188,14 +191,6 @@ def dirty_minds_reveal():
     except ValueError as exc:return jsonify(success=False,ok=False,error=str(exc)),400
     return jsonify(success=True,ok=True,state=public_room_state(room,key))
 
-@real_games_bp.post("/api/dirty-minds/grade")
-def dirty_minds_grade():
-    data,room,key,error=_dirty_request()
-    if error:return error
-    target=str(data.get("target_player_key","") or "").strip(); grade=str(data.get("grade","") or "").strip().lower()
-    try:result=grade_answer(room,key,target,grade)
-    except ValueError as exc:return jsonify(success=False,ok=False,error=str(exc)),400
-    return jsonify(success=True,ok=True,**result)
 
 @real_games_bp.post("/api/dirty-minds/next")
 def dirty_minds_next():
@@ -214,6 +209,63 @@ def dirty_minds_finish():
     try:finish_game(room)
     except ValueError as exc:return jsonify(success=False,ok=False,error=str(exc)),400
     return jsonify(success=True,ok=True,state=public_room_state(room,key))
+
+
+
+# ==========================================================
+# DIRTY MINDS LIVEKIT TOKEN
+# ==========================================================
+
+@real_games_bp.get("/api/dirty-minds/livekit-token")
+def dirty_minds_livekit_token():
+    """Issue a short-lived LiveKit token for a verified Dirty Minds player."""
+    room_id = str(request.args.get("room", request.args.get("room_id", "")) or "").strip().upper()
+    key = str(request.args.get("player_key", "") or "").strip()
+
+    if not room_id or not key:
+        return jsonify(success=False, ok=False, error="Room ID and player key are required."), 400
+
+    room = GAME_MANAGER.get(room_id)
+    if not room:
+        return jsonify(success=False, ok=False, error="Game room not found."), 404
+    if room.game_id != DIRTY_MINDS_ID:
+        return jsonify(success=False, ok=False, error="This is not a Dirty Minds room."), 400
+
+    player = room.get_player_by_key(key)
+    if not player:
+        return jsonify(success=False, ok=False, error="Player is not in this room."), 403
+
+    livekit_url = os.getenv("LIVEKIT_URL", "").strip()
+    api_key = os.getenv("LIVEKIT_API_KEY", "").strip()
+    api_secret = os.getenv("LIVEKIT_API_SECRET", "").strip()
+    if not livekit_url:
+        return jsonify(success=False, ok=False, error="LIVEKIT_URL is not configured on the server."), 500
+    if not api_key or not api_secret:
+        return jsonify(success=False, ok=False, error="LiveKit server credentials are not configured."), 500
+
+    try:
+        from livekit import api
+        identity = f"dm-{room.room_id}-{key}"
+        name = str(player.get("name", "Player") or "Player")
+        token = (
+            api.AccessToken(api_key, api_secret)
+            .with_identity(identity)
+            .with_name(name)
+            .with_grants(api.VideoGrants(
+                room_join=True,
+                room=room.room_id,
+                can_publish=True,
+                can_subscribe=True,
+                can_publish_data=True,
+            ))
+            .with_ttl(timedelta(hours=2))
+            .to_jwt()
+        )
+    except Exception:
+        logger.exception("Failed to create LiveKit token")
+        return jsonify(success=False, ok=False, error="Unable to create the LiveKit token."), 500
+
+    return jsonify(success=True, ok=True, url=livekit_url, token=token, identity=identity, name=name, room=room.room_id)
 
 @real_games_bp.get("/api/game/<game_id>")
 def game_information(game_id):
