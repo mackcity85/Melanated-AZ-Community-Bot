@@ -2,166 +2,202 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+
 <meta name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+      content="width=device-width,
+               initial-scale=1,
+               maximum-scale=1,
+               user-scalable=no,
+               viewport-fit=cover">
 
-<title>{{ game.name|default('Dirty Minds') }} — Melanated AZ Real Games</title>
+<title>🎭 Dirty Minds</title>
 
-<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
+<!-- ==========================================================
+     LIVEKIT
+     Primary CDN
+========================================================== -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"
+    onerror="
+        var s=document.createElement('script');
+        s.src='https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js';
+        document.head.appendChild(s);
+    ">
+</script>
 
 <style>
+
 *{
     box-sizing:border-box;
     -webkit-tap-highlight-color:transparent;
 }
 
-html,body{
+html,
+body{
     margin:0;
     padding:0;
-    min-height:100%;
     background:#09090d;
     color:#fff;
-    font-family:Arial,Helvetica,sans-serif;
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
 }
 
 body{
     padding:12px;
 }
 
-button,
-input{
-    font:inherit;
+main{
+    width:100%;
+    max-width:1000px;
+    margin:auto;
 }
 
-button{
+.card{
+    background:#15151d;
+    border:1px solid #30303d;
+    border-radius:18px;
+    padding:16px;
+    margin:10px 0;
+    box-shadow:0 8px 28px rgba(0,0,0,.25);
+}
+
+h1{
+    margin:0 0 5px;
+    font-size:clamp(26px,7vw,40px);
+}
+
+h2{
+    margin:5px 0 12px;
+}
+
+.muted{
+    color:#aaa;
+}
+
+.small{
+    font-size:13px;
+    color:#aaa;
+}
+
+.btns{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+.btn{
     border:0;
     border-radius:12px;
-    padding:13px 18px;
-    font-weight:700;
+    padding:13px 16px;
+    font-weight:800;
+    color:#fff;
+    background:#29293a;
     cursor:pointer;
+    min-height:46px;
 }
 
-button:disabled{
+.btn:disabled{
     opacity:.45;
     cursor:not-allowed;
 }
 
-.app{
-    width:100%;
-    max-width:1100px;
-    margin:auto;
-}
-
-.header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    margin-bottom:12px;
-}
-
-.title{
-    font-size:24px;
-    font-weight:900;
-}
-
-.status{
-    padding:7px 10px;
-    border-radius:20px;
-    background:#191923;
-    color:#aaa;
-    font-size:12px;
-}
-
-.panel{
-    background:#15151d;
-    border:1px solid #292936;
-    border-radius:18px;
-    padding:16px;
-    margin-bottom:12px;
-}
-
-.clue{
-    font-size:26px;
-    line-height:1.25;
-    font-weight:900;
-    text-align:center;
-    padding:20px 10px;
-}
-
-.answer-row{
-    display:flex;
-    gap:8px;
-}
-
-.answer-row input{
-    flex:1;
-    min-width:0;
-    background:#0b0b10;
-    border:1px solid #353543;
-    color:#fff;
-    border-radius:12px;
-    padding:14px;
-    outline:none;
-}
-
 .primary{
-    background:#8b5cf6;
-    color:#fff;
+    background:#7c3aed;
 }
 
-.success{
-    background:#16a34a;
-    color:#fff;
+.good{
+    background:#16803c;
 }
 
 .warning{
-    background:#d97706;
-    color:#fff;
+    background:#b7791f;
 }
 
 .danger{
-    background:#dc2626;
-    color:#fff;
+    background:#8b1e3f;
 }
 
-.secondary{
-    background:#292936;
-    color:#fff;
+.hidden{
+    display:none !important;
 }
 
-.controls{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-    justify-content:center;
-}
-
-.message{
+.clue{
+    font-size:clamp(23px,6vw,36px);
+    font-weight:900;
+    line-height:1.25;
+    padding:20px 5px;
     text-align:center;
-    color:#aaa;
+}
+
+.answer{
+    width:100%;
+    font-size:18px;
+    padding:14px;
+    border-radius:12px;
+    border:1px solid #444;
+    background:#0d0d13;
+    color:#fff;
+    outline:none;
+}
+
+.answer:focus{
+    border-color:#7c3aed;
+}
+
+.notice{
+    padding:13px;
+    border-radius:12px;
+    background:#222233;
     margin-top:10px;
-    min-height:20px;
+}
+
+.correct-answer{
+    background:#12351f;
+    border:1px solid #24753b;
+    padding:16px;
+    border-radius:14px;
+    margin-top:14px;
+    text-align:center;
+}
+
+.correct-label{
+    color:#86efac;
+    font-size:12px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+}
+
+.correct-value{
+    font-size:26px;
+    font-weight:900;
+    margin-top:5px;
 }
 
 .players{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    grid-template-columns:
+        repeat(auto-fit,minmax(180px,1fr));
     gap:10px;
 }
 
 .player{
     background:#0d0d13;
-    border:1px solid #292936;
+    border:1px solid #30303d;
     border-radius:14px;
     overflow:hidden;
 }
 
 .video{
-    position:relative;
     width:100%;
     aspect-ratio:16/10;
-    background:#050507;
+    background:#000;
+    position:relative;
     overflow:hidden;
 }
 
@@ -174,227 +210,300 @@ button:disabled{
 
 .player-name{
     padding:9px;
-    font-weight:700;
     text-align:center;
+    font-weight:800;
 }
 
 .answers{
-    display:flex;
-    flex-direction:column;
+    display:grid;
     gap:8px;
+    margin-top:12px;
 }
 
 .answer-card{
-    background:#0d0d13;
-    border:1px solid #292936;
+    background:#20202a;
     border-radius:12px;
-    padding:12px;
+    padding:13px;
 }
 
-.answer-name{
-    font-weight:800;
+.answer-player{
+    font-weight:900;
     margin-bottom:5px;
 }
 
-.correct{
-    margin-top:12px;
-    padding:15px;
-    border-radius:12px;
-    background:#16351f;
-    border:1px solid #24743b;
+.answer-text{
+    color:#eee;
+    font-size:17px;
+}
+
+.waiting{
     text-align:center;
+    padding:15px;
 }
 
-.correct-label{
+.status-pill{
+    display:inline-block;
+    padding:5px 9px;
+    border-radius:20px;
+    background:#29293a;
     font-size:12px;
-    text-transform:uppercase;
-    color:#86efac;
-    font-weight:800;
 }
 
-.correct-answer{
-    font-size:22px;
-    font-weight:900;
-    margin-top:4px;
-}
-
-.hidden{
-    display:none !important;
-}
-
-.small{
-    font-size:13px;
-    color:#999;
-}
-
-@media(max-width:650px){
-    body{
-        padding:8px;
-    }
-
-    .title{
-        font-size:20px;
-    }
-
-    .clue{
-        font-size:22px;
-    }
-
-    .answer-row{
-        flex-direction:column;
-    }
-
-    .answer-row button{
-        width:100%;
-    }
-
-    .controls button{
-        flex:1 1 45%;
-    }
-}
 </style>
 </head>
 
 <body>
 
-<div class="app">
+<main>
 
-    <div class="header">
-        <div class="title">🎭 Dirty Minds</div>
-        <div id="connectionStatus" class="status">Connecting...</div>
+<!-- ==========================================================
+     HEADER
+========================================================== -->
+
+<div class="card">
+
+    <h1>🎭 Dirty Minds</h1>
+
+    <div class="muted">
+        Clues sound dirty. Answers are clean.
     </div>
 
-    <!-- VIDEO / AUDIO -->
-    <div class="panel">
-        <div class="small" style="margin-bottom:10px;">
-            Players
-        </div>
-
-        <div id="players" class="players"></div>
-
-        <div class="controls" style="margin-top:12px;">
-            <button id="micBtn" class="secondary">
-                🎤 Mic
-            </button>
-
-            <button id="cameraBtn" class="secondary">
-                📷 Camera
-            </button>
-        </div>
-
-        <div id="mediaMessage" class="message"></div>
+    <div
+        id="roomLine"
+        class="small"
+        style="margin-top:8px;">
     </div>
 
-    <!-- GAME -->
-    <div id="gamePanel" class="panel">
+    <div
+        id="connectionStatus"
+        class="status-pill"
+        style="margin-top:8px;">
+        Connecting...
+    </div>
 
-        <div id="waitingScreen">
-            <div class="clue">
-                Waiting for the host to start...
-            </div>
+</div>
 
-            <div id="waitingPlayers" class="message"></div>
 
-            <div class="controls">
-                <button id="startBtn" class="primary hidden">
-                    ▶ Start Game
-                </button>
-            </div>
+<!-- ==========================================================
+     CAMERA / MICROPHONE
+========================================================== -->
+
+<div class="card">
+
+    <h2>🎤 Camera & Mic</h2>
+
+    <div class="btns">
+
+        <button
+            class="btn"
+            id="micBtn">
+            🎤 Mic Off
+        </button>
+
+        <button
+            class="btn"
+            id="camBtn">
+            📷 Camera Off
+        </button>
+
+    </div>
+
+    <div
+        id="mediaMsg"
+        class="small"
+        style="margin-top:10px;">
+    </div>
+
+</div>
+
+
+<!-- ==========================================================
+     PLAYERS / LIVE VIDEO
+========================================================== -->
+
+<div class="card">
+
+    <h2>👥 Players</h2>
+
+    <div
+        id="players"
+        class="players">
+    </div>
+
+</div>
+
+
+<!-- ==========================================================
+     HOST CONTROLS
+========================================================== -->
+
+<div
+    class="card"
+    id="hostCard">
+
+    <h2>👑 Host Controls</h2>
+
+    <div class="btns">
+
+        <button
+            class="btn primary hidden"
+            id="startBtn">
+            ▶️ Start Game
+        </button>
+
+        <button
+            class="btn warning hidden"
+            id="revealBtn">
+            👀 Reveal Answers
+        </button>
+
+        <button
+            class="btn good hidden"
+            id="nextBtn">
+            ➡️ Next Round
+        </button>
+
+        <button
+            class="btn danger hidden"
+            id="finishBtn">
+            🏁 End Game
+        </button>
+
+    </div>
+
+    <div
+        id="hostMsg"
+        class="notice hidden">
+    </div>
+
+</div>
+
+
+<!-- ==========================================================
+     GAME
+========================================================== -->
+
+<div class="card">
+
+    <div
+        id="status"
+        class="muted">
+        Waiting for the host…
+    </div>
+
+    <div
+        id="round"
+        class="small"
+        style="margin-top:5px;">
+    </div>
+
+    <div
+        id="clue"
+        class="clue">
+        Waiting for game to start.
+    </div>
+
+
+    <!-- ANSWER FORM -->
+
+    <form
+        id="answerForm"
+        class="hidden">
+
+        <input
+            id="answer"
+            class="answer"
+            maxlength="100"
+            autocomplete="off"
+            placeholder="Your clean answer…">
+
+        <div
+            class="btns"
+            style="margin-top:8px;">
+
+            <button
+                class="btn primary"
+                type="submit"
+                id="submitBtn">
+
+                Submit Answer
+
+            </button>
+
         </div>
 
-        <div id="playingScreen" class="hidden">
+    </form>
 
-            <div class="small" style="text-align:center;">
-                Round <span id="roundNumber">1</span>
+
+    <div
+        id="submittedMsg"
+        class="notice hidden">
+
+        ✅ Your answer has been submitted.
+        Waiting for everyone else…
+
+    </div>
+
+
+    <!-- ======================================================
+         REVEAL RESULTS
+    ====================================================== -->
+
+    <div
+        id="resultsSection"
+        class="hidden">
+
+        <h2 style="margin-top:20px;">
+            📋 Round Results
+        </h2>
+
+        <div
+            id="answers"
+            class="answers">
+        </div>
+
+
+        <!-- THIS IS THE ACTUAL CLEAN ANSWER -->
+
+        <div class="correct-answer">
+
+            <div class="correct-label">
+                Actual Clean Answer
             </div>
 
-            <div id="clue" class="clue">
-                Loading clue...
-            </div>
-
-            <div id="answerArea">
-
-                <div class="answer-row">
-                    <input
-                        id="answerInput"
-                        type="text"
-                        maxlength="200"
-                        autocomplete="off"
-                        placeholder="Enter your clean answer..."
-                    >
-
-                    <button id="submitBtn" class="primary">
-                        Submit
-                    </button>
-                </div>
-
-                <div id="answerMessage" class="message"></div>
-
-            </div>
-
-            <div id="submittedMessage"
-                 class="message hidden">
-                ✅ Your answer has been submitted. Waiting for everyone else...
+            <div
+                id="correctAnswer"
+                class="correct-value">
             </div>
 
         </div>
 
-        <!-- REVEAL -->
-        <div id="revealScreen" class="hidden">
+    </div>
 
-            <div class="clue">
-                Round Results
-            </div>
 
-            <div id="answers" class="answers"></div>
+    <!-- ======================================================
+         GAME FINISHED
+    ====================================================== -->
 
-            <div class="correct">
-                <div class="correct-label">
-                    Correct Clean Answer
-                </div>
+    <div
+        id="finished"
+        class="notice hidden"
+        style="text-align:center;font-size:20px;font-weight:900;">
 
-                <div id="correctAnswer"
-                     class="correct-answer">
-                </div>
-            </div>
-
-            <div class="controls" style="margin-top:15px;">
-
-                <button id="nextBtn"
-                        class="success hidden">
-                    ➡️ Next Round
-                </button>
-
-                <button id="finishBtn"
-                        class="danger hidden">
-                    🛑 End Game
-                </button>
-
-            </div>
-
-        </div>
-
-        <!-- FINISHED -->
-        <div id="finishedScreen" class="hidden">
-
-            <div class="clue">
-                🎉 Game Finished
-            </div>
-
-            <div class="message">
-                Thanks for playing Dirty Minds!
-            </div>
-
-        </div>
+        🎉 Game Finished!
 
     </div>
 
 </div>
 
-<script>
-(function(){
+</main>
 
-"use strict";
+
+<script>
+
+/* ==========================================================
+   VARIABLES
+========================================================== */
 
 const ROOM_ID =
     {{ room_id|tojson }};
@@ -403,313 +512,436 @@ const PLAYER_KEY =
     {{ player_key|tojson }};
 
 const PLAYER_NAME =
-    {{ player_name|default("Player")|tojson }};
+    {{ player_name|default('Player')|tojson }};
 
-const TOKEN_ENDPOINT =
-    "/real-games/api/dirty-minds/livekit-token";
+const API =
+    "/real-games/api/dirty-minds";
 
-const STATE_ENDPOINT =
-    "/real-games/api/dirty-minds/state";
-
-const START_ENDPOINT =
-    "/real-games/api/dirty-minds/start";
-
-const ANSWER_ENDPOINT =
-    "/real-games/api/dirty-minds/answer";
-
-const REVEAL_ENDPOINT =
-    "/real-games/api/dirty-minds/reveal";
-
-const NEXT_ENDPOINT =
-    "/real-games/api/dirty-minds/next";
-
-const FINISH_ENDPOINT =
-    "/real-games/api/dirty-minds/finish";
+const TOKEN_API =
+    API + "/livekit-token";
 
 
-const $ = id => document.getElementById(id);
+let livekitRoom = null;
 
-let room = null;
-let stateTimer = null;
-let lastState = null;
-let cameraEnabled = false;
-let microphoneEnabled = false;
+let micOn = false;
+
+let camOn = false;
+
+let currentState = null;
+
+let pollTimer = null;
 
 
 /* ==========================================================
-   BASIC HELPERS
+   HELPERS
 ========================================================== */
+
+function $(id){
+    return document.getElementById(id);
+}
+
+
+function esc(value){
+
+    return String(value ?? "")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#39;");
+}
+
 
 function show(id){
     $(id).classList.remove("hidden");
 }
 
+
 function hide(id){
     $(id).classList.add("hidden");
 }
+
 
 function setStatus(text){
     $("connectionStatus").textContent = text;
 }
 
-function message(text){
-    $("mediaMessage").textContent = text || "";
-}
 
-async function postJSON(url,data){
+function hostMessage(text){
 
-    const response = await fetch(url,{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json"
-        },
-        body:JSON.stringify(data)
-    });
+    $("hostMsg").textContent = text;
 
-    let result;
-
-    try{
-        result = await response.json();
-    }catch(e){
-        throw new Error("Server returned an invalid response.");
-    }
-
-    if(!response.ok || result.success === false || result.ok === false){
-        throw new Error(result.error || "Request failed.");
-    }
-
-    return result;
-}
-
-async function getState(){
-
-    const url =
-        STATE_ENDPOINT +
-        "?room=" +
-        encodeURIComponent(ROOM_ID) +
-        "&player_key=" +
-        encodeURIComponent(PLAYER_KEY);
-
-    const response = await fetch(url);
-
-    const result = await response.json();
-
-    if(!response.ok || result.success === false){
-        throw new Error(result.error || "Unable to load game state.");
-    }
-
-    return result.state;
+    show("hostMsg");
 }
 
 
 /* ==========================================================
-   LIVEKIT
+   LIVEKIT LOADER
+========================================================== */
+
+function getLiveKit(){
+
+    /*
+     * Different UMD builds can expose the global
+     * under LivekitClient.
+     */
+
+    if(window.LivekitClient){
+        return window.LivekitClient;
+    }
+
+    if(window.LiveKit){
+        return window.LiveKit;
+    }
+
+    return null;
+}
+
+
+/* ==========================================================
+   LIVEKIT CONNECTION
 ========================================================== */
 
 async function connectLiveKit(){
 
-    if(!window.LivekitClient){
-        setStatus("LiveKit SDK failed");
-        message("LiveKit could not be loaded.");
-        return;
+    let LK = getLiveKit();
+
+    /*
+     * Give the fallback CDN a few seconds to finish loading.
+     */
+
+    if(!LK){
+
+        await new Promise(resolve => {
+
+            let attempts = 0;
+
+            const timer =
+                setInterval(() => {
+
+                    attempts++;
+
+                    LK = getLiveKit();
+
+                    if(LK || attempts >= 30){
+
+                        clearInterval(timer);
+
+                        resolve();
+
+                    }
+
+                },100);
+
+        });
+
     }
+
+
+    LK = getLiveKit();
+
+
+    if(!LK){
+
+        setStatus("LiveKit unavailable");
+
+        $("mediaMsg").textContent =
+            "LiveKit JavaScript could not be loaded. " +
+            "The game itself can still be tested.";
+
+        return;
+
+    }
+
 
     try{
 
-        setStatus("Connecting...");
+        setStatus("Connecting video...");
 
-        const response = await fetch(
-            TOKEN_ENDPOINT +
-            "?room=" +
-            encodeURIComponent(ROOM_ID) +
-            "&player_key=" +
-            encodeURIComponent(PLAYER_KEY)
-        );
+        const response =
+            await fetch(
+                TOKEN_API +
+                "?room=" +
+                encodeURIComponent(ROOM_ID) +
+                "&player_key=" +
+                encodeURIComponent(PLAYER_KEY),
+                {
+                    cache:"no-store"
+                }
+            );
 
-        const data = await response.json();
+
+        const data =
+            await response.json();
+
 
         if(!response.ok || !data.success){
+
             throw new Error(
                 data.error ||
-                "Unable to get LiveKit token."
+                "LiveKit token could not be created."
             );
+
         }
 
-        room = new LivekitClient.Room({
-            adaptiveStream:true,
-            dynacast:true
-        });
 
-        room.on(
-            LivekitClient.RoomEvent.TrackSubscribed,
-            function(track,publication,participant){
-                attachRemoteTrack(
+        livekitRoom =
+            new LK.Room({
+                adaptiveStream:true,
+                dynacast:true
+            });
+
+
+        /* ==================================================
+           REMOTE VIDEO/AUDIO
+        ================================================== */
+
+        livekitRoom.on(
+            LK.RoomEvent.TrackSubscribed,
+            (track,publication,participant) => {
+
+                createPlayer(participant);
+
+                attachTrack(
                     track,
                     participant
                 );
+
             }
         );
 
-        room.on(
-            LivekitClient.RoomEvent.TrackUnsubscribed,
-            function(track){
-                track.detach();
+
+        livekitRoom.on(
+            LK.RoomEvent.TrackUnsubscribed,
+            track => {
+
+                try{
+                    track.detach();
+                }catch(e){}
+
             }
         );
 
-        room.on(
-            LivekitClient.RoomEvent.ParticipantConnected,
-            function(participant){
-                createPlayerTile(participant);
+
+        livekitRoom.on(
+            LK.RoomEvent.ParticipantConnected,
+            participant => {
+
+                createPlayer(participant);
+
             }
         );
 
-        room.on(
-            LivekitClient.RoomEvent.ParticipantDisconnected,
-            function(participant){
-                removePlayerTile(
+
+        livekitRoom.on(
+            LK.RoomEvent.ParticipantDisconnected,
+            participant => {
+
+                removePlayer(
                     participant.identity
                 );
+
             }
         );
 
-        room.on(
-            LivekitClient.RoomEvent.Disconnected,
-            function(){
-                setStatus("Disconnected");
+
+        livekitRoom.on(
+            LK.RoomEvent.Disconnected,
+            () => {
+
+                setStatus("LiveKit disconnected");
+
             }
         );
 
-        await room.connect(
+
+        /* ==================================================
+           CONNECT
+        ================================================== */
+
+        await livekitRoom.connect(
             data.url,
             data.token
         );
 
-        setStatus("Live");
 
-        createLocalTile();
+        setStatus("LiveKit connected");
 
-        room.remoteParticipants.forEach(
+        $("mediaMsg").textContent =
+            "Camera and microphone are ready.";
+
+
+        createLocalPlayer();
+
+
+        /*
+         * Add existing remote participants.
+         */
+
+        livekitRoom.remoteParticipants.forEach(
             participant => {
-                createPlayerTile(participant);
+
+                createPlayer(participant);
 
                 participant.trackPublications.forEach(
                     publication => {
-                        if(publication.isSubscribed &&
-                           publication.track){
-                            attachRemoteTrack(
+
+                        if(
+                            publication.isSubscribed &&
+                            publication.track
+                        ){
+
+                            attachTrack(
                                 publication.track,
                                 participant
                             );
+
                         }
+
                     }
                 );
+
             }
         );
 
-        message("");
 
     }catch(error){
 
-        console.error("LiveKit error:",error);
-
-        setStatus("LiveKit error");
-
-        message(
-            error.message ||
-            "Unable to connect to LiveKit."
+        console.error(
+            "LiveKit connection error:",
+            error
         );
+
+        setStatus("LiveKit connection error");
+
+        $("mediaMsg").textContent =
+            error.message ||
+            "LiveKit connection failed.";
+
     }
+
 }
 
 
-function createLocalTile(){
+/* ==========================================================
+   LOCAL PLAYER TILE
+========================================================== */
 
-    if(!room) return;
+function createLocalPlayer(){
+
+    if(!livekitRoom){
+        return;
+    }
 
     const identity =
-        room.localParticipant.identity;
+        livekitRoom.localParticipant.identity;
 
-    let tile =
+
+    if(
         document.querySelector(
             '[data-player="' +
             CSS.escape(identity) +
             '"]'
-        );
-
-    if(!tile){
-
-        tile =
-            document.createElement("div");
-
-        tile.className = "player";
-
-        tile.dataset.player = identity;
-
-        tile.innerHTML = `
-            <div class="video">
-                <div class="localVideo"></div>
-            </div>
-            <div class="player-name">
-                ${escapeHTML(PLAYER_NAME)} (You)
-            </div>
-        `;
-
-        $("players").appendChild(tile);
+        )
+    ){
+        return;
     }
+
+
+    const player =
+        document.createElement("div");
+
+    player.className =
+        "player";
+
+    player.dataset.player =
+        identity;
+
+
+    player.innerHTML = `
+
+        <div class="video">
+
+            <div class="local-video"></div>
+
+        </div>
+
+        <div class="player-name">
+            ${esc(PLAYER_NAME)} (You)
+        </div>
+
+    `;
+
+
+    $("players")
+        .appendChild(player);
+
 }
 
 
-function createPlayerTile(participant){
+/* ==========================================================
+   REMOTE PLAYER TILE
+========================================================== */
+
+function createPlayer(participant){
 
     const identity =
         participant.identity;
 
-    let tile =
+
+    if(
         document.querySelector(
             '[data-player="' +
             CSS.escape(identity) +
             '"]'
-        );
+        )
+    ){
+        return;
+    }
 
-    if(tile) return;
 
-    tile =
+    const player =
         document.createElement("div");
 
-    tile.className = "player";
+    player.className =
+        "player";
 
-    tile.dataset.player = identity;
+    player.dataset.player =
+        identity;
 
-    tile.innerHTML = `
+
+    player.innerHTML = `
+
         <div class="video"></div>
+
         <div class="player-name">
-            ${escapeHTML(participant.name || identity)}
+            ${esc(
+                participant.name ||
+                identity ||
+                "Player"
+            )}
         </div>
+
     `;
 
-    $("players").appendChild(tile);
+
+    $("players")
+        .appendChild(player);
+
 }
 
 
-function removePlayerTile(identity){
+/* ==========================================================
+   ATTACH VIDEO / AUDIO
+========================================================== */
 
-    const tile =
-        document.querySelector(
-            '[data-player="' +
-            CSS.escape(identity) +
-            '"]'
-        );
+function attachTrack(
+    track,
+    participant
+){
 
-    if(tile){
-        tile.remove();
-    }
-}
+    createPlayer(participant);
 
-
-function attachRemoteTrack(track,participant){
-
-    createPlayerTile(participant);
 
     const tile =
         document.querySelector(
@@ -718,666 +950,1135 @@ function attachRemoteTrack(track,participant){
             '"]'
         );
 
-    if(!tile) return;
 
-    const container =
-        tile.querySelector(".video");
-
-    if(!container) return;
-
-    const element =
-        track.attach();
-
-    element.autoplay = true;
-    element.playsInline = true;
-
-    if(track.kind === "video"){
-        element.muted = true;
+    if(!tile){
+        return;
     }
 
-    container.appendChild(element);
-}
+
+    const videoArea =
+        tile.querySelector(".video");
 
 
-async function enableMicrophone(){
+    if(!videoArea){
+        return;
+    }
 
-    if(!room) return;
 
     try{
 
-        microphoneEnabled =
-            !microphoneEnabled;
+        const element =
+            track.attach();
 
-        await room.localParticipant
-            .setMicrophoneEnabled(
-                microphoneEnabled
-            );
 
-        $("micBtn").textContent =
-            microphoneEnabled
-                ? "🔇 Mute Mic"
-                : "🎤 Mic";
+        element.autoplay = true;
+
+        element.playsInline = true;
+
+
+        /*
+         * Remote audio must NOT be muted.
+         */
+
+        if(track.kind === "audio"){
+
+            element.autoplay = true;
+
+        }
+
+
+        videoArea.appendChild(
+            element
+        );
+
 
     }catch(error){
 
-        microphoneEnabled = false;
-
-        console.error(error);
-
-        message(
-            "Microphone permission was denied or unavailable."
+        console.error(
+            "Track attach error:",
+            error
         );
+
     }
+
 }
 
 
-async function enableCamera(){
+/* ==========================================================
+   REMOVE PLAYER
+========================================================== */
 
-    if(!room) return;
+function removePlayer(identity){
+
+    const tile =
+        document.querySelector(
+            '[data-player="' +
+            CSS.escape(identity) +
+            '"]'
+        );
+
+
+    if(tile){
+        tile.remove();
+    }
+
+}
+
+
+/* ==========================================================
+   MICROPHONE
+========================================================== */
+
+async function toggleMic(){
+
+    if(!livekitRoom){
+
+        $("mediaMsg").textContent =
+            "LiveKit is not connected.";
+
+        return;
+
+    }
+
 
     try{
 
-        cameraEnabled =
-            !cameraEnabled;
+        micOn =
+            !micOn;
 
-        await room.localParticipant
-            .setCameraEnabled(
-                cameraEnabled
+
+        await livekitRoom
+            .localParticipant
+            .setMicrophoneEnabled(
+                micOn
             );
 
-        $("cameraBtn").textContent =
-            cameraEnabled
+
+        $("micBtn").textContent =
+            micOn
+                ? "🔇 Mute Mic"
+                : "🎤 Mic Off";
+
+
+    }catch(error){
+
+        console.error(error);
+
+        micOn = false;
+
+        $("micBtn").textContent =
+            "🎤 Mic Off";
+
+
+        $("mediaMsg").textContent =
+            "Microphone permission was denied or unavailable.";
+
+    }
+
+}
+
+
+/* ==========================================================
+   CAMERA
+========================================================== */
+
+async function toggleCamera(){
+
+    if(!livekitRoom){
+
+        $("mediaMsg").textContent =
+            "LiveKit is not connected.";
+
+        return;
+
+    }
+
+
+    try{
+
+        camOn =
+            !camOn;
+
+
+        await livekitRoom
+            .localParticipant
+            .setCameraEnabled(
+                camOn
+            );
+
+
+        $("camBtn").textContent =
+            camOn
                 ? "📷 Camera On"
                 : "📷 Camera Off";
 
-        if(cameraEnabled){
+
+        /*
+         * Attach local camera.
+         */
+
+        if(camOn){
+
+            const LK =
+                getLiveKit();
+
 
             const publication =
-                room.localParticipant
+                livekitRoom
+                    .localParticipant
                     .getTrackPublication(
-                        LivekitClient.Track.Source.Camera
+                        LK.Track.Source.Camera
                     );
 
-            if(publication && publication.track){
+
+            if(
+                publication &&
+                publication.track
+            ){
 
                 const tile =
                     document.querySelector(
                         '[data-player="' +
                         CSS.escape(
-                            room.localParticipant.identity
+                            livekitRoom.localParticipant.identity
                         ) +
                         '"]'
                     );
 
+
                 if(tile){
 
-                    const container =
-                        tile.querySelector(".localVideo");
+                    const area =
+                        tile.querySelector(
+                            ".local-video"
+                        );
 
-                    if(container){
+
+                    if(area){
 
                         const existing =
-                            container.querySelector("video");
+                            area.querySelector(
+                                "video"
+                            );
+
 
                         if(!existing){
 
-                            const element =
+                            const video =
                                 publication.track.attach();
 
-                            element.autoplay = true;
-                            element.playsInline = true;
-                            element.muted = true;
 
-                            container.appendChild(
-                                element
+                            video.autoplay =
+                                true;
+
+                            video.playsInline =
+                                true;
+
+                            video.muted =
+                                true;
+
+
+                            area.appendChild(
+                                video
                             );
+
                         }
+
                     }
+
                 }
+
             }
+
         }
+
 
     }catch(error){
 
-        cameraEnabled = false;
-
         console.error(error);
 
-        message(
-            "Camera permission was denied or unavailable."
-        );
+        camOn = false;
+
+        $("camBtn").textContent =
+            "📷 Camera Off";
+
+
+        $("mediaMsg").textContent =
+            "Camera permission was denied or unavailable.";
+
     }
+
 }
 
 
 /* ==========================================================
-   GAME UI
+   API CALL
 ========================================================== */
 
-function renderState(state){
+async function call(
+    path,
+    body={}
+){
 
-    if(!state) return;
+    const response =
+        await fetch(
+            API + path,
+            {
+                method:"POST",
 
-    lastState = state;
+                headers:{
+                    "Content-Type":
+                        "application/json",
 
-    const status =
-        state.status || "waiting";
+                    "Cache-Control":
+                        "no-cache"
+                },
 
-    if(status === "waiting"){
+                cache:"no-store",
 
-        show("waitingScreen");
-        hide("playingScreen");
-        hide("revealScreen");
-        hide("finishedScreen");
+                body:JSON.stringify({
 
-        $("waitingPlayers").textContent =
-            `${state.player_count || 0} player(s) in room`;
+                    room_id:
+                        ROOM_ID,
 
-        if(state.is_host){
-            show("startBtn");
-        }else{
-            hide("startBtn");
-        }
+                    player_key:
+                        PLAYER_KEY,
 
-        return;
+                    ...body
+
+                })
+            }
+        );
+
+
+    const text =
+        await response.text();
+
+
+    let data;
+
+
+    try{
+
+        data =
+            JSON.parse(text);
+
+    }catch(error){
+
+        throw new Error(
+            "Server returned an invalid response."
+        );
+
     }
 
-    if(status === "playing"){
 
-        hide("waitingScreen");
-        show("playingScreen");
-        hide("revealScreen");
-        hide("finishedScreen");
+    if(
+        !response.ok ||
+        data.success === false
+    ){
 
-        $("roundNumber").textContent =
-            state.round_number || 1;
+        throw new Error(
+            data.error ||
+            "Request failed."
+        );
 
-        $("clue").textContent =
-            state.clue || "";
-
-        const me =
-            (state.players || []).find(
-                p => p.player_key === PLAYER_KEY
-            );
-
-        if(me && me.submitted){
-
-            hide("answerArea");
-            show("submittedMessage");
-
-        }else{
-
-            show("answerArea");
-            hide("submittedMessage");
-
-            $("answerInput").disabled = false;
-            $("submitBtn").disabled = false;
-        }
-
-        $("answerMessage").textContent =
-            `${state.submitted_count || 0} of ${state.player_count || 0} players submitted`;
-
-        return;
     }
 
-    if(status === "revealed"){
 
-        hide("waitingScreen");
-        hide("playingScreen");
-        show("revealScreen");
-        hide("finishedScreen");
+    return data;
 
-        renderResults(state);
-
-        if(state.is_host){
-            show("nextBtn");
-            show("finishBtn");
-        }else{
-            hide("nextBtn");
-            hide("finishBtn");
-        }
-
-        return;
-    }
-
-    if(status === "finished"){
-
-        hide("waitingScreen");
-        hide("playingScreen");
-        hide("revealScreen");
-        show("finishedScreen");
-
-        return;
-    }
 }
 
 
-function renderResults(state){
+/* ==========================================================
+   GET STATE
+========================================================== */
 
-    const answers =
+async function getState(){
+
+    const response =
+        await fetch(
+            API +
+            "/state?room=" +
+            encodeURIComponent(ROOM_ID) +
+            "&player_key=" +
+            encodeURIComponent(PLAYER_KEY),
+            {
+                cache:"no-store"
+            }
+        );
+
+
+    const data =
+        await response.json();
+
+
+    if(
+        !response.ok ||
+        data.success === false
+    ){
+
+        throw new Error(
+            data.error ||
+            "Unable to get game state."
+        );
+
+    }
+
+
+    return data.state;
+
+}
+
+
+/* ==========================================================
+   RENDER GAME
+========================================================== */
+
+function render(state){
+
+    if(!state){
+        return;
+    }
+
+
+    currentState =
+        state;
+
+
+    $("roomLine").textContent =
+        "Room " +
+        state.room_id +
+        " · " +
+        PLAYER_NAME +
+        " · " +
+        state.player_count +
+        "/" +
+        state.max_players +
+        " players";
+
+
+    /* ======================================================
+       WAITING
+    ====================================================== */
+
+    if(state.status === "waiting"){
+
+        $("status").textContent =
+            "Waiting for the host…";
+
+        $("clue").textContent =
+            "Waiting for game to start.";
+
+        hide("answerForm");
+
+        hide("submittedMsg");
+
+        hide("resultsSection");
+
+        hide("revealBtn");
+
+        hide("nextBtn");
+
+        hide("finishBtn");
+
+
+        if(state.is_host){
+
+            show("startBtn");
+
+            $("startBtn").disabled =
+                !state.can_start;
+
+        }else{
+
+            hide("startBtn");
+
+        }
+
+
+        return;
+
+    }
+
+
+    /* ======================================================
+       PLAYING
+    ====================================================== */
+
+    if(state.status === "playing"){
+
+        $("status").textContent =
+            "Submit one clean answer.";
+
+        $("round").textContent =
+            "Round " +
+            state.round +
+            " of " +
+            state.total_rounds;
+
+
+        $("clue").textContent =
+            state.clue ||
+            "Loading clue…";
+
+
+        hide("resultsSection");
+
+        hide("nextBtn");
+
+        hide("finishBtn");
+
+
+        if(state.is_host){
+
+            hide("startBtn");
+
+        }
+
+
+        /*
+         * Number of submitted answers.
+         */
+
+        const submitted =
+            Number(
+                state.submitted_count || 0
+            );
+
+
+        const total =
+            Number(
+                state.player_count || 0
+            );
+
+
+        /*
+         * Determine whether THIS player
+         * already submitted.
+         */
+
+        const me =
+            (state.players || [])
+                .find(
+                    player =>
+                        player.player_key ===
+                        PLAYER_KEY
+                );
+
+
+        /*
+         * Some backend versions don't expose
+         * player_key publicly, so also use
+         * my_submitted when available.
+         */
+
+        const alreadySubmitted =
+            state.my_submitted === true ||
+            (
+                me &&
+                me.submitted === true
+            );
+
+
+        if(alreadySubmitted){
+
+            hide("answerForm");
+
+            show("submittedMsg");
+
+        }else{
+
+            show("answerForm");
+
+            hide("submittedMsg");
+
+            $("answer").disabled =
+                false;
+
+            $("submitBtn").disabled =
+                false;
+
+        }
+
+
+        /*
+         * Host can reveal only when EVERYONE
+         * has submitted.
+         */
+
+        if(
+            state.is_host &&
+            total > 0 &&
+            submitted >= total
+        ){
+
+            show("revealBtn");
+
+            $("revealBtn").disabled =
+                false;
+
+        }else{
+
+            hide("revealBtn");
+
+        }
+
+
+        return;
+
+    }
+
+
+    /* ======================================================
+       REVEALED
+    ====================================================== */
+
+    if(state.status === "revealed"){
+
+        $("status").textContent =
+            "Round revealed.";
+
+        $("round").textContent =
+            "Round " +
+            state.round +
+            " of " +
+            state.total_rounds;
+
+
+        $("clue").textContent =
+            state.clue ||
+            "";
+
+
+        hide("answerForm");
+
+        hide("submittedMsg");
+
+        hide("revealBtn");
+
+
+        /*
+         * IMPORTANT:
+         *
+         * The backend calls the actual clean answer
+         * "answer", NOT "correct_answer".
+         */
+
+        $("correctAnswer").textContent =
+            state.answer ||
+            "Answer unavailable";
+
+
+        /*
+         * Show every player's submitted answer.
+         */
+
+        renderAnswers(
+            state.round_results || []
+        );
+
+
+        show("resultsSection");
+
+
+        if(state.is_host){
+
+            show("nextBtn");
+
+            show("finishBtn");
+
+        }else{
+
+            hide("nextBtn");
+
+            hide("finishBtn");
+
+        }
+
+
+        return;
+
+    }
+
+
+    /* ======================================================
+       FINISHED
+    ====================================================== */
+
+    if(state.status === "finished"){
+
+        $("status").textContent =
+            "Game finished.";
+
+        $("clue").textContent =
+            "🎉 Thanks for playing Dirty Minds!";
+
+
+        hide("answerForm");
+
+        hide("submittedMsg");
+
+        hide("revealBtn");
+
+        hide("nextBtn");
+
+        hide("finishBtn");
+
+        hide("resultsSection");
+
+        show("finished");
+
+
+        return;
+
+    }
+
+}
+
+
+/* ==========================================================
+   RENDER SUBMITTED ANSWERS
+========================================================== */
+
+function renderAnswers(results){
+
+    const container =
         $("answers");
 
-    answers.innerHTML = "";
 
-    const results =
-        state.round_results || [];
+    container.innerHTML =
+        "";
+
+
+    if(!results.length){
+
+        container.innerHTML =
+            `
+            <div class="notice">
+                No submitted answers found.
+            </div>
+            `;
+
+        return;
+
+    }
+
 
     results.forEach(result => {
 
         const card =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         card.className =
             "answer-card";
 
+
+        const name =
+            result.name ||
+            "Player";
+
+
+        const answer =
+            result.answer ||
+            "(No answer submitted)";
+
+
         card.innerHTML = `
-            <div class="answer-name">
-                ${escapeHTML(result.name || "Player")}
+
+            <div class="answer-player">
+                👤 ${esc(name)}
             </div>
-            <div>
-                ${escapeHTML(result.answer || "")}
+
+            <div class="answer-text">
+                ${esc(answer)}
             </div>
+
         `;
 
-        answers.appendChild(card);
+
+        container.appendChild(
+            card
+        );
+
     });
 
-    $("correctAnswer").textContent =
-        state.correct_answer || "";
-}
-
-
-function escapeHTML(value){
-
-    return String(value ?? "")
-        .replace(/&/g,"&amp;")
-        .replace(/</g,"&lt;")
-        .replace(/>/g,"&gt;")
-        .replace(/"/g,"&quot;")
-        .replace(/'/g,"&#039;");
 }
 
 
 /* ==========================================================
-   GAME ACTIONS
+   START GAME
 ========================================================== */
 
 async function startGame(){
 
     try{
 
-        $("startBtn").disabled = true;
+        $("startBtn").disabled =
+            true;
 
-        await postJSON(
-            START_ENDPOINT,
-            {
-                room_id:ROOM_ID,
-                player_key:PLAYER_KEY
-            }
+
+        await call(
+            "/start"
         );
 
-        await refreshState();
+
+        await refresh();
+
 
     }catch(error){
 
         console.error(error);
 
-        alert(
+
+        hostMessage(
             error.message ||
             "Unable to start game."
         );
 
-        $("startBtn").disabled = false;
+
+        $("startBtn").disabled =
+            false;
+
     }
+
 }
 
 
-async function submitAnswer(){
+/* ==========================================================
+   SUBMIT ANSWER
+========================================================== */
+
+async function submitAnswer(event){
+
+    event.preventDefault();
+
 
     const input =
-        $("answerInput");
+        $("answer");
+
 
     const answer =
         input.value.trim();
 
+
     if(!answer){
 
-        $("answerMessage").textContent =
-            "Enter an answer first.";
+        $("mediaMsg").textContent =
+            "Enter your clean answer first.";
 
         return;
+
     }
+
 
     try{
 
-        $("submitBtn").disabled = true;
-        input.disabled = true;
+        $("submitBtn").disabled =
+            true;
 
-        const result =
-            await postJSON(
-                ANSWER_ENDPOINT,
-                {
-                    room_id:ROOM_ID,
-                    player_key:PLAYER_KEY,
-                    answer:answer
-                }
-            );
+        input.disabled =
+            true;
 
-        if(result.success){
 
-            hide("answerArea");
-            show("submittedMessage");
+        await call(
+            "/answer",
+            {
+                answer:answer
+            }
+        );
 
-            await refreshState();
-        }
+
+        hide("answerForm");
+
+        show("submittedMsg");
+
+
+        await refresh();
+
 
     }catch(error){
 
         console.error(error);
 
-        $("answerMessage").textContent =
+
+        $("mediaMsg").textContent =
             error.message ||
             "Unable to submit answer.";
 
-        $("submitBtn").disabled = false;
-        input.disabled = false;
+
+        $("submitBtn").disabled =
+            false;
+
+        input.disabled =
+            false;
+
     }
+
 }
 
 
-async function revealRound(){
+/* ==========================================================
+   REVEAL
+========================================================== */
+
+async function reveal(){
 
     try{
 
-        await postJSON(
-            REVEAL_ENDPOINT,
-            {
-                room_id:ROOM_ID,
-                player_key:PLAYER_KEY
-            }
+        $("revealBtn").disabled =
+            true;
+
+
+        await call(
+            "/reveal"
         );
 
-        await refreshState();
+
+        await refresh();
+
 
     }catch(error){
 
-        alert(
+        console.error(error);
+
+
+        hostMessage(
             error.message ||
-            "Unable to reveal round."
+            "Unable to reveal answers."
         );
+
+
+        $("revealBtn").disabled =
+            false;
+
     }
+
 }
 
+
+/* ==========================================================
+   NEXT ROUND
+========================================================== */
 
 async function nextRound(){
 
     try{
 
-        $("nextBtn").disabled = true;
+        $("nextBtn").disabled =
+            true;
 
-        await postJSON(
-            NEXT_ENDPOINT,
-            {
-                room_id:ROOM_ID,
-                player_key:PLAYER_KEY
-            }
+
+        await call(
+            "/next"
         );
 
-        $("answerInput").value = "";
 
-        await refreshState();
+        $("answer").value =
+            "";
+
+
+        await refresh();
+
 
     }catch(error){
 
-        alert(
+        console.error(error);
+
+
+        hostMessage(
             error.message ||
             "Unable to start next round."
         );
 
-    }finally{
 
-        $("nextBtn").disabled = false;
+        $("nextBtn").disabled =
+            false;
+
     }
+
 }
 
+
+/* ==========================================================
+   FINISH GAME
+========================================================== */
 
 async function finishGame(){
 
-    if(!confirm("End the Dirty Minds game?")){
+    if(
+        !confirm(
+            "End the Dirty Minds game?"
+        )
+    ){
+
         return;
+
     }
+
 
     try{
 
-        await postJSON(
-            FINISH_ENDPOINT,
-            {
-                room_id:ROOM_ID,
-                player_key:PLAYER_KEY
-            }
+        await call(
+            "/finish"
         );
 
-        await refreshState();
+
+        await refresh();
+
 
     }catch(error){
 
-        alert(
+        console.error(error);
+
+
+        hostMessage(
             error.message ||
             "Unable to end game."
         );
+
     }
+
 }
 
 
-async function refreshState(){
+/* ==========================================================
+   REFRESH
+========================================================== */
+
+async function refresh(){
 
     try{
 
         const state =
             await getState();
 
-        renderState(state);
+
+        render(state);
+
 
     }catch(error){
 
         console.error(
-            "State error:",
+            "State refresh error:",
             error
         );
+
     }
+
 }
 
 
 /* ==========================================================
-   HOST REVEAL
+   BUTTONS
 ========================================================== */
 
-function addRevealButton(){
-
-    if($("revealBtn")) return;
-
-    const button =
-        document.createElement("button");
-
-    button.id =
-        "revealBtn";
-
-    button.className =
-        "warning hidden";
-
-    button.textContent =
-        "👀 Reveal Answers";
-
-    button.onclick =
-        revealRound;
-
-    $("gamePanel")
-        .querySelector(".controls")
-        ?.appendChild(button);
-}
+$("micBtn")
+    .addEventListener(
+        "click",
+        toggleMic
+    );
 
 
-/* ==========================================================
-   EVENT HANDLERS
-========================================================== */
-
-$("micBtn").addEventListener(
-    "click",
-    enableMicrophone
-);
-
-$("cameraBtn").addEventListener(
-    "click",
-    enableCamera
-);
-
-$("startBtn").addEventListener(
-    "click",
-    startGame
-);
-
-$("submitBtn").addEventListener(
-    "click",
-    submitAnswer
-);
-
-$("nextBtn").addEventListener(
-    "click",
-    nextRound
-);
-
-$("finishBtn").addEventListener(
-    "click",
-    finishGame
-);
-
-$("answerInput").addEventListener(
-    "keydown",
-    function(event){
-
-        if(event.key === "Enter"){
-            event.preventDefault();
-            submitAnswer();
-        }
-
-    }
-);
+$("camBtn")
+    .addEventListener(
+        "click",
+        toggleCamera
+    );
 
 
-/* ==========================================================
-   AUTOMATIC HOST REVEAL
-========================================================== */
+$("startBtn")
+    .addEventListener(
+        "click",
+        startGame
+    );
 
-function updateRevealAvailability(){
 
-    if(!lastState) return;
+$("revealBtn")
+    .addEventListener(
+        "click",
+        reveal
+    );
 
-    if(lastState.status !== "playing"){
-        return;
-    }
 
-    if(!lastState.is_host){
-        return;
-    }
+$("nextBtn")
+    .addEventListener(
+        "click",
+        nextRound
+    );
 
-    const count =
-        Number(lastState.submitted_count || 0);
 
-    const total =
-        Number(lastState.player_count || 0);
+$("finishBtn")
+    .addEventListener(
+        "click",
+        finishGame
+    );
 
-    let button =
-        $("revealBtn");
 
-    if(!button){
-
-        button =
-            document.createElement("button");
-
-        button.id =
-            "revealBtn";
-
-        button.className =
-            "warning";
-
-        button.textContent =
-            "👀 Reveal Answers";
-
-        button.onclick =
-            revealRound;
-
-        document
-            .querySelector(".controls")
-            ?.appendChild(button);
-    }
-
-    if(count >= total && total > 0){
-        show("revealBtn");
-    }else{
-        hide("revealBtn");
-    }
-}
+$("answerForm")
+    .addEventListener(
+        "submit",
+        submitAnswer
+    );
 
 
 /* ==========================================================
    POLLING
 ========================================================== */
 
-async function poll(){
-
-    try{
-
-        const state =
-            await getState();
-
-        renderState(state);
-
-        updateRevealAvailability();
-
-    }catch(error){
-
-        console.error(
-            "Polling error:",
-            error
-        );
-    }
-}
+pollTimer =
+    setInterval(
+        refresh,
+        1000
+    );
 
 
 /* ==========================================================
-   START
+   INITIALIZE
 ========================================================== */
 
-async function init(){
+(async function(){
 
     await connectLiveKit();
 
-    await refreshState();
+    await refresh();
 
-    stateTimer =
-        setInterval(
-            poll,
-            1000
-        );
-}
+})();
+
+
+/* ==========================================================
+   CLEANUP
+========================================================== */
 
 window.addEventListener(
     "beforeunload",
-    function(){
+    () => {
 
-        if(stateTimer){
-            clearInterval(stateTimer);
+        if(pollTimer){
+
+            clearInterval(
+                pollTimer
+            );
+
         }
 
-        if(room){
-            room.disconnect();
+
+        if(livekitRoom){
+
+            try{
+
+                livekitRoom.disconnect();
+
+            }catch(e){}
+
         }
+
     }
 );
 
-init();
-
-})();
 </script>
 
 </body>
