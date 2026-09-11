@@ -814,6 +814,52 @@ async def send_human_challenge(chat_id, user_id, context):
         logger.exception("Could not send human verification to %s", user_id)
 
 
+def configured_main_group_id():
+    """Return the configured main community chat ID, or 0 if not configured."""
+    try:
+        return int(os.environ.get("MAIN_GROUP_ID", "0") or "0")
+    except (TypeError, ValueError):
+        logger.warning("MAIN_GROUP_ID is not a valid integer; community automation is not scoped.")
+        return 0
+
+
+def community_chat_is_allowed(chat_id):
+    """Keep community automation limited to MAIN_GROUP_ID when configured."""
+    main_group_id = configured_main_group_id()
+    return not main_group_id or chat_id == main_group_id
+
+
+async def community_chat_member_diagnostic(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    """Log every chat_member update so membership events can be diagnosed."""
+    event = update.chat_member
+    if not event:
+        return
+
+    try:
+        old_member = event.old_chat_member
+        new_member = event.new_chat_member
+        user = new_member.user if new_member else None
+        chat = event.chat
+
+        logger.info(
+            "CHAT_MEMBER UPDATE RECEIVED | chat_id=%s | chat_title=%r | "
+            "user_id=%s | user=%r | old_status=%s | new_status=%s | "
+            "main_group_match=%s",
+            chat.id if chat else None,
+            getattr(chat, "title", None),
+            user.id if user else None,
+            getattr(user, "username", None) if user else None,
+            getattr(old_member, "status", None),
+            getattr(new_member, "status", None),
+            community_chat_is_allowed(chat.id) if chat else False,
+        )
+    except Exception:
+        logger.exception("Failed while logging chat_member diagnostic update.")
+
+
 async def community_exit(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -821,6 +867,11 @@ async def community_exit(
     """Send Melanated AZ's exit message when a member leaves or is removed."""
     event = update.chat_member
     if not event:
+        return
+
+    chat = event.chat
+    logger.info("COMMUNITY EXIT HANDLER ENTERED | chat_id=%s", chat.id if chat else None)
+    if not chat or not community_chat_is_allowed(chat.id):
         return
 
     old_status = event.old_chat_member.status
@@ -834,7 +885,13 @@ async def community_exit(
         return
 
     user = event.old_chat_member.user
-    chat = event.chat
+    logger.info(
+        "COMMUNITY EXIT DETECTED | chat_id=%s | user_id=%s | old=%s | new=%s",
+        chat.id,
+        user.id if user else None,
+        old_status,
+        new_status,
+    )
     if not user or user.is_bot:
         return
 
@@ -881,6 +938,11 @@ async def community_welcome(
     if not event:
         return
 
+    chat = event.chat
+    logger.info("COMMUNITY WELCOME HANDLER ENTERED | chat_id=%s", chat.id if chat else None)
+    if not chat or not community_chat_is_allowed(chat.id):
+        return
+
     old_status = event.old_chat_member.status
     new_status = event.new_chat_member.status
     joined = (
@@ -888,10 +950,22 @@ async def community_welcome(
         and old_status in {"left", "kicked"}
     )
     if not joined:
+        logger.info(
+            "COMMUNITY WELCOME IGNORED | chat_id=%s | old=%s | new=%s",
+            chat.id,
+            old_status,
+            new_status,
+        )
         return
 
     user = event.new_chat_member.user
-    chat = event.chat
+    logger.info(
+        "COMMUNITY JOIN DETECTED | chat_id=%s | user_id=%s | old=%s | new=%s",
+        chat.id,
+        user.id if user else None,
+        old_status,
+        new_status,
+    )
     if not user or user.is_bot:
         return
 
@@ -1988,6 +2062,37 @@ async def post_init(
         )
 
     # ------------------------------------------------------
+    # COMMUNITY CONFIGURATION / BOT PERMISSIONS DIAGNOSTIC
+    # ------------------------------------------------------
+
+    main_group_id = configured_main_group_id()
+    logger.info("Community MAIN_GROUP_ID: %s", main_group_id or "NOT SET")
+
+    if main_group_id:
+        try:
+            bot_member = await application.bot.get_chat_member(
+                chat_id=main_group_id,
+                user_id=application.bot.id,
+            )
+            logger.info(
+                "Community bot membership: status=%s | can_restrict_members=%s | "
+                "can_delete_messages=%s | can_invite_users=%s",
+                bot_member.status,
+                getattr(bot_member, "can_restrict_members", None),
+                getattr(bot_member, "can_delete_messages", None),
+                getattr(bot_member, "can_invite_users", None),
+            )
+        except TelegramError:
+            logger.exception(
+                "Could not inspect bot membership/permissions for MAIN_GROUP_ID=%s",
+                main_group_id,
+            )
+    else:
+        logger.warning(
+            "MAIN_GROUP_ID is not configured. Community join/exit handlers will accept chat_member events from any group where this bot is present."
+        )
+
+    # ------------------------------------------------------
     # PUBLIC URL
     # ------------------------------------------------------
 
@@ -2280,6 +2385,18 @@ def build_application():
             verification_message_guard,
         ),
         group=1,
+    )
+
+    # ======================================================
+    # COMMUNITY CHAT_MEMBER DIAGNOSTIC
+    # ======================================================
+
+    application.add_handler(
+        ChatMemberHandler(
+            community_chat_member_diagnostic,
+            ChatMemberHandler.CHAT_MEMBER,
+        ),
+        group=0,
     )
 
     # ======================================================
