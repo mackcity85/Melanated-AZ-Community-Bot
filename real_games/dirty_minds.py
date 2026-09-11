@@ -6,7 +6,7 @@
 #
 # Features:
 #   - Multiplayer rooms
-#   - 150 clean-answer clues
+#   - 149 Dirty Minds clues
 #   - 10 random rounds per game
 #   - Synchronized rounds
 #   - Server-side answer validation
@@ -39,7 +39,7 @@ POINTS_PER_CORRECT_ANSWER = 1
 # ==========================================================
 # DIRTY MINDS CLUE BANK
 #
-# 150 original-style clues.
+# 149 clues from your supplied Dirty Minds list.
 #
 # The clues are intentionally suggestive/misleading while
 # the actual answers are ordinary, clean objects or actions.
@@ -47,790 +47,752 @@ POINTS_PER_CORRECT_ANSWER = 1
 
 DIRTY_MINDS_CLUES: list[dict[str, Any]] = [
 
-    # ======================================================
-    # 1-25
-    # ======================================================
+    {
+        "clue": 'What starts with a C and ends with a T, is hairy, oval, Delicious, and contains thin whitish liquid?',
+        "answer": 'Coconut',
+        "aliases": [],
+    },
+    {
+        "clue": 'What goes in hard and pink then comes out soft and sticky?',
+        "answer": 'Bubble gum',
+        "aliases": [],
+    },
+    {
+        "clue": 'A finger goes in me. You fiddle with me when you’re bored. The best man always has me first.',
+        "answer": 'A wedding ring',
+        "aliases": ['wedding ring'],
+    },
+    {
+        "clue": 'I come in many sizes. Sometimes, I drip. When you blow me, you feel good.',
+        "answer": 'Nose',
+        "aliases": [],
+    },
+    {
+        "clue": 'What word starts with an ‘F’ and ends in ‘K’ & if you don’t get it, you have to use your hand.',
+        "answer": 'Fork',
+        "aliases": [],
+    },
+    {
+        "clue": 'What part of the man has no bone but has muscles, has lots of veins, like pumping, & is responsible for making love?',
+        "answer": 'Heart',
+        "aliases": [],
+    },
+    {
+        "clue": 'I have fuzzy balls Someone’s going to be beaten. You start off with love, but that doesn’t last…',
+        "answer": 'Tennis',
+        "aliases": [],
+    },
+    {
+        "clue": 'I’m long, hard, and powered by batteries, I give off a steady stream, and people grope for me in the dark.',
+        "answer": 'Torch',
+        "aliases": [],
+    },
+    {
+        "clue": 'Playing with me long enough could make you go blind – you have to stick something in my slot before you get started – playing with my joystick can give you a cramp. What am I?',
+        "answer": 'Video game',
+        "aliases": [],
+    },
+    {
+        "clue": 'Press the right button and I’ll come all over your face – I usually get spread over your hairy parts – when you wipe me off, I get white stuff on your towel. What am I?',
+        "answer": 'Shaving cream',
+        "aliases": [],
+    },
+    {
+        "clue": 'Can be hard or soft and still get it off – finger my plunger and I’ll come in your hand – I always come in hotel bathrooms. What am I?',
+        "answer": 'Soap dispenser',
+        "aliases": [],
+    },
+    {
+        "clue": 'You suck on me with your mouth – I can’t stay hard forever – there’s sometimes lipstick on my stick when you’re done. What am I?',
+        "answer": 'Icepole',
+        "aliases": [],
+    },
+    {
+        "clue": 'The situation was alarming. several large men had to go down on me. At least most of them were wearing rubbers and raincoats before they wrapped their legs around me. – What am I?',
+        "answer": 'Firepole',
+        "aliases": [],
+    },
+    {
+        "clue": 'I start with “C” – I end with “T” – I stand for pussy, what am I?',
+        "answer": 'Cat',
+        "aliases": [],
+    },
+    {
+        "clue": 'My shaft is long and tasty – you can shove me in your split – the older I am, the softer I get, what am I?',
+        "answer": 'A banana',
+        "aliases": ['banana'],
+    },
+    {
+        "clue": 'They are all fakes and Dolly Parton has some big ones. it can cost you a lot of money for a good one, but at least you can pick the size and color.',
+        "answer": 'A wig',
+        "aliases": ['wig'],
+    },
+    {
+        "clue": 'There it was. Six inches of pure delight beckoned me to take it in my mouth. I ran my tongue around it and its sweet nuts, but the longer I sucked on it, the smaller it got!. What am I?',
+        "answer": 'A chocolate bar',
+        "aliases": ['chocolate bar'],
+    },
+    {
+        "clue": 'When I go down on you, you won’t be happy. If you’re on me, the whole world is your oyster, but be careful, without protection, you might catch something nasty. What am I?',
+        "answer": 'Internet',
+        "aliases": [],
+    },
+    {
+        "clue": 'What’s a thing that you can find in a man’s pants but not in a woman’s?',
+        "answer": 'Pockets',
+        "aliases": [],
+    },
+    {
+        "clue": 'Arnold Schwarzenegger has a big one. Donald Trump has a small one. And Madonna doesn’t have one at all. What is it?',
+        "answer": 'Last name',
+        "aliases": [],
+    },
+    {
+        "clue": 'What gets longer if pulled, fits snuggly between breasts, slides neatly into a hole, chokes people when used incorrectly, and works really well when jerked?',
+        "answer": 'A seat belt',
+        "aliases": ['seat belt'],
+    },
+    {
+        "clue": 'What does every woman have that starts with ‘V’ and that she can use to get whatever she wants?',
+        "answer": 'Voice',
+        "aliases": [],
+    },
+    {
+        "clue": 'A cow has four of them but a woman has just two. What is it?',
+        "answer": 'Legs',
+        "aliases": [],
+    },
+    {
+        "clue": 'It’s fun to do but you hate knowing your parents do it too. What is it?',
+        "answer": 'Facebook',
+        "aliases": [],
+    },
+    {
+        "clue": 'What is more rewarding when it’s long and hard?',
+        "answer": 'A college education',
+        "aliases": ['college education'],
+    },
+    {
+        "clue": 'What’s white, sticky, and better to spit than to swallow?',
+        "answer": 'Toothpaste',
+        "aliases": [],
+    },
+    {
+        "clue": 'It starts with the letter “P” and ends with “O.R.N”. I play a major role in the film industry. What am I?',
+        "answer": 'Popcorn',
+        "aliases": [],
+    },
+    {
+        "clue": 'I work with briefs and I’m amazing when using my mouth. What am I?',
+        "answer": 'A lawyer',
+        "aliases": ['lawyer'],
+    },
+    {
+        "clue": 'What are the two most important holes in a woman?',
+        "answer": 'Nostrils',
+        "aliases": [],
+    },
+    {
+        "clue": 'You turn me on when you fiddle with my knobs. You have to change positions sometimes to improve.',
+        "answer": 'Radio',
+        "aliases": [],
+    },
+    {
+        "clue": 'After you turn me on, I get hot. I’m of no use until you screw me. If I’m not in tight, I could fall out.',
+        "answer": 'Lightbulb',
+        "aliases": [],
+    },
+    {
+        "clue": 'If you see me in bed, you whack me off. The bigger I am, the louder you’ll scream.',
+        "answer": 'Spider',
+        "aliases": [],
+    },
+    {
+        "clue": 'If you hammer me, I’ll throb. If I’m points up, the answer is ‘Yes’. If I’m points down, the answer is ‘No’.',
+        "answer": 'Magic 8-Ball',
+        "aliases": [],
+    },
+    {
+        "clue": 'I’m spread before I’m eaten. Your tongue gets me off. People sometimes lick my nuts.',
+        "answer": 'Peanut butter',
+        "aliases": [],
+    },
+    {
+        "clue": 'I assist an erection. Sometimes big balls hang from me. I’m called a swinger.',
+        "answer": 'Crane',
+        "aliases": [],
+    },
+    {
+        "clue": 'Over 1,000 people went down on me. I wasn’t maiden for long. A big hard thing ripped me open.',
+        "answer": 'Titanic',
+        "aliases": [],
+    },
+    {
+        "clue": 'When I go in, I can produce pain. I cause you to spit and ask that you don’t swallow. I can fill your hole.',
+        "answer": 'Dentist',
+        "aliases": [],
+    },
+    {
+        "clue": 'For a long time, it’s in and out. I discharge loads from my shaft. Everyone goes down on me.',
+        "answer": 'Elevator',
+        "aliases": [],
+    },
+    {
+        "clue": 'I vibrate. I’m a lot of fun between your legs. I can handle two at a time.',
+        "answer": 'Motorcycle',
+        "aliases": [],
+    },
+    {
+        "clue": 'I’m good at faking it. I get spread before I’m eaten. I sometimes come in the tub.',
+        "answer": 'Margarine',
+        "aliases": [],
+    },
+    {
+        "clue": 'You push me in, pull me out, then tie me up when you’re done. I come in different colors.',
+        "answer": 'Shoelace',
+        "aliases": [],
+    },
+    {
+        "clue": 'I’m big and thick. You wrap your hands around me to enjoy me. When I get hot, I’m ready to go.',
+        "answer": 'Coffee mug',
+        "aliases": [],
+    },
+    {
+        "clue": 'I’m round and juicy, with a pit in the middle. People love to eat me, and sometimes I’m messy. What am I?',
+        "answer": 'Peach',
+        "aliases": [],
+    },
+    {
+        "clue": 'I come in a variety of shapes and sizes. Some people prefer me warm, while others like me cold. What am I?',
+        "answer": 'Pizza',
+        "aliases": [],
+    },
+    {
+        "clue": 'I start with a ‘P’ and end with ‘O-R-N’. I’m popular in the adult industry. What am I?',
+        "answer": 'Popcorn',
+        "aliases": [],
+    },
+    {
+        "clue": 'I go in hard, come out soft, and you love to blow me. What am I?',
+        "answer": 'Chewing gum',
+        "aliases": [],
+    },
+    {
+        "clue": 'You stick your poles inside me and tie me down to get me up. What am I?',
+        "answer": 'A tent',
+        "aliases": ['tent'],
+    },
+    {
+        "clue": 'I have a long shaft and a round head. Men use me, but women blow me. What am I?',
+        "answer": 'A flute',
+        "aliases": ['flute'],
+    },
+    {
+        "clue": 'I get bigger when you blow me, and I float. What am I?',
+        "answer": 'A balloon',
+        "aliases": ['balloon'],
+    },
+    {
+        "clue": 'I’m long, thick, and full of seamen. What am I?',
+        "answer": 'A submarine',
+        "aliases": ['submarine'],
+    },
+    {
+        "clue": 'You spread your legs to use me. What am I?',
+        "answer": 'A pair of scissors',
+        "aliases": ['pair of scissors'],
+    },
+    {
+        "clue": 'The more you play with me, the harder I get. What am I?',
+        "answer": 'A puzzle',
+        "aliases": ['puzzle'],
+    },
+    {
+        "clue": 'What four-letter word starts with ‘F’ and ends with ‘K’, and if you can’t have it, you use your hands?',
+        "answer": 'Fork',
+        "aliases": [],
+    },
+    {
+        "clue": 'You blow me hard to make me come alive, but if you suck too much, I go limp. What am I?',
+        "answer": 'A balloon',
+        "aliases": ['balloon'],
+    },
+    {
+        "clue": 'I go in dry and come out wet. What am I?',
+        "answer": 'A tea bag',
+        "aliases": ['tea bag'],
+    },
+    {
+        "clue": 'I get longer when I’m pulled, fit perfectly between your breasts, and slide into a hole. What am I?',
+        "answer": 'A seatbelt',
+        "aliases": ['seatbelt'],
+    },
+    {
+        "clue": 'The more you play with me, the wetter I get. What am I?',
+        "answer": 'A bar of soap',
+        "aliases": ['bar of soap'],
+    },
+    {
+        "clue": 'You use your hands to move me up and down. What am I?',
+        "answer": 'A pump',
+        "aliases": ['pump'],
+    },
+    {
+        "clue": 'I start with ‘C’, end in ‘T’, and have a ‘U’ and an ‘N’ in between. What am I?',
+        "answer": 'A count',
+        "aliases": ['count'],
+    },
+    {
+        "clue": 'You tie me up to get me going, and when you’re done, you let me go. What am I?',
+        "answer": 'A shoe',
+        "aliases": ['shoe'],
+    },
+    {
+        "clue": 'I’m round, sometimes hairy, and my white stuff shoots out fast. What am I?',
+        "answer": 'A coconut',
+        "aliases": ['coconut'],
+    },
+    {
+        "clue": 'I come in different sizes, sometimes drip a little, and when you blow me, I feel better. What am I?',
+        "answer": 'A nose',
+        "aliases": ['nose'],
+    },
+    {
+        "clue": 'The more you rub me, the hotter I get. What am I?',
+        "answer": 'Two sticks making fire',
+        "aliases": [],
+    },
+    {
+        "clue": 'I get pulled out when things get hard. What am I?',
+        "answer": 'A chair',
+        "aliases": ['chair'],
+    },
+    {
+        "clue": 'I can be long or short, men and women both love to blow me. What am I?',
+        "answer": 'A whistle',
+        "aliases": ['whistle'],
+    },
+    {
+        "clue": 'What’s long, hard, and full of seamen?',
+        "answer": 'A submarine',
+        "aliases": ['submarine'],
+    },
+    {
+        "clue": 'What’s better when it’s longer and gets cut when it’s too short?',
+        "answer": 'A vacation',
+        "aliases": ['vacation'],
+    },
+    {
+        "clue": 'What’s the best part of your body to put into a pie?',
+        "answer": 'Your teeth',
+        "aliases": [],
+    },
+    {
+        "clue": 'I can be flipped, licked, and sometimes get stuck between two buns. What am I?',
+        "answer": 'A burger',
+        "aliases": ['burger'],
+    },
+    {
+        "clue": 'I get filled with cream and I’m delicious when you lick me. What am I?',
+        "answer": 'A donut',
+        "aliases": ['donut'],
+    },
+    {
+        "clue": 'I go in one hole and come out another, and I’m always on your face. What am I?',
+        "answer": 'A tongue',
+        "aliases": ['tongue'],
+    },
+    {
+        "clue": 'I’m a four-letter word that means “intercourse” but starts with ‘T’. What am I?',
+        "answer": 'Talk',
+        "aliases": [],
+    },
+    {
+        "clue": 'You stick your meat inside of me and then eat me. What am I?',
+        "answer": 'A sandwich',
+        "aliases": ['sandwich'],
+    },
+    {
+        "clue": 'I have a hole, a shaft, and I keep your balls in place. What am I?',
+        "answer": 'A golf club',
+        "aliases": ['golf club'],
+    },
+    {
+        "clue": 'I’m long, you love me in your mouth, and sometimes I drip. What am I?',
+        "answer": 'An ice cream cone',
+        "aliases": ['ice cream cone'],
+    },
+    {
+        "clue": 'I start with ‘S’, end with ‘X’, and I satisfy. What am I?',
+        "answer": 'Snacks',
+        "aliases": [],
+    },
+    {
+        "clue": 'You slide me in and out, but if you do it too fast, I’ll overheat. What am I?',
+        "answer": 'A credit card in a reader',
+        "aliases": ['credit card in a reader'],
+    },
+    {
+        "clue": 'You have to pull me out to use me, and sometimes I leave a mess behind. What am I?',
+        "answer": 'A tissue',
+        "aliases": ['tissue'],
+    },
+    {
+        "clue": 'I get spread before I get eaten. What am I?',
+        "answer": 'Butter',
+        "aliases": [],
+    },
+    {
+        "clue": 'I get shorter the more I stand tall. What am I?',
+        "answer": 'A candle',
+        "aliases": ['candle'],
+    },
+    {
+        "clue": 'I’m long and round, I can get hard or soft, and people often chew on me. What am I?',
+        "answer": 'A pencil',
+        "aliases": ['pencil'],
+    },
+    {
+        "clue": 'I’m stiff, I stand tall, and people use me when they’re feeling dirty. What am I?',
+        "answer": 'A broom',
+        "aliases": ['broom'],
+    },
+    {
+        "clue": 'You can put your lips on me, but if you suck too hard, I’ll disappear. What am I?',
+        "answer": 'A lollipop',
+        "aliases": ['lollipop'],
+    },
+    {
+        "clue": 'I get hot when you rub me, and I help you see in the dark. What am I?',
+        "answer": 'A matchstick',
+        "aliases": ['matchstick'],
+    },
+    {
+        "clue": 'The harder I get hit, the better I sound. What am I?',
+        "answer": 'A drum',
+        "aliases": ['drum'],
+    },
+    {
+        "clue": 'I start with ‘C’, end with ‘T’, and I’m something you can count on. What am I?',
+        "answer": 'A count',
+        "aliases": ['count'],
+    },
+    {
+        "clue": 'I can be tied up, but I’m not a person. I can get licked, but I’m not food. What am I?',
+        "answer": 'A shoe',
+        "aliases": ['shoe'],
+    },
+    {
+        "clue": 'The more you stroke me, the faster I go. What am I?',
+        "answer": 'Aviolin',
+        "aliases": [],
+    },
+    {
+        "clue": 'I come in different sizes, and if you push the right buttons, I can bring you joy. What am I?',
+        "answer": 'A remote control',
+        "aliases": ['remote control'],
+    },
+    {
+        "clue": 'You can hold me in your hand, I sometimes go off unexpectedly, and I often need a recharge. What am I?',
+        "answer": 'A phone',
+        "aliases": ['phone'],
+    },
+    {
+        "clue": 'I go up but never come down. What am I?',
+        "answer": 'Your age',
+        "aliases": [],
+    },
+    {
+        "clue": 'I’m shaped like a tube, I get squeezed, and I’m used in the morning. What am I?',
+        "answer": 'Toothpaste',
+        "aliases": [],
+    },
+    {
+        "clue": 'You need to open your mouth to get the best out of me. What am I?',
+        "answer": 'A joke',
+        "aliases": ['joke'],
+    },
+    {
+        "clue": 'The more you use me, the duller I get. What am I?',
+        "answer": 'A knife',
+        "aliases": ['knife'],
+    },
+    {
+        "clue": 'People love to stick their heads inside me, but I’m not alive. What am I?',
+        "answer": 'A sweater',
+        "aliases": ['sweater'],
+    },
+    {
+        "clue": 'I’m usually hung, sometimes round, and I help you see yourself better. What am I?',
+        "answer": 'A mirror',
+        "aliases": ['mirror'],
+    },
+    {
+        "clue": 'You can put me between your legs, ride me hard, and still stay clean. What am I?',
+        "answer": 'A bicycle',
+        "aliases": ['bicycle'],
+    },
+    {
+        "clue": 'I go in dry, come out wet, and the longer I stay in, the stronger I get. What am I?',
+        "answer": 'A tea bag',
+        "aliases": ['tea bag'],
+    },
+    {
+        "clue": 'You need to turn me on before you can enjoy me. What am I?',
+        "answer": 'A TV',
+        "aliases": ['TV'],
+    },
+    {
+        "clue": 'You squeeze me, twist me, and sometimes shake me to get me flowing. What am I?',
+        "answer": 'A ketchup bottle',
+        "aliases": ['ketchup bottle'],
+    },
+    {
+        "clue": 'I have keys but open no locks. What am I?',
+        "answer": 'A piano',
+        "aliases": ['piano'],
+    },
+    {
+        "clue": 'I can be dirty or clean, long or short, and people use me to express themselves. What am I?',
+        "answer": 'A word',
+        "aliases": ['word'],
+    },
+    {
+        "clue": 'I’m a four-letter word that means “lift” and starts with ‘F’. What am I?',
+        "answer": 'Fork',
+        "aliases": [],
+    },
+    {
+        "clue": 'I love getting blown, but I’m not alive. What am I?',
+        "answer": 'A candle',
+        "aliases": ['candle'],
+    },
+    {
+        "clue": 'The more I’m handled, the thinner I get. What am I?',
+        "answer": 'A bar of soap',
+        "aliases": ['bar of soap'],
+    },
+    {
+        "clue": 'I go between your lips, get sucked on, and eventually shrink. What am I?',
+        "answer": 'A straw',
+        "aliases": ['straw'],
+    },
+    {
+        "clue": 'I have two nuts, a long shaft, and I get hammered all the time. What am I?',
+        "answer": 'A bolt',
+        "aliases": ['bolt'],
+    },
+    {
+        "clue": 'I love getting stretched, but if you pull too hard, I might snap. What am I?',
+        "answer": 'A rubber band',
+        "aliases": ['rubber band'],
+    },
+    {
+        "clue": 'I get wet before you do, and I’m usually the first thing you touch when you get in. What am I?',
+        "answer": 'A shower handle',
+        "aliases": ['shower handle'],
+    },
+    {
+        "clue": 'I come in different sizes, I get stuffed often, and I protect what’s inside. What am I?',
+        "answer": 'An envelope',
+        "aliases": ['envelope'],
+    },
+    {
+        "clue": 'I start soft, but you can make me rock hard. The longer you play with me, the better I get. What am I?',
+        "answer": 'Clay',
+        "aliases": [],
+    },
+    {
+        "clue": 'I have a head, but I can’t think. I get banged to work properly. What am I?',
+        "answer": 'A nail',
+        "aliases": ['nail'],
+    },
+    {
+        "clue": 'I’m big when I’m young, but small when I’m old. People love to blow me. What am I?',
+        "answer": 'A candle',
+        "aliases": ['candle'],
+    },
+    {
+        "clue": 'I have a tip, but I’m not alive. I come in different colors and fit nicely in your hand. What am I?',
+        "answer": 'A crayon',
+        "aliases": ['crayon'],
+    },
+    {
+        "clue": 'I’m made to be ridden, but I don’t go anywhere. If you handle me wrong, I’ll make you sore. What am I?',
+        "answer": 'An exercise bike',
+        "aliases": ['exercise bike'],
+    },
+    {
+        "clue": 'You put your meat inside me before enjoying me. What am I?',
+        "answer": 'A sandwich',
+        "aliases": ['sandwich'],
+    },
+    {
+        "clue": 'I’m made to be used over and over, but if I’m too full, I might leak. What am I?',
+        "answer": 'A water bottle',
+        "aliases": ['water bottle'],
+    },
+    {
+        "clue": 'I get inserted, but I’m not alive. I vibrate sometimes and help you feel things better. What am I?',
+        "answer": 'An electric toothbrush',
+        "aliases": ['electric toothbrush'],
+    },
+    {
+        "clue": 'You grab my stick and give me a good whack to send me flying. What am I?',
+        "answer": 'A golf ball',
+        "aliases": ['golf ball'],
+    },
+    {
+        "clue": 'I get licked before I get stuck, but once I’m in, I do my job. What am I?',
+        "answer": 'A stamp',
+        "aliases": ['stamp'],
+    },
+    {
+        "clue": 'You wrap your hands around me, and I help you go up and down smoothly. What am I?',
+        "answer": 'A jump rope',
+        "aliases": ['jump rope'],
+    },
+    {
+        "clue": 'I go in empty and come out full, and I’m always in your pants. What am I?',
+        "answer": 'A wallet',
+        "aliases": ['wallet'],
+    },
+    {
+        "clue": 'I can be long or short, thick or thin. I get stroked a lot to make things appear. What am I?',
+        "answer": 'A paintbrush',
+        "aliases": ['paintbrush'],
+    },
+    {
+        "clue": 'You use your hands to open me up, and once inside, you find things you love. What am I?',
+        "answer": 'A book',
+        "aliases": ['book'],
+    },
+    {
+        "clue": 'I’m held in your hands, used between your legs, and help you finish strong. What am I?',
+        "answer": 'A bicycle handlebar',
+        "aliases": ['bicycle handlebar'],
+    },
+    {
+        "clue": 'I can be juicy, firm, or soft, and people love squeezing me. What am I?',
+        "answer": 'A peach',
+        "aliases": ['peach'],
+    },
+    {
+        "clue": 'I can be long, round, and full of holes, and I get wet before you use me. What am I?',
+        "answer": 'A sponge',
+        "aliases": ['sponge'],
+    },
+    {
+        "clue": 'I love getting rubbed the right way, and if you do it well, I’ll give you something special. What am I?',
+        "answer": 'A genie lamp',
+        "aliases": ['genie lamp'],
+    },
+    {
+        "clue": 'I can be big or small, round or flat, but no matter what, I always get laid. What am I?',
+        "answer": 'A carpet',
+        "aliases": ['carpet'],
+    },
+    {
+        "clue": 'People take me to bed, hold me tight, and love me when I’m soft. What am I?',
+        "answer": 'A pillow',
+        "aliases": ['pillow'],
+    },
+    {
+        "clue": 'I have a lot of curves, and when you go down on me, I take you for a wild ride. What am I?',
+        "answer": 'A rollercoaster',
+        "aliases": ['rollercoaster'],
+    },
+    {
+        "clue": 'The more you bang me, the louder I get. What am I?',
+        "answer": 'A drum',
+        "aliases": ['drum'],
+    },
+    {
+        "clue": 'You stick me in tight places, wiggle me around, and pull me out wet. What am I?',
+        "answer": 'A Q-tip',
+        "aliases": ['Q-tip'],
+    },
+    {
+        "clue": 'I come in a box, you use your fingers on me, and I make things come to life. What am I?',
+        "answer": 'A remote',
+        "aliases": ['remote'],
+    },
+    {
+        "clue": 'I’m wet and slippery, and you use me to slide in. What am I?',
+        "answer": 'Soap',
+        "aliases": [],
+    },
+    {
+        "clue": 'You wrap your lips around me and blow till I’m full. What am I?',
+        "answer": 'A balloon',
+        "aliases": ['balloon'],
+    },
+    {
+        "clue": 'I buzz when I’m turned on and go between your legs. What am I?',
+        "answer": 'A razor',
+        "aliases": ['razor'],
+    },
+    {
+        "clue": 'I start off soft, get hot and sticky, and end up in your mouth. What am I?',
+        "answer": 'A marshmallow',
+        "aliases": ['marshmallow'],
+    },
+    {
+        "clue": 'The harder you ride me, the more I whine. What am I?',
+        "answer": 'A treadmill',
+        "aliases": ['treadmill'],
+    },
+    {
+        "clue": 'I’m always getting stroked, sometimes wet, and used for pleasure. What am I?',
+        "answer": 'A paintbrush',
+        "aliases": ['paintbrush'],
+    },
+    {
+        "clue": 'You blow me, I puff. You suck me, I die. What am I?',
+        "answer": 'A cigarette',
+        "aliases": ['cigarette'],
+    },
+    {
+        "clue": 'I’m round, I roll, and I love getting played with. What am I?',
+        "answer": 'A bowling ball',
+        "aliases": ['bowling ball'],
+    },
+    {
+        "clue": 'You pull me out fast, and I’ll spray everywhere. What am I?',
+        "answer": 'A champagne bottle',
+        "aliases": ['champagne bottle'],
+    },
+    {
+        "clue": 'You lick me to the center, and I leave a creamy surprise. What am I?',
+        "answer": 'A lollipop',
+        "aliases": ['lollipop'],
+    },
+    {
+        "clue": 'The more you work me, the more I moan. What am I?',
+        "answer": 'A violin',
+        "aliases": ['violin'],
+    },
+    {
+        "clue": 'I’m long, get stuck in cracks, and you wiggle me till it feels better. What am I?',
+        "answer": 'A back scratcher',
+        "aliases": ['back scratcher'],
+    },
+    {
+        "clue": 'I’m hot, juicy, and you can’t wait to sink your teeth into me. What am I?',
+        "answer": 'A burger',
+        "aliases": ['burger'],
+    },
+    {
+        "clue": 'You grip me tight, ride me hard, and scream when I go too fast. What am I?',
+        "answer": 'A rollercoaster',
+        "aliases": ['rollercoaster'],
+    },
+    {
+        "clue": 'You unzip me when things get hot. What am I?',
+        "answer": 'Your pants',
+        "aliases": [],
+    },
 
-    {
-        "clue": "You put it in your mouth, pull it out, and it comes back wet.",
-        "answer": "toothbrush",
-        "aliases": ["tooth brush"],
-    },
-    {
-        "clue": "The harder you push it, the deeper it goes.",
-        "answer": "button",
-        "aliases": ["a button", "the button"],
-    },
-    {
-        "clue": "It gets longer when you pull it.",
-        "answer": "rubber band",
-        "aliases": ["rubberband"],
-    },
-    {
-        "clue": "You can ride it, but you don't need a saddle.",
-        "answer": "bicycle",
-        "aliases": ["bike"],
-    },
-    {
-        "clue": "You blow it before you put it in.",
-        "answer": "balloon",
-        "aliases": ["a balloon"],
-    },
-    {
-        "clue": "It can be hard or soft, and you sleep on it every night.",
-        "answer": "pillow",
-        "aliases": ["a pillow"],
-    },
-    {
-        "clue": "You grab it when you need to change direction.",
-        "answer": "steering wheel",
-        "aliases": ["steeringwheel"],
-    },
-    {
-        "clue": "It goes in dry and comes out wet.",
-        "answer": "tea bag",
-        "aliases": ["teabag"],
-    },
-    {
-        "clue": "You lick it before sticking it somewhere.",
-        "answer": "stamp",
-        "aliases": ["a stamp"],
-    },
-    {
-        "clue": "It gets hot when you rub it.",
-        "answer": "your hands",
-        "aliases": ["hands", "my hands", "your hand"],
-    },
-    {
-        "clue": "You put your fingers in it to make it work.",
-        "answer": "glove",
-        "aliases": ["a glove"],
-    },
-    {
-        "clue": "It has a head and a shaft but isn't a person.",
-        "answer": "golf club",
-        "aliases": ["golfclub", "club"],
-    },
-    {
-        "clue": "You push it in and pull it out all day.",
-        "answer": "drawer",
-        "aliases": ["a drawer"],
-    },
-    {
-        "clue": "It gets wetter the more it dries.",
-        "answer": "towel",
-        "aliases": ["a towel"],
-    },
-    {
-        "clue": "You sit on it, but it can also be opened.",
-        "answer": "toilet",
-        "aliases": ["a toilet"],
-    },
-    {
-        "clue": "You put it on your finger before you use it.",
-        "answer": "ring",
-        "aliases": ["a ring"],
-    },
-    {
-        "clue": "It has two balls but isn't a sport.",
-        "answer": "snowman",
-        "aliases": ["a snowman"],
-    },
-    {
-        "clue": "You pull it before you push it.",
-        "answer": "door handle",
-        "aliases": ["doorhandle", "handle"],
-    },
-    {
-        "clue": "You stick it in a hole to open something.",
-        "answer": "key",
-        "aliases": ["a key"],
-    },
-    {
-        "clue": "You put it in your ear when you want to listen.",
-        "answer": "earbud",
-        "aliases": ["ear bud", "earphone", "earphones"],
-    },
-    {
-        "clue": "You squeeze it and something comes out.",
-        "answer": "toothpaste",
-        "aliases": ["tooth paste"],
-    },
-    {
-        "clue": "You put it between your lips before you blow.",
-        "answer": "whistle",
-        "aliases": ["a whistle"],
-    },
-    {
-        "clue": "It has a handle and you use it to sweep.",
-        "answer": "broom",
-        "aliases": ["a broom"],
-    },
-    {
-        "clue": "You pull its cord to make it start.",
-        "answer": "lawn mower",
-        "aliases": ["lawnmower"],
-    },
-    {
-        "clue": "You sit in it and move it with your feet.",
-        "answer": "swing",
-        "aliases": ["a swing"],
-    },
-
-
-    # ======================================================
-    # 26-50
-    # ======================================================
-
-    {
-        "clue": "You shake me before you use me.",
-        "answer": "paint can",
-        "aliases": ["paintcan", "can of paint"],
-    },
-    {
-        "clue": "You pump me until I'm firm.",
-        "answer": "bicycle tire",
-        "aliases": ["bike tire", "bicycle tyre", "bike tyre"],
-    },
-    {
-        "clue": "I have a shaft and a point.",
-        "answer": "pencil",
-        "aliases": ["a pencil"],
-    },
-    {
-        "clue": "You sharpen me before you use me.",
-        "answer": "pencil",
-        "aliases": ["a pencil"],
-    },
-    {
-        "clue": "I'm stiff when I'm cold and soft when I'm warm.",
-        "answer": "butter",
-        "aliases": ["a stick of butter"],
-    },
-    {
-        "clue": "You spread me all over your toast.",
-        "answer": "butter",
-        "aliases": ["a stick of butter"],
-    },
-    {
-        "clue": "I come in a tube and you squeeze me out.",
-        "answer": "toothpaste",
-        "aliases": ["tooth paste"],
-    },
-    {
-        "clue": "You put me between your teeth and pull.",
-        "answer": "dental floss",
-        "aliases": ["floss"],
-    },
-    {
-        "clue": "You brush me every morning and night.",
-        "answer": "teeth",
-        "aliases": ["your teeth"],
-    },
-    {
-        "clue": "I have bristles and you run me through your hair.",
-        "answer": "hairbrush",
-        "aliases": ["hair brush", "brush"],
-    },
-    {
-        "clue": "The more you stroke me, the smoother I get.",
-        "answer": "hair",
-        "aliases": ["your hair"],
-    },
-    {
-        "clue": "I have a handle and you use me to clean yourself.",
-        "answer": "loofah",
-        "aliases": ["bath loofah", "loofa"],
-    },
-    {
-        "clue": "You squeeze me and water comes out.",
-        "answer": "sponge",
-        "aliases": ["a sponge"],
-    },
-    {
-        "clue": "I get hot when you turn me on.",
-        "answer": "hair dryer",
-        "aliases": ["hairdryer", "blow dryer", "blowdryer"],
-    },
-    {
-        "clue": "You put me on before going out.",
-        "answer": "perfume",
-        "aliases": ["fragrance"],
-    },
-    {
-        "clue": "One spray and everyone knows you're nearby.",
-        "answer": "cologne",
-        "aliases": ["fragrance"],
-    },
-    {
-        "clue": "You rub me on your lips.",
-        "answer": "lip balm",
-        "aliases": ["chapstick", "lipbalm"],
-    },
-    {
-        "clue": "I come in different flavors and melt in your mouth.",
-        "answer": "candy",
-        "aliases": ["sweet", "sweets"],
-    },
-    {
-        "clue": "You suck on me when you want something sweet.",
-        "answer": "lollipop",
-        "aliases": ["lolly pop", "lolly"],
-    },
-    {
-        "clue": "You unwrap me before you put me in your mouth.",
-        "answer": "candy",
-        "aliases": ["sweet"],
-    },
-    {
-        "clue": "I'm hot, steamy, and everyone wants me in the morning.",
-        "answer": "coffee",
-        "aliases": ["a cup of coffee"],
-    },
-    {
-        "clue": "You pour me over something before you eat it.",
-        "answer": "syrup",
-        "aliases": ["maple syrup"],
-    },
-    {
-        "clue": "I'm sticky and you lick your fingers after eating me.",
-        "answer": "honey",
-        "aliases": ["a honey"],
-    },
-    {
-        "clue": "You pull me toward you when you want me closer.",
-        "answer": "chair",
-        "aliases": ["a chair"],
-    },
-    {
-        "clue": "I have a hole in the middle and you hold me with two fingers.",
-        "answer": "button",
-        "aliases": ["a button"],
-    },
-
-
-    # ======================================================
-    # 51-75
-    # ======================================================
-
-    {
-        "clue": "I get tighter when you pull both ends.",
-        "answer": "shoelace",
-        "aliases": ["shoe lace", "laces"],
-    },
-    {
-        "clue": "You tie me before you go outside.",
-        "answer": "shoelace",
-        "aliases": ["shoe lace", "laces"],
-    },
-    {
-        "clue": "I hang around your neck but I'm not jewelry.",
-        "answer": "scarf",
-        "aliases": ["a scarf"],
-    },
-    {
-        "clue": "You wrap me around yourself when you're cold.",
-        "answer": "blanket",
-        "aliases": ["a blanket"],
-    },
-    {
-        "clue": "I'm soft, fluffy, and you love to squeeze me.",
-        "answer": "pillow",
-        "aliases": ["a pillow"],
-    },
-    {
-        "clue": "You lay your head on me every night.",
-        "answer": "pillow",
-        "aliases": ["a pillow"],
-    },
-    {
-        "clue": "You get under me when you go to bed.",
-        "answer": "blanket",
-        "aliases": ["a blanket"],
-    },
-    {
-        "clue": "I can be stuffed, fluffy, and cuddly.",
-        "answer": "stuffed animal",
-        "aliases": ["stuffed toy", "plushie", "plush toy"],
-    },
-    {
-        "clue": "You put me on your finger before using me.",
-        "answer": "glove",
-        "aliases": ["a glove"],
-    },
-    {
-        "clue": "I cover your hand but leave your fingers together.",
-        "answer": "mitten",
-        "aliases": ["a mitten"],
-    },
-    {
-        "clue": "You slip me on before you leave the house.",
-        "answer": "shoe",
-        "aliases": ["shoes"],
-    },
-    {
-        "clue": "I come off when you pull my tongue.",
-        "answer": "shoe",
-        "aliases": ["shoes"],
-    },
-    {
-        "clue": "You stuff your foot inside me.",
-        "answer": "sock",
-        "aliases": ["socks"],
-    },
-    {
-        "clue": "I have a tongue but can't talk.",
-        "answer": "shoe",
-        "aliases": ["shoes"],
-    },
-    {
-        "clue": "You polish me until I shine.",
-        "answer": "shoe",
-        "aliases": ["shoes"],
-    },
-    {
-        "clue": "I have a heel but no foot.",
-        "answer": "shoe",
-        "aliases": ["shoes"],
-    },
-    {
-        "clue": "You kick me around for fun.",
-        "answer": "ball",
-        "aliases": ["a ball"],
-    },
-    {
-        "clue": "You bounce me before you shoot.",
-        "answer": "basketball",
-        "aliases": ["basket ball"],
-    },
-    {
-        "clue": "You swing me before you hit the ball.",
-        "answer": "bat",
-        "aliases": ["baseball bat"],
-    },
-    {
-        "clue": "I have a handle and you grip me tightly.",
-        "answer": "baseball bat",
-        "aliases": ["bat"],
-    },
-    {
-        "clue": "You throw me and someone catches me.",
-        "answer": "ball",
-        "aliases": ["a ball"],
-    },
-    {
-        "clue": "I get tossed around at parties.",
-        "answer": "ball",
-        "aliases": ["a ball"],
-    },
-    {
-        "clue": "You blow me before you eat.",
-        "answer": "birthday candle",
-        "aliases": ["candle", "birthday candles"],
-    },
-    {
-        "clue": "I get shorter the longer you use me.",
-        "answer": "candle",
-        "aliases": ["a candle"],
-    },
-    {
-        "clue": "I melt when things get hot.",
-        "answer": "candle",
-        "aliases": ["wax candle"],
-    },
-
-
-    # ======================================================
-    # 76-100
-    # ======================================================
-
-    {
-        "clue": "You stick me into a cake.",
-        "answer": "candle",
-        "aliases": ["birthday candle"],
-    },
-    {
-        "clue": "You light me before the fun begins.",
-        "answer": "candle",
-        "aliases": ["a candle"],
-    },
-    {
-        "clue": "I have a flame on top and wax underneath.",
-        "answer": "candle",
-        "aliases": ["a candle"],
-    },
-    {
-        "clue": "You rub me between your hands to make bubbles.",
-        "answer": "soap",
-        "aliases": ["bar of soap"],
-    },
-    {
-        "clue": "I get smaller every time you use me.",
-        "answer": "bar of soap",
-        "aliases": ["soap"],
-    },
-    {
-        "clue": "I get slippery when wet.",
-        "answer": "soap",
-        "aliases": ["bar of soap"],
-    },
-    {
-        "clue": "You rub me all over before rinsing.",
-        "answer": "soap",
-        "aliases": ["bar of soap"],
-    },
-    {
-        "clue": "I come in a bottle and make your hair slippery.",
-        "answer": "shampoo",
-        "aliases": ["hair shampoo"],
-    },
-    {
-        "clue": "You massage me into your scalp.",
-        "answer": "shampoo",
-        "aliases": ["hair shampoo"],
-    },
-    {
-        "clue": "You rinse me out after rubbing me in.",
-        "answer": "conditioner",
-        "aliases": ["hair conditioner"],
-    },
-    {
-        "clue": "I make your hair soft after you use me.",
-        "answer": "conditioner",
-        "aliases": ["hair conditioner"],
-    },
-    {
-        "clue": "You squeeze me onto your hand before washing.",
-        "answer": "hand soap",
-        "aliases": ["soap"],
-    },
-    {
-        "clue": "I come out when you push my top.",
-        "answer": "soap dispenser",
-        "aliases": ["soap pump", "dispenser"],
-    },
-    {
-        "clue": "You push me in until it clicks.",
-        "answer": "button",
-        "aliases": ["a button"],
-    },
-    {
-        "clue": "I pop when you push me too hard.",
-        "answer": "bubble wrap",
-        "aliases": ["bubblewrap"],
-    },
-    {
-        "clue": "You squeeze me until I pop.",
-        "answer": "bubble wrap",
-        "aliases": ["bubblewrap"],
-    },
-    {
-        "clue": "I'm full of air and fun to pop.",
-        "answer": "bubble",
-        "aliases": ["a bubble"],
-    },
-    {
-        "clue": "You blow me and I disappear.",
-        "answer": "bubble",
-        "aliases": ["a bubble"],
-    },
-    {
-        "clue": "I can be popped but I don't make popcorn.",
-        "answer": "bubble",
-        "aliases": ["a bubble"],
-    },
-    {
-        "clue": "You rub me and I disappear.",
-        "answer": "eraser",
-        "aliases": ["rubber"],
-    },
-    {
-        "clue": "The harder you press me, the darker I get.",
-        "answer": "pencil",
-        "aliases": ["a pencil"],
-    },
-    {
-        "clue": "You hold me between your fingers while you write.",
-        "answer": "pencil",
-        "aliases": ["a pencil"],
-    },
-    {
-        "clue": "I have a tip that gets shorter every time you use me.",
-        "answer": "pencil",
-        "aliases": ["a pencil"],
-    },
-    {
-        "clue": "You can slide me in and out of a sleeve.",
-        "answer": "arm",
-        "aliases": ["your arm"],
-    },
-    {
-        "clue": "You pull me open when you want to get inside.",
-        "answer": "zipper",
-        "aliases": ["zip"],
-    },
-
-
-    # ======================================================
-    # 101-125
-    # ======================================================
-
-    {
-        "clue": "I'm usually hidden under your clothes.",
-        "answer": "pocket",
-        "aliases": ["a pocket"],
-    },
-    {
-        "clue": "You can unzip me from either end.",
-        "answer": "jacket",
-        "aliases": ["coat"],
-    },
-    {
-        "clue": "I have a long neck and you can squeeze me.",
-        "answer": "ketchup bottle",
-        "aliases": ["ketchup", "ketchup container"],
-    },
-    {
-        "clue": "You turn me to make something happen.",
-        "answer": "knob",
-        "aliases": ["a knob"],
-    },
-    {
-        "clue": "You twist me when you want water.",
-        "answer": "faucet",
-        "aliases": ["tap", "water faucet"],
-    },
-    {
-        "clue": "You turn me and water comes out.",
-        "answer": "faucet",
-        "aliases": ["tap", "water tap"],
-    },
-    {
-        "clue": "You pull me down before the water starts.",
-        "answer": "shower handle",
-        "aliases": ["shower knob", "shower control"],
-    },
-    {
-        "clue": "I spray when you squeeze my trigger.",
-        "answer": "spray bottle",
-        "aliases": ["spraybottle"],
-    },
-    {
-        "clue": "You squeeze me to make your plants happy.",
-        "answer": "watering bottle",
-        "aliases": ["spray bottle", "water bottle"],
-    },
-    {
-        "clue": "I have a nozzle and you squeeze me to make a mist.",
-        "answer": "spray bottle",
-        "aliases": ["spraybottle"],
-    },
-    {
-        "clue": "You stick me in the ground before you water me.",
-        "answer": "garden hose",
-        "aliases": ["hose"],
-    },
-    {
-        "clue": "I get twisted, kinked, and stretched across the yard.",
-        "answer": "garden hose",
-        "aliases": ["hose"],
-    },
-    {
-        "clue": "You roll me up when you're finished with me.",
-        "answer": "garden hose",
-        "aliases": ["hose"],
-    },
-    {
-        "clue": "You squeeze my handle and I make a loud noise.",
-        "answer": "bike horn",
-        "aliases": ["horn", "bicycle horn"],
-    },
-    {
-        "clue": "You pull my lever before I make a sound.",
-        "answer": "bell",
-        "aliases": ["hand bell"],
-    },
-    {
-        "clue": "I have a handle and a metal head.",
-        "answer": "hammer",
-        "aliases": ["a hammer"],
-    },
-    {
-        "clue": "You hit me with another object until I go in.",
-        "answer": "nail",
-        "aliases": ["a nail"],
-    },
-    {
-        "clue": "You pull me out when you want to remove something.",
-        "answer": "nail",
-        "aliases": ["a nail"],
-    },
-    {
-        "clue": "You drive me into wood.",
-        "answer": "nail",
-        "aliases": ["a nail"],
-    },
-    {
-        "clue": "You screw me in and turn me until I'm tight.",
-        "answer": "screw",
-        "aliases": ["a screw"],
-    },
-    {
-        "clue": "I have a head and threads.",
-        "answer": "screw",
-        "aliases": ["a screw"],
-    },
-    {
-        "clue": "You turn me with a screwdriver.",
-        "answer": "screw",
-        "aliases": ["a screw"],
-    },
-    {
-        "clue": "You push me through a hole to hold things together.",
-        "answer": "bolt",
-        "aliases": ["a bolt"],
-    },
-    {
-        "clue": "You tighten me with a wrench.",
-        "answer": "bolt",
-        "aliases": ["a bolt"],
-    },
-    {
-        "clue": "I have a hole in me and go onto a bolt.",
-        "answer": "nut",
-        "aliases": ["a nut"],
-    },
-
-
-    # ======================================================
-    # 126-150
-    # ======================================================
-
-    {
-        "clue": "You crack me before you cook me.",
-        "answer": "egg",
-        "aliases": ["an egg"],
-    },
-    {
-        "clue": "I'm white on the outside and yellow inside.",
-        "answer": "egg",
-        "aliases": ["an egg"],
-    },
-    {
-        "clue": "You beat me before putting me in a pan.",
-        "answer": "egg",
-        "aliases": ["an egg", "eggs"],
-    },
-    {
-        "clue": "You whip me until I becomes fluffy.",
-        "answer": "cream",
-        "aliases": ["whipping cream"],
-    },
-    {
-        "clue": "You spread me on bread and I can be soft or hard.",
-        "answer": "cheese",
-        "aliases": ["a slice of cheese"],
-    },
-    {
-        "clue": "I come in a block and you can grate me.",
-        "answer": "cheese",
-        "aliases": ["block of cheese"],
-    },
-    {
-        "clue": "You grate me over pasta.",
-        "answer": "parmesan",
-        "aliases": ["parmesan cheese", "cheese"],
-    },
-    {
-        "clue": "I'm long, thin, and you twirl me around a fork.",
-        "answer": "spaghetti",
-        "aliases": ["pasta"],
-    },
-    {
-        "clue": "You roll me before putting me in the oven.",
-        "answer": "dough",
-        "aliases": ["bread dough"],
-    },
-    {
-        "clue": "The more you knead me, the smoother I become.",
-        "answer": "dough",
-        "aliases": ["bread dough"],
-    },
-    {
-        "clue": "You punch me down after I rise.",
-        "answer": "dough",
-        "aliases": ["bread dough"],
-    },
-    {
-        "clue": "You stick me in a hole to see how deep it is.",
-        "answer": "measuring stick",
-        "aliases": ["stick", "rod"],
-    },
-    {
-        "clue": "I have a long handle and you use me to stir.",
-        "answer": "spoon",
-        "aliases": ["wooden spoon"],
-    },
-    {
-        "clue": "You put me in your mouth to taste the food.",
-        "answer": "spoon",
-        "aliases": ["a spoon"],
-    },
-    {
-        "clue": "You lick me clean when you're finished.",
-        "answer": "spoon",
-        "aliases": ["a spoon"],
-    },
-    {
-        "clue": "You dip me before you take a bite.",
-        "answer": "chip",
-        "aliases": ["potato chip", "tortilla chip"],
-    },
-    {
-        "clue": "I'm crunchy, salty, and easy to put in your mouth.",
-        "answer": "chip",
-        "aliases": ["potato chip", "tortilla chip"],
-    },
-    {
-        "clue": "You put me in a cup before pouring something hot over me.",
-        "answer": "tea bag",
-        "aliases": ["teabag"],
-    },
-    {
-        "clue": "I get stronger the longer you leave me in hot water.",
-        "answer": "tea bag",
-        "aliases": ["teabag"],
-    },
-    {
-        "clue": "You squeeze me before putting me in your drink.",
-        "answer": "lemon",
-        "aliases": ["lemon wedge"],
-    },
-    {
-        "clue": "You roll me before you cut me.",
-        "answer": "dough",
-        "aliases": ["bread dough"],
-    },
-    {
-        "clue": "You peel me before you eat me.",
-        "answer": "banana",
-        "aliases": ["a banana"],
-    },
-    {
-        "clue": "I'm long, curved, and yellow when I'm ready.",
-        "answer": "banana",
-        "aliases": ["a banana"],
-    },
-    {
-        "clue": "You squeeze me and I make a loud squeak.",
-        "answer": "dog toy",
-        "aliases": ["squeaky toy", "squeaker toy"],
-    },
-    {
-        "clue": "You throw me for the dog and it brings me back.",
-        "answer": "frisbee",
-        "aliases": ["disc", "flying disc"],
-    },
 ]
 
 
