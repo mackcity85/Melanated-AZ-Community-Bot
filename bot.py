@@ -2471,8 +2471,21 @@ def main():
         "Starting Telegram polling..."
     )
 
+    # Telegram does not include chat_member updates unless they are explicitly
+    # requested in allowed_updates. Keep every normal update type enabled while
+    # guaranteeing chat_member is present for joins, leaves, verification, and
+    # the community exit message.
+    allowed_updates = list(Update.ALL_TYPES)
+    if "chat_member" not in allowed_updates:
+        allowed_updates.append("chat_member")
+
+    logger.info(
+        "Telegram allowed updates configured; chat_member=%s",
+        "chat_member" in allowed_updates,
+    )
+
     application.run_polling(
-        allowed_updates=Update.ALL_TYPES,
+        allowed_updates=allowed_updates,
         drop_pending_updates=False,
         close_loop=False,
     )
