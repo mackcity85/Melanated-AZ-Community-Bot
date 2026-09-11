@@ -556,6 +556,12 @@ INTRO_HOURS = 48
 VERIFICATION_MAX_ATTEMPTS = 3
 VERIFICATION_MESSAGE_TTL_MINUTES = 5
 
+# Inactivity management
+MEMBER_INACTIVITY_DAYS = int(os.environ.get("MEMBER_INACTIVITY_DAYS", "30") or "30")
+ADMIN_INACTIVITY_DAYS = int(os.environ.get("ADMIN_INACTIVITY_DAYS", "14") or "14")
+ADMIN_GROUP_ID_ENV = os.environ.get("ADMIN_GROUP_ID", "") or ""
+INACTIVITY_CHECK_HOURS = int(os.environ.get("INACTIVITY_CHECK_HOURS", "6") or "6")
+
 HUMAN_CHALLENGES = [
     ("🍎 Apple", ["🍎 Apple", "🚗 Car", "👟 Shoe"]),
     ("🐶 Dog", ["🌳 Tree", "🐶 Dog", "🚲 Bike"]),
@@ -592,10 +598,20 @@ def initialize_community_security_database():
                 verification_message_id INTEGER,
                 verification_challenge TEXT,
                 verification_expires_at TEXT,
+                inactivity_notice_at TEXT,
+                inactivity_notice_message_id INTEGER,
                 status TEXT DEFAULT 'pending_verification',
                 PRIMARY KEY (chat_id, user_id)
             )
         """)
+
+        # Safe migrations for an existing community_security.db.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(community_members)").fetchall()}
+        if "inactivity_notice_at" not in columns:
+            conn.execute("ALTER TABLE community_members ADD COLUMN inactivity_notice_at TEXT")
+        if "inactivity_notice_message_id" not in columns:
+            conn.execute("ALTER TABLE community_members ADD COLUMN inactivity_notice_message_id INTEGER")
+
         conn.commit()
 
 
@@ -643,6 +659,8 @@ def save_joining_member(chat_id, user):
                 verification_message_id=NULL,
                 verification_challenge=NULL,
                 verification_expires_at=NULL,
+                inactivity_notice_at=NULL,
+                inactivity_notice_message_id=NULL,
                 status='pending_verification'
         """, (
             chat_id,
@@ -729,11 +747,188 @@ def mark_member_post(chat_id, user_id):
         return False
     with community_db_connect() as conn:
         conn.execute(
-            "UPDATE community_members SET last_post_at=? WHERE chat_id=? AND user_id=?",
+            """UPDATE community_members
+               SET last_post_at=?, inactivity_notice_at=NULL, inactivity_notice_message_id=NULL
+               WHERE chat_id=? AND user_id=?""",
             (iso_now(), chat_id, user_id),
         )
         conn.commit()
     return True
+
+
+def ensure_tracked_member(chat_id, user):
+    """Create an active tracking record for existing members not seen by the join handler."""
+    if not user or user.is_bot:
+        return
+    now = iso_now()
+    with community_db_connect() as conn:
+        conn.execute("""
+            INSERT INTO community_members
+                (chat_id, user_id, username, first_name, joined_at, verified_at, last_post_at, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+            ON CONFLICT(chat_id, user_id) DO UPDATE SET
+                username=excluded.username,
+                first_name=excluded.first_name
+        """, (
+            chat_id, user.id, user.username, user.first_name, now, now, now,
+        ))
+        conn.commit()
+
+
+def seed_admin_activity():
+    """Give configured admins a tracking baseline without changing existing activity timestamps."""
+    main_group_id = configured_main_group_id()
+    if not main_group_id:
+        return
+    now = iso_now()
+    with community_db_connect() as conn:
+        for admin_id in ADMIN_IDS:
+            conn.execute("""
+                INSERT INTO community_members
+                    (chat_id, user_id, joined_at, verified_at, last_post_at, status)
+                VALUES (?, ?, ?, ?, ?, 'active')
+                ON CONFLICT(chat_id, user_id) DO UPDATE SET
+                    status=CASE WHEN community_members.status IN ('left','removed') THEN 'active' ELSE community_members.status END
+            """, (main_group_id, int(admin_id), now, now, now))
+        conn.commit()
+
+
+def configured_admin_group_id():
+    try:
+        return int(ADMIN_GROUP_ID_ENV.strip() or "0")
+    except (TypeError, ValueError):
+        logger.warning("ADMIN_GROUP_ID is not a valid integer; admin inactivity removal is disabled.")
+        return 0
+
+
+def inactivity_keyboard(user_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💜 I'M STAYING", callback_data=f"inactive:stay:{user_id}")],
+        [InlineKeyboardButton("🚪 LEAVE GROUP", callback_data=f"inactive:leave:{user_id}")],
+    ])
+
+
+async def send_inactivity_notice(context, row):
+    user_id = int(row["user_id"])
+    days = MEMBER_INACTIVITY_DAYS
+    text = (
+        "👋🏾 <b>Hey! We haven't seen you around Melanated AZ lately.</b> 💜\n\n"
+        f"It's been about <b>{days} days</b> since your last post.\n\n"
+        "If you're still rocking with us, tap <b>💜 I'M STAYING</b> and your activity timer will reset.\n\n"
+        "If you're ready to move on, tap <b>🚪 LEAVE GROUP</b> and I'll remove you from the group.\n\n"
+        "No pressure either way. 🖤💜"
+    )
+    try:
+        message = await context.bot.send_message(
+            chat_id=user_id,
+            text=text,
+            reply_markup=inactivity_keyboard(user_id),
+            parse_mode=ParseMode.HTML,
+        )
+        with community_db_connect() as conn:
+            conn.execute(
+                "UPDATE community_members SET inactivity_notice_at=?, inactivity_notice_message_id=? WHERE chat_id=? AND user_id=?",
+                (iso_now(), message.message_id, row["chat_id"], user_id),
+            )
+            conn.commit()
+        logger.info("Inactive member notice sent | user_id=%s", user_id)
+        return True
+    except TelegramError:
+        logger.info("Could not DM inactive member %s. They may not have started the bot.", user_id)
+        return False
+
+
+async def inactivity_callback(update, context):
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    parts = query.data.split(":")
+    if len(parts) != 3 or parts[0] != "inactive":
+        return
+
+    try:
+        target_user_id = int(parts[2])
+    except ValueError:
+        return
+
+    user = update.effective_user
+    if not user or user.id != target_user_id:
+        await query.answer("This button belongs to another member.", show_alert=True)
+        return
+
+    main_group_id = configured_main_group_id()
+    if not main_group_id:
+        await query.answer("Community automation is not configured.", show_alert=True)
+        return
+
+    action = parts[1]
+    if action == "stay":
+        now = iso_now()
+        with community_db_connect() as conn:
+            conn.execute(
+                """UPDATE community_members
+                   SET last_post_at=?, inactivity_notice_at=NULL, inactivity_notice_message_id=NULL, status='active'
+                   WHERE chat_id=? AND user_id=?""",
+                (now, main_group_id, target_user_id),
+            )
+            conn.commit()
+        await query.answer("You're staying! 💜 Timer reset.")
+        try:
+            await query.edit_message_text(
+                "💜 <b>You're staying!</b>\n\n"
+                "Your Melanated AZ activity timer has been reset. Welcome back. 🔥",
+                parse_mode=ParseMode.HTML,
+            )
+        except TelegramError:
+            pass
+        return
+
+    if action == "leave":
+        try:
+            await context.bot.ban_chat_member(chat_id=main_group_id, user_id=target_user_id)
+            try:
+                await context.bot.unban_chat_member(
+                    chat_id=main_group_id, user_id=target_user_id, only_if_banned=True
+                )
+            except TypeError:
+                await context.bot.unban_chat_member(chat_id=main_group_id, user_id=target_user_id)
+
+            with community_db_connect() as conn:
+                conn.execute(
+                    "UPDATE community_members SET status='left', inactivity_notice_at=NULL, inactivity_notice_message_id=NULL WHERE chat_id=? AND user_id=?",
+                    (main_group_id, target_user_id),
+                )
+                conn.commit()
+
+            await query.answer("You have been removed from Melanated AZ.")
+            try:
+                await query.edit_message_text(
+                    "🚪 <b>You've left Melanated AZ.</b>\n\n"
+                    "No hard feelings. The door is always open if you ever want to come back. 💜",
+                    parse_mode=ParseMode.HTML,
+                )
+            except TelegramError:
+                pass
+        except TelegramError:
+            logger.exception("Could not remove inactive member %s", target_user_id)
+            await query.answer("I couldn't remove you automatically. Please contact an admin.", show_alert=True)
+
+
+async def remove_inactive_admin_from_admin_group(context, user_id, admin_group_id):
+    try:
+        await context.bot.ban_chat_member(chat_id=admin_group_id, user_id=user_id)
+        try:
+            await context.bot.unban_chat_member(
+                chat_id=admin_group_id, user_id=user_id, only_if_banned=True
+            )
+        except TypeError:
+            await context.bot.unban_chat_member(chat_id=admin_group_id, user_id=user_id)
+        logger.info("Inactive admin removed from admin group | user_id=%s | admin_group=%s", user_id, admin_group_id)
+        return True
+    except TelegramError:
+        logger.exception("Could not remove inactive admin %s from admin group %s", user_id, admin_group_id)
+        return False
 
 
 async def restrict_member(bot, chat_id, user_id):
@@ -1101,11 +1296,21 @@ async def verification_message_guard(update, context):
     if main_group_id and chat.id != main_group_id:
         return
 
+    # Track configured admins as well; they are exempt from member inactivity
+    # but are subject to the separate admin-group inactivity rule.
     if is_admin(user.id):
+        row = community_member(chat.id, user.id)
+        if not row:
+            ensure_tracked_member(chat.id, user)
+        mark_member_post(chat.id, user.id)
         return
 
     row = community_member(chat.id, user.id)
     if not row:
+        # Existing members who were already in the group before this system was
+        # deployed are added to tracking the first time they post.
+        ensure_tracked_member(chat.id, user)
+        mark_member_post(chat.id, user.id)
         return
 
     status = row["status"]
@@ -1169,6 +1374,10 @@ async def delete_message_job(context):
 
 async def community_security_monitor(context):
     now = utc_now()
+
+    # ------------------------------------------------------
+    # JOIN / INTRO ENFORCEMENT
+    # ------------------------------------------------------
     with community_db_connect() as conn:
         rows = conn.execute("""
             SELECT * FROM community_members
@@ -1180,13 +1389,59 @@ async def community_security_monitor(context):
         joined = parse_iso(row["joined_at"])
 
         if row["status"] == "pending_verification":
-            # Give a new join 48 hours to verify; challenge itself expires much sooner.
             if joined and joined + timedelta(hours=INTRO_HOURS) <= now:
                 await remove_unverified_member(context.bot, row["chat_id"], row["user_id"])
 
         elif row["status"] == "verified_intro_pending":
             if deadline and deadline <= now:
                 await remove_unverified_member(context.bot, row["chat_id"], row["user_id"])
+
+    # ------------------------------------------------------
+    # REGULAR MEMBER INACTIVITY
+    # ------------------------------------------------------
+    main_group_id = configured_main_group_id()
+    if not main_group_id:
+        return
+
+    member_cutoff = now - timedelta(days=MEMBER_INACTIVITY_DAYS)
+    with community_db_connect() as conn:
+        inactive_members = conn.execute("""
+            SELECT * FROM community_members
+            WHERE chat_id=?
+              AND status='active'
+              AND last_post_at IS NOT NULL
+              AND last_post_at <= ?
+              AND inactivity_notice_at IS NULL
+        """, (main_group_id, member_cutoff.isoformat())).fetchall()
+
+    for row in inactive_members:
+        if is_admin(int(row["user_id"])):
+            continue
+        await send_inactivity_notice(context, row)
+
+    # ------------------------------------------------------
+    # ADMIN INACTIVITY
+    # ------------------------------------------------------
+    admin_group_id = configured_admin_group_id()
+    if not admin_group_id:
+        return
+
+    admin_cutoff = now - timedelta(days=ADMIN_INACTIVITY_DAYS)
+    with community_db_connect() as conn:
+        inactive_admins = conn.execute("""
+            SELECT * FROM community_members
+            WHERE chat_id=?
+              AND status='active'
+              AND last_post_at IS NOT NULL
+              AND last_post_at <= ?
+        """, (main_group_id, admin_cutoff.isoformat())).fetchall()
+
+    for row in inactive_admins:
+        user_id = int(row["user_id"])
+        if not is_admin(user_id):
+            continue
+        await remove_inactive_admin_from_admin_group(context, user_id, admin_group_id)
+
 
 
 def start_community_security_monitor(application):
@@ -1195,7 +1450,7 @@ def start_community_security_monitor(application):
         return
     application.job_queue.run_repeating(
         community_security_monitor,
-        interval=6 * 60 * 60,
+        interval=INACTIVITY_CHECK_HOURS * 60 * 60,
         first=60,
         name="community-security-monitor",
     )
@@ -2365,6 +2620,17 @@ def build_application():
     )
 
     # ======================================================
+    # INACTIVITY CALLBACKS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            inactivity_callback,
+            pattern=r"^inactive:",
+        )
+    )
+
+    # ======================================================
     # HUMAN VERIFICATION CALLBACKS
     # ======================================================
 
@@ -2567,6 +2833,15 @@ def main():
     # ------------------------------------------------------
 
     initialize_community_security_database()
+    seed_admin_activity()
+
+    logger.info(
+        "Community inactivity settings: members=%sd | admins=%sd | check=%sh | admin_group=%s",
+        MEMBER_INACTIVITY_DAYS,
+        ADMIN_INACTIVITY_DAYS,
+        INACTIVITY_CHECK_HOURS,
+        configured_admin_group_id() or "disabled",
+    )
 
     # ------------------------------------------------------
     # BUILD TELEGRAM APPLICATION
