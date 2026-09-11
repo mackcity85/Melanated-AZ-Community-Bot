@@ -24,6 +24,9 @@
 import logging
 import os
 import threading
+import sqlite3
+import random
+from datetime import datetime, timedelta, timezone
 
 from flask import Flask
 
@@ -31,6 +34,7 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    ChatPermissions,
 )
 
 from telegram.constants import ParseMode
@@ -46,6 +50,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    ChatMemberHandler,
     filters,
 )
 
@@ -535,6 +540,592 @@ async def handle_image_document(
 ):
 
     return
+
+
+# ==========================================================
+# COMMUNITY HUMAN VERIFICATION + INTRO SYSTEM
+# ==========================================================
+
+COMMUNITY_DB = (
+    "/var/data/community_security.db"
+    if os.path.isdir("/var/data")
+    else "./community_security.db"
+)
+
+INTRO_HOURS = 48
+VERIFICATION_MAX_ATTEMPTS = 3
+VERIFICATION_MESSAGE_TTL_MINUTES = 5
+
+HUMAN_CHALLENGES = [
+    ("🍎 Apple", ["🍎 Apple", "🚗 Car", "👟 Shoe"]),
+    ("🐶 Dog", ["🌳 Tree", "🐶 Dog", "🚲 Bike"]),
+    ("🌙 Moon", ["🍕 Pizza", "🌙 Moon", "🎸 Guitar"]),
+    ("🚗 Car", ["🚗 Car", "🍌 Banana", "🎧 Headphones"]),
+    ("🐟 Fish", ["📱 Phone", "🐟 Fish", "👕 Shirt"]),
+    ("☀️ Sun", ["☀️ Sun", "🍔 Burger", "⚽ Ball"]),
+    ("🍕 Pizza", ["🪑 Chair", "🍕 Pizza", "🌴 Palm Tree"]),
+    ("🎸 Guitar", ["🎸 Guitar", "🥤 Drink", "🧢 Hat"]),
+]
+
+
+def community_db_connect():
+    conn = sqlite3.connect(COMMUNITY_DB)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def initialize_community_security_database():
+    os.makedirs(os.path.dirname(COMMUNITY_DB) or ".", exist_ok=True)
+    with community_db_connect() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS community_members (
+                chat_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                username TEXT,
+                first_name TEXT,
+                joined_at TEXT,
+                verified_at TEXT,
+                intro_deadline TEXT,
+                intro_posted_at TEXT,
+                last_post_at TEXT,
+                verification_attempts INTEGER DEFAULT 0,
+                verification_message_id INTEGER,
+                verification_challenge TEXT,
+                verification_expires_at TEXT,
+                status TEXT DEFAULT 'pending_verification',
+                PRIMARY KEY (chat_id, user_id)
+            )
+        """)
+        conn.commit()
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def iso_now():
+    return utc_now().isoformat()
+
+
+def parse_iso(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def community_member(chat_id, user_id):
+    with community_db_connect() as conn:
+        return conn.execute(
+            "SELECT * FROM community_members WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        ).fetchone()
+
+
+def save_joining_member(chat_id, user):
+    joined = utc_now()
+    with community_db_connect() as conn:
+        conn.execute("""
+            INSERT INTO community_members
+                (chat_id, user_id, username, first_name, joined_at, status)
+            VALUES (?, ?, ?, ?, ?, 'pending_verification')
+            ON CONFLICT(chat_id, user_id) DO UPDATE SET
+                username=excluded.username,
+                first_name=excluded.first_name,
+                joined_at=excluded.joined_at,
+                verified_at=NULL,
+                intro_deadline=NULL,
+                intro_posted_at=NULL,
+                last_post_at=NULL,
+                verification_attempts=0,
+                verification_message_id=NULL,
+                verification_challenge=NULL,
+                verification_expires_at=NULL,
+                status='pending_verification'
+        """, (
+            chat_id,
+            user.id,
+            user.username,
+            user.first_name,
+            joined.isoformat(),
+        ))
+        conn.commit()
+
+
+def set_verification_challenge(chat_id, user_id, answer, options, message_id):
+    expires = utc_now() + timedelta(minutes=VERIFICATION_MESSAGE_TTL_MINUTES)
+    payload = "|||".join(options)
+    with community_db_connect() as conn:
+        conn.execute("""
+            UPDATE community_members
+            SET verification_challenge=?,
+                verification_expires_at=?,
+                verification_message_id=?
+            WHERE chat_id=? AND user_id=?
+        """, (
+            answer + "###" + payload,
+            expires.isoformat(),
+            message_id,
+            chat_id,
+            user_id,
+        ))
+        conn.commit()
+
+
+def increment_verification_attempt(chat_id, user_id):
+    with community_db_connect() as conn:
+        conn.execute("""
+            UPDATE community_members
+            SET verification_attempts=verification_attempts+1
+            WHERE chat_id=? AND user_id=?
+        """, (chat_id, user_id))
+        conn.commit()
+        row = conn.execute(
+            "SELECT verification_attempts FROM community_members WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        ).fetchone()
+        return int(row[0]) if row else VERIFICATION_MAX_ATTEMPTS
+
+
+def mark_verified(chat_id, user_id):
+    now = utc_now()
+    deadline = now + timedelta(hours=INTRO_HOURS)
+    with community_db_connect() as conn:
+        conn.execute("""
+            UPDATE community_members
+            SET verified_at=?,
+                intro_deadline=?,
+                status='verified_intro_pending',
+                verification_challenge=NULL,
+                verification_expires_at=NULL
+            WHERE chat_id=? AND user_id=?
+        """, (
+            now.isoformat(),
+            deadline.isoformat(),
+            chat_id,
+            user_id,
+        ))
+        conn.commit()
+
+
+def mark_intro_posted(chat_id, user_id):
+    now = iso_now()
+    with community_db_connect() as conn:
+        conn.execute("""
+            UPDATE community_members
+            SET intro_posted_at=COALESCE(intro_posted_at, ?),
+                last_post_at=?,
+                status='active'
+            WHERE chat_id=? AND user_id=?
+        """, (now, now, chat_id, user_id))
+        conn.commit()
+
+
+def mark_member_post(chat_id, user_id):
+    row = community_member(chat_id, user_id)
+    if not row or row["status"] != "active":
+        return False
+    with community_db_connect() as conn:
+        conn.execute(
+            "UPDATE community_members SET last_post_at=? WHERE chat_id=? AND user_id=?",
+            (iso_now(), chat_id, user_id),
+        )
+        conn.commit()
+    return True
+
+
+async def restrict_member(bot, chat_id, user_id):
+    try:
+        await bot.restrict_chat_member(
+            chat_id=chat_id,
+            user_id=user_id,
+            permissions=ChatPermissions(can_send_messages=False),
+        )
+        return True
+    except TelegramError:
+        logger.exception("Could not restrict member %s in %s", user_id, chat_id)
+        return False
+
+
+async def restore_member(bot, chat_id, user_id):
+    try:
+        await bot.restrict_chat_member(
+            chat_id=chat_id,
+            user_id=user_id,
+            permissions=ChatPermissions(
+                can_send_messages=True,
+                can_send_audios=True,
+                can_send_documents=True,
+                can_send_photos=True,
+                can_send_videos=True,
+                can_send_video_notes=True,
+                can_send_voice_notes=True,
+                can_send_polls=True,
+                can_send_other_messages=True,
+                can_add_web_page_previews=True,
+                can_invite_users=True,
+            ),
+        )
+        return True
+    except TelegramError:
+        logger.exception("Could not restore member %s in %s", user_id, chat_id)
+        return False
+
+
+async def send_human_challenge(chat_id, user_id, context):
+    row = community_member(chat_id, user_id)
+    if not row:
+        return
+
+    answer, options = random.choice(HUMAN_CHALLENGES)
+    shuffled = list(options)
+    random.shuffle(shuffled)
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(option, callback_data=f"human_verify:{user_id}:{i}")]
+        for i, option in enumerate(shuffled)
+    ])
+
+    text = (
+        "🤖 <b>QUICK HUMAN CHECK</b>\n\n"
+        "Before you join the conversation, prove you're human. 👀\n\n"
+        f"<b>Which one is {answer.split(' ', 1)[1].lower()}?</b>\n\n"
+        "Tap the correct answer below."
+    )
+
+    try:
+        message = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML,
+        )
+        set_verification_challenge(
+            chat_id,
+            user_id,
+            answer,
+            shuffled,
+            message.message_id,
+        )
+        logger.info("Human verification challenge sent to %s in %s", user_id, chat_id)
+    except TelegramError:
+        logger.exception("Could not send human verification to %s", user_id)
+
+
+async def community_exit(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    """Send Melanated AZ's exit message when a member leaves or is removed."""
+    event = update.chat_member
+    if not event:
+        return
+
+    old_status = event.old_chat_member.status
+    new_status = event.new_chat_member.status
+
+    left = (
+        old_status in {"member", "administrator", "creator"}
+        and new_status in {"left", "kicked"}
+    )
+    if not left:
+        return
+
+    user = event.old_chat_member.user
+    chat = event.chat
+    if not user or user.is_bot:
+        return
+
+    name = user.first_name or user.username or "Someone"
+
+    # Mark the member as gone so the security monitor no longer processes them.
+    try:
+        with community_db_connect() as conn:
+            conn.execute(
+                "UPDATE community_members SET status='left' WHERE chat_id=? AND user_id=?",
+                (chat.id, user.id),
+            )
+            conn.commit()
+    except Exception:
+        logger.exception("Could not mark departing member %s as left", user.id)
+
+    try:
+        exit_message = await context.bot.send_message(
+            chat_id=chat.id,
+            text=(
+                f"👋🏾 <b>{name} has left Melanated AZ.</b> 💜\n\n"
+                "We wish you nothing but good vibes wherever you go. 🖤💜\n\n"
+                "🔥 The door is always open if you ever decide to come back."
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+        # Keep the group clean; remove the exit notice after 5 minutes.
+        if context.job_queue:
+            context.job_queue.run_once(
+                delete_message_job,
+                300,
+                data=(chat.id, exit_message.message_id),
+            )
+    except TelegramError:
+        logger.exception("Could not send community exit message for %s", user.id)
+
+
+async def community_welcome(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    """Two-step join protection: human check, then 48-hour introduction."""
+    event = update.chat_member
+    if not event:
+        return
+
+    old_status = event.old_chat_member.status
+    new_status = event.new_chat_member.status
+    joined = (
+        new_status in {"member", "administrator"}
+        and old_status in {"left", "kicked"}
+    )
+    if not joined:
+        return
+
+    user = event.new_chat_member.user
+    chat = event.chat
+    if not user or user.is_bot:
+        return
+
+    # Never challenge configured admins.
+    if is_admin(user.id):
+        return
+
+    save_joining_member(chat.id, user)
+    await restrict_member(context.bot, chat.id, user.id)
+
+    name = user.first_name or "there"
+    try:
+        welcome = await context.bot.send_message(
+            chat_id=chat.id,
+            text=(
+                f"👋🏾 <b>WELCOME TO MELANATED AZ, {name}!</b> 💜🔥\n\n"
+                "🛡️ <b>FIRST THINGS FIRST...</b>\n\n"
+                "You need to complete a quick human verification before you can post.\n\n"
+                "Once you're verified, you'll have <b>48 HOURS</b> to introduce yourself to the community.\n\n"
+                "Good energy. Real people. Real connections. 🖤💜"
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+        context.job_queue.run_once(
+            delete_message_job,
+            VERIFICATION_MESSAGE_TTL_MINUTES * 60,
+            data=(chat.id, welcome.message_id),
+        )
+    except TelegramError:
+        logger.exception("Could not send community welcome for %s", user.id)
+
+    await send_human_challenge(chat.id, user.id, context)
+
+
+async def human_verification_callback(update, context):
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    parts = query.data.split(":")
+    if len(parts) != 3:
+        return
+
+    try:
+        target_user_id = int(parts[1])
+        selected_index = int(parts[2])
+    except ValueError:
+        return
+
+    user = update.effective_user
+    chat = update.effective_chat
+    if not user or not chat or user.id != target_user_id:
+        try:
+            await query.answer("This verification belongs to another member.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    row = community_member(chat.id, user.id)
+    if not row or row["status"] != "pending_verification":
+        try:
+            await query.answer("You're already verified.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    expires = parse_iso(row["verification_expires_at"])
+    challenge = row["verification_challenge"] or ""
+    if not expires or expires < utc_now() or "###" not in challenge:
+        await send_human_challenge(chat.id, user.id, context)
+        try:
+            await query.answer("That challenge expired. Here's a new one.", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    answer, options_blob = challenge.split("###", 1)
+    options = options_blob.split("|||")
+    if selected_index < 0 or selected_index >= len(options):
+        return
+
+    if options[selected_index] != answer:
+        attempts = increment_verification_attempt(chat.id, user.id)
+        if attempts >= VERIFICATION_MAX_ATTEMPTS:
+            try:
+                await query.answer("Verification failed. You have been removed.", show_alert=True)
+            except Exception:
+                pass
+            await remove_unverified_member(context.bot, chat.id, user.id)
+            return
+
+        try:
+            await query.answer(
+                f"❌ Not quite. Attempt {attempts}/{VERIFICATION_MAX_ATTEMPTS}.",
+                show_alert=True,
+            )
+        except Exception:
+            pass
+        await send_human_challenge(chat.id, user.id, context)
+        return
+
+    mark_verified(chat.id, user.id)
+    await restore_member(context.bot, chat.id, user.id)
+
+    try:
+        await query.edit_message_text(
+            "✅ <b>HUMAN VERIFICATION PASSED!</b> 🎉\n\n"
+            "You're cleared to participate.\n\n"
+            "👋 <b>NOW INTRODUCE YOURSELF.</b>\n"
+            "You have <b>48 HOURS</b> to make your introduction post.\n\n"
+            "Tell us where you're from, what part of AZ you're in, what brought you here, "
+            "what you're into, or whatever you're comfortable sharing. 💜",
+            parse_mode=ParseMode.HTML,
+        )
+    except TelegramError:
+        pass
+
+
+async def verification_message_guard(update, context):
+    message = update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+    if not message or not user or not chat or user.is_bot:
+        return
+
+    # Only act on the configured main group when one is supplied.
+    main_group_id = int(os.environ.get("MAIN_GROUP_ID", "0") or "0")
+    if main_group_id and chat.id != main_group_id:
+        return
+
+    if is_admin(user.id):
+        return
+
+    row = community_member(chat.id, user.id)
+    if not row:
+        return
+
+    status = row["status"]
+    if status == "pending_verification":
+        try:
+            await message.delete()
+        except TelegramError:
+            pass
+        return
+
+    if status == "verified_intro_pending":
+        # First normal message after verification counts as the introduction.
+        if message.text and not message.text.startswith("/"):
+            mark_intro_posted(chat.id, user.id)
+            try:
+                confirmation = await message.reply_text(
+                    "🎉 <b>INTRO RECEIVED!</b> Welcome to Melanated AZ! 💜🔥",
+                    parse_mode=ParseMode.HTML,
+                )
+                context.job_queue.run_once(
+                    delete_message_job,
+                    300,
+                    data=(chat.id, confirmation.message_id),
+                )
+            except TelegramError:
+                pass
+        return
+
+    if status == "active":
+        mark_member_post(chat.id, user.id)
+
+
+async def remove_unverified_member(bot, chat_id, user_id):
+    try:
+        await bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
+        try:
+            await bot.unban_chat_member(chat_id=chat_id, user_id=user_id, only_if_banned=True)
+        except TypeError:
+            await bot.unban_chat_member(chat_id=chat_id, user_id=user_id)
+    except TelegramError:
+        logger.exception("Could not remove unverified member %s from %s", user_id, chat_id)
+
+    with community_db_connect() as conn:
+        conn.execute(
+            "UPDATE community_members SET status='removed' WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        )
+        conn.commit()
+
+
+async def delete_message_job(context):
+    data = context.job.data if context.job else None
+    if not data:
+        return
+    chat_id, message_id = data
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except TelegramError:
+        pass
+
+
+async def community_security_monitor(context):
+    now = utc_now()
+    with community_db_connect() as conn:
+        rows = conn.execute("""
+            SELECT * FROM community_members
+            WHERE status IN ('pending_verification', 'verified_intro_pending')
+        """).fetchall()
+
+    for row in rows:
+        deadline = parse_iso(row["intro_deadline"])
+        joined = parse_iso(row["joined_at"])
+
+        if row["status"] == "pending_verification":
+            # Give a new join 48 hours to verify; challenge itself expires much sooner.
+            if joined and joined + timedelta(hours=INTRO_HOURS) <= now:
+                await remove_unverified_member(context.bot, row["chat_id"], row["user_id"])
+
+        elif row["status"] == "verified_intro_pending":
+            if deadline and deadline <= now:
+                await remove_unverified_member(context.bot, row["chat_id"], row["user_id"])
+
+
+def start_community_security_monitor(application):
+    if not application.job_queue:
+        logger.warning("Community security monitor unavailable: JobQueue not installed.")
+        return
+    application.job_queue.run_repeating(
+        community_security_monitor,
+        interval=6 * 60 * 60,
+        first=60,
+        name="community-security-monitor",
+    )
+    logger.info("Community security monitor started.")
 
 
 # ==========================================================
@@ -1669,6 +2260,53 @@ def build_application():
     )
 
     # ======================================================
+    # HUMAN VERIFICATION CALLBACKS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            human_verification_callback,
+            pattern=r"^human_verify:",
+        )
+    )
+
+    # ======================================================
+    # COMMUNITY MESSAGE GUARD
+    # ======================================================
+
+    application.add_handler(
+        MessageHandler(
+            filters.ALL,
+            verification_message_guard,
+        ),
+        group=1,
+    )
+
+    # ======================================================
+    # COMMUNITY EXIT
+    # ======================================================
+
+    application.add_handler(
+        ChatMemberHandler(
+            community_exit,
+            ChatMemberHandler.CHAT_MEMBER,
+        ),
+        group=1,
+    )
+
+    # ======================================================
+    # COMMUNITY WELCOME
+    # ======================================================
+
+    application.add_handler(
+        ChatMemberHandler(
+            community_welcome,
+            ChatMemberHandler.CHAT_MEMBER,
+        ),
+        group=1,
+    )
+
+    # ======================================================
     # MEDIA
     # ======================================================
 
@@ -1808,10 +2446,18 @@ def main():
     )
 
     # ------------------------------------------------------
+    # COMMUNITY SECURITY DATABASE
+    # ------------------------------------------------------
+
+    initialize_community_security_database()
+
+    # ------------------------------------------------------
     # BUILD TELEGRAM APPLICATION
     # ------------------------------------------------------
 
     application = build_application()
+
+    start_community_security_monitor(application)
 
     logger.info(
         "Telegram application created."
