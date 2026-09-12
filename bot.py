@@ -562,6 +562,17 @@ ADMIN_INACTIVITY_DAYS = int(os.environ.get("ADMIN_INACTIVITY_DAYS", "14") or "14
 ADMIN_GROUP_ID_ENV = os.environ.get("ADMIN_GROUP_ID", "") or ""
 INACTIVITY_CHECK_HOURS = int(os.environ.get("INACTIVITY_CHECK_HOURS", "6") or "6")
 
+# New-member intro song. The MP3 can live beside bot.py on Render, or Telegram
+# can reuse a previously uploaded file_id through INTRO_SONG_FILE_ID.
+INTRO_SONG_PATH = os.environ.get(
+    "INTRO_SONG_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "melanated_az_intro.mp3"),
+).strip()
+INTRO_SONG_FILE_ID = os.environ.get("INTRO_SONG_FILE_ID", "").strip()
+INTRO_SONG_DELETE_SECONDS = int(
+    os.environ.get("INTRO_SONG_DELETE_SECONDS", "300") or "300"
+)
+
 HUMAN_CHALLENGES = [
     ("🍎 Apple", ["🍎 Apple", "🚗 Car", "👟 Shoe"]),
     ("🐶 Dog", ["🌳 Tree", "🐶 Dog", "🚲 Bike"]),
@@ -1124,6 +1135,65 @@ async def community_exit(
         logger.exception("Could not send community exit message for %s", user.id)
 
 
+async def send_community_intro_song(chat_id, context, member_name):
+    """Play the Melanated AZ intro song for a newly joined member."""
+    audio_source = INTRO_SONG_FILE_ID or INTRO_SONG_PATH
+
+    if not INTRO_SONG_FILE_ID and not os.path.isfile(INTRO_SONG_PATH):
+        logger.warning(
+            "New-member intro song not found: %s. "
+            "Upload melanated_az_intro.mp3 with bot.py or set INTRO_SONG_FILE_ID.",
+            INTRO_SONG_PATH,
+        )
+        return None
+
+    audio_file = None
+    try:
+        if INTRO_SONG_FILE_ID:
+            audio_file = INTRO_SONG_FILE_ID
+        else:
+            audio_file = open(INTRO_SONG_PATH, "rb")
+
+        intro_audio = await context.bot.send_audio(
+            chat_id=chat_id,
+            audio=audio_file,
+            caption=(
+                f"🎵 <b>WELCOME TO MELANATED AZ, {member_name}!</b> 💜\n\n"
+                "Turn it up. 🔥🖤💜"
+            ),
+            parse_mode=ParseMode.HTML,
+            title="Melanated AZ Intro",
+            performer="Melanated AZ",
+        )
+
+        if context.job_queue and intro_audio:
+            context.job_queue.run_once(
+                delete_message_job,
+                INTRO_SONG_DELETE_SECONDS,
+                data=(chat_id, intro_audio.message_id),
+            )
+
+        logger.info(
+            "New-member intro song sent | chat_id=%s | message_id=%s | user=%s",
+            chat_id,
+            intro_audio.message_id if intro_audio else None,
+            member_name,
+        )
+        return intro_audio
+    except (TelegramError, OSError):
+        logger.exception(
+            "Could not send new-member intro song | chat_id=%s",
+            chat_id,
+        )
+        return None
+    finally:
+        if audio_file is not None and hasattr(audio_file, "close"):
+            try:
+                audio_file.close()
+            except Exception:
+                pass
+
+
 async def community_welcome(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -1172,6 +1242,11 @@ async def community_welcome(
     await restrict_member(context.bot, chat.id, user.id)
 
     name = user.first_name or "there"
+
+    # Play the Melanated AZ intro song first, then send the normal welcome
+    # and verification instructions.
+    await send_community_intro_song(chat.id, context, name)
+
     try:
         welcome = await context.bot.send_message(
             chat_id=chat.id,
