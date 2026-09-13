@@ -1660,6 +1660,80 @@ async def delete_message_job(context):
         pass
 
 
+async def send_monthly_intro_reminders(context):
+    """Remind verified members who still have no saved intro."""
+    main_group_id = configured_main_group_id()
+    if not main_group_id:
+        logger.warning("Monthly intro reminders skipped: MAIN_GROUP_ID is not configured.")
+        return
+
+    with community_db_connect() as conn:
+        rows = conn.execute("""
+            SELECT * FROM community_members
+            WHERE chat_id=?
+              AND status IN ('active', 'verified_intro_pending')
+              AND verified_at IS NOT NULL
+              AND (intro_text IS NULL OR TRIM(intro_text)='')
+        """, (main_group_id,)).fetchall()
+
+    sent = 0
+    skipped = 0
+    for row in rows:
+        user_id = int(row["user_id"])
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "👋🏾 Submit My Introduction",
+                callback_data=f"intro_submit_{user_id}",
+            )
+        ]])
+
+        text = (
+            "👋🏾 <b>Hey! Just wanted to say hey!</b>\n\n"
+            "We’re updating the <b>👋 Introductions</b> page and would love for you to help us out. "
+            "The admins and everyone in the community would love to get to know you and know a little about who you are. 💜\n\n"
+            "Take a few minutes and tell us:\n\n"
+            "• What do you go by?\n"
+            "• Where are you from?\n"
+            "• What city &amp; state are you in?\n"
+            "• What brings you to Melanated AZ?\n"
+            "• What are you into?\n"
+            "• What are you looking for?\n\n"
+            "Nothing formal — <b>just be yourself, have fun with it, and let us get to know you!</b> 😏🔥"
+        )
+
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=keyboard,
+            )
+            sent += 1
+        except TelegramError:
+            skipped += 1
+            logger.info("Could not send monthly intro reminder to user %s", user_id)
+
+    logger.info(
+        "Monthly intro reminders complete: sent=%s | skipped=%s | no-intro-members=%s",
+        sent, skipped, len(rows),
+    )
+
+
+def start_monthly_intro_reminders(application):
+    """Send the intro reminder now, then repeat every 30 days."""
+    if not application.job_queue:
+        logger.warning("Monthly intro reminders unavailable: JobQueue not installed.")
+        return
+
+    application.job_queue.run_repeating(
+        send_monthly_intro_reminders,
+        interval=30 * 24 * 60 * 60,
+        first=1,
+        name="monthly-intro-reminders",
+    )
+    logger.info("Monthly intro reminders started: first run now, then every 30 days.")
+
+
 async def community_security_monitor(context):
     now = utc_now()
 
@@ -3217,6 +3291,7 @@ def main():
     application = build_application()
 
     start_community_security_monitor(application)
+    start_monthly_intro_reminders(application)
 
     logger.info(
         "Telegram application created."
