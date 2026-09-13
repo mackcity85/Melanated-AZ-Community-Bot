@@ -23,6 +23,7 @@
 
 import logging
 import os
+import html
 import threading
 import sqlite3
 import random
@@ -553,6 +554,8 @@ COMMUNITY_DB = (
 )
 
 INTRO_HOURS = 48
+INTRO_TOPIC_ID = int(os.environ.get("INTRO_TOPIC_ID", "11570") or "11570")
+INTRO_MAX_CHARS = 3500
 VERIFICATION_MAX_ATTEMPTS = 3
 VERIFICATION_MESSAGE_TTL_MINUTES = 5
 
@@ -604,6 +607,8 @@ def initialize_community_security_database():
                 verified_at TEXT,
                 intro_deadline TEXT,
                 intro_posted_at TEXT,
+                intro_text TEXT,
+                intro_message_id INTEGER,
                 last_post_at TEXT,
                 verification_attempts INTEGER DEFAULT 0,
                 verification_message_id INTEGER,
@@ -618,6 +623,10 @@ def initialize_community_security_database():
 
         # Safe migrations for an existing community_security.db.
         columns = {row[1] for row in conn.execute("PRAGMA table_info(community_members)").fetchall()}
+        if "intro_text" not in columns:
+            conn.execute("ALTER TABLE community_members ADD COLUMN intro_text TEXT")
+        if "intro_message_id" not in columns:
+            conn.execute("ALTER TABLE community_members ADD COLUMN intro_message_id INTEGER")
         if "inactivity_notice_at" not in columns:
             conn.execute("ALTER TABLE community_members ADD COLUMN inactivity_notice_at TEXT")
         if "inactivity_notice_message_id" not in columns:
@@ -665,6 +674,8 @@ def save_joining_member(chat_id, user):
                 verified_at=NULL,
                 intro_deadline=NULL,
                 intro_posted_at=NULL,
+                intro_text=NULL,
+                intro_message_id=NULL,
                 last_post_at=NULL,
                 verification_attempts=0,
                 verification_message_id=NULL,
@@ -739,17 +750,30 @@ def mark_verified(chat_id, user_id):
         conn.commit()
 
 
-def mark_intro_posted(chat_id, user_id):
+def save_intro(chat_id, user_id, intro_text, intro_message_id=None):
     now = iso_now()
     with community_db_connect() as conn:
         conn.execute("""
             UPDATE community_members
             SET intro_posted_at=COALESCE(intro_posted_at, ?),
+                intro_text=?,
+                intro_message_id=?,
                 last_post_at=?,
                 status='active'
             WHERE chat_id=? AND user_id=?
-        """, (now, now, chat_id, user_id))
+        """, (
+            now, intro_text, intro_message_id, now, chat_id, user_id
+        ))
         conn.commit()
+
+
+def get_saved_intro(chat_id, user_id):
+    with community_db_connect() as conn:
+        row = conn.execute(
+            "SELECT intro_text, intro_message_id FROM community_members WHERE chat_id=? AND user_id=?",
+            (chat_id, user_id),
+        ).fetchone()
+        return row
 
 
 def mark_member_post(chat_id, user_id):
@@ -1345,18 +1369,220 @@ async def human_verification_callback(update, context):
     mark_verified(chat.id, user.id)
     await restore_member(context.bot, chat.id, user.id)
 
+    # Keep the actual introduction flow private. The group only sees the
+    # verification result; the bot opens the intro submission in the user's DM.
+    private_opened = await send_private_intro_prompt(user, context)
     try:
-        await query.edit_message_text(
+        group_text = (
             "✅ <b>HUMAN VERIFICATION PASSED!</b> 🎉\n\n"
-            "You're cleared to participate.\n\n"
-            "👋 <b>NOW INTRODUCE YOURSELF.</b>\n"
-            "You have <b>48 HOURS</b> to make your introduction post.\n\n"
-            "Tell us where you're from, what part of AZ you're in, what brought you here, "
-            "what you're into, or whatever you're comfortable sharing. 💜",
+            "You're cleared to participate. 💜\n\n"
+            "👋🏾 I've sent your introduction instructions privately.\n"
+            "Your intro submission will stay private until the finished introduction is posted in the 👋 Introductions topic."
+        )
+        fallback_keyboard = None
+        if not private_opened:
+            bot_username = await get_bot_username(context)
+            group_text += "\n\n📩 <b>Open the bot privately to submit your introduction.</b>"
+            if bot_username:
+                fallback_keyboard = InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "👋🏾 Open Private Intro",
+                        url=f"https://t.me/{bot_username}?start=intro",
+                    )
+                ]])
+        await query.edit_message_text(group_text, parse_mode=ParseMode.HTML, reply_markup=fallback_keyboard)
+    except TelegramError:
+        pass
+
+
+def intro_private_keyboard(user_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👋🏾 Submit My Introduction", callback_data=f"intro_submit_{user_id}")]
+    ])
+
+
+def intro_view_keyboard(user_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Update My Intro", callback_data=f"intro_submit_{user_id}")],
+        [InlineKeyboardButton("❌ Close", callback_data=f"intro_close_{user_id}")],
+    ])
+
+
+def intro_topic_text(user, intro_text, updated=False):
+    name = html.escape(user.full_name or user.first_name or "Melanated AZ Member")
+    safe_intro = html.escape(intro_text)
+    action = "UPDATED INTRODUCTION" if updated else "INTRODUCTION"
+    return (
+        f"👋🏾 <b>{action}</b>\n\n"
+        f"👤 <b>{name}</b>\n\n"
+        f"{safe_intro}"
+    )
+
+
+async def send_private_intro_prompt(user, context, update_existing=False):
+    if not user:
+        return False
+    text = (
+        "✏️ <b>Update Your Melanated AZ Introduction</b>\n\n"
+        if update_existing else
+        "👋🏾 <b>Let's Get Your Introduction Saved</b>\n\n"
+    ) + (
+        "Your current intro is saved. Send your new intro below and I'll replace it.\n\n"
+        if update_existing else
+        "Your introduction will be saved to your Melanated AZ member profile and posted in the 👋 Introductions topic.\n\n"
+    ) + (
+        "🔒 <b>This submission stays private.</b> The group will only see the finished introduction after you submit it.\n\n"
+        "Tell us where you're from, what part of AZ you're in, what brought you here, what you're into, or whatever you're comfortable sharing.\n\n"
+        f"Keep it under <b>{INTRO_MAX_CHARS} characters</b>.\n\n"
+        "👇🏾 <b>Send your introduction as your next message.</b>"
+    )
+    context.user_data["awaiting_intro_submission"] = True
+    context.user_data["intro_submission_user_id"] = user.id
+    try:
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data=f"intro_close_{user.id}")]]),
+        )
+        return True
+    except TelegramError:
+        logger.info("Could not open private intro flow for user %s", user.id)
+        return False
+
+
+async def intro_callback(update, context):
+    query = update.callback_query
+    user = update.effective_user
+    if not query or not user or not query.data:
+        return
+
+    parts = query.data.split("_")
+    if len(parts) != 3:
+        return
+    try:
+        target_user_id = int(parts[2])
+    except ValueError:
+        return
+
+    if user.id != target_user_id:
+        await query.answer("This intro button belongs to another member.", show_alert=True)
+        return
+
+    if query.data.startswith("intro_close_"):
+        context.user_data.pop("awaiting_intro_submission", None)
+        context.user_data.pop("intro_submission_user_id", None)
+        await query.answer("Intro submission closed.")
+        try:
+            await query.edit_message_text("👍🏾 <b>Intro submission closed.</b>", parse_mode=ParseMode.HTML)
+        except TelegramError:
+            pass
+        return
+
+    if not query.data.startswith("intro_submit_"):
+        return
+
+    main_group_id = configured_main_group_id()
+    row = community_member(main_group_id, user.id) if main_group_id else None
+    if not row or not row["verified_at"] or row["status"] in {"pending_verification", "removed", "left"}:
+        await query.answer("You need to be verified in Melanated AZ first.", show_alert=True)
+        return
+
+    await query.answer()
+    existing = bool(row["intro_text"]) if "intro_text" in row.keys() else False
+    await send_private_intro_prompt(user, context, update_existing=existing)
+
+
+async def private_intro_text_handler(update, context):
+    message = update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+    if not message or not user or not chat or chat.type != "private" or user.is_bot:
+        return
+    if not context.user_data.get("awaiting_intro_submission"):
+        return
+    if context.user_data.get("intro_submission_user_id") != user.id:
+        return
+    if not message.text or message.text.startswith("/"):
+        return
+
+    intro_text = message.text.strip()
+    if not intro_text:
+        await message.reply_text("Please send some text for your introduction.")
+        return
+    if len(intro_text) > INTRO_MAX_CHARS:
+        await message.reply_text(
+            f"⚠️ Your intro is {len(intro_text)} characters. Please keep it under {INTRO_MAX_CHARS} characters and send it again."
+        )
+        return
+
+    main_group_id = configured_main_group_id()
+    if not main_group_id:
+        await message.reply_text("⚠️ The main group is not configured. Please contact an admin.")
+        return
+
+    row = community_member(main_group_id, user.id)
+    if not row or not row["verified_at"]:
+        context.user_data.pop("awaiting_intro_submission", None)
+        context.user_data.pop("intro_submission_user_id", None)
+        await message.reply_text("⚠️ I couldn't verify your Melanated AZ membership. Please contact an admin.")
+        return
+
+    try:
+        topic_message = await context.bot.send_message(
+            chat_id=main_group_id,
+            message_thread_id=INTRO_TOPIC_ID,
+            text=intro_topic_text(user, intro_text, updated=bool(row["intro_text"])),
             parse_mode=ParseMode.HTML,
         )
     except TelegramError:
-        pass
+        logger.exception("Could not post introduction to topic for user %s", user.id)
+        await message.reply_text(
+            "⚠️ I saved your submission attempt, but I couldn't post it to the Introductions topic. Please contact an admin."
+        )
+        return
+
+    save_intro(main_group_id, user.id, intro_text, topic_message.message_id)
+    context.user_data.pop("awaiting_intro_submission", None)
+    context.user_data.pop("intro_submission_user_id", None)
+
+    await message.reply_text(
+        "🎉 <b>INTRO SAVED!</b> 💜\n\n"
+        "Your introduction is now attached to your Melanated AZ member profile and posted in the 👋 Introductions topic.\n\n"
+        "🔒 Your submission process was private. The group only sees the finished introduction.\n\n"
+        "You can update it anytime.",
+        parse_mode=ParseMode.HTML,
+        reply_markup=intro_view_keyboard(user.id),
+    )
+
+
+async def private_intro_view_callback(update, context):
+    query = update.callback_query
+    user = update.effective_user
+    if not query or not user or not query.data:
+        return
+    try:
+        target_user_id = int(query.data.split("_")[-1])
+    except ValueError:
+        return
+    if user.id != target_user_id:
+        await query.answer("This intro belongs to another member.", show_alert=True)
+        return
+    main_group_id = configured_main_group_id()
+    row = community_member(main_group_id, user.id) if main_group_id else None
+    intro_text = row["intro_text"] if row and "intro_text" in row.keys() else None
+    if not intro_text:
+        await query.answer("You don't have a saved intro yet.", show_alert=True)
+        return
+    if query.data.startswith("intro_view_"):
+        await query.answer()
+        await query.message.reply_text(
+            "👋🏾 <b>Your Saved Introduction</b>\n\n" + html.escape(intro_text),
+            parse_mode=ParseMode.HTML,
+            reply_markup=intro_view_keyboard(user.id),
+        )
+        return
+
 
 
 async def verification_message_guard(update, context):
@@ -1397,21 +1623,8 @@ async def verification_message_guard(update, context):
         return
 
     if status == "verified_intro_pending":
-        # First normal message after verification counts as the introduction.
-        if message.text and not message.text.startswith("/"):
-            mark_intro_posted(chat.id, user.id)
-            try:
-                confirmation = await message.reply_text(
-                    "🎉 <b>INTRO RECEIVED!</b> Welcome to Melanated AZ! 💜🔥",
-                    parse_mode=ParseMode.HTML,
-                )
-                context.job_queue.run_once(
-                    delete_message_job,
-                    300,
-                    data=(chat.id, confirmation.message_id),
-                )
-            except TelegramError:
-                pass
+        # Introduction submission is now handled privately through the bot.
+        # Do not treat ordinary group messages as introductions.
         return
 
     if status == "active":
@@ -1615,6 +1828,24 @@ async def start_command(
         return
 
     # ------------------------------------------------------
+    # PRIVATE INTRO DEEP-LINK
+    # ------------------------------------------------------
+
+    if context.args and context.args[0].lower() == "intro":
+        main_group_id = configured_main_group_id()
+        row = community_member(main_group_id, user.id) if main_group_id else None
+        if not row or not row["verified_at"]:
+            await message.reply_text(
+                "👋🏾 <b>You need to complete Melanated AZ verification first.</b>\n\n"
+                "Once you're verified, use the private intro button to submit your introduction.",
+                parse_mode=ParseMode.HTML,
+            )
+            return
+        existing = bool(row["intro_text"]) if "intro_text" in row.keys() else False
+        await send_private_intro_prompt(user, context, update_existing=existing)
+        return
+
+    # ------------------------------------------------------
     # NORMAL /START
     # ------------------------------------------------------
 
@@ -1654,6 +1885,28 @@ async def start_command(
         text,
         reply_markup=keyboard,
         parse_mode=ParseMode.HTML,
+    )
+
+
+async def my_intro_command(update, context):
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not user or message.chat.type != "private":
+        return
+    main_group_id = configured_main_group_id()
+    row = community_member(main_group_id, user.id) if main_group_id else None
+    intro_text = row["intro_text"] if row and "intro_text" in row.keys() else None
+    if not intro_text:
+        await message.reply_text(
+            "👋🏾 <b>You don't have a saved introduction yet.</b>\n\nTap below to submit one.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=intro_private_keyboard(user.id),
+        )
+        return
+    await message.reply_text(
+        "👋🏾 <b>Your Saved Introduction</b>\n\n" + html.escape(intro_text),
+        parse_mode=ParseMode.HTML,
+        reply_markup=intro_view_keyboard(user.id),
     )
 
 
@@ -2518,6 +2771,11 @@ def build_application():
         ),
 
         (
+            "myintro",
+            my_intro_command,
+        ),
+
+        (
             "realgames",
             real_games_command,
         ),
@@ -2804,6 +3062,34 @@ def build_application():
             handle_image_document,
         ),
         group=5,
+    )
+
+    # ======================================================
+    # PRIVATE INTRO FLOW
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            intro_callback,
+            pattern=r"^intro_(submit|close)_",
+        ),
+        group=0,
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            private_intro_view_callback,
+            pattern=r"^intro_view_",
+        ),
+        group=0,
+    )
+
+    application.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+            private_intro_text_handler,
+        ),
+        group=0,
     )
 
     # ======================================================
