@@ -2735,6 +2735,8 @@ def merge_admin_member_sources(chat_id):
                 "verified_at": None,
                 "intro_deadline": None,
                 "intro_posted_at": None,
+                "intro_text": None,
+                "intro_message_id": None,
                 "last_post_at": None,
                 "status": None,
                 "verification_attempts": 0,
@@ -2758,6 +2760,8 @@ def merge_admin_member_sources(chat_id):
             "verified_at": row.get("verified_at"),
             "intro_deadline": row.get("intro_deadline"),
             "intro_posted_at": row.get("intro_posted_at"),
+            "intro_text": row.get("intro_text"),
+            "intro_message_id": row.get("intro_message_id"),
             "last_post_at": row.get("last_post_at"),
             "status": row.get("status"),
             "verification_attempts": row.get("verification_attempts") or 0,
@@ -3047,6 +3051,13 @@ async def admin_member_view(update, context, member_user_id):
     safe_birthday = html.escape(str(birthday))
 
     buttons = []
+    if member.get("intro_text"):
+        buttons.append([
+            InlineKeyboardButton(
+                "👋 View Intro",
+                callback_data=f"admin_member_intro_{member_user_id}",
+            )
+        ])
     message_button = InlineKeyboardButton(
         "💬 Message",
         url=f"tg://user?id={member_user_id}",
@@ -3092,7 +3103,9 @@ async def admin_member_view(update, context, member_user_id):
         "📌 <b>COMMUNITY</b>\n"
         f"{status_icon} <b>Status:</b> <code>{safe_status}</code>\n"
         f"{verified} <b>Verified:</b> {fmt_date(member.get('verified_at'))}\n"
-        f"{intro} <b>Intro:</b> {fmt_date(member.get('intro_posted_at'))}\n"
+        f"{intro} <b>Intro:</b> {'Saved' if member.get('intro_text') else 'Not saved'}"
+        + (f" ({fmt_date(member.get('intro_posted_at'))})" if member.get('intro_posted_at') else "")
+        + "\n"
         f"📅 <b>Joined:</b> {fmt_date(member.get('joined_at'))}\n"
         f"🕐 <b>Last activity:</b> {fmt_date(member.get('last_post_at'))}\n"
         f"📱 <b>Telegram status:</b> {safe_tg_status}\n\n"
@@ -3101,6 +3114,58 @@ async def admin_member_view(update, context, member_user_id):
         "🎟️ <b>RAFFLE</b>\n"
         f"{raffle} Known in raffle member database",
         reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="HTML",
+    )
+
+
+async def admin_member_intro_view(update, context, member_user_id):
+    """Show a member's saved introduction to an authorized admin."""
+    query = update.callback_query
+    if not query:
+        return
+
+    try:
+        member_user_id = int(member_user_id)
+    except (TypeError, ValueError):
+        await query.answer("Invalid member.", show_alert=True)
+        return
+
+    chat_id = admin_main_group_id()
+    if not chat_id:
+        await query.answer("Main group is not configured.", show_alert=True)
+        return
+
+    rows = get_community_member_records(chat_id)
+    row = next((item for item in rows if int(item.get("user_id", 0)) == member_user_id), None)
+    if not row or not row.get("intro_text"):
+        await query.answer("No saved introduction for this member.", show_alert=True)
+        return
+
+    name = admin_member_display_name({
+        "display_name": row.get("first_name"),
+        "username": row.get("username"),
+        "user_id": member_user_id,
+    })
+    safe_name = html.escape(str(name))
+    safe_intro = html.escape(str(row.get("intro_text")))
+
+    await query.answer()
+    await query.edit_message_text(
+        "👋🏾 <b>Saved Introduction</b>\n\n"
+        f"<b>Member:</b> {safe_name}\n"
+        f"<b>Telegram ID:</b> <code>{member_user_id}</code>\n\n"
+        f"{safe_intro}",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "⬅️ Member Profile",
+                callback_data=f"admin_member_view_{member_user_id}",
+            )
+        ], [
+            InlineKeyboardButton(
+                "👥 Members",
+                callback_data=f"admin_members_page_{context.user_data.get('admin_members_page', 0)}",
+            )
+        ]]),
         parse_mode="HTML",
     )
 
@@ -3540,6 +3605,18 @@ async def admin_button(
                 page_size,
             ),
             parse_mode="Markdown",
+        )
+
+        return
+
+    if data.startswith("admin_member_intro_"):
+
+        member_user_id = data[len("admin_member_intro_"):]
+
+        await admin_member_intro_view(
+            update,
+            context,
+            member_user_id,
         )
 
         return
