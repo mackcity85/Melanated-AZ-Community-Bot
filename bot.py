@@ -1432,7 +1432,7 @@ async def send_private_intro_prompt(user, context, update_existing=False):
         "Your introduction will be saved to your Melanated AZ member profile and posted in the 👋 Introductions topic.\n\n"
     ) + (
         "🔒 <b>This submission stays private.</b> The group will only see the finished introduction after you submit it.\n\n"
-        "Tell us where you're from, what part of AZ you're in, what brought you here, what you're into, or whatever you're comfortable sharing.\n\n"
+        "Tell us what you go by, your relationship / dynamic status, where you're from, what city & state you're in, what brought you to Melanated AZ, what you're into, and what you're looking for — or whatever you're comfortable sharing.\n\n"
         f"Keep it under <b>{INTRO_MAX_CHARS} characters</b>.\n\n"
         "👇🏾 <b>Send your introduction as your next message.</b>"
     )
@@ -1661,7 +1661,12 @@ async def delete_message_job(context):
 
 
 async def send_monthly_intro_reminders(context):
-    """Remind verified members who still have no saved intro."""
+    """Remind verified members who still have no saved intro.
+
+    Telegram bots cannot start a private conversation with users who have never
+    opened the bot. Those members are directed to the bot from the group via
+    the /start=intro deep link.
+    """
     main_group_id = configured_main_group_id()
     if not main_group_id:
         logger.warning("Monthly intro reminders skipped: MAIN_GROUP_ID is not configured.")
@@ -1676,48 +1681,155 @@ async def send_monthly_intro_reminders(context):
               AND (intro_text IS NULL OR TRIM(intro_text)='')
         """, (main_group_id,)).fetchall()
 
+    text = (
+        "👋🏾 <b>Hey! Just wanted to say hey!</b>\n\n"
+        "We’re updating the <b>👋 Introductions</b> page and would love for you to help us out. "
+        "The admins and everyone in the community would love to get to know you and know a little about who you are. 💜\n\n"
+        "Take a few minutes and tell us:\n\n"
+        "• What do you go by?\n"
+        "• Relationship / dynamic status?\n"
+        "• Where are you from?\n"
+        "• What city &amp; state are you in?\n"
+        "• What brings you to Melanated AZ?\n"
+        "• What are you into?\n"
+        "• What are you looking for?\n\n"
+        "Nothing formal — <b>just be yourself, have fun with it, and let us get to know you!</b> 😏🔥"
+    )
+
+    bot_username = await get_bot_username(context)
+    group_keyboard = None
+    if bot_username:
+        group_keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "👋🏾 Submit My Introduction",
+                url=f"https://t.me/{bot_username}?start=intro",
+            )
+        ]])
+
     sent = 0
     skipped = 0
     for row in rows:
         user_id = int(row["user_id"])
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(
-                "👋🏾 Submit My Introduction",
-                callback_data=f"intro_submit_{user_id}",
-            )
-        ]])
-
-        text = (
-            "👋🏾 <b>Hey! Just wanted to say hey!</b>\n\n"
-            "We’re updating the <b>👋 Introductions</b> page and would love for you to help us out. "
-            "The admins and everyone in the community would love to get to know you and know a little about who you are. 💜\n\n"
-            "Take a few minutes and tell us:\n\n"
-            "• What do you go by?\n"
-            "• Where are you from?\n"
-            "• What city &amp; state are you in?\n"
-            "• What brings you to Melanated AZ?\n"
-            "• What are you into?\n"
-            "• What are you looking for?\n\n"
-            "Nothing formal — <b>just be yourself, have fun with it, and let us get to know you!</b> 😏🔥"
-        )
-
         try:
             await context.bot.send_message(
                 chat_id=user_id,
                 text=text,
                 parse_mode=ParseMode.HTML,
-                reply_markup=keyboard,
+                reply_markup=(InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "👋🏾 Submit My Introduction",
+                        callback_data=f"intro_submit_{user_id}",
+                    )
+                ]]) if bot_username else None),
             )
             sent += 1
         except TelegramError:
             skipped += 1
-            logger.info("Could not send monthly intro reminder to user %s", user_id)
+            logger.info("Could not DM monthly intro reminder to user %s", user_id)
+
+    topic_ok, topic_detail = await post_intro_topic_reminder(context)
 
     logger.info(
-        "Monthly intro reminders complete: sent=%s | skipped=%s | no-intro-members=%s",
-        sent, skipped, len(rows),
+        "Monthly intro reminders complete: DMs sent=%s | DMs skipped=%s | no-intro-members=%s | topic_ok=%s | topic_detail=%s",
+        sent, skipped, len(rows), topic_ok, topic_detail,
     )
 
+
+
+async def post_intro_topic_reminder(context):
+    """Post the public intro reminder to the configured forum topic.
+
+    Returns (True, detail) on success or (False, detail) on failure so the
+    admin can see the actual Telegram/configuration problem immediately.
+    """
+    main_group_id = configured_main_group_id()
+    if not main_group_id:
+        detail = "MAIN_GROUP_ID is not configured."
+        logger.error("Intro topic reminder failed: %s", detail)
+        return False, detail
+
+    if not INTRO_TOPIC_ID:
+        detail = "INTRO_TOPIC_ID is not configured."
+        logger.error("Intro topic reminder failed: %s", detail)
+        return False, detail
+
+    bot_username = await get_bot_username(context)
+    if not bot_username:
+        detail = "Bot username could not be resolved."
+        logger.error("Intro topic reminder failed: %s", detail)
+        return False, detail
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "👋🏾 Submit My Introduction",
+            url=f"https://t.me/{bot_username}?start=intro",
+        )
+    ]])
+
+    text = (
+        "👋🏾 <b>INTRODUCTIONS REMINDER</b>\n\n"
+        "We’re updating the <b>👋 Introductions</b> page and would love for you to help us out. "
+        "The admins and everyone in the community would love to get to know you and know a little about who you are. 💜\n\n"
+        "Take a few minutes and tell us:\n\n"
+        "• What do you go by?\n"
+        "• Relationship / dynamic status?\n"
+        "• Where are you from?\n"
+        "• What city &amp; state are you in?\n"
+        "• What brings you to Melanated AZ?\n"
+        "• What are you into?\n"
+        "• What are you looking for?\n\n"
+        "Nothing formal — <b>just be yourself, have fun with it, and let us get to know you!</b> 😏🔥"
+    )
+
+    try:
+        sent = await context.bot.send_message(
+            chat_id=main_group_id,
+            message_thread_id=INTRO_TOPIC_ID,
+            text=text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard,
+        )
+        logger.info(
+            "INTRO TOPIC REMINDER POSTED: chat=%s topic=%s message=%s",
+            main_group_id, INTRO_TOPIC_ID, sent.message_id,
+        )
+        return True, f"Posted to chat {main_group_id}, topic {INTRO_TOPIC_ID}, message {sent.message_id}."
+    except TelegramError as exc:
+        detail = f"Telegram error: {exc}"
+        logger.exception(
+            "FAILED TO POST INTRO TOPIC REMINDER: chat=%s topic=%s",
+            main_group_id, INTRO_TOPIC_ID,
+        )
+        return False, detail
+
+
+async def post_intro_topic_command(update, context):
+    """Admin-only manual test/post for the Introductions topic."""
+    user = update.effective_user
+    message = update.effective_message
+    if not user or not message:
+        return
+
+    if not is_admin(user.id):
+        await message.reply_text("⛔ You are not authorized to use /postintro.")
+        return
+
+    await message.reply_text(
+        f"⏳ Testing the 👋 Introductions topic (thread {INTRO_TOPIC_ID})..."
+    )
+
+    ok, detail = await post_intro_topic_reminder(context)
+    if ok:
+        await message.reply_text(
+            "✅ Intro reminder posted successfully.\n\n"
+            f"{detail}"
+        )
+    else:
+        await message.reply_text(
+            "❌ Intro reminder FAILED.\n\n"
+            f"{detail}\n\n"
+            "This tells us exactly what Telegram is rejecting."
+        )
 
 def start_monthly_intro_reminders(application):
     """Send the intro reminder now, then repeat every 30 days."""
@@ -2929,6 +3041,11 @@ def build_application():
             dare,
         ),
 
+        (
+            "postintro",
+            post_intro_topic_command,
+        ),
+
     ]:
 
         application.add_handler(
@@ -3023,6 +3140,17 @@ def build_application():
         CallbackQueryHandler(
             truth_dare_callback_router,
             pattern=r"^truthdare_",
+        )
+    )
+
+    # ======================================================
+    # INTRODUCTION CALLBACKS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            intro_callback,
+            pattern=r"^intro_(submit|close)_",
         )
     )
 
