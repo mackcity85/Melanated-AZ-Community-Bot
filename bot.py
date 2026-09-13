@@ -1814,10 +1814,6 @@ async def post_intro_topic_command(update, context):
         await message.reply_text("⛔ You are not authorized to use /postintro.")
         return
 
-    await message.reply_text(
-        f"⏳ Testing the 👋 Introductions topic (thread {INTRO_TOPIC_ID})..."
-    )
-
     ok, detail = await post_intro_topic_reminder(context)
     if ok:
         await message.reply_text(
