@@ -17,6 +17,8 @@
 # ==========================================================
 
 import logging
+import os
+import sqlite3
 
 from telegram import (
     Update,
@@ -2655,6 +2657,157 @@ async def admin_truthdare_help(update, context):
 # MEMBERS
 # ==========================================================
 
+def admin_community_db_path():
+    """Return the same community-security DB path used by bot.py."""
+    return os.environ.get(
+        "COMMUNITY_DB",
+        "/var/data/community_security.db"
+        if os.path.isdir("/var/data")
+        else "./community_security.db",
+    ).strip()
+
+
+def admin_main_group_id():
+    """Return MAIN_GROUP_ID, falling back to RAFFLE_CHAT_ID."""
+    raw = os.environ.get("MAIN_GROUP_ID", "").strip()
+    if raw:
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+
+    try:
+        from config import RAFFLE_CHAT_ID
+        return int(RAFFLE_CHAT_ID)
+    except Exception:
+        return 0
+
+
+def get_community_member_records(chat_id):
+    """Read the community-security member records created by bot.py."""
+    if not chat_id:
+        return []
+
+    db_path = admin_community_db_path()
+    if not os.path.isfile(db_path):
+        return []
+
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM community_members WHERE chat_id=? ORDER BY first_name COLLATE NOCASE",
+            (int(chat_id),),
+        ).fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+    except Exception:
+        logger.exception("Could not read community member database")
+        return []
+
+
+def get_birthday_member_records():
+    """Return all saved birthday records from the existing birthday database."""
+    try:
+        return get_all_birthdays() or []
+    except Exception:
+        logger.exception("Could not read birthday database")
+        return []
+
+
+def merge_admin_member_sources(chat_id):
+    """Merge community, raffle, and birthday records by Telegram user ID."""
+    merged = {}
+
+    def ensure(user_id):
+        try:
+            uid = int(user_id)
+        except (TypeError, ValueError):
+            return None
+        if uid not in merged:
+            merged[uid] = {
+                "user_id": uid,
+                "username": None,
+                "display_name": None,
+                "first_name": None,
+                "joined_at": None,
+                "verified_at": None,
+                "intro_deadline": None,
+                "intro_posted_at": None,
+                "last_post_at": None,
+                "status": None,
+                "verification_attempts": 0,
+                "birthday": None,
+                "birthday_id": None,
+                "raffle_member": False,
+            }
+        return merged[uid]
+
+    # 1. Community security database = primary source.
+    community_chat_id = admin_main_group_id() or chat_id
+    for row in get_community_member_records(community_chat_id):
+        item = ensure(row.get("user_id"))
+        if not item:
+            continue
+        item.update({
+            "username": row.get("username") or item["username"],
+            "first_name": row.get("first_name") or item["first_name"],
+            "display_name": row.get("first_name") or item["display_name"],
+            "joined_at": row.get("joined_at"),
+            "verified_at": row.get("verified_at"),
+            "intro_deadline": row.get("intro_deadline"),
+            "intro_posted_at": row.get("intro_posted_at"),
+            "last_post_at": row.get("last_post_at"),
+            "status": row.get("status"),
+            "verification_attempts": row.get("verification_attempts") or 0,
+        })
+
+    # 2. Existing raffle/member database.
+    raffle_members = []
+    try:
+        raffle_members = get_members(chat_id=chat_id, limit=1000) or []
+        if not raffle_members and community_chat_id and community_chat_id != chat_id:
+            raffle_members = get_members(chat_id=community_chat_id, limit=1000) or []
+    except Exception:
+        logger.exception("Could not read raffle member database")
+
+    for row in raffle_members:
+        item = ensure(row.get("user_id"))
+        if not item:
+            continue
+        item["raffle_member"] = True
+        item["username"] = row.get("username") or item["username"]
+        item["display_name"] = (
+            row.get("display_name")
+            or row.get("first_name")
+            or item["display_name"]
+        )
+        item["first_name"] = row.get("first_name") or item["first_name"]
+
+    # 3. Existing birthday database.
+    for row in get_birthday_member_records():
+        item = ensure(row.get("user_id"))
+        if not item:
+            continue
+        item["birthday"] = row.get("birthday") or item["birthday"]
+        item["birthday_id"] = row.get("id") or item["birthday_id"]
+        item["username"] = row.get("username") or item["username"]
+        item["display_name"] = (
+            row.get("display_name")
+            or item["display_name"]
+        )
+
+    # Do not show records that have no usable ID.
+    members = list(merged.values())
+    members.sort(
+        key=lambda x: (
+            (x.get("display_name") or x.get("username") or str(x["user_id"])).lower(),
+            x["user_id"],
+        )
+    )
+    return members
+
+
 def admin_member_display_name(member):
 
     return (
@@ -2746,41 +2899,20 @@ async def show_admin_members(update, context, page=0):
         return
 
     chat_id = query.message.chat_id
-
-    members = get_members(
-        chat_id=chat_id,
-        limit=1000,
-    )
-
-    if not members:
-        try:
-            from config import RAFFLE_CHAT_ID
-
-            members = get_members(
-                chat_id=int(RAFFLE_CHAT_ID),
-                limit=1000,
-            )
-            chat_id = int(RAFFLE_CHAT_ID)
-        except Exception:
-            members = []
+    members = merge_admin_member_sources(chat_id)
 
     context.user_data["admin_members"] = members
     context.user_data["admin_members_page"] = page
-    context.user_data["admin_members_chat_id"] = chat_id
+    context.user_data["admin_members_chat_id"] = admin_main_group_id() or chat_id
 
     if not members:
         await query.edit_message_text(
             "👥 **Members**\n\n"
-            "I don't have any known members for this chat yet.",
+            "I don't have any member records yet.\n\n"
+            "As members join, verify, post, add birthdays, or interact "
+            "with the raffle system, they will be added automatically.",
             reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            "⬅️ Back",
-                            callback_data="admin_back",
-                        )
-                    ]
-                ]
+                [[InlineKeyboardButton("⬅️ Back", callback_data="admin_back")]]
             ),
             parse_mode="Markdown",
         )
@@ -2788,18 +2920,16 @@ async def show_admin_members(update, context, page=0):
 
     total = len(members)
     page_size = 8
-    max_page = max(1, (total + page_size - 1) // page_size)
+    max_page = max(0, (total - 1) // page_size)
+    page = max(0, min(page, max_page))
+    context.user_data["admin_members_page"] = page
 
     await query.edit_message_text(
         "👥 **Melanated AZ Members**\n\n"
         f"Total known members: **{total}**\n\n"
-        f"Showing page **{page + 1}** of **{max_page}**\n\n"
-        "Select a member to view their details.",
-        reply_markup=admin_members_keyboard(
-            members,
-            page,
-            page_size,
-        ),
+        f"Showing page **{page + 1}** of **{max_page + 1}**\n\n"
+        "Community + Raffle + Birthday records are combined by Telegram ID.",
+        reply_markup=admin_members_keyboard(members, page, page_size),
         parse_mode="Markdown",
     )
 
@@ -2817,20 +2947,11 @@ async def admin_member_view(update, context, member_user_id):
         return
 
     members = context.user_data.get("admin_members", [])
-    member = None
-
-    for item in members:
-        try:
-            if int(item.get("user_id", 0)) == member_user_id:
-                member = item
-                break
-        except (TypeError, ValueError):
-            continue
-
-    if not member:
-        chat_id = context.user_data.get("admin_members_chat_id")
-        if chat_id:
-            member = get_member(member_user_id, chat_id)
+    member = next(
+        (item for item in members
+         if int(item.get("user_id", 0)) == member_user_id),
+        None,
+    )
 
     if not member:
         await query.answer("Member could not be found.", show_alert=True)
@@ -2840,6 +2961,21 @@ async def admin_member_view(update, context, member_user_id):
     username = member.get("username")
     username_text = f"@{username}" if username else "Not set"
 
+    def fmt_date(value):
+        if not value:
+            return "Not recorded"
+        try:
+            return str(value).replace("T", " ")[:19]
+        except Exception:
+            return str(value)
+
+    status = member.get("status") or "Known member"
+    status_icon = "🟢" if status == "active" else "🟡"
+    verified = "✅" if member.get("verified_at") else "❌"
+    intro = "✅" if member.get("intro_posted_at") else "❌"
+    raffle = "✅" if member.get("raffle_member") else "❌"
+    birthday = member.get("birthday") or "Not saved"
+
     page = context.user_data.get("admin_members_page", 0)
 
     await query.answer()
@@ -2848,30 +2984,25 @@ async def admin_member_view(update, context, member_user_id):
         f"**Name:** {name}\n"
         f"**Username:** {username_text}\n"
         f"**Telegram ID:** `{member_user_id}`\n\n"
-        "Use the button below to return to the member list.",
+        "📌 **COMMUNITY**\n"
+        f"{status_icon} **Status:** `{status}`\n"
+        f"{verified} **Verified:** {fmt_date(member.get('verified_at'))}\n"
+        f"{intro} **Intro:** {fmt_date(member.get('intro_posted_at'))}\n"
+        f"📅 **Joined:** {fmt_date(member.get('joined_at'))}\n"
+        f"🕐 **Last activity:** {fmt_date(member.get('last_post_at'))}\n\n"
+        "🎂 **BIRTHDAY**\n"
+        f"{birthday}\n\n"
+        "🎟️ **RAFFLE**\n"
+        f"{raffle} Known in raffle member database",
         reply_markup=InlineKeyboardMarkup(
             [
-                [
-                    InlineKeyboardButton(
-                        "⬅️ Members",
-                        callback_data=f"admin_members_page_{page}",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🏠 Admin Panel",
-                        callback_data="admin_back",
-                    )
-                ],
+                [InlineKeyboardButton("⬅️ Members", callback_data=f"admin_members_page_{page}")],
+                [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
             ]
         ),
         parse_mode="Markdown",
     )
 
-
-# ==========================================================
-# REFRESH
-# ==========================================================
 
 async def admin_refresh(update, context):
 
