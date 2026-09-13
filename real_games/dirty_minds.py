@@ -6,7 +6,7 @@
 #
 # Features:
 #   - Multiplayer rooms
-#   - 149 Dirty Minds clues
+#   - 169 Dirty Minds clues
 #   - 10 random rounds per game
 #   - Synchronized rounds
 #   - Server-side answer validation
@@ -39,7 +39,7 @@ POINTS_PER_CORRECT_ANSWER = 1
 # ==========================================================
 # DIRTY MINDS CLUE BANK
 #
-# 149 clues from your supplied Dirty Minds list.
+# 169 clues from your supplied Dirty Minds list.
 #
 # The clues are intentionally suggestive/misleading while
 # the actual answers are ordinary, clean objects or actions.
@@ -791,6 +791,107 @@ DIRTY_MINDS_CLUES: list[dict[str, Any]] = [
         "clue": 'You unzip me when things get hot. What am I?',
         "answer": 'Your pants',
         "aliases": [],
+    },
+
+    {
+        "clue": 'You can pop me in and take me out. What am I?',
+        "answer": 'A USB drive.',
+        "aliases": ['USB drive', 'USB'],
+    },
+    {
+        "clue": 'What can you zip both ways?',
+        "answer": 'A zipper.',
+        "aliases": ['zipper'],
+    },
+    {
+        "clue": 'I get longer the more you pull me. What am I?',
+        "answer": 'A piece of taffy.',
+        "aliases": ['taffy'],
+    },
+    {
+        "clue": 'You put me in your mouth, blow on me, and I make a sound. What am I?',
+        "answer": 'A whistle.',
+        "aliases": ['whistle'],
+    },
+    {
+        "clue": 'I have a head and a tail, but no body. What am I?',
+        "answer": 'A coin.',
+        "aliases": ['coin'],
+    },
+    {
+        "clue": 'You hold me between your fingers, and I get smaller as you use me. What am I?',
+        "answer": 'A pencil.',
+        "aliases": ['pencil'],
+    },
+    {
+        "clue": 'I go in hard and come out soft. What am I?',
+        "answer": 'A stick of butter going into a warm pan.',
+        "aliases": ['butter', 'a stick of butter'],
+    },
+    {
+        "clue": 'I have a shaft, a head, and I go into a hole. What am I?',
+        "answer": 'A screw.',
+        "aliases": ['screw'],
+    },
+    {
+        "clue": 'The more you rub me, the warmer I get. What am I?',
+        "answer": 'Your hands.',
+        "aliases": ['hands', 'your hands'],
+    },
+    {
+        "clue": 'I’m stiff when I’m new, but I get softer with use. What am I?',
+        "answer": 'A baseball glove.',
+        "aliases": ['baseball glove', 'glove'],
+    },
+    {
+        "clue": 'You pull my string, and I open up. What am I?',
+        "answer": 'A drawstring bag.',
+        "aliases": ['drawstring bag', 'bag'],
+    },
+    {
+        "clue": 'I have two balls and a long handle. What am I?',
+        "answer": 'A jump rope.',
+        "aliases": ['jump rope'],
+    },
+    {
+        "clue": 'You can ride me, sit on me, and bounce on me. What am I?',
+        "answer": 'A horse.',
+        "aliases": ['horse'],
+    },
+    {
+        "clue": 'I’m full of holes, but I can still hold water. What am I?',
+        "answer": 'A sponge.',
+        "aliases": ['sponge'],
+    },
+    {
+        "clue": 'I get wet while drying you. What am I?',
+        "answer": 'A towel.',
+        "aliases": ['towel'],
+    },
+    {
+        "clue": 'You can put me on, take me off, and hang me up when you’re done. What am I?',
+        "answer": 'A coat.',
+        "aliases": ['coat'],
+    },
+    {
+        "clue": 'I have a tongue but cannot talk. What am I?',
+        "answer": 'A shoe.',
+        "aliases": ['shoe'],
+    },
+    {
+        "clue": 'You can beat me, but I never fight back. What am I?',
+        "answer": 'An egg.',
+        "aliases": ['egg'],
+    },
+    {
+        "clue": 'I go up and down but never move from my spot. What am I?',
+        "answer": 'A staircase.',
+        "aliases": ['staircase', 'stairs'],
+    },
+    {
+        "clue": 'You push me in, turn me around, and something opens. What am I?',
+        "answer": 'A key.',
+        "aliases": ['key'],
     },
 
 ]
