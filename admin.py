@@ -2996,12 +2996,164 @@ async def admin_member_view(update, context, member_user_id):
         f"{raffle} Known in raffle member database",
         reply_markup=InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton("⬅️ Members", callback_data=f"admin_members_page_{page}")],
-                [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+                [
+                    InlineKeyboardButton(
+                        "💬 Message",
+                        url=f"tg://user?id={member_user_id}",
+                    ),
+                    InlineKeyboardButton(
+                        "🚫 Remove",
+                        callback_data=f"admin_member_remove_{member_user_id}",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Members",
+                        callback_data=f"admin_members_page_{page}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🏠 Admin Panel",
+                        callback_data="admin_back",
+                    )
+                ],
             ]
         ),
         parse_mode="Markdown",
     )
+
+
+async def admin_member_remove_confirm(update, context, member_user_id):
+
+    query = update.callback_query
+    if not query:
+        return
+
+    try:
+        member_user_id = int(member_user_id)
+    except (TypeError, ValueError):
+        await query.answer("Invalid member.", show_alert=True)
+        return
+
+    members = context.user_data.get("admin_members", [])
+    member = next(
+        (item for item in members
+         if int(item.get("user_id", 0)) == member_user_id),
+        None,
+    )
+
+    if not member:
+        await query.answer("Member could not be found.", show_alert=True)
+        return
+
+    name = admin_member_display_name(member)
+    page = context.user_data.get("admin_members_page", 0)
+
+    await query.answer()
+    await query.edit_message_text(
+        "🚫 **Remove Member?**\n\n"
+        f"Are you sure you want to remove **{name}** from Melanated AZ?\n\n"
+        "The bot will remove them from the main group. They can be added back later if needed.",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🚫 YES — REMOVE",
+                        callback_data=f"admin_member_remove_confirm_{member_user_id}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Cancel",
+                        callback_data=f"admin_member_view_{member_user_id}",
+                    ),
+                    InlineKeyboardButton(
+                        "👥 Members",
+                        callback_data=f"admin_members_page_{page}",
+                    ),
+                ],
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+
+async def admin_member_remove(update, context, member_user_id):
+
+    query = update.callback_query
+    if not query:
+        return
+
+    try:
+        member_user_id = int(member_user_id)
+    except (TypeError, ValueError):
+        await query.answer("Invalid member.", show_alert=True)
+        return
+
+    chat_id = context.user_data.get("admin_members_chat_id") or admin_main_group_id()
+    if not chat_id:
+        await query.answer("Main group ID is not configured.", show_alert=True)
+        return
+
+    member = next(
+        (item for item in context.user_data.get("admin_members", [])
+         if int(item.get("user_id", 0)) == member_user_id),
+        None,
+    )
+    name = admin_member_display_name(member) if member else str(member_user_id)
+
+    try:
+        # Ban then immediately unban so the member is removed now but can be
+        # invited/added back later.
+        await context.bot.ban_chat_member(
+            chat_id=int(chat_id),
+            user_id=member_user_id,
+            revoke_messages=False,
+        )
+        try:
+            await context.bot.unban_chat_member(
+                chat_id=int(chat_id),
+                user_id=member_user_id,
+                only_if_banned=True,
+            )
+        except Exception:
+            logger.exception(
+                "Member removed but unban failed for user %s",
+                member_user_id,
+            )
+
+        await query.answer("Member removed.")
+        await query.edit_message_text(
+            "🚫 **Member Removed**\n\n"
+            f"**{name}** was removed from Melanated AZ.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "👥 Members",
+                            callback_data="admin_members",
+                        ),
+                        InlineKeyboardButton(
+                            "🏠 Admin Panel",
+                            callback_data="admin_back",
+                        ),
+                    ]
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+
+    except Exception:
+        logger.exception(
+            "Failed to remove member %s from chat %s",
+            member_user_id,
+            chat_id,
+        )
+        await query.answer(
+            "Could not remove member. Check bot permissions.",
+            show_alert=True,
+        )
 
 
 async def admin_refresh(update, context):
@@ -3293,6 +3445,30 @@ async def admin_button(
         member_user_id = data[len("admin_member_view_"):]
 
         await admin_member_view(
+            update,
+            context,
+            member_user_id,
+        )
+
+        return
+
+    if data.startswith("admin_member_remove_confirm_"):
+
+        member_user_id = data[len("admin_member_remove_confirm_"):]
+
+        await admin_member_remove(
+            update,
+            context,
+            member_user_id,
+        )
+
+        return
+
+    if data.startswith("admin_member_remove_"):
+
+        member_user_id = data[len("admin_member_remove_"):]
+
+        await admin_member_remove_confirm(
             update,
             context,
             member_user_id,
