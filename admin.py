@@ -155,6 +155,12 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "👥 Members",
+                    callback_data="admin_members",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "🔄 Refresh",
                     callback_data="admin_refresh",
                 ),
@@ -952,6 +958,9 @@ async def admin_manual_cancel(update, context):
         "admin_manual_raffle_selected_user_id",
         "admin_manual_raffle_selected_name",
         "admin_manual_raffle_chat_id",
+        "admin_members",
+        "admin_members_page",
+        "admin_members_chat_id",
     ]:
 
         context.user_data.pop(
@@ -2643,6 +2652,224 @@ async def admin_truthdare_help(update, context):
 
 
 # ==========================================================
+# MEMBERS
+# ==========================================================
+
+def admin_member_display_name(member):
+
+    return (
+        member.get("display_name")
+        or (
+            f"@{member.get('username')}"
+            if member.get("username")
+            else None
+        )
+        or str(member.get("user_id"))
+    )
+
+
+def admin_members_keyboard(members, page, page_size=8):
+
+    if not members:
+        return InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back",
+                        callback_data="admin_back",
+                    )
+                ]
+            ]
+        )
+
+    total = len(members)
+    max_page = max(0, (total - 1) // page_size)
+    page = max(0, min(page, max_page))
+
+    start = page * page_size
+    end = start + page_size
+    current_members = members[start:end]
+
+    buttons = []
+
+    for member in current_members:
+        user_id = member.get("user_id")
+        name = admin_member_display_name(member)
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    f"👤 {name}",
+                    callback_data=f"admin_member_view_{user_id}",
+                )
+            ]
+        )
+
+    navigation = []
+
+    if page > 0:
+        navigation.append(
+            InlineKeyboardButton(
+                "⬅️ Previous",
+                callback_data=f"admin_members_page_{page - 1}",
+            )
+        )
+
+    if page < max_page:
+        navigation.append(
+            InlineKeyboardButton(
+                "Next ➡️",
+                callback_data=f"admin_members_page_{page + 1}",
+            )
+        )
+
+    if navigation:
+        buttons.append(navigation)
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "⬅️ Back",
+                callback_data="admin_back",
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(buttons)
+
+
+async def show_admin_members(update, context, page=0):
+
+    query = update.callback_query
+
+    if not query:
+        return
+
+    chat_id = query.message.chat_id
+
+    members = get_members(
+        chat_id=chat_id,
+        limit=1000,
+    )
+
+    if not members:
+        try:
+            from config import RAFFLE_CHAT_ID
+
+            members = get_members(
+                chat_id=int(RAFFLE_CHAT_ID),
+                limit=1000,
+            )
+            chat_id = int(RAFFLE_CHAT_ID)
+        except Exception:
+            members = []
+
+    context.user_data["admin_members"] = members
+    context.user_data["admin_members_page"] = page
+    context.user_data["admin_members_chat_id"] = chat_id
+
+    if not members:
+        await query.edit_message_text(
+            "👥 **Members**\n\n"
+            "I don't have any known members for this chat yet.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "⬅️ Back",
+                            callback_data="admin_back",
+                        )
+                    ]
+                ]
+            ),
+            parse_mode="Markdown",
+        )
+        return
+
+    total = len(members)
+    page_size = 8
+    max_page = max(1, (total + page_size - 1) // page_size)
+
+    await query.edit_message_text(
+        "👥 **Melanated AZ Members**\n\n"
+        f"Total known members: **{total}**\n\n"
+        f"Showing page **{page + 1}** of **{max_page}**\n\n"
+        "Select a member to view their details.",
+        reply_markup=admin_members_keyboard(
+            members,
+            page,
+            page_size,
+        ),
+        parse_mode="Markdown",
+    )
+
+
+async def admin_member_view(update, context, member_user_id):
+
+    query = update.callback_query
+    if not query:
+        return
+
+    try:
+        member_user_id = int(member_user_id)
+    except (TypeError, ValueError):
+        await query.answer("Invalid member.", show_alert=True)
+        return
+
+    members = context.user_data.get("admin_members", [])
+    member = None
+
+    for item in members:
+        try:
+            if int(item.get("user_id", 0)) == member_user_id:
+                member = item
+                break
+        except (TypeError, ValueError):
+            continue
+
+    if not member:
+        chat_id = context.user_data.get("admin_members_chat_id")
+        if chat_id:
+            member = get_member(member_user_id, chat_id)
+
+    if not member:
+        await query.answer("Member could not be found.", show_alert=True)
+        return
+
+    name = admin_member_display_name(member)
+    username = member.get("username")
+    username_text = f"@{username}" if username else "Not set"
+
+    page = context.user_data.get("admin_members_page", 0)
+
+    await query.answer()
+    await query.edit_message_text(
+        "👤 **Member Details**\n\n"
+        f"**Name:** {name}\n"
+        f"**Username:** {username_text}\n"
+        f"**Telegram ID:** `{member_user_id}`\n\n"
+        "Use the button below to return to the member list.",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Members",
+                        callback_data=f"admin_members_page_{page}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "🏠 Admin Panel",
+                        callback_data="admin_back",
+                    )
+                ],
+            ]
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
 # REFRESH
 # ==========================================================
 
@@ -2862,6 +3089,79 @@ async def admin_button(
         ]
 
         await admin_manual_confirm(
+            update,
+            context,
+            member_user_id,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # MEMBERS
+    # ------------------------------------------------------
+
+    if data == "admin_members":
+
+        await query.answer()
+        await show_admin_members(
+            update,
+            context,
+            page=0,
+        )
+
+        return
+
+    if data.startswith("admin_members_page_"):
+
+        page_text = data[len("admin_members_page_"):]
+
+        try:
+            page = int(page_text)
+        except (TypeError, ValueError):
+            await query.answer(
+                "Invalid page.",
+                show_alert=True,
+            )
+            return
+
+        await query.answer()
+
+        members = context.user_data.get("admin_members")
+
+        if not members:
+            await show_admin_members(
+                update,
+                context,
+                page=page,
+            )
+            return
+
+        context.user_data["admin_members_page"] = page
+
+        page_size = 8
+        total = len(members)
+        max_page = max(1, (total + page_size - 1) // page_size)
+
+        await query.edit_message_text(
+            "👥 **Melanated AZ Members**\n\n"
+            f"Total known members: **{total}**\n\n"
+            f"Showing page **{page + 1}** of **{max_page}**\n\n"
+            "Select a member to view their details.",
+            reply_markup=admin_members_keyboard(
+                members,
+                page,
+                page_size,
+            ),
+            parse_mode="Markdown",
+        )
+
+        return
+
+    if data.startswith("admin_member_view_"):
+
+        member_user_id = data[len("admin_member_view_"):]
+
+        await admin_member_view(
             update,
             context,
             member_user_id,
