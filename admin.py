@@ -16,6 +16,7 @@
 #   - Dirty Minds multiplayer
 # ==========================================================
 
+import html
 import logging
 import os
 import sqlite3
@@ -2935,7 +2936,7 @@ async def show_admin_members(update, context, page=0):
 
 
 async def admin_member_view(update, context, member_user_id):
-
+    """Show member details with reliable Message/Remove actions for every record."""
     query = update.callback_query
     if not query:
         return
@@ -2946,12 +2947,31 @@ async def admin_member_view(update, context, member_user_id):
         await query.answer("Invalid member.", show_alert=True)
         return
 
+    # Refresh the merged records if this member is not in the cached page.
     members = context.user_data.get("admin_members", [])
     member = next(
-        (item for item in members
-         if int(item.get("user_id", 0)) == member_user_id),
+        (
+            item for item in members
+            if int(item.get("user_id", 0)) == member_user_id
+        ),
         None,
     )
+
+    if not member:
+        refresh_chat_id = (
+            context.user_data.get("admin_members_chat_id")
+            or admin_main_group_id()
+            or query.message.chat_id
+        )
+        members = merge_admin_member_sources(refresh_chat_id)
+        context.user_data["admin_members"] = members
+        member = next(
+            (
+                item for item in members
+                if int(item.get("user_id", 0)) == member_user_id
+            ),
+            None,
+        )
 
     if not member:
         await query.answer("Member could not be found.", show_alert=True)
@@ -2969,6 +2989,44 @@ async def admin_member_view(update, context, member_user_id):
         except Exception:
             return str(value)
 
+    # Ask Telegram for the current status when possible. This prevents old
+    # database records from being mistaken for current group members.
+    telegram_status = None
+    telegram_status_text = "Not checked"
+    can_remove = True
+    try:
+        chat_id = (
+            context.user_data.get("admin_members_chat_id")
+            or admin_main_group_id()
+        )
+        if chat_id:
+            chat_member = await context.bot.get_chat_member(
+                chat_id=int(chat_id),
+                user_id=member_user_id,
+            )
+            telegram_status = getattr(chat_member, "status", None)
+            status_labels = {
+                "creator": "Owner",
+                "administrator": "Administrator",
+                "member": "Member",
+                "restricted": "Restricted",
+                "left": "Left group",
+                "kicked": "Removed/Banned",
+            }
+            telegram_status_text = status_labels.get(
+                telegram_status,
+                str(telegram_status or "Unknown"),
+            )
+            # Telegram admins/owner should never be removed by this member
+            # removal action. They remain visible in the Members panel.
+            if telegram_status in {"creator", "administrator"}:
+                can_remove = False
+    except Exception:
+        logger.exception(
+            "Could not get current Telegram status for member %s",
+            member_user_id,
+        )
+
     status = member.get("status") or "Known member"
     status_icon = "🟢" if status == "active" else "🟡"
     verified = "✅" if member.get("verified_at") else "❌"
@@ -2978,49 +3036,72 @@ async def admin_member_view(update, context, member_user_id):
 
     page = context.user_data.get("admin_members_page", 0)
 
+    # HTML escaping is important here. Some Telegram names contain Markdown
+    # characters such as _, *, [, ], or backticks. Those used to cause the
+    # message edit to fail, which made the action buttons appear to be missing
+    # for only certain users.
+    safe_name = html.escape(str(name))
+    safe_username = html.escape(str(username_text))
+    safe_tg_status = html.escape(str(telegram_status_text))
+    safe_status = html.escape(str(status))
+    safe_birthday = html.escape(str(birthday))
+
+    buttons = []
+    message_button = InlineKeyboardButton(
+        "💬 Message",
+        url=f"tg://user?id={member_user_id}",
+    )
+    buttons.append([message_button])
+
+    if can_remove:
+        buttons.append([
+            InlineKeyboardButton(
+                "🚫 Remove",
+                callback_data=f"admin_member_remove_{member_user_id}",
+            )
+        ])
+    else:
+        buttons.append([
+            InlineKeyboardButton(
+                "👑 Admin — Cannot Remove",
+                callback_data="admin_member_remove_admin_blocked",
+            )
+        ])
+
+    buttons.extend([
+        [
+            InlineKeyboardButton(
+                "⬅️ Members",
+                callback_data=f"admin_members_page_{page}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🏠 Admin Panel",
+                callback_data="admin_back",
+            )
+        ],
+    ])
+
     await query.answer()
     await query.edit_message_text(
-        "👤 **Member Details**\n\n"
-        f"**Name:** {name}\n"
-        f"**Username:** {username_text}\n"
-        f"**Telegram ID:** `{member_user_id}`\n\n"
-        "📌 **COMMUNITY**\n"
-        f"{status_icon} **Status:** `{status}`\n"
-        f"{verified} **Verified:** {fmt_date(member.get('verified_at'))}\n"
-        f"{intro} **Intro:** {fmt_date(member.get('intro_posted_at'))}\n"
-        f"📅 **Joined:** {fmt_date(member.get('joined_at'))}\n"
-        f"🕐 **Last activity:** {fmt_date(member.get('last_post_at'))}\n\n"
-        "🎂 **BIRTHDAY**\n"
-        f"{birthday}\n\n"
-        "🎟️ **RAFFLE**\n"
+        "👤 <b>Member Details</b>\n\n"
+        f"<b>Name:</b> {safe_name}\n"
+        f"<b>Username:</b> {safe_username}\n"
+        f"<b>Telegram ID:</b> <code>{member_user_id}</code>\n\n"
+        "📌 <b>COMMUNITY</b>\n"
+        f"{status_icon} <b>Status:</b> <code>{safe_status}</code>\n"
+        f"{verified} <b>Verified:</b> {fmt_date(member.get('verified_at'))}\n"
+        f"{intro} <b>Intro:</b> {fmt_date(member.get('intro_posted_at'))}\n"
+        f"📅 <b>Joined:</b> {fmt_date(member.get('joined_at'))}\n"
+        f"🕐 <b>Last activity:</b> {fmt_date(member.get('last_post_at'))}\n"
+        f"📱 <b>Telegram status:</b> {safe_tg_status}\n\n"
+        "🎂 <b>BIRTHDAY</b>\n"
+        f"{safe_birthday}\n\n"
+        "🎟️ <b>RAFFLE</b>\n"
         f"{raffle} Known in raffle member database",
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "💬 Message",
-                        url=f"tg://user?id={member_user_id}",
-                    ),
-                    InlineKeyboardButton(
-                        "🚫 Remove",
-                        callback_data=f"admin_member_remove_{member_user_id}",
-                    ),
-                ],
-                [
-                    InlineKeyboardButton(
-                        "⬅️ Members",
-                        callback_data=f"admin_members_page_{page}",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🏠 Admin Panel",
-                        callback_data="admin_back",
-                    )
-                ],
-            ]
-        ),
-        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="HTML",
     )
 
 
@@ -3080,7 +3161,7 @@ async def admin_member_remove_confirm(update, context, member_user_id):
 
 
 async def admin_member_remove(update, context, member_user_id):
-
+    """Remove a current member from the main group."""
     query = update.callback_query
     if not query:
         return
@@ -3096,16 +3177,39 @@ async def admin_member_remove(update, context, member_user_id):
         await query.answer("Main group ID is not configured.", show_alert=True)
         return
 
+    members = context.user_data.get("admin_members", [])
     member = next(
-        (item for item in context.user_data.get("admin_members", [])
-         if int(item.get("user_id", 0)) == member_user_id),
+        (
+            item for item in members
+            if int(item.get("user_id", 0)) == member_user_id
+        ),
         None,
     )
     name = admin_member_display_name(member) if member else str(member_user_id)
 
     try:
+        current = await context.bot.get_chat_member(
+            chat_id=int(chat_id),
+            user_id=member_user_id,
+        )
+        current_status = getattr(current, "status", None)
+
+        if current_status in {"creator", "administrator"}:
+            await query.answer(
+                "Administrators cannot be removed from this panel.",
+                show_alert=True,
+            )
+            return
+
+        if current_status in {"left", "kicked"}:
+            await query.answer(
+                "That user is no longer in the group.",
+                show_alert=True,
+            )
+            return
+
         # Ban then immediately unban so the member is removed now but can be
-        # invited/added back later.
+        # invited/added back later if needed.
         await context.bot.ban_chat_member(
             chat_id=int(chat_id),
             user_id=member_user_id,
@@ -3125,8 +3229,8 @@ async def admin_member_remove(update, context, member_user_id):
 
         await query.answer("Member removed.")
         await query.edit_message_text(
-            "🚫 **Member Removed**\n\n"
-            f"**{name}** was removed from Melanated AZ.",
+            "🚫 <b>Member Removed</b>\n\n"
+            f"<b>{html.escape(str(name))}</b> was removed from Melanated AZ.",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
@@ -3141,7 +3245,7 @@ async def admin_member_remove(update, context, member_user_id):
                     ]
                 ]
             ),
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
 
     except Exception:
@@ -3450,6 +3554,14 @@ async def admin_button(
             member_user_id,
         )
 
+        return
+
+    if data == "admin_member_remove_admin_blocked":
+
+        await query.answer(
+            "Administrators cannot be removed from the group here.",
+            show_alert=True,
+        )
         return
 
     if data.startswith("admin_member_remove_confirm_"):
