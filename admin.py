@@ -164,6 +164,12 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "👋🏾 Intro Reminder",
+                    callback_data="admin_intro_reminder",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "🔄 Refresh",
                     callback_data="admin_refresh",
                 ),
@@ -3383,6 +3389,58 @@ async def admin_back(update, context):
 
 
 # ==========================================================
+# INTRODUCTION REMINDER
+# ==========================================================
+
+async def admin_intro_reminder(update, context):
+    """Manually trigger the same introduction reminder used by the monthly job."""
+    query = update.callback_query
+    user = update.effective_user
+
+    if not query or not user or not is_admin(user.id):
+        return
+
+    try:
+        await query.answer("Posting the introduction reminder…")
+    except Exception:
+        pass
+
+    try:
+        # Import at runtime to avoid the normal admin -> bot circular import.
+        from bot import post_intro_topic_reminder
+
+        ok, detail = await post_intro_topic_reminder(context)
+
+        if ok:
+            await query.edit_message_text(
+                "👋🏾 <b>Introduction reminder posted.</b>\n\n"
+                f"{html.escape(detail)}",
+                reply_markup=admin_main_keyboard(),
+                parse_mode="HTML",
+            )
+        else:
+            await query.edit_message_text(
+                "❌ <b>Introduction reminder failed.</b>\n\n"
+                f"{html.escape(detail)}\n\n"
+                "Fix the Telegram/configuration issue above and try again.",
+                reply_markup=admin_main_keyboard(),
+                parse_mode="HTML",
+            )
+
+    except Exception:
+        logger.exception("Failed to send manual introduction reminder.")
+        try:
+            await query.edit_message_text(
+                "⚠️ <b>Introduction reminder failed.</b>\n\n"
+                "Check the Render logs for the Telegram error.",
+                reply_markup=admin_main_keyboard(),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+
+# ==========================================================
 # ADMIN BUTTON ROUTER
 # ==========================================================
 
@@ -3431,6 +3489,19 @@ async def admin_button(
     if data == "admin_refresh":
 
         await admin_refresh(
+            update,
+            context,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # INTRODUCTION REMINDER
+    # ------------------------------------------------------
+
+    if data == "admin_intro_reminder":
+
+        await admin_intro_reminder(
             update,
             context,
         )
