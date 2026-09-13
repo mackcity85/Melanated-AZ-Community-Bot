@@ -2741,19 +2741,13 @@ def build_application():
     )
 
     # ======================================================
-    # COMMUNITY EXIT
-    # ======================================================
-
-    application.add_handler(
-        ChatMemberHandler(
-            community_exit,
-            ChatMemberHandler.CHAT_MEMBER,
-        ),
-        group=1,
-    )
-
-    # ======================================================
     # COMMUNITY WELCOME
+    #
+    # IMPORTANT:
+    # Both welcome and exit listen for CHAT_MEMBER updates.
+    # PTB processes handlers by group and stops after the first
+    # matching handler in a group. Keep welcome and exit in
+    # different groups so a join is not consumed by community_exit.
     # ======================================================
 
     application.add_handler(
@@ -2762,6 +2756,18 @@ def build_application():
             ChatMemberHandler.CHAT_MEMBER,
         ),
         group=1,
+    )
+
+    # ======================================================
+    # COMMUNITY EXIT
+    # ======================================================
+
+    application.add_handler(
+        ChatMemberHandler(
+            community_exit,
+            ChatMemberHandler.CHAT_MEMBER,
+        ),
+        group=2,
     )
 
     # ======================================================
