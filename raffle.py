@@ -685,6 +685,231 @@ async def deny_entry_callback(update, context, entry_id):
     except TelegramError:
         pass
 
+
+async def safe_answer(query, text="", show_alert=False):
+    """Answer a callback query without allowing an expired callback to crash the bot."""
+    if not query:
+        return
+    try:
+        await query.answer(text, show_alert=show_alert)
+    except TelegramError:
+        logger.info("Could not answer raffle callback query; it may have expired.")
+
+
+async def temporary_reply(message, context, text, parse_mode=None, delete_after=300):
+    """Send a short admin response and optionally remove it later."""
+    if not message:
+        return None
+    try:
+        sent = await message.reply_text(text, parse_mode=parse_mode)
+    except TelegramError:
+        logger.exception("Could not send temporary raffle reply.")
+        return None
+
+    if context and context.job_queue and delete_after:
+        try:
+            context.job_queue.run_once(
+                _delete_raffle_message_job,
+                delete_after,
+                data={"chat_id": sent.chat_id, "message_id": sent.message_id},
+                name=f"raffle-temp-{sent.chat_id}-{sent.message_id}",
+            )
+        except Exception:
+            logger.exception("Could not schedule temporary raffle reply cleanup.")
+    return sent
+
+
+async def manual_raffle_entry(update, context, member_user_id):
+    """Add a selected member directly to the active raffle as an approved entry."""
+    query = update.callback_query
+    admin_user = update.effective_user
+
+    if not query or not admin_user:
+        return False
+
+    if not is_raffle_admin(admin_user.id):
+        await safe_answer(query, "⛔ Admins only.", True)
+        return False
+
+    raffle = get_active_raffle()
+    if not raffle:
+        await safe_answer(query, "There is no active raffle.", True)
+        try:
+            await query.edit_message_text(
+                "⚠️ <b>NO ACTIVE RAFFLE</b>\n\n"
+                "There is currently no active raffle to add a manual entry to.\n\n"
+                "Start and approve a raffle first.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("⬅️ Back", callback_data="admin_back")
+                ]]),
+            )
+        except TelegramError:
+            pass
+        return False
+
+    try:
+        member_user_id = int(member_user_id)
+    except (TypeError, ValueError):
+        await safe_answer(query, "Invalid member.", True)
+        return False
+
+    # Resolve the member from the raffle group first, then from the admin selector cache.
+    member = None
+    try:
+        from raffle_database import get_members
+        members = get_members(int(RAFFLE_CHAT_ID))
+        for item in members or []:
+            try:
+                if int(item.get("user_id", 0)) == member_user_id:
+                    member = item
+                    break
+            except (TypeError, ValueError):
+                continue
+    except Exception:
+        logger.exception("Could not load raffle-group members for manual entry.")
+
+    if not member:
+        for item in context.user_data.get("admin_manual_raffle_members", []) or []:
+            try:
+                if int(item.get("user_id", 0)) == member_user_id:
+                    member = item
+                    break
+            except (TypeError, ValueError):
+                continue
+
+    if not member:
+        await safe_answer(query, "Member could not be found.", True)
+        return False
+
+    username = member.get("username")
+    display_name = member.get("display_name") or (f"@{username}" if username else None) or str(member_user_id)
+
+    for existing in get_raffle_entries(raffle["id"]):
+        try:
+            if int(existing["user_id"]) == member_user_id:
+                await safe_answer(query, "This member already has an entry in this raffle.", True)
+                return False
+        except (TypeError, ValueError, KeyError):
+            continue
+
+    try:
+        entry_id = add_raffle_entry(
+            raffle["id"], member_user_id, username, display_name, "manual"
+        )
+    except Exception:
+        logger.exception("Could not create manual raffle entry.")
+        entry_id = None
+
+    if entry_id is None:
+        await safe_answer(query, "The entry could not be created.", True)
+        return False
+
+    try:
+        changed = approve_entry(entry_id, admin_user.id)
+    except Exception:
+        logger.exception("Manual entry approval failed | entry=%s", entry_id)
+        changed = False
+
+    if not changed:
+        logger.error(
+            "Manual entry created but approval failed | entry=%s | member=%s | raffle=%s",
+            entry_id, member_user_id, raffle["id"],
+        )
+        await safe_answer(query, "Entry was created but could not be approved.", True)
+        return False
+
+    logger.info(
+        "MANUAL RAFFLE ENTRY APPROVED | entry=%s | raffle=%s | member=%s | admin=%s",
+        entry_id, raffle["id"], member_user_id, admin_user.id,
+    )
+    await safe_answer(query, "✅ Manual entry added!")
+
+    try:
+        await query.edit_message_text(
+            "✅ <b>MANUAL ENTRY ADDED</b>\n\n"
+            f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+            f"💵 Entry Price: <b>{raffle['price']}</b>\n"
+            f"👤 Member: <b>{html.escape(str(display_name))}</b>\n"
+            f"🆔 User ID: <code>{member_user_id}</code>\n"
+            f"🎟️ Entry: <code>{entry_id}</code>\n"
+            "💳 Payment: <b>Manual</b>\n"
+            "✅ Status: <b>APPROVED</b>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Add Another", callback_data="admin_manual_entry")],
+                [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")],
+            ]),
+        )
+    except TelegramError:
+        logger.exception("Could not display manual entry result.")
+
+    try:
+        await context.bot.send_message(
+            chat_id=member_user_id,
+            text=(
+                "🎟️ <b>YOU HAVE BEEN ADDED TO THE RAFFLE</b>\n\n"
+                f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+                f"🆔 Entry: <code>{entry_id}</code>\n\n"
+                "Your raffle entry has been <b>APPROVED</b> by an admin.\n\n"
+                "Good luck! 🍀"
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+    except TelegramError:
+        logger.info("Could not notify manually added member %s.", member_user_id)
+
+    return True
+
+
+async def repost_raffle(update, context):
+    """Repost the active raffle using the current raffle keyboard and topic settings."""
+    query = update.callback_query
+    message = update.effective_message
+    user = update.effective_user
+
+    if not user or not is_raffle_admin(user.id):
+        if query:
+            await safe_answer(query, "⛔ Admins only.", True)
+        elif message:
+            await temporary_reply(message, context, "⛔ Admins only.")
+        return False
+
+    raffle = get_active_raffle()
+    if not raffle:
+        if query:
+            await safe_answer(query, "There is no active raffle.", True)
+        elif message:
+            await temporary_reply(message, context, "⚠️ There is no active raffle to repost.")
+        return False
+
+    if query:
+        await safe_answer(query, "🔄 Reposting raffle...")
+
+    published = await publish_raffle(int(raffle["id"]), context)
+    target = query.message if query else message
+
+    if published:
+        if target:
+            await temporary_reply(
+                target,
+                context,
+                "✅ <b>RAFFLE REPOSTED</b>\n\n"
+                f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+                f"💵 Entry: <b>{html.escape(str(raffle['price']))}</b>",
+                parse_mode=ParseMode.HTML,
+            )
+        return True
+
+    if target:
+        await temporary_reply(
+            target,
+            context,
+            "⚠️ I could not repost the active raffle. Check the bot's permissions in the raffle group.",
+        )
+    return False
+
+
 async def raffle_callback(update, context):
     """Single callback router for ALL raffle callbacks."""
     query = update.callback_query
