@@ -51,6 +51,34 @@ from raffle_database import (
 logger = logging.getLogger("melanated_az_raffle")
 
 
+async def notify_admin_group(context, text, reply_markup=None):
+    """Send a raffle event notification to the configured Admin Group."""
+    try:
+        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
+    except (TypeError, ValueError):
+        admin_group_id = 0
+    if not admin_group_id:
+        logger.warning("ADMIN_GROUP_ID is not configured; raffle Admin Group notification skipped.")
+        return None
+    try:
+        sent = await context.bot.send_message(
+            chat_id=admin_group_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
+        )
+        logger.info(
+            "RAFFLE ADMIN GROUP NOTIFICATION | group=%s | message=%s",
+            admin_group_id, sent.message_id,
+        )
+        return sent
+    except TelegramError:
+        logger.exception(
+            "RAFFLE ADMIN GROUP NOTIFICATION FAILED | group=%s",
+            admin_group_id,
+        )
+        return None
+
 async def is_raffle_admin_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Return True for configured admins or members of the configured Admin Group."""
     user = update.effective_user
@@ -550,6 +578,14 @@ async def approve_raffle_callback(update, context, raffle_id):
         await query.answer("Raffle could not be approved.", show_alert=True)
         return
     await query.answer("Raffle approved!")
+    await notify_admin_group(
+        context,
+        "✅ <b>RAFFLE APPROVED</b>\n\n"
+        f"🆔 Raffle: <code>{raffle_id}</code>\n"
+        f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+        f"💵 Entry: <b>{html.escape(str(raffle['price']))}</b>\n"
+        f"👤 Approved by: <b>{html.escape(user.full_name or user.username or str(user.id))}</b>"
+    )
     try:
         await query.edit_message_text(
             f"✅ <b>RAFFLE APPROVED</b>\n\n🎁 {raffle['prize']}\n💵 {raffle['price']}\n\nPublishing...",
@@ -581,6 +617,14 @@ async def cancel_raffle_callback(update, context, raffle_id):
         await query.answer("Raffle could not be cancelled.", show_alert=True)
         return
     await query.answer("Raffle cancelled.")
+    await notify_admin_group(
+        context,
+        "❌ <b>RAFFLE CANCELLED</b>\n\n"
+        f"🆔 Raffle: <code>{raffle_id}</code>\n"
+        f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+        f"💵 Entry: <b>{html.escape(str(raffle['price']))}</b>\n"
+        f"👤 Cancelled by: <b>{html.escape(user.full_name or user.username or str(user.id))}</b>"
+    )
     try:
         await query.edit_message_text(
             f"❌ <b>RAFFLE CANCELLED</b>\n\n🎁 {raffle['prize']}\n💵 {raffle['price']}",
@@ -645,6 +689,7 @@ async def enter_raffle(update, context, raffle_id):
         f"👤 Member: <b>{name}</b>\n"
         + ("💳 Payment: <b>FREE</b>\n\n" if free else "💳 Payment: <b>Not selected</b>\n\nChoose an action:")
     )
+    await notify_admin_group(context, admin_text, reply_markup=keyboard)
     for admin_id in ADMIN_IDS:
         try:
             await context.bot.send_message(
@@ -690,6 +735,17 @@ async def payment_method(update, context, raffle_id, method):
             data={"chat_id": payment_message.chat_id, "message_id": payment_message.message_id},
         )
 
+    await notify_admin_group(
+        context,
+        "💳 <b>RAFFLE PAYMENT METHOD SELECTED</b>\n\n"
+        f"🆔 Entry: <code>{entry['id']}</code>\n"
+        f"🎟️ Raffle: <code>{raffle_id}</code>\n"
+        f"👤 Member: <b>{html.escape(user.full_name or user.username or str(user.id))}</b>\n"
+        f"💵 Amount: <b>{html.escape(str(raffle['price']))}</b>\n"
+        f"💳 Method: <b>{html.escape(method.upper())}</b>\n\n"
+        "⚠️ Entry remains pending until payment is verified."
+    )
+
 async def approve_entry_callback(update, context, entry_id):
     query = update.callback_query
     user = update.effective_user
@@ -719,6 +775,16 @@ async def approve_entry_callback(update, context, entry_id):
     logger.info("ENTRY APPROVED | entry=%s | raffle=%s | admin=%s",
                 entry_id, entry["raffle_id"], user.id)
     await query.answer("✅ Entry approved!")
+    await notify_admin_group(
+        context,
+        "✅ <b>RAFFLE ENTRY APPROVED</b>\n\n"
+        f"🆔 Entry: <code>{entry_id}</code>\n"
+        f"🎟️ Raffle: <code>{entry['raffle_id']}</code>\n"
+        f"🎁 Prize: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+        f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n"
+        f"💳 Payment: <b>{html.escape(str(entry.get('payment_method') or 'Verified'))}</b>\n"
+        f"👤 Approved by: <b>{html.escape(user.full_name or user.username or str(user.id))}</b>"
+    )
     try:
         await query.edit_message_text(
             "✅ <b>ENTRY APPROVED</b>\n\n"
@@ -765,6 +831,14 @@ async def deny_entry_callback(update, context, entry_id):
         await query.answer("Entry could not be denied.", show_alert=True)
         return
     await query.answer("Entry denied.")
+    await notify_admin_group(
+        context,
+        "❌ <b>RAFFLE ENTRY DENIED</b>\n\n"
+        f"🆔 Entry: <code>{entry_id}</code>\n"
+        f"🎟️ Raffle: <code>{entry['raffle_id']}</code>\n"
+        f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n"
+        f"👤 Denied by: <b>{html.escape(user.full_name or user.username or str(user.id))}</b>"
+    )
     try:
         await query.edit_message_text(
             f"❌ <b>ENTRY DENIED</b>\n\n"
@@ -950,6 +1024,17 @@ async def manual_raffle_entry(update, context, member_user_id):
         )
     except TelegramError:
         logger.info("Could not notify manually added member %s.", member_user_id)
+
+    await notify_admin_group(
+        context,
+        "➕ <b>MANUAL RAFFLE ENTRY APPROVED</b>\n\n"
+        f"🆔 Entry: <code>{entry_id}</code>\n"
+        f"🎟️ Raffle: <code>{raffle['id']}</code>\n"
+        f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+        f"👤 Member: <b>{html.escape(str(display_name))}</b>\n"
+        f"💳 Payment: <b>Manual</b>\n"
+        f"👤 Added by: <b>{html.escape(admin_user.full_name or admin_user.username or str(admin_user.id))}</b>"
+    )
 
     return True
 
@@ -1198,5 +1283,14 @@ async def draw_raffle(update, context):
         f"🆔 Entry: <code>{winner['id']}</code>\n\n🎉 Congratulations!"
     )
     if query: await query.answer("Winner selected!")
+    await notify_admin_group(
+        context,
+        "🏆 <b>RAFFLE WINNER DRAWN</b>\n\n"
+        f"🆔 Raffle: <code>{raffle['id']}</code>\n"
+        f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+        f"🏆 Winner: <b>{html.escape(display_user(winner))}</b>\n"
+        f"🆔 Entry: <code>{winner['id']}</code>\n"
+        f"👤 Drawn by: <b>{html.escape(user.full_name or user.username or str(user.id))}</b>"
+    )
     target = query.message if query else message
     if target: await target.reply_text(text, parse_mode=ParseMode.HTML)
