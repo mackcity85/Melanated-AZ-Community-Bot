@@ -51,6 +51,16 @@ from raffle_database import (
 logger = logging.getLogger("melanated_az_raffle")
 
 
+def format_expiration(value):
+    """Format a stored raffle expiration timestamp for Telegram display."""
+    if not value:
+        return "Unknown"
+    try:
+        return datetime.fromisoformat(str(value)).strftime("%b %d, %Y at %I:%M %p")
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def is_raffle_admin(user_id):
     """Return True for a configured admin ID."""
     try:
