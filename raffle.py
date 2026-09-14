@@ -50,6 +50,41 @@ from raffle_database import (
 
 logger = logging.getLogger("melanated_az_raffle")
 
+
+async def is_raffle_admin_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Return True for configured admins or members of the configured Admin Group."""
+    user = update.effective_user
+    if not user:
+        return False
+
+    # Primary admin list.
+    try:
+        if user.id in {int(admin_id) for admin_id in ADMIN_IDS}:
+            return True
+    except (TypeError, ValueError):
+        pass
+
+    # Optional Admin Group access.
+    try:
+        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
+    except (TypeError, ValueError):
+        admin_group_id = 0
+
+    if not admin_group_id:
+        return False
+
+    effective_message = update.effective_message
+    if effective_message and effective_message.chat and effective_message.chat.id == admin_group_id:
+        return True
+
+    try:
+        member = await context.bot.get_chat_member(admin_group_id, user.id)
+        return member.status in {"member", "administrator", "creator"}
+    except Exception:
+        logger.exception("Could not verify admin-group membership for user %s", user.id)
+        return False
+
+
 def format_expiration(value):
     """Format a stored raffle expiration timestamp for Telegram display."""
     if not value:
