@@ -50,7 +50,6 @@ from raffle_database import (
 
 logger = logging.getLogger("melanated_az_raffle")
 
-
 def format_expiration(value):
     """Format a stored raffle expiration timestamp for Telegram display."""
     if not value:
@@ -60,63 +59,6 @@ def format_expiration(value):
     except (TypeError, ValueError):
         return str(value)
 
-
-def is_raffle_admin(user_id):
-    """Return True for a configured admin ID."""
-    try:
-        return user_id is not None and int(user_id) in {int(x) for x in ADMIN_IDS}
-    except Exception:
-        return False
-
-
-def display_user(entry):
-    """Return a safe display name for a raffle entry."""
-    username = entry.get("username")
-    name = entry.get("display_name") or entry.get("name")
-
-    if name:
-        return html.escape(str(name))
-
-    if username:
-        username = str(username)
-        return html.escape(
-            username if username.startswith("@") else f"@{username}"
-        )
-
-    user_id = entry.get("user_id")
-    return html.escape(str(user_id or "Unknown"))
-
-
-async def is_raffle_admin_access(update, context):
-    """Allow configured admins or members of the configured Admin Group."""
-    user = update.effective_user
-    if not user:
-        return False
-
-    if is_raffle_admin(user.id):
-        return True
-
-    try:
-        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
-    except (TypeError, ValueError):
-        admin_group_id = 0
-
-    if not admin_group_id:
-        return False
-
-    effective_message = update.effective_message
-    if effective_message and effective_message.chat and effective_message.chat.id == admin_group_id:
-        return True
-
-    try:
-        member = await context.bot.get_chat_member(admin_group_id, user.id)
-        return member.status in {"member", "administrator", "creator"}
-    except Exception:
-        logger.exception(
-            "Could not verify admin-group membership for user %s",
-            user.id,
-        )
-        return False
 
 
 def ensure_raffle_description_column():
@@ -139,6 +81,19 @@ def save_raffle_description(raffle_id, description):
         conn.commit()
     finally:
         conn.close()
+
+
+def display_user(entry):
+    """Return a safe display name for a raffle entry/member record."""
+    name = entry.get("display_name") or entry.get("name")
+    username = entry.get("username")
+    user_id = entry.get("user_id")
+    if name:
+        return html.escape(str(name))
+    if username:
+        username = str(username)
+        return html.escape(username if username.startswith("@") else f"@{username}")
+    return html.escape(str(user_id or "Unknown"))
 
 
 def is_free_raffle(price):
@@ -219,12 +174,12 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = get_pending_raffle()
     if active:
         await message.reply_text(
-            f"⚠️ Active raffle already exists.\n🎁 {html.escape(str(active['prize']))}\n💵 {html.escape(str(active['price']))}"
+            f"⚠️ Active raffle already exists.\n🎁 {active['prize']}\n💵 {active['price']}"
         )
         return
     if pending:
         await message.reply_text(
-            f"⚠️ Raffle already awaiting approval.\n🎁 {html.escape(str(pending['prize']))}\n💵 {html.escape(str(pending['price']))}"
+            f"⚠️ Raffle already awaiting approval.\n🎁 {pending['prize']}\n💵 {pending['price']}"
         )
         return
 
@@ -238,41 +193,23 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "🎟️ <b>RAFFLE AWAITING APPROVAL</b>\n\n"
         f"🆔 Raffle: <code>{raffle_id}</code>\n"
-        f"🎁 Prize: <b>{html.escape(str(prize))}</b>\n"
-        f"💵 Entry: <b>{html.escape(str(price))}</b>\n"
+        f"🎁 Prize: <b>{prize}</b>\n"
+        f"💵 Entry: <b>{price}</b>\n"
         f"⏰ Ends: <b>{format_expiration(expires.isoformat())}</b>\n\n"
         + "Choose an action:"
     )
 
     sent_to_admin = set()
-
     for admin_id in ADMIN_IDS:
         try:
             target_id = int(admin_id)
-
             sent = await context.bot.send_message(
-                chat_id=target_id,
-                text=text,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.HTML,
+                chat_id=target_id, text=text, reply_markup=keyboard, parse_mode=ParseMode.HTML
             )
-
             sent_to_admin.add(target_id)
-
-            logger.info(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | SENT | message=%s",
-                raffle_id,
-                target_id,
-                sent.message_id,
-            )
-
+            logger.info("RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | SENT | message=%s", raffle_id, target_id, sent.message_id)
         except Exception as exc:
-            logger.exception(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | FAILED | %s",
-                raffle_id,
-                admin_id,
-                exc,
-            )
+            logger.exception("RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | FAILED | %s", raffle_id, admin_id, exc)
 
     try:
         admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
@@ -287,23 +224,10 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
             )
-
             sent_to_admin.add(admin_group_id)
-
-            logger.info(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | SENT | message=%s",
-                raffle_id,
-                admin_group_id,
-                sent_group.message_id,
-            )
-
+            logger.info("RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | SENT | message=%s", raffle_id, admin_group_id, sent_group.message_id)
         except Exception as exc:
-            logger.exception(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | FAILED | %s",
-                raffle_id,
-                admin_group_id,
-                exc,
-            )
+            logger.exception("RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | FAILED | %s", raffle_id, admin_group_id, exc)
 
     if user.id not in sent_to_admin:
         try:
@@ -354,13 +278,13 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
     if active:
         context.user_data.pop("awaiting_raffle_setup", None)
         await message.reply_text(
-            f"⚠️ Active raffle already exists.\n🎁 {html.escape(str(active['prize']))}\n💵 {html.escape(str(active['price']))}"
+            f"⚠️ Active raffle already exists.\n🎁 {active['prize']}\n💵 {active['price']}"
         )
         return
     if pending:
         context.user_data.pop("awaiting_raffle_setup", None)
         await message.reply_text(
-            f"⚠️ Raffle already awaiting approval.\n🎁 {html.escape(str(pending['prize']))}\n💵 {html.escape(str(pending['price']))}"
+            f"⚠️ Raffle already awaiting approval.\n🎁 {pending['prize']}\n💵 {pending['price']}"
         )
         return
 
@@ -375,41 +299,24 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
     text = (
         "🎟️ <b>RAFFLE AWAITING APPROVAL</b>\n\n"
         f"🆔 Raffle: <code>{raffle_id}</code>\n"
-        f"🎁 Prize: <b>{html.escape(str(prize))}</b>\n"
-        f"💵 Entry: <b>{html.escape(str(price))}</b>\n"
+        f"🎁 Prize: <b>{prize}</b>\n"
+        f"💵 Entry: <b>{price}</b>\n"
         f"⏰ Ends: <b>{format_expiration(expires.isoformat())}</b>\n\n"
         + "Choose an action:"
     )
 
     sent_to_admin = set()
-
     for admin_id in ADMIN_IDS:
         try:
-            target_id = int(admin_id)
-
-            sent = await context.bot.send_message(
-                chat_id=target_id,
+            await context.bot.send_message(
+                chat_id=int(admin_id),
                 text=text,
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
             )
-
-            sent_to_admin.add(target_id)
-
-            logger.info(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | SENT | message=%s",
-                raffle_id,
-                target_id,
-                sent.message_id,
-            )
-
-        except Exception as exc:
-            logger.exception(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | FAILED | %s",
-                raffle_id,
-                admin_id,
-                exc,
-            )
+            sent_to_admin.add(int(admin_id))
+        except TelegramError:
+            logger.warning("Could not notify admin %s.", admin_id)
 
     try:
         admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
@@ -424,23 +331,10 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
             )
-
             sent_to_admin.add(admin_group_id)
-
-            logger.info(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | SENT | message=%s",
-                raffle_id,
-                admin_group_id,
-                sent_group.message_id,
-            )
-
+            logger.info("RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | SENT | message=%s", raffle_id, admin_group_id, sent_group.message_id)
         except Exception as exc:
-            logger.exception(
-                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | FAILED | %s",
-                raffle_id,
-                admin_group_id,
-                exc,
-            )
+            logger.exception("RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | FAILED | %s", raffle_id, admin_group_id, exc)
 
     if user.id not in sent_to_admin:
         try:
@@ -623,7 +517,7 @@ async def approve_raffle_callback(update, context, raffle_id):
     await query.answer("Raffle approved!")
     try:
         await query.edit_message_text(
-            f"✅ <b>RAFFLE APPROVED</b>\n\n🎁 {html.escape(str(raffle['prize']))}\n💵 {html.escape(str(raffle['price']))}\n\nPublishing...",
+            f"✅ <b>RAFFLE APPROVED</b>\n\n🎁 {raffle['prize']}\n💵 {raffle['price']}\n\nPublishing...",
             parse_mode=ParseMode.HTML,
         )
     except TelegramError:
@@ -654,7 +548,7 @@ async def cancel_raffle_callback(update, context, raffle_id):
     await query.answer("Raffle cancelled.")
     try:
         await query.edit_message_text(
-            f"❌ <b>RAFFLE CANCELLED</b>\n\n🎁 {html.escape(str(raffle['prize']))}\n💵 {html.escape(str(raffle['price']))}",
+            f"❌ <b>RAFFLE CANCELLED</b>\n\n🎁 {raffle['prize']}\n💵 {raffle['price']}",
             parse_mode=ParseMode.HTML,
         )
     except TelegramError:
@@ -712,8 +606,8 @@ async def enter_raffle(update, context, raffle_id):
         ("🎟️ <b>FREE RAFFLE ENTRY — AUTO APPROVED</b>" if free else "🎟️ <b>NEW RAFFLE ENTRY</b>") + "\n\n"
         f"🆔 Entry: <code>{entry_id}</code>\n"
         f"🎟️ Raffle: <code>{raffle_id}</code>\n"
-        f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
-        f"👤 Member: <b>{html.escape(str(name))}</b>\n"
+        f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+        f"👤 Member: <b>{name}</b>\n"
         + ("💳 Payment: <b>FREE</b>\n\n" if free else "💳 Payment: <b>Not selected</b>\n\nChoose an action:")
     )
     for admin_id in ADMIN_IDS:
@@ -746,9 +640,9 @@ async def payment_method(update, context, raffle_id, method):
         await query.answer("This raffle is free — no payment is required.", show_alert=True)
         return
     if method == "cashapp":
-        body = f"💵 <b>CASH APP</b>\n\nSend <b>{html.escape(str(raffle['price']))}</b> to:\n<code>{CASHAPP_TAG}</code>\n\n{CASHAPP_URL or ''}"
+        body = f"💵 <b>CASH APP</b>\n\nSend <b>{raffle['price']}</b> to:\n<code>{CASHAPP_TAG}</code>\n\n{CASHAPP_URL or ''}"
     else:
-        body = f"🏦 <b>ZELLE</b>\n\nSend <b>{html.escape(str(raffle['price']))}</b> to:\n<code>{ZELLE_PHONE}</code>"
+        body = f"🏦 <b>ZELLE</b>\n\nSend <b>{raffle['price']}</b> to:\n<code>{ZELLE_PHONE}</code>"
     await query.answer()
     payment_message = await query.message.reply_text(
         body + "\n\nAfter payment, your entry remains pending until an admin verifies it.",
@@ -890,7 +784,7 @@ async def manual_raffle_entry(update, context, member_user_id):
     if not query or not admin_user:
         return False
 
-    if not await is_raffle_admin_access(update, context):
+    if not is_raffle_admin(admin_user.id):
         await safe_answer(query, "⛔ Admins only.", True)
         return False
 
@@ -991,7 +885,7 @@ async def manual_raffle_entry(update, context, member_user_id):
     try:
         await query.edit_message_text(
             "✅ <b>MANUAL ENTRY ADDED</b>\n\n"
-            f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+            f"🎁 Prize: <b>{raffle['prize']}</b>\n"
             f"💵 Entry Price: <b>{raffle['price']}</b>\n"
             f"👤 Member: <b>{html.escape(str(display_name))}</b>\n"
             f"🆔 User ID: <code>{member_user_id}</code>\n"
@@ -1156,8 +1050,8 @@ async def raffle_status(update, context):
         text = (
             "🎟️ <b>RAFFLE STATUS</b>\n\n"
             f"🆔 ID: <code>{raffle['id']}</code>\n"
-            f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
-            f"💵 Entry: <b>{html.escape(str(raffle['price']))}</b>\n"
+            f"🎁 Prize: <b>{raffle['prize']}</b>\n"
+            f"💵 Entry: <b>{raffle['price']}</b>\n"
             f"⏰ Ends: <b>{format_expiration(raffle['expires_at'])}</b>\n\n"
             f"✅ Approved Entries: <b>{len(approved)}</b>\n"
             f"⏳ Pending Entries: <b>{len(pending)}</b>"
