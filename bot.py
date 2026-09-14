@@ -81,6 +81,7 @@ from raffle import (
     handle_raffle_setup,
     raffle_status,
     start_daily_raffle_status,
+    start_raffle_cleanup_recovery,
     raffle_entries,
     pending_entries,
     paid_entry,
@@ -2889,12 +2890,6 @@ async def post_init(
             "PUBLIC_BASE_URL is not configured."
         )
 
-    # ------------------------------------------------------
-    # DAILY RAFFLE STATUS
-    # ------------------------------------------------------
-
-    start_daily_raffle_status(application)
-
 
 # ==========================================================
 # ERROR HANDLER
@@ -3440,6 +3435,8 @@ def main():
 
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
+    start_daily_raffle_status(application)
+    start_raffle_cleanup_recovery(application)
 
     logger.info(
         "Telegram application created."
