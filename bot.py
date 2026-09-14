@@ -2890,6 +2890,19 @@ async def post_init(
             "PUBLIC_BASE_URL is not configured."
         )
 
+    # ------------------------------------------------------
+    # RAFFLE SCHEDULERS
+    # ------------------------------------------------------
+    # Register raffle jobs from post_init so APScheduler is
+    # already initialized when the jobs are added on Render.
+    logger.info("Registering daily raffle status scheduler...")
+    start_daily_raffle_status(application)
+
+    logger.info("Registering raffle entry cleanup recovery scheduler...")
+    start_raffle_cleanup_recovery(application)
+
+    logger.info("Raffle schedulers registered successfully.")
+
 
 # ==========================================================
 # ERROR HANDLER
@@ -3435,8 +3448,8 @@ def main():
 
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
-    start_daily_raffle_status(application)
-    start_raffle_cleanup_recovery(application)
+
+    # Raffle schedulers are registered in post_init.
 
     logger.info(
         "Telegram application created."
