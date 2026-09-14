@@ -1260,7 +1260,7 @@ async def community_welcome(
         return
 
     # Never challenge configured admins.
-    if is_admin(user.id):
+    if await is_admin(user.id, context):
         return
 
     save_joining_member(chat.id, user)
@@ -1600,7 +1600,7 @@ async def verification_message_guard(update, context):
 
     # Track configured admins as well; they are exempt from member inactivity
     # but are subject to the separate admin-group inactivity rule.
-    if is_admin(user.id):
+    if await is_admin(user.id, context):
         row = community_member(chat.id, user.id)
         if not row:
             ensure_tracked_member(chat.id, user)
@@ -1811,7 +1811,7 @@ async def post_intro_topic_command(update, context):
     if not user or not message:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin(user.id, context):
         await message.reply_text("⛔ You are not authorized to use /postintro.")
         return
 
@@ -1886,7 +1886,7 @@ async def community_security_monitor(context):
         """, (main_group_id, member_cutoff.isoformat())).fetchall()
 
     for row in inactive_members:
-        if is_admin(int(row["user_id"])):
+        if await is_admin(int(row["user_id"]), context):
             continue
         await send_inactivity_notice(context, row)
 
@@ -1909,7 +1909,7 @@ async def community_security_monitor(context):
 
     for row in inactive_admins:
         user_id = int(row["user_id"])
-        if not is_admin(user_id):
+        if not await is_admin(user_id, context):
             continue
         await remove_inactive_admin_from_admin_group(context, user_id, admin_group_id)
 
@@ -2047,7 +2047,7 @@ async def start_command(
         "Real Games: <code>/realgames</code>"
     )
 
-    if is_admin(user.id):
+    if await is_admin(user.id, context):
 
         text += (
             "\n\n👑 <b>Admin:</b>\n"
@@ -2232,7 +2232,7 @@ async def admin_command(
     if not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin(user.id, context):
 
         await update.effective_message.reply_text(
             "⛔ You are not authorized to use "
@@ -2263,7 +2263,7 @@ async def admin_callback_router(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
