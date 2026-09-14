@@ -11,6 +11,7 @@
 import logging
 import random
 from datetime import datetime, timedelta, time
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -48,6 +49,7 @@ from raffle_database import (
     get_raffle_entry_messages,
     mark_raffle_entry_message_cleaned,
     schedule_raffle_entry_message_cleanup,
+    get_due_raffle_entry_message_groups,
 )
 
 logger = logging.getLogger("melanated_az_raffle")
@@ -178,6 +180,60 @@ async def cleanup_approved_entry_messages(context):
     # Telegram messages are removed.
     await post_public_raffle_status(context, raffle_id)
     logger.info("RAFFLE ENTRY CLEANUP COMPLETE | entry=%s | raffle=%s", entry_id, raffle_id)
+
+async def recover_raffle_entry_cleanups(context):
+    """Recover overdue raffle-entry message cleanups after a bot restart."""
+    try:
+        due_groups = get_due_raffle_entry_message_groups(datetime.utcnow().isoformat())
+    except Exception:
+        logger.exception("RAFFLE CLEANUP RECOVERY CHECK FAILED")
+        return
+
+    if not due_groups:
+        return
+
+    logger.info("RAFFLE CLEANUP RECOVERY | due_entries=%s", len(due_groups))
+
+    for group in due_groups:
+        try:
+            entry_id = int(group["entry_id"])
+            entry = get_entry(entry_id)
+            if not entry:
+                logger.warning("RAFFLE CLEANUP RECOVERY | entry=%s not found; skipping", entry_id)
+                continue
+
+            raffle_id = int(entry["raffle_id"])
+            recovery_context = SimpleNamespace(
+                bot=context.bot,
+                job=SimpleNamespace(data={"entry_id": entry_id, "raffle_id": raffle_id}),
+            )
+            await cleanup_approved_entry_messages(recovery_context)
+        except Exception:
+            logger.exception("RAFFLE CLEANUP RECOVERY FAILED | entry=%s", group.get("entry_id"))
+
+
+def start_raffle_cleanup_recovery(application):
+    """Run a lightweight SQLite-backed recovery check every 30 seconds."""
+    if not application.job_queue:
+        logger.warning("Raffle cleanup recovery unavailable: JobQueue not installed.")
+        return
+
+    for job in application.job_queue.get_jobs_by_name("raffle-entry-cleanup-recovery"):
+        job.schedule_removal()
+
+    application.job_queue.run_repeating(
+        recover_raffle_entry_cleanups,
+        interval=30,
+        first=5,
+        name="raffle-entry-cleanup-recovery",
+    )
+
+    logger.info(
+        "Raffle entry cleanup recovery scheduled | interval=30s | chat=%s | topic=%s",
+        RAFFLE_CHAT_ID,
+        RAFFLE_GAMES_TOPIC_ID,
+    )
+
 
 def schedule_approved_entry_cleanup(entry_id, raffle_id, context):
     """Persist and schedule the exact three-minute cleanup."""
