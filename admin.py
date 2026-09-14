@@ -61,59 +61,85 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 async def is_admin(user_id, context=None):
-    """Return True for configured admins or current members of ADMIN_GROUP_ID.
+    """Return True only when the user is a Telegram administrator in both groups.
 
-    ADMIN_IDS remains a permanent owner/admin allow-list. When ADMIN_GROUP_ID
-    is configured, membership in that Telegram group grants admin-panel access.
-    Group membership is checked live so removing someone from the Admin Group
-    removes their access without waiting for a restart.
+    Admin access is controlled by Telegram group roles, not ordinary membership.
+    The user must be an administrator/creator in:
+      1. MAIN_GROUP_ID
+      2. ADMIN_GROUP_ID
+
+    This is checked live on each protected admin-panel action.
     """
     try:
         user_id = int(user_id)
     except (TypeError, ValueError):
         return False
 
-    try:
-        if user_id in {int(admin_id) for admin_id in ADMIN_IDS}:
-            return True
-    except (TypeError, ValueError):
-        pass
-
     if context is None:
         return False
 
-    try:
-        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
-    except (TypeError, ValueError):
-        admin_group_id = 0
+    def env_int(name):
+        try:
+            return int(os.environ.get(name, "0") or "0")
+        except (TypeError, ValueError):
+            logger.warning("%s is not a valid integer; admin authorization cannot use it.", name)
+            return 0
 
-    if not admin_group_id:
+    main_group_id = env_int("MAIN_GROUP_ID")
+    admin_group_id = env_int("ADMIN_GROUP_ID")
+
+    if not main_group_id or not admin_group_id:
+        logger.error(
+            "Admin authorization requires both MAIN_GROUP_ID and ADMIN_GROUP_ID."
+        )
         return False
 
-    try:
-        member = await context.bot.get_chat_member(
-            chat_id=admin_group_id,
-            user_id=user_id,
-        )
-        status = getattr(member, "status", None)
-        if status in {"member", "administrator", "creator"}:
-            return True
-        if status == "restricted" and getattr(member, "is_member", False):
-            return True
-    except TelegramError:
-        logger.info(
-            "Admin-group membership check failed | user_id=%s | admin_group=%s",
-            user_id,
-            admin_group_id,
-        )
-    except Exception:
-        logger.exception(
-            "Unexpected admin-group membership check error | user_id=%s | admin_group=%s",
-            user_id,
-            admin_group_id,
-        )
+    async def is_group_admin(chat_id):
+        try:
+            member = await context.bot.get_chat_member(
+                chat_id=chat_id,
+                user_id=user_id,
+            )
+            status = getattr(member, "status", None)
+            return status in {"administrator", "creator"}
+        except TelegramError:
+            logger.info(
+                "Admin group-role check failed | user_id=%s | chat_id=%s",
+                user_id,
+                chat_id,
+            )
+            return False
+        except Exception:
+            logger.exception(
+                "Unexpected admin group-role check error | user_id=%s | chat_id=%s",
+                user_id,
+                chat_id,
+            )
+            return False
 
-    return False
+    main_admin = await is_group_admin(main_group_id)
+    if not main_admin:
+        logger.info(
+            "Admin authorization denied | user_id=%s | reason=not_main_group_admin",
+            user_id,
+        )
+        return False
+
+    admin_admin = await is_group_admin(admin_group_id)
+    if not admin_admin:
+        logger.info(
+            "Admin authorization denied | user_id=%s | reason=not_admin_group_admin",
+            user_id,
+        )
+        return False
+
+    logger.info(
+        "Admin authorization granted | user_id=%s | main_group=%s | admin_group=%s",
+        user_id,
+        main_group_id,
+        admin_group_id,
+    )
+    return True
 
 
 # ==========================================================
