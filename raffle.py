@@ -45,62 +45,61 @@ from raffle_database import (
     deny_entry,
     get_approved_entries,
     remove_entry,
+    get_connection,
 )
 
 logger = logging.getLogger("melanated_az_raffle")
 
-def is_raffle_admin(user_id):
-    """Return True when user_id is in the configured ADMIN_IDS list."""
+
+def ensure_raffle_description_column():
+    """Safely add the optional description column to an existing raffle DB."""
+    conn = get_connection()
     try:
-        return user_id is not None and int(user_id) in {int(x) for x in ADMIN_IDS}
-    except Exception:
-        return False
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(raffles)").fetchall()}
+        if "description" not in columns:
+            conn.execute("ALTER TABLE raffles ADD COLUMN description TEXT")
+            conn.commit()
+    finally:
+        conn.close()
 
 
-async def is_raffle_admin_access(update, context):
-    """
-    Allow configured admins and members of ADMIN_GROUP_ID to manage raffles.
-    """
-    user = update.effective_user
-    if not user:
-        return False
+def save_raffle_description(raffle_id, description):
+    """Persist the full raffle description without replacing existing raffle data."""
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE raffles SET description=? WHERE id=?", (description or None, raffle_id))
+        conn.commit()
+    finally:
+        conn.close()
 
-    if is_raffle_admin(user.id):
+
+def is_free_raffle(price):
+    """Recognize FREE, 0, $0, 0.00, etc. as a free-entry raffle."""
+    if price is None:
         return True
-
+    value = str(price).strip().lower().replace("$", "").replace(",", "").strip()
+    if value in {"", "free", "0", "0.0", "0.00"}:
+        return True
     try:
-        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
+        return float(value) == 0
     except (TypeError, ValueError):
-        admin_group_id = 0
-
-    if not admin_group_id:
         return False
 
-    effective_message = update.effective_message
-    if effective_message and effective_message.chat and effective_message.chat.id == admin_group_id:
-        return True
 
-    try:
-        member = await context.bot.get_chat_member(admin_group_id, user.id)
-        return member.status in {"member", "administrator", "creator"}
-    except Exception:
-        logger.exception("Could not verify raffle admin-group membership for user %s", user.id)
-        return False
+def parse_raffle_setup(payload):
+    """Use the FINAL | as the separator: everything before it is the raffle item."""
+    payload = str(payload or "").strip()
+    if payload.startswith("/startraffle"):
+        payload = payload[len("/startraffle"):].strip()
+    if "|" not in payload:
+        return None, None
+    prize, price = payload.rsplit("|", 1)
+    prize = prize.strip()
+    price = price.strip()
+    if not prize or not price:
+        return None, None
+    return prize, price
 
-def display_user(entry):
-    name = entry.get("display_name") or entry.get("username") or str(entry.get("user_id"))
-    username = str(entry.get("username") or "").lstrip("@")
-    if username and username.lower() != str(name).lower():
-        return f"{name} (@{username})"
-    return str(name)
-
-def format_expiration(value):
-    if not value:
-        return "Unknown"
-    try:
-        return datetime.fromisoformat(str(value)).strftime("%b %d, %Y at %I:%M %p")
-    except Exception:
-        return str(value)
 
 async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -137,17 +136,15 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     payload = parts[1].strip()
-    if "|" not in payload:
+    prize, price = parse_raffle_setup(payload)
+    if not prize or not price:
         await message.reply_text(
-            "⚠️ Invalid format.\n\nUse:\n"
-            "<code>/startraffle Prize | Entry Price</code>",
+            "⚠️ Invalid format.\n\n"
+            "Use:\n"
+            "<code>Raffle item/details | Entry Price</code>\n\n"
+            "The FINAL <code>|</code> separates the raffle item from the entry cost.",
             parse_mode=ParseMode.HTML,
         )
-        return
-
-    prize, price = [x.strip() for x in payload.split("|", 1)]
-    if not prize or not price:
-        await message.reply_text("⚠️ Prize and entry price are required.")
         return
 
     active = get_active_raffle()
@@ -176,7 +173,7 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎁 Prize: <b>{prize}</b>\n"
         f"💵 Entry: <b>{price}</b>\n"
         f"⏰ Ends: <b>{format_expiration(expires.isoformat())}</b>\n\n"
-        "Choose an action:"
+        + "Choose an action:"
     )
 
     sent_to_admin = set()
@@ -239,23 +236,15 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         await message.reply_text("⚠️ Please enter the raffle information.")
         return
 
-    if payload.startswith("/startraffle"):
-        payload = payload.split(" ", 1)[1].strip() if " " in payload else ""
-
-    if "|" not in payload:
+    prize, price = parse_raffle_setup(payload)
+    if not prize or not price:
         await message.reply_text(
             "⚠️ Invalid format.\n\n"
-            "Please use:\n"
-            "<code>Prize | Entry Price</code>\n\n"
-            "Example:\n"
-            "<code>$100 Cash Prize | $5</code>",
+            "Use:\n"
+            "<code>Raffle item/details | Entry Price</code>\n\n"
+            "The FINAL <code>|</code> separates the raffle item from the entry cost.",
             parse_mode=ParseMode.HTML,
         )
-        return
-
-    prize, price = [x.strip() for x in payload.split("|", 1)]
-    if not prize or not price:
-        await message.reply_text("⚠️ Prize and entry price are required.")
         return
 
     active = get_active_raffle()
@@ -287,7 +276,7 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"🎁 Prize: <b>{prize}</b>\n"
         f"💵 Entry: <b>{price}</b>\n"
         f"⏰ Ends: <b>{format_expiration(expires.isoformat())}</b>\n\n"
-        "Choose an action:"
+        + "Choose an action:"
     )
 
     sent_to_admin = set()
@@ -374,24 +363,47 @@ async def publish_raffle(raffle_id, context):
     if not raffle:
         return False
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle_id}")],
-        [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle_id}")],
-        [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle_id}")],
-    ])
+    free = is_free_raffle(raffle.get("price"))
+
+    if free:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle_id}")]
+        ])
+    else:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle_id}")],
+            [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle_id}")],
+            [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle_id}")],
+        ])
+
+    payment_notice = (
+        "🎟️ Entry is FREE — no payment is required."
+        if free
+        else "⚠️ Your entry remains pending until an admin verifies your payment."
+    )
+
     text = (
         "🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>\n\n"
-        f"🎁 <b>Prize:</b> {raffle['prize']}\n"
-        f"💵 <b>Entry:</b> {raffle['price']}\n"
+        f"🎁 <b>Prize:</b> {html.escape(str(raffle['prize']))}\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle['price']))}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle['expires_at'])}\n\n"
         "👇 Tap below to enter.\n\n"
-        "⚠️ Your entry remains pending until an admin verifies your payment."
+        + payment_notice
     )
 
     main_chat_id = int(RAFFLE_CHAT_ID)
 
     try:
-        # Publish the full raffle in the Games forum topic.
+        # Telegram allows a maximum of 4096 characters per message.
+        # Never split or truncate a raffle. If the rendered raffle is too long,
+        # fail cleanly and leave the raffle active for the admin to correct/repost.
+        if len(text) > 4096:
+            logger.error(
+                "Raffle %s is too long to publish as one Telegram message | chars=%s",
+                raffle_id, len(text),
+            )
+            return False
+
         sent = await context.bot.send_message(
             chat_id=main_chat_id,
             message_thread_id=RAFFLE_GAMES_TOPIC_ID,
@@ -525,36 +537,51 @@ async def enter_raffle(update, context, raffle_id):
         await query.answer("This raffle is no longer active.", show_alert=True)
         return
     name = user.full_name or user.username or str(user.id)
-    entry_id = add_raffle_entry(raffle_id, user.id, user.username, name, None)
+    free = is_free_raffle(raffle["price"])
+    entry_id = add_raffle_entry(raffle_id, user.id, user.username, name, "free" if free else None)
     if entry_id is None:
         await query.answer("You already have an entry for this raffle.", show_alert=True)
         return
-    await query.answer("Entry submitted!", show_alert=True)
-    entry_message = await query.message.reply_text(
-        f"🎟️ <b>ENTRY SUBMITTED</b>\n\n"
-        f"🎁 Prize: <b>{raffle['prize']}</b>\n"
-        f"💵 Entry Price: <b>{raffle['price']}</b>\n"
-        f"🆔 Entry: <code>{entry_id}</code>\n\n"
-        "⚠️ Your entry is <b>PENDING</b> until an admin verifies payment.",
-        parse_mode=ParseMode.HTML,
-    )
+    if free:
+        if not approve_entry(entry_id, user.id):
+            await query.answer("Free entry could not be approved.", show_alert=True)
+            return
+        await query.answer("🎟️ Free entry approved!", show_alert=True)
+        entry_message = await query.message.reply_text(
+            f"🎟️ <b>ENTRY APPROVED</b>\n\n"
+            f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+            f"💵 Entry Price: <b>{html.escape(str(raffle['price']))}</b>\n"
+            f"🆔 Entry: <code>{entry_id}</code>\n\n"
+            "✅ <b>FREE ENTRY — no payment required.</b>",
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await query.answer("Entry submitted!", show_alert=True)
+        entry_message = await query.message.reply_text(
+            f"🎟️ <b>ENTRY SUBMITTED</b>\n\n"
+            f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n"
+            f"💵 Entry Price: <b>{html.escape(str(raffle['price']))}</b>\n"
+            f"🆔 Entry: <code>{entry_id}</code>\n\n"
+            "⚠️ Your entry is <b>PENDING</b> until an admin verifies payment.",
+            parse_mode=ParseMode.HTML,
+        )
     if context.job_queue and entry_message and entry_message.chat_id == int(RAFFLE_CHAT_ID):
         context.job_queue.run_once(
             _delete_raffle_message_job,
             RAFFLE_ENTRY_MESSAGE_DELETE_SECONDS,
             data={"chat_id": entry_message.chat_id, "message_id": entry_message.message_id},
         )
-    keyboard = InlineKeyboardMarkup([[
+    keyboard = None if free else InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ APPROVE", callback_data=f"approve_{entry_id}"),
         InlineKeyboardButton("❌ DENY", callback_data=f"deny_{entry_id}"),
     ]])
     admin_text = (
-        "🎟️ <b>NEW RAFFLE ENTRY</b>\n\n"
+        ("🎟️ <b>FREE RAFFLE ENTRY — AUTO APPROVED</b>" if free else "🎟️ <b>NEW RAFFLE ENTRY</b>") + "\n\n"
         f"🆔 Entry: <code>{entry_id}</code>\n"
         f"🎟️ Raffle: <code>{raffle_id}</code>\n"
         f"🎁 Prize: <b>{raffle['prize']}</b>\n"
         f"👤 Member: <b>{name}</b>\n"
-        "💳 Payment: <b>Not selected</b>\n\nChoose an action:"
+        + ("💳 Payment: <b>FREE</b>\n\n" if free else "💳 Payment: <b>Not selected</b>\n\nChoose an action:")
     )
     for admin_id in ADMIN_IDS:
         try:
@@ -581,6 +608,9 @@ async def payment_method(update, context, raffle_id, method):
     )
     if not entry:
         await query.answer("Enter the raffle first.", show_alert=True)
+        return
+    if is_free_raffle(raffle.get("price")):
+        await query.answer("This raffle is free — no payment is required.", show_alert=True)
         return
     if method == "cashapp":
         body = f"💵 <b>CASH APP</b>\n\nSend <b>{raffle['price']}</b> to:\n<code>{CASHAPP_TAG}</code>\n\n{CASHAPP_URL or ''}"
