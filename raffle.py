@@ -12,9 +12,7 @@ import logging
 import random
 import os
 import html
-from datetime import datetime, timedelta, time
-from types import SimpleNamespace
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -48,338 +46,23 @@ from raffle_database import (
     get_approved_entries,
     remove_entry,
     get_connection,
-    record_raffle_entry_message,
-    get_raffle_entry_messages,
-    mark_raffle_entry_message_cleaned,
-    schedule_raffle_entry_message_cleanup,
-    get_due_raffle_entry_message_groups,
 )
 
 logger = logging.getLogger("melanated_az_raffle")
 
-async def notify_admin_group(context, text, reply_markup=None, kind="raffle"):
-    """Send a raffle alert to the configured Admin Group."""
-    try:
-        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
-    except (TypeError, ValueError):
-        admin_group_id = 0
-
-    if not admin_group_id:
-        logger.warning("%s | ADMIN_GROUP_ID not configured", kind)
-        return None
-
-    try:
-        sent = await context.bot.send_message(
-            chat_id=admin_group_id,
-            text=text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.HTML,
-        )
-        logger.info(
-            "%s | destination=ADMIN_GROUP:%s | SENT | message=%s",
-            kind, admin_group_id, sent.message_id,
-        )
-        return sent
-    except TelegramError:
-        logger.exception(
-            "%s | destination=ADMIN_GROUP:%s | FAILED",
-            kind, admin_group_id,
-        )
-        return None
-
-# ==========================================================
-# RAFFLE AUTOMATION / TEMPORARY MESSAGE CLEANUP
-# ==========================================================
-
-APPROVED_ENTRY_CLEANUP_SECONDS = 180
-RAFFLE_GAMES_TOPIC_ID = int(
-    os.environ.get("RAFFLE_GAMES_TOPIC_ID", "8809") or "8809"
-)
-RAFFLE_STATUS_HOUR = 8
-RAFFLE_STATUS_MINUTE = 0
-RAFFLE_STATUS_TIMEZONE = ZoneInfo("America/Phoenix")
-
-
-async def track_entry_message(entry_id, sent_message, kind="entry"):
-    """Persist a Telegram message so it can be removed later."""
-    if not sent_message:
-        return
-    try:
-        record_raffle_entry_message(
-            int(entry_id),
-            int(sent_message.chat_id),
-            int(sent_message.message_id),
-            kind,
-        )
-    except Exception:
-        logger.exception(
-            "Could not track raffle entry message | entry=%s | kind=%s",
-            entry_id,
-            kind,
-        )
-
-
-async def post_public_raffle_status(context, raffle_id):
-    """Post a fresh public raffle status in the Games topic."""
-    raffle = get_raffle(int(raffle_id))
-    if not raffle or raffle.get("status") != "active":
-        return None
-
-    approved = get_approved_entries(int(raffle_id))
-    pending = get_pending_entries(int(raffle_id))
-    free = is_free_raffle(raffle.get("price"))
-
-    keyboard_rows = [
-        [InlineKeyboardButton(
-            "🎟️ ENTER RAFFLE",
-            callback_data=f"enter_{raffle_id}",
-        )]
-    ]
-    if not free:
-        keyboard_rows.extend([
-            [InlineKeyboardButton(
-                "💵 PAY WITH CASH APP",
-                callback_data=f"pay_cashapp_{raffle_id}",
-            )],
-            [InlineKeyboardButton(
-                "🏦 PAY WITH ZELLE",
-                callback_data=f"pay_zelle_{raffle_id}",
-            )],
-        ])
-
-    text = (
-        "🎟️ <b>RAFFLE STATUS</b>\n\n"
-        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
-        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
-        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
-        f"✅ <b>Approved Entries:</b> {len(approved)}\n"
-        f"⏳ <b>Pending Entries:</b> {len(pending)}\n\n"
-        "👇 <b>Tap ENTER RAFFLE to join!</b>"
-    )
-
-    try:
-        return await context.bot.send_message(
-            chat_id=int(RAFFLE_CHAT_ID),
-            message_thread_id=RAFFLE_GAMES_TOPIC_ID,
-            text=text,
-            reply_markup=InlineKeyboardMarkup(keyboard_rows),
-            parse_mode=ParseMode.HTML,
-        )
-    except TelegramError:
-        logger.exception(
-            "Could not post public raffle status | raffle=%s",
-            raffle_id,
-        )
-        return None
-
-
-async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
-    """Post the active raffle status every day at 8:00 AM Arizona time."""
-    raffle = get_active_raffle()
-    if not raffle:
-        logger.info("Daily raffle status skipped: no active raffle.")
-        return
-
-    sent = await post_public_raffle_status(context, int(raffle["id"]))
-    if sent:
-        logger.info(
-            "DAILY RAFFLE STATUS POSTED | raffle=%s | chat=%s | topic=%s | message=%s",
-            raffle["id"],
-            RAFFLE_CHAT_ID,
-            RAFFLE_GAMES_TOPIC_ID,
-            sent.message_id,
-        )
-
-
-def start_daily_raffle_status(application):
-    """Schedule the daily 8:00 AM Arizona-time status post."""
-    if not application.job_queue:
-        logger.warning(
-            "Daily raffle status unavailable: JobQueue not installed."
-        )
-        return
-
-    for job in application.job_queue.get_jobs_by_name("daily-raffle-status"):
-        job.schedule_removal()
-
-    application.job_queue.run_daily(
-        send_daily_raffle_status,
-        time(
-            hour=RAFFLE_STATUS_HOUR,
-            minute=RAFFLE_STATUS_MINUTE,
-            tzinfo=RAFFLE_STATUS_TIMEZONE,
-        ),
-        days=tuple(range(7)),
-        name="daily-raffle-status",
-    )
-    logger.info(
-        "Daily raffle status scheduled | time=08:00 | timezone=America/Phoenix | chat=%s | topic=%s",
-        RAFFLE_CHAT_ID,
-        RAFFLE_GAMES_TOPIC_ID,
-    )
-
-
-async def cleanup_approved_entry_messages(context):
-    """Delete every tracked temporary Telegram message for an approved entry."""
-    job = getattr(context, "job", None)
-    data = getattr(job, "data", None) or {}
-    entry_id = int(data.get("entry_id", 0) or 0)
-    raffle_id = int(data.get("raffle_id", 0) or 0)
-    if not entry_id:
-        return
-
-    records = get_raffle_entry_messages(entry_id)
-    for record in records or []:
-        try:
-            await context.bot.delete_message(
-                chat_id=int(record["chat_id"]),
-                message_id=int(record["message_id"]),
-            )
-        except TelegramError:
-            pass
-        finally:
-            try:
-                mark_raffle_entry_message_cleaned(record["id"])
-            except Exception:
-                logger.exception(
-                    "Could not mark raffle cleanup record %s.",
-                    record.get("id"),
-                )
-
-    if raffle_id:
-        await post_public_raffle_status(context, raffle_id)
-
-    logger.info(
-        "RAFFLE ENTRY CLEANUP COMPLETE | entry=%s | raffle=%s",
-        entry_id,
-        raffle_id,
-    )
-
-
-async def recover_raffle_entry_cleanups(context):
-    """Recover overdue cleanup records after Render or the bot restarts."""
-    try:
-        due_groups = get_due_raffle_entry_message_groups(
-            datetime.utcnow().isoformat()
-        )
-    except Exception:
-        logger.exception("RAFFLE CLEANUP RECOVERY CHECK FAILED")
-        return
-
-    if not due_groups:
-        return
-
-    logger.info(
-        "RAFFLE CLEANUP RECOVERY | due_entries=%s",
-        len(due_groups),
-    )
-
-    for group in due_groups:
-        try:
-            entry_id = int(group["entry_id"])
-            entry = get_entry(entry_id)
-            if not entry:
-                logger.warning(
-                    "RAFFLE CLEANUP RECOVERY | entry=%s not found; skipping",
-                    entry_id,
-                )
-                continue
-
-            recovery_context = SimpleNamespace(
-                bot=context.bot,
-                job=SimpleNamespace(
-                    data={
-                        "entry_id": entry_id,
-                        "raffle_id": int(entry["raffle_id"]),
-                    }
-                ),
-            )
-            await cleanup_approved_entry_messages(recovery_context)
-        except Exception:
-            logger.exception(
-                "RAFFLE CLEANUP RECOVERY FAILED | entry=%s",
-                group.get("entry_id"),
-            )
-
-
-def start_raffle_cleanup_recovery(application):
-    """Run a lightweight SQLite-backed cleanup recovery check every 30 seconds."""
-    if not application.job_queue:
-        logger.warning(
-            "Raffle cleanup recovery unavailable: JobQueue not installed."
-        )
-        return
-
-    for job in application.job_queue.get_jobs_by_name(
-        "raffle-entry-cleanup-recovery"
-    ):
-        job.schedule_removal()
-
-    application.job_queue.run_repeating(
-        recover_raffle_entry_cleanups,
-        interval=30,
-        first=5,
-        name="raffle-entry-cleanup-recovery",
-    )
-    logger.info(
-        "Raffle entry cleanup recovery scheduled | interval=30s | chat=%s | topic=%s",
-        RAFFLE_CHAT_ID,
-        RAFFLE_GAMES_TOPIC_ID,
-    )
-
-
-def schedule_approved_entry_cleanup(entry_id, raffle_id, context):
-    """Persist and schedule the exact three-minute approved-entry cleanup."""
-    cleanup_at = (
-        datetime.utcnow() +
-        timedelta(seconds=APPROVED_ENTRY_CLEANUP_SECONDS)
-    ).isoformat()
-
-    try:
-        schedule_raffle_entry_message_cleanup(entry_id, cleanup_at)
-    except Exception:
-        logger.exception(
-            "Could not persist raffle cleanup deadline | entry=%s",
-            entry_id,
-        )
-
-    if not getattr(context, "job_queue", None):
-        logger.error(
-            "Job queue unavailable; raffle cleanup not scheduled | entry=%s",
-            entry_id,
-        )
-        return
-
-    job_name = f"raffle-entry-cleanup-{int(entry_id)}"
-    for job in context.job_queue.get_jobs_by_name(job_name):
-        job.schedule_removal()
-
-    context.job_queue.run_once(
-        cleanup_approved_entry_messages,
-        APPROVED_ENTRY_CLEANUP_SECONDS,
-        data={
-            "entry_id": int(entry_id),
-            "raffle_id": int(raffle_id),
-        },
-        name=job_name,
-    )
-
-
 
 async def is_raffle_admin_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Return True for configured admins or members of the configured Admin Group."""
+    """Return True for configured admins or current members of ADMIN_GROUP_ID."""
     user = update.effective_user
     if not user:
         return False
 
-    # Primary admin list.
     try:
         if user.id in {int(admin_id) for admin_id in ADMIN_IDS}:
             return True
     except (TypeError, ValueError):
         pass
 
-    # Optional Admin Group access.
     try:
         admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
     except (TypeError, ValueError):
@@ -388,62 +71,30 @@ async def is_raffle_admin_access(update: Update, context: ContextTypes.DEFAULT_T
     if not admin_group_id:
         return False
 
-    effective_message = update.effective_message
-    if effective_message and effective_message.chat and effective_message.chat.id == admin_group_id:
-        return True
-
     try:
-        member = await context.bot.get_chat_member(admin_group_id, user.id)
-        return member.status in {"member", "administrator", "creator"}
+        member = await context.bot.get_chat_member(
+            chat_id=admin_group_id,
+            user_id=user.id,
+        )
+        status = getattr(member, "status", None)
+        if status in {"member", "administrator", "creator"}:
+            return True
+        if status == "restricted" and getattr(member, "is_member", False):
+            return True
+    except TelegramError:
+        logger.info(
+            "Raffle admin-group membership check failed | user_id=%s | admin_group=%s",
+            user.id,
+            admin_group_id,
+        )
     except Exception:
-        logger.exception("Could not verify admin-group membership for user %s", user.id)
-        return False
+        logger.exception(
+            "Unexpected raffle admin-group membership check error | user_id=%s | admin_group=%s",
+            user.id,
+            admin_group_id,
+        )
 
-
-def format_expiration(value):
-    """Format a stored raffle expiration timestamp for Telegram display."""
-    if not value:
-        return "Unknown"
-    try:
-        return datetime.fromisoformat(str(value)).strftime("%b %d, %Y at %I:%M %p")
-    except (TypeError, ValueError):
-        return str(value)
-
-
-
-def ensure_raffle_description_column():
-    """Safely add the optional description column to an existing raffle DB."""
-    conn = get_connection()
-    try:
-        columns = {row[1] for row in conn.execute("PRAGMA table_info(raffles)").fetchall()}
-        if "description" not in columns:
-            conn.execute("ALTER TABLE raffles ADD COLUMN description TEXT")
-            conn.commit()
-    finally:
-        conn.close()
-
-
-def save_raffle_description(raffle_id, description):
-    """Persist the full raffle description without replacing existing raffle data."""
-    conn = get_connection()
-    try:
-        conn.execute("UPDATE raffles SET description=? WHERE id=?", (description or None, raffle_id))
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def display_user(entry):
-    """Return a safe display name for a raffle entry/member record."""
-    name = entry.get("display_name") or entry.get("name")
-    username = entry.get("username")
-    user_id = entry.get("user_id")
-    if name:
-        return html.escape(str(name))
-    if username:
-        username = str(username)
-        return html.escape(username if username.startswith("@") else f"@{username}")
-    return html.escape(str(user_id or "Unknown"))
+    return False
 
 
 def is_free_raffle(price):
@@ -702,8 +353,8 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
 
-# Generic temporary raffle replies remain one hour unless the approved-entry
-# cleanup above handles them sooner.
+# Telegram forum topic where active raffles are published.
+RAFFLE_GAMES_TOPIC_ID = 8809
 RAFFLE_ENTRY_MESSAGE_DELETE_SECONDS = 60 * 60
 
 
@@ -942,12 +593,7 @@ async def enter_raffle(update, context, raffle_id):
             "⚠️ Your entry is <b>PENDING</b> until an admin verifies payment.",
             parse_mode=ParseMode.HTML,
         )
-    await track_entry_message(
-        entry_id,
-        entry_message,
-        "entry_confirmation",
-    )
-    if not free and context.job_queue and entry_message and entry_message.chat_id == int(RAFFLE_CHAT_ID):
+    if context.job_queue and entry_message and entry_message.chat_id == int(RAFFLE_CHAT_ID):
         context.job_queue.run_once(
             _delete_raffle_message_job,
             RAFFLE_ENTRY_MESSAGE_DELETE_SECONDS,
@@ -973,13 +619,6 @@ async def enter_raffle(update, context, raffle_id):
             )
         except TelegramError:
             logger.warning("Could not notify admin %s.", admin_id)
-
-    await notify_admin_group(
-        context,
-        admin_text,
-        reply_markup=keyboard,
-        kind="RAFFLE NEW ENTRY NOTIFICATION",
-    )
 
 async def payment_method(update, context, raffle_id, method):
     query = update.callback_query
@@ -1060,10 +699,8 @@ async def approve_entry_callback(update, context, entry_id):
     except TelegramError:
         logger.exception("Could not update approval message for entry %s.", entry_id)
 
-    await track_entry_message(entry_id, query.message, "admin_approval")
-
     try:
-        sent_member = await context.bot.send_message(
+        await context.bot.send_message(
             chat_id=int(entry["user_id"]),
             text=(
                 "🎉 <b>YOUR RAFFLE ENTRY WAS APPROVED!</b>\n\n"
@@ -1072,32 +709,8 @@ async def approve_entry_callback(update, context, entry_id):
             ),
             parse_mode=ParseMode.HTML,
         )
-        await track_entry_message(entry_id, sent_member, "approved_notification")
     except TelegramError:
         logger.info("Could not notify entrant %s.", entry["user_id"])
-
-    approval_admin_text = (
-        "✅ <b>RAFFLE ENTRY APPROVED</b>\n\n"
-        f"🆔 Entry: <code>{entry_id}</code>\n"
-        f"🎟️ Raffle: <code>{entry['raffle_id']}</code>\n"
-        f"🎁 Prize: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
-        f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n"
-        f"💳 Payment: <b>{html.escape(str(entry.get('payment_method') or 'Verified'))}</b>\n"
-        f"👑 Approved by admin: <code>{user.id}</code>"
-    )
-    await notify_admin_group(
-        context,
-        approval_admin_text,
-        kind="RAFFLE ENTRY APPROVAL NOTIFICATION",
-    )
-
-    schedule_approved_entry_cleanup(
-        entry_id,
-        int(entry["raffle_id"]),
-        context,
-    )
-
-    return
 
 async def deny_entry_callback(update, context, entry_id):
     query = update.callback_query
@@ -1172,7 +785,7 @@ async def manual_raffle_entry(update, context, member_user_id):
     if not query or not admin_user:
         return False
 
-    if not is_raffle_admin(admin_user.id):
+    if not await is_raffle_admin_access(update, context):
         await safe_answer(query, "⛔ Admins only.", True)
         return False
 
@@ -1313,7 +926,7 @@ async def repost_raffle(update, context):
     message = update.effective_message
     user = update.effective_user
 
-    if not user or not is_raffle_admin(user.id):
+    if not user or not await is_raffle_admin_access(update, context):
         if query:
             await safe_answer(query, "⛔ Admins only.", True)
         elif message:
