@@ -78,6 +78,7 @@ from birthday import (
 
 from raffle import (
     start_raffle,
+    handle_raffle_setup,
     raffle_status,
     raffle_entries,
     pending_entries,
@@ -3286,6 +3287,22 @@ def build_application():
         MessageHandler(
             filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
             private_intro_text_handler,
+        ),
+        group=0,
+    )
+
+    # ======================================================
+    # RAFFLE SETUP TEXT
+    #
+    # Handles the follow-up message after an admin clicks
+    # Start Raffle, e.g. "$100 Cash Prize | $5".
+    # This must run before the general text router.
+    # ======================================================
+
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_raffle_setup,
         ),
         group=0,
     )
