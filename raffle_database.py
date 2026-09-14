@@ -90,6 +90,21 @@ def initialize_database():
         """)
 
         c.execute("""
+            CREATE TABLE IF NOT EXISTS raffle_entry_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entry_id INTEGER NOT NULL,
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'entry',
+                created_at TEXT NOT NULL,
+                cleanup_at TEXT,
+                cleaned_at TEXT,
+                UNIQUE(entry_id, chat_id, message_id),
+                FOREIGN KEY (entry_id) REFERENCES raffle_entries(id) ON DELETE CASCADE
+            )
+        """)
+
+        c.execute("""
             CREATE TABLE IF NOT EXISTS birthdays (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -131,6 +146,8 @@ def initialize_database():
             "CREATE INDEX IF NOT EXISTS idx_raffles_status ON raffles(status)",
             "CREATE INDEX IF NOT EXISTS idx_raffle_entries_raffle_id ON raffle_entries(raffle_id)",
             "CREATE INDEX IF NOT EXISTS idx_raffle_entries_status ON raffle_entries(status)",
+            "CREATE INDEX IF NOT EXISTS idx_raffle_entry_messages_cleanup ON raffle_entry_messages(cleanup_at, cleaned_at)",
+            "CREATE INDEX IF NOT EXISTS idx_raffle_entry_messages_entry_id ON raffle_entry_messages(entry_id)",
             "CREATE INDEX IF NOT EXISTS idx_birthdays_chat_id ON birthdays(chat_id)",
             "CREATE INDEX IF NOT EXISTS idx_members_chat_id ON members(chat_id)",
             "CREATE INDEX IF NOT EXISTS idx_members_display_name ON members(display_name COLLATE NOCASE)",
@@ -432,6 +449,93 @@ def remove_entry(entry_id):
         raise
     finally:
         conn.close()
+
+def record_raffle_entry_message(entry_id, chat_id, message_id, kind='entry', cleanup_at=None):
+    """Track a Telegram message associated with a raffle entry for timed cleanup."""
+    conn = get_connection()
+    try:
+        conn.execute("""
+            INSERT OR IGNORE INTO raffle_entry_messages
+                (entry_id, chat_id, message_id, kind, created_at, cleanup_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            int(entry_id), int(chat_id), int(message_id), str(kind),
+            datetime.utcnow().isoformat(), cleanup_at
+        ))
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def schedule_raffle_entry_message_cleanup(entry_id, cleanup_at):
+    """Set the cleanup deadline for every tracked message for an entry."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("""
+            UPDATE raffle_entry_messages
+            SET cleanup_at=?
+            WHERE entry_id=? AND cleaned_at IS NULL
+        """, (cleanup_at, int(entry_id)))
+        conn.commit()
+        return cur.rowcount
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_raffle_entry_messages(entry_id, include_cleaned=False):
+    conn = get_connection()
+    try:
+        sql = "SELECT * FROM raffle_entry_messages WHERE entry_id=?"
+        params = [int(entry_id)]
+        if not include_cleaned:
+            sql += " AND cleaned_at IS NULL"
+        sql += " ORDER BY id ASC"
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def mark_raffle_entry_message_cleaned(record_id):
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "UPDATE raffle_entry_messages SET cleaned_at=? WHERE id=?",
+            (datetime.utcnow().isoformat(), int(record_id))
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_due_raffle_entry_message_groups(now_iso=None):
+    now_iso = now_iso or datetime.utcnow().isoformat()
+    conn = get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT entry_id, MIN(cleanup_at) AS cleanup_at
+            FROM raffle_entry_messages
+            WHERE cleaned_at IS NULL
+              AND cleanup_at IS NOT NULL
+              AND cleanup_at <= ?
+            GROUP BY entry_id
+            ORDER BY MIN(cleanup_at) ASC
+        """, (now_iso,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
 
 def save_birthday(user_id, chat_id, birthday, username=None, display_name=None):
     now = datetime.utcnow().isoformat()
