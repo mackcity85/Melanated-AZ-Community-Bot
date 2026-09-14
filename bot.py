@@ -95,6 +95,15 @@ from raffle_database import (
     check_database_integrity,
 )
 
+from holiday_exchange import (
+    initialize_holiday_exchange_database,
+    holiday_exchange_command,
+    create_exchange_command,
+    my_exchange_match_command,
+    holiday_exchange_callback,
+    holiday_exchange_admin_callback,
+)
+
 from truth_dare import (
     truth,
     dare,
@@ -1221,47 +1230,6 @@ async def send_community_intro_song(chat_id, context, member_name):
                 pass
 
 
-async def notify_admin_group_new_member(context, user, chat):
-    """Notify the configured admin group whenever a new member joins the main group."""
-    try:
-        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
-    except (TypeError, ValueError):
-        admin_group_id = 0
-
-    if not admin_group_id or not user or not chat:
-        return None
-
-    username = f"@{user.username}" if user.username else "No username"
-    name = html.escape(user.full_name or user.first_name or "Unknown member")
-    text = (
-        "🚨 <b>NEW MEMBER JOINED MELANATED AZ</b>\n\n"
-        f"👤 <b>Name:</b> {name}\n"
-        f"🔹 <b>Username:</b> {html.escape(username)}\n"
-        f"🆔 <b>User ID:</b> <code>{user.id}</code>\n"
-        f"💬 <b>Group:</b> {html.escape(chat.title or str(chat.id))}\n\n"
-        "🛡️ <b>Status:</b> Human verification started\n"
-        f"⏰ <b>Intro window:</b> {INTRO_HOURS} hours after verification"
-    )
-
-    try:
-        sent = await context.bot.send_message(
-            chat_id=admin_group_id,
-            text=text,
-            parse_mode=ParseMode.HTML,
-        )
-        logger.info(
-            "ADMIN JOIN NOTIFICATION SENT | user_id=%s | admin_group=%s | message_id=%s",
-            user.id, admin_group_id, sent.message_id,
-        )
-        return sent
-    except TelegramError:
-        logger.exception(
-            "ADMIN JOIN NOTIFICATION FAILED | user_id=%s | admin_group=%s",
-            user.id, admin_group_id,
-        )
-        return None
-
-
 async def community_welcome(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -1301,9 +1269,6 @@ async def community_welcome(
     )
     if not user or user.is_bot:
         return
-
-    # Always notify the admin group about a new member.
-    await notify_admin_group_new_member(context, user, chat)
 
     # Never challenge configured admins.
     if is_admin(user.id):
@@ -3071,6 +3036,21 @@ def build_application():
         ),
 
         (
+            "holidayexchange",
+            holiday_exchange_command,
+        ),
+
+        (
+            "createexchange",
+            create_exchange_command,
+        ),
+
+        (
+            "mymatch",
+            my_exchange_match_command,
+        ),
+
+        (
             "truthdare",
             truth_dare_menu,
         ),
@@ -3122,6 +3102,24 @@ def build_application():
                 r"bonus_|"
                 r"remove_)"
             ),
+        )
+    )
+
+    # ======================================================
+    # HOLIDAY EXCHANGE CALLBACKS
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            holiday_exchange_callback,
+            pattern=r"^hx_",
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            holiday_exchange_admin_callback,
+            pattern=r"^admin_hx_|^admin_holiday_exchange$",
         )
     )
 
@@ -3462,6 +3460,7 @@ def main():
     # ------------------------------------------------------
 
     initialize_community_security_database()
+    initialize_holiday_exchange_database()
     seed_admin_activity()
 
     logger.info(
