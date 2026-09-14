@@ -51,6 +51,46 @@ from raffle_database import (
 logger = logging.getLogger("melanated_az_raffle")
 
 
+def is_raffle_admin(user_id):
+    """Return True for a configured admin ID."""
+    try:
+        return user_id is not None and int(user_id) in {int(x) for x in ADMIN_IDS}
+    except Exception:
+        return False
+
+
+async def is_raffle_admin_access(update, context):
+    """Allow configured admins or members of the configured Admin Group."""
+    user = update.effective_user
+    if not user:
+        return False
+
+    if is_raffle_admin(user.id):
+        return True
+
+    try:
+        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
+    except (TypeError, ValueError):
+        admin_group_id = 0
+
+    if not admin_group_id:
+        return False
+
+    effective_message = update.effective_message
+    if effective_message and effective_message.chat and effective_message.chat.id == admin_group_id:
+        return True
+
+    try:
+        member = await context.bot.get_chat_member(admin_group_id, user.id)
+        return member.status in {"member", "administrator", "creator"}
+    except Exception:
+        logger.exception(
+            "Could not verify admin-group membership for user %s",
+            user.id,
+        )
+        return False
+
+
 def ensure_raffle_description_column():
     """Safely add the optional description column to an existing raffle DB."""
     conn = get_connection()
