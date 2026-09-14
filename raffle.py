@@ -1,4 +1,3 @@
-
 # ==========================================================
 # Melanated AZ Bot - raffle.py
 # COMPLETE DROP-IN RAFFLE SYSTEM
