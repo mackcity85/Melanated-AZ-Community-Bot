@@ -17,6 +17,9 @@
 # ==========================================================
 
 import logging
+import os
+
+from telegram.error import TelegramError
 
 from telegram import (
     Update,
@@ -57,16 +60,60 @@ logger = logging.getLogger(__name__)
 # ADMIN CHECK
 # ==========================================================
 
-def is_admin(user_id):
+async def is_admin(user_id, context=None):
+    """Return True for configured admins or current members of ADMIN_GROUP_ID.
 
+    ADMIN_IDS remains a permanent owner/admin allow-list. When ADMIN_GROUP_ID
+    is configured, membership in that Telegram group grants admin-panel access.
+    Group membership is checked live so removing someone from the Admin Group
+    removes their access without waiting for a restart.
+    """
     try:
-        return int(user_id) in [
-            int(admin_id)
-            for admin_id in ADMIN_IDS
-        ]
-
+        user_id = int(user_id)
     except (TypeError, ValueError):
         return False
+
+    try:
+        if user_id in {int(admin_id) for admin_id in ADMIN_IDS}:
+            return True
+    except (TypeError, ValueError):
+        pass
+
+    if context is None:
+        return False
+
+    try:
+        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
+    except (TypeError, ValueError):
+        admin_group_id = 0
+
+    if not admin_group_id:
+        return False
+
+    try:
+        member = await context.bot.get_chat_member(
+            chat_id=admin_group_id,
+            user_id=user_id,
+        )
+        status = getattr(member, "status", None)
+        if status in {"member", "administrator", "creator"}:
+            return True
+        if status == "restricted" and getattr(member, "is_member", False):
+            return True
+    except TelegramError:
+        logger.info(
+            "Admin-group membership check failed | user_id=%s | admin_group=%s",
+            user_id,
+            admin_group_id,
+        )
+    except Exception:
+        logger.exception(
+            "Unexpected admin-group membership check error | user_id=%s | admin_group=%s",
+            user_id,
+            admin_group_id,
+        )
+
+    return False
 
 
 # ==========================================================
@@ -210,7 +257,7 @@ async def admin_menu(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         if update.effective_message:
 
@@ -395,7 +442,7 @@ async def admin_repost_raffle(update, context):
     query = update.callback_query
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         if query:
 
@@ -458,7 +505,7 @@ async def admin_manual_entry(update, context):
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -720,7 +767,7 @@ async def admin_manual_select(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -841,7 +888,7 @@ async def admin_manual_confirm(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1269,7 +1316,7 @@ async def admin_birthday_add(update, context):
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1317,7 +1364,7 @@ async def admin_birthday_select(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1431,7 +1478,7 @@ async def admin_birthday_text_handler(
     ):
         return False
 
-    if not is_admin(user.id):
+    if not await is_admin(user.id, context):
 
         context.user_data.pop(
             "awaiting_admin_birthday",
@@ -1811,7 +1858,7 @@ async def admin_games(update, context):
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1903,7 +1950,7 @@ async def admin_dirty_minds(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1974,7 +2021,7 @@ async def admin_create_dirty_minds(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -2281,7 +2328,7 @@ async def admin_dirty_rooms(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -2415,7 +2462,7 @@ async def admin_dirty_view_room(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -2536,7 +2583,7 @@ async def admin_dirty_close_room(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -2727,7 +2774,7 @@ async def admin_button(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin(user.id, context):
 
         await query.answer(
             "⛔ You are not authorized.",
