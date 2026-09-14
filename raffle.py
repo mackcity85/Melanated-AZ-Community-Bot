@@ -57,6 +57,36 @@ from raffle_database import (
 
 logger = logging.getLogger("melanated_az_raffle")
 
+async def notify_admin_group(context, text, reply_markup=None, kind="raffle"):
+    """Send a raffle alert to the configured Admin Group."""
+    try:
+        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
+    except (TypeError, ValueError):
+        admin_group_id = 0
+
+    if not admin_group_id:
+        logger.warning("%s | ADMIN_GROUP_ID not configured", kind)
+        return None
+
+    try:
+        sent = await context.bot.send_message(
+            chat_id=admin_group_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
+        )
+        logger.info(
+            "%s | destination=ADMIN_GROUP:%s | SENT | message=%s",
+            kind, admin_group_id, sent.message_id,
+        )
+        return sent
+    except TelegramError:
+        logger.exception(
+            "%s | destination=ADMIN_GROUP:%s | FAILED",
+            kind, admin_group_id,
+        )
+        return None
+
 # ==========================================================
 # RAFFLE AUTOMATION / TEMPORARY MESSAGE CLEANUP
 # ==========================================================
@@ -944,6 +974,13 @@ async def enter_raffle(update, context, raffle_id):
         except TelegramError:
             logger.warning("Could not notify admin %s.", admin_id)
 
+    await notify_admin_group(
+        context,
+        admin_text,
+        reply_markup=keyboard,
+        kind="RAFFLE NEW ENTRY NOTIFICATION",
+    )
+
 async def payment_method(update, context, raffle_id, method):
     query = update.callback_query
     user = update.effective_user
@@ -1038,6 +1075,21 @@ async def approve_entry_callback(update, context, entry_id):
         await track_entry_message(entry_id, sent_member, "approved_notification")
     except TelegramError:
         logger.info("Could not notify entrant %s.", entry["user_id"])
+
+    approval_admin_text = (
+        "✅ <b>RAFFLE ENTRY APPROVED</b>\n\n"
+        f"🆔 Entry: <code>{entry_id}</code>\n"
+        f"🎟️ Raffle: <code>{entry['raffle_id']}</code>\n"
+        f"🎁 Prize: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+        f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n"
+        f"💳 Payment: <b>{html.escape(str(entry.get('payment_method') or 'Verified'))}</b>\n"
+        f"👑 Approved by admin: <code>{user.id}</code>"
+    )
+    await notify_admin_group(
+        context,
+        approval_admin_text,
+        kind="RAFFLE ENTRY APPROVAL NOTIFICATION",
+    )
 
     schedule_approved_entry_cleanup(
         entry_id,
