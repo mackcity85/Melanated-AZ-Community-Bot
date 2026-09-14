@@ -3334,6 +3334,23 @@ def build_application():
         "All Telegram handlers registered."
     )
 
+    # ======================================================
+    # RAFFLE SCHEDULED JOBS
+    #
+    # Register these immediately after the Application and its
+    # handlers are built. This makes the raffle jobs independent
+    # of the startup ordering in main() and gives Render an
+    # unmistakable startup log when they are registered.
+    # ======================================================
+
+    logger.info("RAFFLE: registering daily status scheduler...")
+    start_daily_raffle_status(application)
+
+    logger.info("RAFFLE: registering entry cleanup recovery scheduler...")
+    start_raffle_cleanup_recovery(application)
+
+    logger.info("RAFFLE: both scheduled jobs registered.")
+
     logger.info(
         "Raffle callback handler registered."
     )
@@ -3437,21 +3454,11 @@ def main():
     # ------------------------------------------------------
     # SCHEDULED JOBS
     # ------------------------------------------------------
-    # Register ALL application jobs in the same place. The
-    # community jobs are already confirmed working on Render.
-    # Raffle jobs are intentionally registered here as well so
-    # the startup log proves they were added before polling.
+    # Community jobs remain here. Raffle jobs are registered
+    # inside build_application() immediately after handlers.
 
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
-
-    logger.info("Registering daily raffle status scheduler...")
-    start_daily_raffle_status(application)
-
-    logger.info("Registering raffle entry cleanup recovery scheduler...")
-    start_raffle_cleanup_recovery(application)
-
-    logger.info("Raffle schedulers registered successfully.")
 
     logger.info(
         "Telegram application created."
