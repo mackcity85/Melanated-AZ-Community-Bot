@@ -52,49 +52,53 @@ logger = logging.getLogger("melanated_az_raffle")
 
 
 async def is_raffle_admin_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Return True for configured admins or current members of ADMIN_GROUP_ID."""
+    """Return True only when the user is a Telegram admin in both groups."""
     user = update.effective_user
-    if not user:
+    if not user or context is None:
         return False
 
-    try:
-        if user.id in {int(admin_id) for admin_id in ADMIN_IDS}:
-            return True
-    except (TypeError, ValueError):
-        pass
+    def env_int(name):
+        try:
+            return int(os.environ.get(name, "0") or "0")
+        except (TypeError, ValueError):
+            logger.warning("%s is not a valid integer; raffle admin authorization cannot use it.", name)
+            return 0
 
-    try:
-        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
-    except (TypeError, ValueError):
-        admin_group_id = 0
-
-    if not admin_group_id:
+    main_group_id = env_int("MAIN_GROUP_ID")
+    admin_group_id = env_int("ADMIN_GROUP_ID")
+    if not main_group_id or not admin_group_id:
+        logger.error(
+            "Raffle admin authorization requires both MAIN_GROUP_ID and ADMIN_GROUP_ID."
+        )
         return False
 
-    try:
-        member = await context.bot.get_chat_member(
-            chat_id=admin_group_id,
-            user_id=user.id,
-        )
-        status = getattr(member, "status", None)
-        if status in {"member", "administrator", "creator"}:
-            return True
-        if status == "restricted" and getattr(member, "is_member", False):
-            return True
-    except TelegramError:
-        logger.info(
-            "Raffle admin-group membership check failed | user_id=%s | admin_group=%s",
-            user.id,
-            admin_group_id,
-        )
-    except Exception:
-        logger.exception(
-            "Unexpected raffle admin-group membership check error | user_id=%s | admin_group=%s",
-            user.id,
-            admin_group_id,
-        )
+    async def is_group_admin(chat_id):
+        try:
+            member = await context.bot.get_chat_member(
+                chat_id=chat_id,
+                user_id=user.id,
+            )
+            return getattr(member, "status", None) in {"administrator", "creator"}
+        except TelegramError:
+            logger.info(
+                "Raffle group-role check failed | user_id=%s | chat_id=%s",
+                user.id,
+                chat_id,
+            )
+            return False
+        except Exception:
+            logger.exception(
+                "Unexpected raffle group-role check error | user_id=%s | chat_id=%s",
+                user.id,
+                chat_id,
+            )
+            return False
 
-    return False
+    if not await is_group_admin(main_group_id):
+        return False
+    if not await is_group_admin(admin_group_id):
+        return False
+    return True
 
 
 def is_free_raffle(price):
