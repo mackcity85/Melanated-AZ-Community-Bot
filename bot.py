@@ -95,15 +95,6 @@ from raffle_database import (
     check_database_integrity,
 )
 
-from holiday_exchange import (
-    initialize_holiday_exchange_database,
-    holiday_exchange_command,
-    create_exchange_command,
-    my_exchange_match_command,
-    holiday_exchange_callback,
-    holiday_exchange_admin_callback,
-)
-
 from truth_dare import (
     truth,
     dare,
@@ -577,15 +568,15 @@ ADMIN_INACTIVITY_DAYS = int(os.environ.get("ADMIN_INACTIVITY_DAYS", "14") or "14
 ADMIN_GROUP_ID_ENV = os.environ.get("ADMIN_GROUP_ID", "") or ""
 INACTIVITY_CHECK_HOURS = int(os.environ.get("INACTIVITY_CHECK_HOURS", "6") or "6")
 
-# New-member intro song. The MP3 can live beside bot.py on Render, or Telegram
-# can reuse a previously uploaded file_id through INTRO_SONG_FILE_ID.
-INTRO_SONG_PATH = os.environ.get(
-    "INTRO_SONG_PATH",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "melanated_az_intro.mp3"),
+# New-member intro video. The MP4 can live beside bot.py on Render/GitHub.
+# Telegram will send the video with its embedded audio.
+INTRO_VIDEO_PATH = os.environ.get(
+    "INTRO_VIDEO_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "melanated_az_intro.mp4"),
 ).strip()
-INTRO_SONG_FILE_ID = os.environ.get("INTRO_SONG_FILE_ID", "").strip()
-INTRO_SONG_DELETE_SECONDS = int(
-    os.environ.get("INTRO_SONG_DELETE_SECONDS", "300") or "300"
+INTRO_VIDEO_FILE_ID = os.environ.get("INTRO_VIDEO_FILE_ID", "").strip()
+INTRO_VIDEO_DELETE_SECONDS = int(
+    os.environ.get("INTRO_VIDEO_DELETE_SECONDS", "300") or "300"
 )
 
 HUMAN_CHALLENGES = [
@@ -1171,61 +1162,59 @@ async def community_exit(
         logger.exception("Could not send community exit message for %s", user.id)
 
 
-async def send_community_intro_song(chat_id, context, member_name):
-    """Play the Melanated AZ intro song for a newly joined member."""
-    audio_source = INTRO_SONG_FILE_ID or INTRO_SONG_PATH
-
-    if not INTRO_SONG_FILE_ID and not os.path.isfile(INTRO_SONG_PATH):
+async def send_community_intro_video(chat_id, context, member_name):
+    """Send the Melanated AZ intro video with its embedded audio."""
+    if not INTRO_VIDEO_FILE_ID and not os.path.isfile(INTRO_VIDEO_PATH):
         logger.warning(
-            "New-member intro song not found: %s. "
-            "Upload melanated_az_intro.mp3 with bot.py or set INTRO_SONG_FILE_ID.",
-            INTRO_SONG_PATH,
+            "New-member intro video not found: %s. "
+            "Upload melanated_az_intro.mp4 with bot.py or set INTRO_VIDEO_FILE_ID.",
+            INTRO_VIDEO_PATH,
         )
         return None
 
-    audio_file = None
+    video_file = None
     try:
-        if INTRO_SONG_FILE_ID:
-            audio_file = INTRO_SONG_FILE_ID
+        if INTRO_VIDEO_FILE_ID:
+            video_file = INTRO_VIDEO_FILE_ID
         else:
-            audio_file = open(INTRO_SONG_PATH, "rb")
+            video_file = open(INTRO_VIDEO_PATH, "rb")
 
-        intro_audio = await context.bot.send_audio(
+        intro_video = await context.bot.send_video(
             chat_id=chat_id,
-            audio=audio_file,
+            video=video_file,
             caption=(
-                f"🎵 <b>WELCOME TO MELANATED AZ, {member_name}!</b> 💜\n\n"
+                f"🎬 <b>WELCOME TO MELANATED AZ, {member_name}!</b> 💜\n\n"
                 "Turn it up. 🔥🖤💜"
             ),
             parse_mode=ParseMode.HTML,
-            title="Melanated AZ Intro",
-            performer="Melanated AZ",
+            supports_streaming=True,
         )
 
-        if context.job_queue and intro_audio:
+        if context.job_queue and intro_video:
             context.job_queue.run_once(
                 delete_message_job,
-                INTRO_SONG_DELETE_SECONDS,
-                data=(chat_id, intro_audio.message_id),
+                INTRO_VIDEO_DELETE_SECONDS,
+                data=(chat_id, intro_video.message_id),
             )
 
         logger.info(
-            "New-member intro song sent | chat_id=%s | message_id=%s | user=%s",
+            "New-member intro video sent | chat_id=%s | message_id=%s | user=%s | source=%s",
             chat_id,
-            intro_audio.message_id if intro_audio else None,
+            intro_video.message_id if intro_video else None,
             member_name,
+            "file_id" if INTRO_VIDEO_FILE_ID else INTRO_VIDEO_PATH,
         )
-        return intro_audio
+        return intro_video
     except (TelegramError, OSError):
         logger.exception(
-            "Could not send new-member intro song | chat_id=%s",
+            "Could not send new-member intro video | chat_id=%s",
             chat_id,
         )
         return None
     finally:
-        if audio_file is not None and hasattr(audio_file, "close"):
+        if video_file is not None and hasattr(video_file, "close"):
             try:
-                audio_file.close()
+                video_file.close()
             except Exception:
                 pass
 
@@ -1281,7 +1270,7 @@ async def community_welcome(
 
     # Play the Melanated AZ intro song first, then send the normal welcome
     # and verification instructions.
-    await send_community_intro_song(chat.id, context, name)
+    await send_community_intro_video(chat.id, context, name)
 
     try:
         welcome = await context.bot.send_message(
@@ -3036,21 +3025,6 @@ def build_application():
         ),
 
         (
-            "holidayexchange",
-            holiday_exchange_command,
-        ),
-
-        (
-            "createexchange",
-            create_exchange_command,
-        ),
-
-        (
-            "mymatch",
-            my_exchange_match_command,
-        ),
-
-        (
             "truthdare",
             truth_dare_menu,
         ),
@@ -3102,24 +3076,6 @@ def build_application():
                 r"bonus_|"
                 r"remove_)"
             ),
-        )
-    )
-
-    # ======================================================
-    # HOLIDAY EXCHANGE CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            holiday_exchange_callback,
-            pattern=r"^hx_",
-        )
-    )
-
-    application.add_handler(
-        CallbackQueryHandler(
-            holiday_exchange_admin_callback,
-            pattern=r"^admin_hx_|^admin_holiday_exchange$",
         )
     )
 
@@ -3460,7 +3416,6 @@ def main():
     # ------------------------------------------------------
 
     initialize_community_security_database()
-    initialize_holiday_exchange_database()
     seed_admin_activity()
 
     logger.info(
