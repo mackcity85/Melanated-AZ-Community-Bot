@@ -69,6 +69,24 @@ def is_raffle_admin(user_id):
         return False
 
 
+def display_user(entry):
+    """Return a safe display name for a raffle entry."""
+    username = entry.get("username")
+    name = entry.get("display_name") or entry.get("name")
+
+    if name:
+        return html.escape(str(name))
+
+    if username:
+        username = str(username)
+        return html.escape(
+            username if username.startswith("@") else f"@{username}"
+        )
+
+    user_id = entry.get("user_id")
+    return html.escape(str(user_id or "Unknown"))
+
+
 async def is_raffle_admin_access(update, context):
     """Allow configured admins or members of the configured Admin Group."""
     user = update.effective_user
@@ -227,14 +245,34 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     sent_to_admin = set()
+
     for admin_id in ADMIN_IDS:
         try:
-            await context.bot.send_message(
-                chat_id=int(admin_id), text=text, reply_markup=keyboard, parse_mode=ParseMode.HTML
+            target_id = int(admin_id)
+
+            sent = await context.bot.send_message(
+                chat_id=target_id,
+                text=text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML,
             )
-            sent_to_admin.add(int(admin_id))
-        except TelegramError:
-            logger.warning("Could not notify admin %s.", admin_id)
+
+            sent_to_admin.add(target_id)
+
+            logger.info(
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | SENT | message=%s",
+                raffle_id,
+                target_id,
+                sent.message_id,
+            )
+
+        except Exception as exc:
+            logger.exception(
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | FAILED | %s",
+                raffle_id,
+                admin_id,
+                exc,
+            )
 
     try:
         admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
@@ -249,13 +287,23 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
             )
+
             sent_to_admin.add(admin_group_id)
+
             logger.info(
-                "RAFFLE APPROVAL SENT TO ADMIN GROUP | group=%s | raffle=%s | message=%s",
-                admin_group_id, raffle_id, sent_group.message_id,
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | SENT | message=%s",
+                raffle_id,
+                admin_group_id,
+                sent_group.message_id,
             )
-        except TelegramError as exc:
-            logger.exception("Could not notify admin group %s: %s", admin_group_id, exc)
+
+        except Exception as exc:
+            logger.exception(
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | FAILED | %s",
+                raffle_id,
+                admin_group_id,
+                exc,
+            )
 
     if user.id not in sent_to_admin:
         try:
@@ -334,17 +382,34 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
     sent_to_admin = set()
+
     for admin_id in ADMIN_IDS:
         try:
-            await context.bot.send_message(
-                chat_id=int(admin_id),
+            target_id = int(admin_id)
+
+            sent = await context.bot.send_message(
+                chat_id=target_id,
                 text=text,
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
             )
-            sent_to_admin.add(int(admin_id))
-        except TelegramError:
-            logger.warning("Could not notify admin %s.", admin_id)
+
+            sent_to_admin.add(target_id)
+
+            logger.info(
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | SENT | message=%s",
+                raffle_id,
+                target_id,
+                sent.message_id,
+            )
+
+        except Exception as exc:
+            logger.exception(
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_ID:%s | FAILED | %s",
+                raffle_id,
+                admin_id,
+                exc,
+            )
 
     try:
         admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
@@ -359,13 +424,23 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
             )
+
             sent_to_admin.add(admin_group_id)
+
             logger.info(
-                "RAFFLE APPROVAL SENT TO ADMIN GROUP | group=%s | raffle=%s | message=%s",
-                admin_group_id, raffle_id, sent_group.message_id,
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | SENT | message=%s",
+                raffle_id,
+                admin_group_id,
+                sent_group.message_id,
             )
-        except TelegramError as exc:
-            logger.exception("Could not notify admin group %s: %s", admin_group_id, exc)
+
+        except Exception as exc:
+            logger.exception(
+                "RAFFLE APPROVAL NOTIFICATION | raffle=%s | destination=ADMIN_GROUP:%s | FAILED | %s",
+                raffle_id,
+                admin_group_id,
+                exc,
+            )
 
     if user.id not in sent_to_admin:
         try:
@@ -815,7 +890,7 @@ async def manual_raffle_entry(update, context, member_user_id):
     if not query or not admin_user:
         return False
 
-    if not is_raffle_admin(admin_user.id):
+    if not await is_raffle_admin_access(update, context):
         await safe_answer(query, "⛔ Admins only.", True)
         return False
 
