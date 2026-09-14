@@ -80,6 +80,7 @@ from raffle import (
     start_raffle,
     handle_raffle_setup,
     raffle_status,
+    start_daily_raffle_status,
     raffle_entries,
     pending_entries,
     paid_entry,
@@ -2887,6 +2888,12 @@ async def post_init(
         logger.warning(
             "PUBLIC_BASE_URL is not configured."
         )
+
+    # ------------------------------------------------------
+    # DAILY RAFFLE STATUS
+    # ------------------------------------------------------
+
+    start_daily_raffle_status(application)
 
 
 # ==========================================================
