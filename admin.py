@@ -26,6 +26,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+from telegram.error import BadRequest
 
 from telegram.ext import ContextTypes
 
@@ -59,14 +60,50 @@ logger = logging.getLogger(__name__)
 # ==========================================================
 
 def is_admin(user_id):
-
+    """Return True when the user is in the configured ADMIN_IDS list."""
     try:
         return int(user_id) in [
             int(admin_id)
             for admin_id in ADMIN_IDS
         ]
-
     except (TypeError, ValueError):
+        return False
+
+
+async def is_admin_access(update, context):
+    """
+    Return True when the user is a configured admin OR a member of the
+    configured ADMIN_GROUP_ID. This allows the private admin list and the
+    dedicated admin group to use the same admin panel.
+    """
+    user = update.effective_user
+    if not user:
+        return False
+
+    if is_admin(user.id):
+        return True
+
+    try:
+        admin_group_id = int(os.environ.get("ADMIN_GROUP_ID", "0") or "0")
+    except (TypeError, ValueError):
+        admin_group_id = 0
+
+    if not admin_group_id:
+        return False
+
+    # If the action is being performed directly inside the admin group,
+    # membership in that group is enough.
+    effective_message = update.effective_message
+    if effective_message and effective_message.chat and effective_message.chat.id == admin_group_id:
+        return True
+
+    # For private messages/callbacks, verify the user is actually a member
+    # of the configured admin group.
+    try:
+        member = await context.bot.get_chat_member(admin_group_id, user.id)
+        return member.status in {"member", "administrator", "creator"}
+    except Exception:
+        logger.exception("Could not verify admin-group membership for user %s", user.id)
         return False
 
 
@@ -217,7 +254,7 @@ async def admin_menu(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         if update.effective_message:
 
@@ -402,7 +439,7 @@ async def admin_repost_raffle(update, context):
     query = update.callback_query
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         if query:
 
@@ -465,7 +502,7 @@ async def admin_manual_entry(update, context):
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -727,7 +764,7 @@ async def admin_manual_select(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -848,7 +885,7 @@ async def admin_manual_confirm(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -977,11 +1014,22 @@ async def admin_manual_cancel(update, context):
             None,
         )
 
-    await query.edit_message_text(
-        text=admin_menu_text(),
-        reply_markup=admin_main_keyboard(),
-        parse_mode="Markdown",
-    )
+    try:
+        await query.edit_message_text(
+            text=admin_menu_text(),
+            reply_markup=admin_main_keyboard(),
+            parse_mode="Markdown",
+        )
+    except BadRequest as exc:
+        # Telegram returns 400 when Refresh is pressed while the panel
+        # already contains the exact same text and keyboard. That is not
+        # a real failure, so keep the admin panel working normally.
+        if "message is not modified" in str(exc).lower():
+            logging.getLogger(__name__).debug(
+                "Admin panel refresh made no changes."
+            )
+            return
+        raise
 
 
 # ==========================================================
@@ -1279,7 +1327,7 @@ async def admin_birthday_add(update, context):
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1327,7 +1375,7 @@ async def admin_birthday_select(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1441,7 +1489,7 @@ async def admin_birthday_text_handler(
     ):
         return False
 
-    if not is_admin(user.id):
+    if not await is_admin_access(update, context):
 
         context.user_data.pop(
             "awaiting_admin_birthday",
@@ -1821,7 +1869,7 @@ async def admin_games(update, context):
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1913,7 +1961,7 @@ async def admin_dirty_minds(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -1984,7 +2032,7 @@ async def admin_create_dirty_minds(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -2291,7 +2339,7 @@ async def admin_dirty_rooms(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -2425,7 +2473,7 @@ async def admin_dirty_view_room(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -2546,7 +2594,7 @@ async def admin_dirty_close_room(
     if not query or not user:
         return
 
-    if not is_admin(user.id):
+    if not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
@@ -3397,7 +3445,7 @@ async def admin_intro_reminder(update, context):
     query = update.callback_query
     user = update.effective_user
 
-    if not query or not user or not is_admin(user.id):
+    if not query or not user or not await is_admin_access(update, context):
         return
 
     try:
@@ -3456,7 +3504,7 @@ async def admin_button(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    if not user or not await is_admin_access(update, context):
 
         await query.answer(
             "⛔ You are not authorized.",
