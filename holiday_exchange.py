@@ -1,6 +1,13 @@
 # ==========================================================
 # Melanated AZ - Holiday Exchange
-# Reusable holiday gift-exchange system.
+# COMPLETE DROP-IN VERSION
+#
+# Admin authorization:
+#   - Uses centralized admin.is_admin()
+#   - ADMIN_IDS remains supported as fallback
+#   - ADMIN_GROUP_ID membership is accepted
+#   - member / administrator / creator are accepted
+#   - MAIN_GROUP_ID is NOT required
 # ==========================================================
 
 import logging
@@ -26,131 +33,19 @@ DB_PATH = (
 
 
 # ==========================================================
-# CENTRALIZED ADMIN AUTHORIZATION
-# ==========================================================
-
-async def is_admin(user_id, context):
-    """
-    Use the centralized Melanated AZ admin authorization.
-
-    ADMIN_GROUP_ID membership is the primary authorization source.
-    ADMIN_IDS remains the configured fallback through admin.py.
-
-    This is intentionally imported inside the function to avoid
-    a circular import because admin.py imports this module.
-    """
-    try:
-        from admin import is_admin as centralized_is_admin
-
-        return await centralized_is_admin(
-            user_id,
-            context,
-        )
-
-    except Exception:
-        logger.exception(
-            "Centralized Holiday Exchange admin authorization failed | "
-            "user_id=%s",
-            user_id,
-        )
-        return False
-
-
-# ==========================================================
 # DATABASE
 # ==========================================================
 
 def db_connect():
-    os.makedirs(
-        os.path.dirname(DB_PATH) or ".",
-        exist_ok=True,
-    )
+    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-
     return conn
 
 
-# ==========================================================
-# TIME HELPERS
-# ==========================================================
-
-def utc_now():
-    return datetime.now(timezone.utc)
-
-
-def iso_now():
-    return utc_now().isoformat()
-
-
-def parse_deadline(value):
-    if not value:
-        return None
-
-    text = str(value).strip()
-
-    try:
-        dt = datetime.fromisoformat(
-            text.replace("Z", "+00:00")
-        )
-
-    except ValueError:
-
-        for fmt in (
-            "%Y-%m-%d",
-            "%m/%d/%Y",
-            "%b %d, %Y",
-        ):
-
-            try:
-                dt = datetime.strptime(
-                    text,
-                    fmt,
-                )
-
-                dt = dt.replace(
-                    tzinfo=timezone.utc
-                )
-
-                break
-
-            except ValueError:
-                continue
-
-        else:
-            return None
-
-    if dt.tzinfo is None:
-        dt = dt.replace(
-            tzinfo=timezone.utc
-        )
-
-    return dt.astimezone(timezone.utc)
-
-
-def format_deadline(value):
-
-    dt = parse_deadline(value)
-
-    if not dt:
-        return str(
-            value or "Not set"
-        )
-
-    return dt.strftime(
-        "%b %d, %Y at %I:%M %p UTC"
-    )
-
-
-# ==========================================================
-# DATABASE INITIALIZATION
-# ==========================================================
-
 def initialize_holiday_exchange_database():
-
     with db_connect() as conn:
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS holiday_exchanges (
@@ -205,6 +100,92 @@ def initialize_holiday_exchange_database():
 
 
 # ==========================================================
+# TIME / DATE HELPERS
+# ==========================================================
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def iso_now():
+    return utc_now().isoformat()
+
+
+def parse_deadline(value):
+    if not value:
+        return None
+
+    text = str(value).strip()
+
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        for fmt in (
+            "%Y-%m-%d",
+            "%m/%d/%Y",
+            "%b %d, %Y",
+        ):
+            try:
+                dt = datetime.strptime(text, fmt)
+                dt = dt.replace(tzinfo=timezone.utc)
+                break
+            except ValueError:
+                continue
+        else:
+            return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt.astimezone(timezone.utc)
+
+
+def format_deadline(value):
+    dt = parse_deadline(value)
+
+    if not dt:
+        return str(value or "Not set")
+
+    return dt.strftime("%b %d, %Y at %I:%M %p UTC")
+
+
+# ==========================================================
+# CENTRALIZED ADMIN AUTHORIZATION
+# ==========================================================
+
+async def is_admin(user_id, context=None):
+    """
+    Use the centralized Melanated AZ admin authorization.
+
+    Authorization rules:
+      - ADMIN_IDS remains an emergency/configured fallback.
+      - ADMIN_GROUP_ID membership is accepted.
+      - ADMIN_GROUP_ID status may be:
+            member
+            administrator
+            creator
+      - MAIN_GROUP_ID is NOT required.
+      - User does not need to be a Telegram admin
+        in the main group.
+    """
+
+    try:
+        from admin import is_admin as centralized_is_admin
+
+        return await centralized_is_admin(
+            user_id,
+            context,
+        )
+
+    except Exception:
+        logger.exception(
+            "Holiday Exchange admin authorization failed | user_id=%s",
+            user_id,
+        )
+        return False
+
+
+# ==========================================================
 # EXCHANGE CRUD
 # ==========================================================
 
@@ -215,9 +196,7 @@ def create_exchange(
     signup_deadline,
     gift_deadline,
 ):
-
     with db_connect() as conn:
-
         cur = conn.execute(
             """
             INSERT INTO holiday_exchanges
@@ -248,31 +227,21 @@ def create_exchange(
 
 
 def get_exchange(exchange_id):
-
     with db_connect() as conn:
-
         row = conn.execute(
             """
             SELECT *
             FROM holiday_exchanges
             WHERE id=?
             """,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         ).fetchone()
 
-        return (
-            dict(row)
-            if row
-            else None
-        )
+        return dict(row) if row else None
 
 
 def get_active_exchange():
-
     with db_connect() as conn:
-
         row = conn.execute(
             """
             SELECT *
@@ -283,17 +252,11 @@ def get_active_exchange():
             """
         ).fetchone()
 
-        return (
-            dict(row)
-            if row
-            else None
-        )
+        return dict(row) if row else None
 
 
 def list_recent_exchanges(limit=10):
-
     with db_connect() as conn:
-
         rows = conn.execute(
             """
             SELECT *
@@ -301,26 +264,18 @@ def list_recent_exchanges(limit=10):
             ORDER BY id DESC
             LIMIT ?
             """,
-            (
-                int(limit),
-            ),
+            (int(limit),),
         ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        return [dict(row) for row in rows]
 
 
 def close_exchange(exchange_id):
-
     with db_connect() as conn:
-
         cur = conn.execute(
             """
             UPDATE holiday_exchanges
-            SET
-                status='closed',
+            SET status='closed',
                 closed_at=?
             WHERE id=?
               AND status='open'
@@ -337,17 +292,14 @@ def close_exchange(exchange_id):
 
 
 def cancel_exchange(exchange_id):
-
     with db_connect() as conn:
-
         cur = conn.execute(
             """
             UPDATE holiday_exchanges
-            SET
-                status='cancelled',
+            SET status='cancelled',
                 closed_at=?
             WHERE id=?
-              AND status IN ('open','closed')
+              AND status IN ('open', 'closed')
             """,
             (
                 iso_now(),
@@ -370,28 +322,20 @@ def add_participant(
     username,
     display_name,
 ):
-
     with db_connect() as conn:
-
         event = conn.execute(
             """
-            SELECT
-                status,
-                signup_deadline
+            SELECT status, signup_deadline
             FROM holiday_exchanges
             WHERE id=?
             """,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         ).fetchone()
 
         if not event or event["status"] != "open":
             return False, "Signups are closed."
 
-        deadline = parse_deadline(
-            event["signup_deadline"]
-        )
+        deadline = parse_deadline(event["signup_deadline"])
 
         if deadline and utc_now() > deadline:
             return False, "The signup deadline has passed."
@@ -408,6 +352,7 @@ def add_participant(
                     left_at
                 )
             VALUES (?, ?, ?, ?, ?, NULL)
+
             ON CONFLICT(exchange_id, user_id)
             DO UPDATE SET
                 username=excluded.username,
@@ -429,22 +374,15 @@ def add_participant(
         return True, "You're in!"
 
 
-def remove_participant(
-    exchange_id,
-    user_id,
-):
-
+def remove_participant(exchange_id, user_id):
     with db_connect() as conn:
-
         event = conn.execute(
             """
             SELECT status
             FROM holiday_exchanges
             WHERE id=?
             """,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         ).fetchone()
 
         if not event or event["status"] != "open":
@@ -470,13 +408,8 @@ def remove_participant(
         return True, "You've been removed from the exchange."
 
 
-def get_participants(
-    exchange_id,
-    active_only=True,
-):
-
+def get_participants(exchange_id, active_only=True):
     with db_connect() as conn:
-
         sql = """
             SELECT *
             FROM exchange_participants
@@ -487,28 +420,19 @@ def get_participants(
             sql += " AND left_at IS NULL"
 
         sql += """
-            ORDER BY
-                display_name COLLATE NOCASE,
-                user_id
+            ORDER BY display_name COLLATE NOCASE, user_id
         """
 
         rows = conn.execute(
             sql,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         ).fetchall()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
+        return [dict(row) for row in rows]
 
 
 def participant_count(exchange_id):
-
     with db_connect() as conn:
-
         row = conn.execute(
             """
             SELECT COUNT(*) AS c
@@ -516,25 +440,18 @@ def participant_count(exchange_id):
             WHERE exchange_id=?
               AND left_at IS NULL
             """,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         ).fetchone()
 
         return int(row["c"])
 
 
 # ==========================================================
-# MATCHES
+# MATCHING
 # ==========================================================
 
-def get_user_match(
-    exchange_id,
-    user_id,
-):
-
+def get_user_match(exchange_id, user_id):
     with db_connect() as conn:
-
         row = conn.execute(
             """
             SELECT
@@ -554,69 +471,49 @@ def get_user_match(
             ),
         ).fetchone()
 
-        return (
-            dict(row)
-            if row
-            else None
-        )
+        return dict(row) if row else None
 
 
 def _build_derangement(ids):
-
     if len(ids) < 2:
         return None
 
     receivers = list(ids)
 
     for _ in range(1000):
-
         random.shuffle(receivers)
 
         if all(
             giver != receiver
-            for giver, receiver
-            in zip(ids, receivers)
+            for giver, receiver in zip(ids, receivers)
         ):
             return receivers
 
-    # Deterministic fallback:
-    # rotate by one.
+    # Deterministic fallback.
     receivers = ids[1:] + ids[:1]
 
     return receivers
 
 
 def draw_exchange(exchange_id):
-
     with db_connect() as conn:
-
         event = conn.execute(
             """
             SELECT *
             FROM holiday_exchanges
             WHERE id=?
             """,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         ).fetchone()
 
         if not event:
             return False, "Exchange not found.", []
 
         if event["status"] == "drawn":
-            return (
-                False,
-                "This exchange has already been drawn.",
-                [],
-            )
+            return False, "This exchange has already been drawn.", []
 
         if event["status"] == "cancelled":
-            return (
-                False,
-                "This exchange is cancelled.",
-                [],
-            )
+            return False, "This exchange is cancelled.", []
 
         participants = conn.execute(
             """
@@ -625,9 +522,7 @@ def draw_exchange(exchange_id):
             WHERE exchange_id=?
               AND left_at IS NULL
             """,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         ).fetchall()
 
         ids = [
@@ -645,27 +540,17 @@ def draw_exchange(exchange_id):
         receivers = _build_derangement(ids)
 
         if receivers is None:
-            return (
-                False,
-                "Unable to create matches.",
-                [],
-            )
+            return False, "Unable to create matches.", []
 
         conn.execute(
             """
             DELETE FROM exchange_matches
             WHERE exchange_id=?
             """,
-            (
-                int(exchange_id),
-            ),
+            (int(exchange_id),),
         )
 
-        for giver, receiver in zip(
-            ids,
-            receivers,
-        ):
-
+        for giver, receiver in zip(ids, receivers):
             conn.execute(
                 """
                 INSERT INTO exchange_matches
@@ -683,31 +568,27 @@ def draw_exchange(exchange_id):
                 ),
             )
 
+        now = iso_now()
+
         conn.execute(
             """
             UPDATE holiday_exchanges
-            SET
-                status='drawn',
-                closed_at=COALESCE(
-                    closed_at,
-                    ?
-                ),
+            SET status='drawn',
+                closed_at=COALESCE(closed_at, ?),
                 drawn_at=?
             WHERE id=?
             """,
             (
-                iso_now(),
-                iso_now(),
+                now,
+                now,
                 int(exchange_id),
             ),
         )
 
         conn.commit()
 
-        return (
-            True,
-            "Matches drawn successfully.",
-            list(zip(ids, receivers)),
+        return True, "Matches drawn successfully.", list(
+            zip(ids, receivers)
         )
 
 
@@ -716,7 +597,6 @@ def draw_exchange(exchange_id):
 # ==========================================================
 
 def exchange_member_keyboard(exchange_id):
-
     return InlineKeyboardMarkup(
         [
             [
@@ -735,15 +615,10 @@ def exchange_member_keyboard(exchange_id):
     )
 
 
-def admin_exchange_keyboard(
-    exchange_id,
-    status,
-):
-
+def admin_exchange_keyboard(exchange_id, status):
     rows = []
 
     if status == "open":
-
         rows.append(
             [
                 InlineKeyboardButton(
@@ -758,7 +633,6 @@ def admin_exchange_keyboard(
         )
 
     elif status == "closed":
-
         rows.append(
             [
                 InlineKeyboardButton(
@@ -768,11 +642,7 @@ def admin_exchange_keyboard(
             ]
         )
 
-    if status in {
-        "open",
-        "closed",
-    }:
-
+    if status in {"open", "closed"}:
         rows.append(
             [
                 InlineKeyboardButton(
@@ -795,31 +665,26 @@ def admin_exchange_keyboard(
 
 
 # ==========================================================
-# PUBLIC TEXT
+# PUBLIC DISPLAY
 # ==========================================================
 
-def exchange_public_text(
-    event,
-    count,
-):
-
+def exchange_public_text(event, count):
     return (
         f"🎁 <b>{event['name']}</b>\n\n"
-        f"🏷️ <b>Holiday / Theme:</b> {event['holiday']}\n"
-        f"💵 <b>Spending Limit:</b> {event['spending_limit']}\n"
+        f"🏷️ <b>Holiday / Theme:</b> "
+        f"{event['holiday']}\n"
+        f"💵 <b>Spending Limit:</b> "
+        f"{event['spending_limit']}\n"
         f"📅 <b>Sign Up By:</b> "
         f"{format_deadline(event['signup_deadline'])}\n"
         f"🎁 <b>Gift By:</b> "
         f"{format_deadline(event['gift_deadline'])}\n"
         f"👥 <b>Participants:</b> {count}\n\n"
-        "🤫 Your match is private. Nobody else will see who you were assigned.\n\n"
+        "🤫 Your match is private. Nobody else will see "
+        "who you were assigned.\n\n"
         "Ready to participate?"
     )
 
-
-# ==========================================================
-# POST EXCHANGE
-# ==========================================================
 
 async def post_exchange(
     context,
@@ -827,7 +692,6 @@ async def post_exchange(
     chat_id=None,
     thread_id=None,
 ):
-
     event = (
         get_exchange(exchange_id)
         if exchange_id
@@ -837,9 +701,7 @@ async def post_exchange(
     if not event:
         return None
 
-    count = participant_count(
-        event["id"]
-    )
+    count = participant_count(event["id"])
 
     text = exchange_public_text(
         event,
@@ -857,9 +719,7 @@ async def post_exchange(
         ),
         text=text,
         reply_markup=(
-            exchange_member_keyboard(
-                event["id"]
-            )
+            exchange_member_keyboard(event["id"])
             if event["status"] == "open"
             else None
         ),
@@ -868,26 +728,22 @@ async def post_exchange(
 
 
 # ==========================================================
-# /HOLIDAYEXCHANGE
+# PUBLIC COMMAND
 # ==========================================================
 
 async def holiday_exchange_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     event = get_active_exchange()
 
     if not event:
-
         await update.effective_message.reply_text(
             "🎁 There is no active Holiday Exchange right now."
         )
-
         return
 
     try:
-
         sent = await post_exchange(
             context,
             event["id"],
@@ -898,38 +754,26 @@ async def holiday_exchange_command(
             await update.effective_message.delete()
 
     except TelegramError:
-
         logger.exception(
             "Could not post Holiday Exchange message."
         )
 
 
 # ==========================================================
-# /CREATEEXCHANGE
+# CREATE EXCHANGE
 # ==========================================================
 
 async def create_exchange_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     user = update.effective_user
 
-    # ======================================================
-    # FIXED:
-    # Use centralized admin authorization.
-    # ADMIN_GROUP_ID is now honored.
-    # ======================================================
-
-    if not user or not await is_admin(
-        user.id,
-        context,
-    ):
-
+    # CENTRALIZED ADMIN AUTHORIZATION
+    if not user or not await is_admin(user.id, context):
         await update.effective_message.reply_text(
             "⛔ Admins only."
         )
-
         return
 
     payload = " ".join(
@@ -942,7 +786,6 @@ async def create_exchange_command(
     ]
 
     if len(parts) != 5:
-
         await update.effective_message.reply_text(
             "Use:\n"
             "<code>/createexchange "
@@ -954,7 +797,6 @@ async def create_exchange_command(
             "2026-12-10 | 2026-12-20</code>",
             parse_mode=ParseMode.HTML,
         )
-
         return
 
     (
@@ -966,31 +808,25 @@ async def create_exchange_command(
     ) = parts
 
     if not all(parts):
-
         await update.effective_message.reply_text(
             "⚠️ All five fields are required."
         )
-
         return
 
     if get_active_exchange():
-
         await update.effective_message.reply_text(
             "⚠️ There is already an active Holiday Exchange. "
             "Close or cancel it first."
         )
-
         return
 
     if (
         not parse_deadline(signup_deadline)
         or not parse_deadline(gift_deadline)
     ):
-
         await update.effective_message.reply_text(
             "⚠️ Use dates like 2026-12-10 or 12/10/2026."
         )
-
         return
 
     exchange_id = create_exchange(
@@ -1001,16 +837,11 @@ async def create_exchange_command(
         gift_deadline,
     )
 
-    event = get_exchange(
-        exchange_id
-    )
+    event = get_exchange(exchange_id)
 
     await update.effective_message.reply_text(
         "✅ <b>HOLIDAY EXCHANGE CREATED</b>\n\n"
-        + exchange_public_text(
-            event,
-            0,
-        )
+        + exchange_public_text(event, 0)
         + "\n\n"
         "Use /holidayexchange to post it to the group.",
         parse_mode=ParseMode.HTML,
@@ -1022,14 +853,13 @@ async def create_exchange_command(
 
 
 # ==========================================================
-# MEMBER CALLBACK
+# MEMBER CALLBACKS
 # ==========================================================
 
 async def holiday_exchange_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     query = update.callback_query
     user = update.effective_user
 
@@ -1043,122 +873,124 @@ async def holiday_exchange_callback(
     except Exception:
         pass
 
-    # ======================================================
+    # ------------------------------------------------------
     # JOIN
-    # ======================================================
+    # ------------------------------------------------------
 
     if data.startswith("hx_join_"):
+        try:
+            exchange_id = int(
+                data[len("hx_join_"):]
+            )
+        except ValueError:
+            await query.answer(
+                "Invalid exchange.",
+                show_alert=True,
+            )
+            return
 
-        exchange_id = int(
-            data[len("hx_join_"):]
-        )
-
-        event = get_exchange(
-            exchange_id
-        )
+        event = get_exchange(exchange_id)
 
         if not event:
-
             await query.answer(
                 "Exchange not found.",
                 show_alert=True,
             )
-
             return
+
+        display_name = (
+            user.full_name
+            or user.first_name
+            or str(user.id)
+        )
 
         ok, detail = add_participant(
             exchange_id,
             user.id,
             user.username,
-            user.full_name
-            or user.first_name
-            or str(user.id),
+            display_name,
         )
 
         try:
-
             await query.answer(
-                (
-                    "✅ " + detail
-                    if ok
-                    else "⚠️ " + detail
-                ),
+                ("✅ " if ok else "⚠️ ")
+                + detail,
                 show_alert=True,
             )
-
         except Exception:
             pass
 
-        if ok:
+        if not ok:
+            return
 
+        # Private confirmation.
+        try:
+            await context.bot.send_message(
+                chat_id=user.id,
+                text=(
+                    f"🎁 <b>YOU'RE IN — "
+                    f"{event['name']}</b>\n\n"
+                    f"🏷️ {event['holiday']}\n"
+                    f"💵 Spending limit: "
+                    f"<b>{event['spending_limit']}</b>\n"
+                    f"📅 Gift by: "
+                    f"<b>{format_deadline(event['gift_deadline'])}</b>\n\n"
+                    "I'll send your private match "
+                    "after the draw. 🤫"
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+        except TelegramError:
+            logger.info(
+                "Could not DM Holiday Exchange "
+                "join confirmation to %s",
+                user.id,
+            )
+
+        # Notify admin group.
+        admin_group = os.environ.get(
+            "ADMIN_GROUP_ID",
+            "",
+        ).strip()
+
+        if admin_group:
             try:
-
                 await context.bot.send_message(
-                    chat_id=user.id,
+                    chat_id=int(admin_group),
                     text=(
-                        f"🎁 <b>YOU'RE IN — "
-                        f"{event['name']}</b>\n\n"
-                        f"🏷️ {event['holiday']}\n"
-                        f"💵 Spending limit: "
-                        f"<b>{event['spending_limit']}</b>\n"
-                        f"📅 Gift by: "
-                        f"<b>{format_deadline(event['gift_deadline'])}</b>\n\n"
-                        "I'll send your private match after "
-                        "the draw. 🤫"
+                        "🎁 <b>HOLIDAY EXCHANGE JOINED</b>\n\n"
+                        f"🏷️ <b>{event['holiday']}</b>\n"
+                        f"🎁 {event['name']}\n"
+                        f"👤 {display_name}\n"
+                        f"🆔 <code>{user.id}</code>\n"
+                        f"👥 Participants: "
+                        f"<b>{participant_count(exchange_id)}</b>"
                     ),
                     parse_mode=ParseMode.HTML,
                 )
-
             except TelegramError:
-
                 logger.info(
-                    "Could not DM Holiday Exchange "
-                    "join confirmation to %s",
-                    user.id,
+                    "Could not send Holiday Exchange "
+                    "join notice to admin group"
                 )
-
-            admin_group = os.environ.get(
-                "ADMIN_GROUP_ID",
-                "",
-            ).strip()
-
-            if admin_group:
-
-                try:
-
-                    await context.bot.send_message(
-                        chat_id=int(admin_group),
-                        text=(
-                            "🎁 <b>HOLIDAY EXCHANGE JOINED</b>\n\n"
-                            f"🏷️ <b>{event['holiday']}</b>\n"
-                            f"🎁 {event['name']}\n"
-                            f"👤 "
-                            f"{user.full_name or user.username or user.id}\n"
-                            f"🆔 <code>{user.id}</code>\n"
-                            f"👥 Participants: "
-                            f"<b>{participant_count(exchange_id)}</b>"
-                        ),
-                        parse_mode=ParseMode.HTML,
-                    )
-
-                except TelegramError:
-
-                    logger.info(
-                        "Could not send Holiday Exchange "
-                        "join notice to admin group"
-                    )
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # LEAVE
-    # ======================================================
+    # ------------------------------------------------------
 
     if data.startswith("hx_leave_"):
-
-        exchange_id = int(
-            data[len("hx_leave_"):]
-        )
+        try:
+            exchange_id = int(
+                data[len("hx_leave_"):]
+            )
+        except ValueError:
+            await query.answer(
+                "Invalid exchange.",
+                show_alert=True,
+            )
+            return
 
         ok, detail = remove_participant(
             exchange_id,
@@ -1166,16 +998,11 @@ async def holiday_exchange_callback(
         )
 
         try:
-
             await query.answer(
-                (
-                    "✅ " + detail
-                    if ok
-                    else "⚠️ " + detail
-                ),
+                ("✅ " if ok else "⚠️ ")
+                + detail,
                 show_alert=True,
             )
-
         except Exception:
             pass
 
@@ -1183,66 +1010,44 @@ async def holiday_exchange_callback(
 
 
 # ==========================================================
-# ADMIN CALLBACK
+# ADMIN CALLBACKS
 # ==========================================================
 
 async def holiday_exchange_admin_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     query = update.callback_query
     user = update.effective_user
 
-    # ======================================================
-    # FIXED:
-    # Centralized async admin authorization.
-    #
-    # IMPORTANT:
-    # Do NOT use:
-    #     is_admin(user.id)
-    #
-    # It must be:
-    #     await is_admin(user.id, context)
-    # ======================================================
-
+    # CENTRALIZED ADMIN AUTHORIZATION
     if (
         not query
         or not user
-        or not await is_admin(
-            user.id,
-            context,
-        )
+        or not await is_admin(user.id, context)
     ):
-
         if query:
-
             await query.answer(
                 "⛔ Admins only.",
                 show_alert=True,
             )
-
         return
 
     data = query.data or ""
 
-    # ======================================================
-    # MAIN HOLIDAY EXCHANGE ADMIN PAGE
-    # ======================================================
+    # ------------------------------------------------------
+    # OPEN ADMIN PANEL
+    # ------------------------------------------------------
 
     if data == "admin_holiday_exchange":
-
         event = get_active_exchange()
 
         if event:
-
             text = (
                 "🎁 <b>HOLIDAY EXCHANGE ADMIN</b>\n\n"
                 + exchange_public_text(
                     event,
-                    participant_count(
-                        event["id"]
-                    ),
+                    participant_count(event["id"]),
                 )
             )
 
@@ -1258,7 +1063,6 @@ async def holiday_exchange_admin_callback(
             )
 
         else:
-
             await query.answer()
 
             await query.edit_message_text(
@@ -1276,9 +1080,9 @@ async def holiday_exchange_admin_callback(
 
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # ADMIN ACTIONS
-    # ======================================================
+    # ------------------------------------------------------
 
     prefix_map = {
         "admin_hx_close_": "close",
@@ -1290,8 +1094,7 @@ async def holiday_exchange_admin_callback(
     action = next(
         (
             name
-            for prefix, name
-            in prefix_map.items()
+            for prefix, name in prefix_map.items()
             if data.startswith(prefix)
         ),
         None,
@@ -1301,83 +1104,68 @@ async def holiday_exchange_admin_callback(
         return
 
     try:
-
         exchange_id = int(
             data.split("_")[-1]
         )
-
     except ValueError:
-
         await query.answer(
             "Invalid exchange ID.",
             show_alert=True,
         )
-
         return
 
-    event = get_exchange(
-        exchange_id
-    )
+    event = get_exchange(exchange_id)
 
     if not event:
-
         await query.answer(
             "Exchange not found.",
             show_alert=True,
         )
-
         return
 
-    # ======================================================
+    # ------------------------------------------------------
     # CLOSE
-    # ======================================================
+    # ------------------------------------------------------
 
     if action == "close":
-
         changed = close_exchange(
             exchange_id
         )
 
         await query.answer(
-            (
-                "Signups closed."
-                if changed
-                else "Signups already closed."
-            )
+            "Signups closed."
+            if changed
+            else "Signups already closed."
         )
 
         event = get_exchange(
             exchange_id
         )
 
-    # ======================================================
+    # ------------------------------------------------------
     # CANCEL
-    # ======================================================
+    # ------------------------------------------------------
 
     elif action == "cancel":
-
         changed = cancel_exchange(
             exchange_id
         )
 
         await query.answer(
-            (
-                "Exchange cancelled."
-                if changed
-                else "Exchange already closed."
-            )
+            "Exchange cancelled."
+            if changed
+            else "Exchange already closed."
         )
 
         event = get_exchange(
             exchange_id
         )
 
-    # ======================================================
+    # ------------------------------------------------------
     # DRAW
-    # ======================================================
+    # ------------------------------------------------------
 
     elif action == "draw":
-
         ok, detail, matches = draw_exchange(
             exchange_id
         )
@@ -1388,13 +1176,11 @@ async def holiday_exchange_admin_callback(
         )
 
         if ok:
-
             event = get_exchange(
                 exchange_id
             )
 
             for giver_id, _receiver_id in matches:
-
                 match = get_user_match(
                     exchange_id,
                     giver_id,
@@ -1404,12 +1190,12 @@ async def holiday_exchange_admin_callback(
                     continue
 
                 try:
-
                     await context.bot.send_message(
                         chat_id=int(giver_id),
                         text=(
                             f"🎁 <b>YOUR "
-                            f"{event['name'].upper()} MATCH</b>\n\n"
+                            f"{event['name'].upper()} "
+                            f"MATCH</b>\n\n"
                             f"🏷️ Holiday / Theme: "
                             f"<b>{event['holiday']}</b>\n"
                             f"💵 Spending limit: "
@@ -1417,7 +1203,8 @@ async def holiday_exchange_admin_callback(
                             f"📅 Gift by: "
                             f"<b>{format_deadline(event['gift_deadline'])}</b>\n\n"
                             f"🎯 <b>Your recipient:</b> "
-                            f"{match.get('display_name') or match['receiver_user_id']}"
+                            f"{match.get('display_name') "
+                            f"or match['receiver_user_id']}"
                             + (
                                 f" (@{match['username']})"
                                 if match.get("username")
@@ -1431,7 +1218,6 @@ async def holiday_exchange_admin_callback(
                     )
 
                     with db_connect() as conn:
-
                         conn.execute(
                             """
                             UPDATE exchange_matches
@@ -1449,7 +1235,6 @@ async def holiday_exchange_admin_callback(
                         conn.commit()
 
                 except TelegramError:
-
                     logger.info(
                         "Could not DM Holiday Exchange "
                         "match to %s",
@@ -1460,17 +1245,12 @@ async def holiday_exchange_admin_callback(
             exchange_id
         )
 
-    # ======================================================
+    # ------------------------------------------------------
     # STATUS
-    # ======================================================
+    # ------------------------------------------------------
 
     else:
-
         await query.answer()
-
-    # ======================================================
-    # REFRESH ADMIN DISPLAY
-    # ======================================================
 
     count = participant_count(
         exchange_id
@@ -1490,7 +1270,6 @@ async def holiday_exchange_admin_callback(
     )
 
     if event.get("drawn_at"):
-
         text += (
             f"\n<b>Drawn:</b> "
             f"{format_deadline(event['drawn_at'])}"
@@ -1504,33 +1283,30 @@ async def holiday_exchange_admin_callback(
                 exchange_id,
                 event["status"],
             )
-            if event["status"]
-            in {"open", "closed"}
+            if event["status"] in {"open", "closed"}
             else None
         ),
     )
 
 
 # ==========================================================
-# /MYEXCHANGEMATCH
+# USER MATCH COMMAND
 # ==========================================================
 
 async def my_exchange_match_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     user = update.effective_user
 
     if (
         not user
+        or not update.effective_chat
         or update.effective_chat.type != "private"
     ):
         return
 
-    # Most recent exchange with a match for this user.
     with db_connect() as conn:
-
         row = conn.execute(
             """
             SELECT
@@ -1553,17 +1329,14 @@ async def my_exchange_match_command(
             ORDER BY m.exchange_id DESC
             LIMIT 1
             """,
-            (
-                int(user.id),
-            ),
+            (int(user.id),),
         ).fetchone()
 
     if not row:
-
         await update.effective_message.reply_text(
-            "🤫 You don't have a Holiday Exchange match yet."
+            "🤫 You don't have a Holiday Exchange "
+            "match yet."
         )
-
         return
 
     await update.effective_message.reply_text(
@@ -1587,5 +1360,7 @@ async def my_exchange_match_command(
 
 
 # ==========================================================
-# END holiday_exchange.py
+# STARTUP INITIALIZATION
 # ==========================================================
+
+initialize_holiday_exchange_database()
