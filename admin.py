@@ -2194,7 +2194,7 @@ async def admin_games(update, context):
 
     try:
 
-        from games import games_admin_menu
+        from games.game_center import games_admin_menu
 
     except Exception:
 
