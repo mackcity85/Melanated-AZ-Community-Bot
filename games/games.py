@@ -10,8 +10,7 @@
 #   - Does NOT reset the database
 #   - Does NOT replace the database
 #   - Does NOT touch raffle tables
-#   - Uses the existing raffle_database connection
-#   - Compatible with bot.py
+#   - Compatible with the existing bot.py
 #   - Compatible with games/game_center.py
 #
 # Handles:
@@ -19,18 +18,14 @@
 #   - Player profiles
 #   - XP
 #   - AZ Coins
-#   - Levels
 #   - Wins / losses
 #   - Scores
-#   - Per-game statistics
+#   - Game statistics
 #   - Leaderboards
-#   - Player rankings
-#   - Achievements
-#   - Recent game activity
 #   - Interactive games
 #   - Game callbacks
-#   - Game replay
-#   - Game state protection
+#   - Daily/community-friendly game play
+#
 # ==========================================================
 
 import logging
@@ -142,66 +137,23 @@ GAME_NAMES = {
 
 
 # ==========================================================
-# ACHIEVEMENTS
-# ==========================================================
-
-ACHIEVEMENTS = {
-    "first_game": {
-        "name": "🎮 First Game",
-        "description": "Play your first game.",
-        "coins": 10,
-        "xp": 10,
-    },
-    "first_win": {
-        "name": "🏆 First Win",
-        "description": "Win your first game.",
-        "coins": 25,
-        "xp": 25,
-    },
-    "five_wins": {
-        "name": "🔥 Getting Started",
-        "description": "Win 5 games.",
-        "coins": 50,
-        "xp": 50,
-    },
-    "ten_wins": {
-        "name": "👑 Competitor",
-        "description": "Win 10 games.",
-        "coins": 100,
-        "xp": 100,
-    },
-    "fifty_games": {
-        "name": "🎮 Game Regular",
-        "description": "Play 50 games.",
-        "coins": 100,
-        "xp": 100,
-    },
-    "hundred_games": {
-        "name": "💎 Game Center Legend",
-        "description": "Play 100 games.",
-        "coins": 250,
-        "xp": 250,
-    },
-    "level_five": {
-        "name": "⭐ Level 5",
-        "description": "Reach level 5.",
-        "coins": 100,
-        "xp": 100,
-    },
-    "level_ten": {
-        "name": "👑 Level 10",
-        "description": "Reach level 10.",
-        "coins": 250,
-        "xp": 250,
-    },
-}
-
-
-# ==========================================================
 # DATABASE INITIALIZATION
+#
+# IMPORTANT:
+# Only creates Game Center tables.
+# Nothing is dropped.
+# Nothing is altered.
+# Raffle tables are untouched.
 # ==========================================================
+
+_GAME_DATABASE_READY = False
+
 
 def initialize_game_database():
+    global _GAME_DATABASE_READY
+
+    if _GAME_DATABASE_READY:
+        return
 
     conn = get_connection()
 
@@ -251,19 +203,9 @@ def initialize_game_database():
             """
         )
 
-        # Community achievement tracking.
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS game_achievements (
-                user_id INTEGER NOT NULL,
-                achievement_id TEXT NOT NULL,
-                earned_at TEXT NOT NULL,
-                PRIMARY KEY (user_id, achievement_id)
-            )
-            """
-        )
-
         conn.commit()
+
+        _GAME_DATABASE_READY = True
 
         logger.info(
             "Game Center database initialized."
@@ -285,6 +227,34 @@ def initialize_game_database():
 
 
 # ==========================================================
+# HELPERS
+# ==========================================================
+
+def utc_now():
+    return datetime.now(
+        timezone.utc
+    ).isoformat()
+
+
+def display_user(user):
+    if not user:
+        return "Player"
+
+    return (
+        user.full_name
+        or user.username
+        or "Player"
+    )
+
+
+def safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+# ==========================================================
 # PLAYER
 # ==========================================================
 
@@ -296,9 +266,7 @@ def ensure_player(
 
     initialize_game_database()
 
-    now = datetime.now(
-        timezone.utc
-    ).isoformat()
+    now = utc_now()
 
     conn = get_connection()
 
@@ -317,8 +285,14 @@ def ensure_player(
 
             ON CONFLICT(user_id)
             DO UPDATE SET
-                username = COALESCE(excluded.username, username),
-                display_name = COALESCE(excluded.display_name, display_name),
+                username = COALESCE(
+                    excluded.username,
+                    game_players.username
+                ),
+                display_name = COALESCE(
+                    excluded.display_name,
+                    game_players.display_name
+                ),
                 updated_at = excluded.updated_at
             """,
             (
@@ -337,7 +311,8 @@ def ensure_player(
         conn.rollback()
 
         logger.exception(
-            "Could not create/update game player."
+            "Could not create/update game player %s.",
+            user_id,
         )
 
         raise
@@ -348,7 +323,207 @@ def ensure_player(
 
 
 # ==========================================================
-# PLAYER PROFILE
+# RECORD RESULT
+# ==========================================================
+
+def record_game_result(
+    user_id,
+    game_id,
+    score=0,
+    won=False,
+):
+
+    initialize_game_database()
+
+    now = utc_now()
+
+    score = max(
+        0,
+        safe_int(score),
+    )
+
+    xp_gain = (
+        WIN_XP
+        if won
+        else BASE_XP
+    )
+
+    coin_gain = (
+        WIN_COINS
+        if won
+        else BASE_COINS
+    )
+
+    conn = get_connection()
+
+    try:
+
+        # --------------------------------------------------
+        # Make sure player exists.
+        # --------------------------------------------------
+
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO game_players (
+                user_id,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?)
+            """,
+            (
+                user_id,
+                now,
+                now,
+            ),
+        )
+
+        # --------------------------------------------------
+        # Read current XP first.
+        # This makes level calculation explicit and reliable.
+        # --------------------------------------------------
+
+        row = conn.execute(
+            """
+            SELECT xp
+            FROM game_players
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+
+        current_xp = (
+            safe_int(row["xp"])
+            if row
+            else 0
+        )
+
+        new_xp = current_xp + xp_gain
+
+        new_level = (
+            1
+            + (
+                new_xp
+                // XP_PER_LEVEL
+            )
+        )
+
+        # --------------------------------------------------
+        # Update overall player statistics.
+        # --------------------------------------------------
+
+        conn.execute(
+            """
+            UPDATE game_players
+            SET
+                games_played = games_played + 1,
+                wins = wins + ?,
+                losses = losses + ?,
+                xp = ?,
+                coins = coins + ?,
+                level = ?,
+                updated_at = ?
+            WHERE user_id = ?
+            """,
+            (
+                1 if won else 0,
+                0 if won else 1,
+                new_xp,
+                coin_gain,
+                new_level,
+                now,
+                user_id,
+            ),
+        )
+
+        # --------------------------------------------------
+        # Score history.
+        # --------------------------------------------------
+
+        conn.execute(
+            """
+            INSERT INTO game_scores (
+                user_id,
+                game_id,
+                score,
+                created_at
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                game_id,
+                score,
+                now,
+            ),
+        )
+
+        # --------------------------------------------------
+        # Per-game statistics.
+        # --------------------------------------------------
+
+        conn.execute(
+            """
+            INSERT INTO game_stats (
+                user_id,
+                game_id,
+                games_played,
+                wins,
+                losses,
+                high_score
+            )
+            VALUES (?, ?, 1, ?, ?, ?)
+
+            ON CONFLICT(user_id, game_id)
+            DO UPDATE SET
+                games_played =
+                    game_stats.games_played + 1,
+
+                wins =
+                    game_stats.wins + excluded.wins,
+
+                losses =
+                    game_stats.losses + excluded.losses,
+
+                high_score =
+                    CASE
+                        WHEN excluded.high_score >
+                             game_stats.high_score
+                        THEN excluded.high_score
+                        ELSE game_stats.high_score
+                    END
+            """,
+            (
+                user_id,
+                game_id,
+                1 if won else 0,
+                0 if won else 1,
+                score,
+            ),
+        )
+
+        conn.commit()
+
+    except Exception:
+
+        conn.rollback()
+
+        logger.exception(
+            "Could not record game result for "
+            "user=%s game=%s.",
+            user_id,
+            game_id,
+        )
+
+        raise
+
+    finally:
+
+        conn.close()
+
+
+# ==========================================================
+# PLAYER STATS
 # ==========================================================
 
 def get_player_stats(user_id):
@@ -382,317 +557,7 @@ def get_player_stats(user_id):
         conn.close()
 
 
-def get_player_profile(user_id):
-
-    """
-    Returns a dictionary containing the player's
-    Game Center profile.
-    """
-
-    row = get_player_stats(user_id)
-
-    if not row:
-        return None
-
-    keys = [
-        "user_id",
-        "username",
-        "display_name",
-        "games_played",
-        "wins",
-        "losses",
-        "xp",
-        "coins",
-        "level",
-    ]
-
-    profile = dict(
-        zip(keys, row)
-    )
-
-    games = profile["games_played"]
-    wins = profile["wins"]
-
-    if games:
-        profile["win_rate"] = round(
-            (wins / games) * 100,
-            1,
-        )
-    else:
-        profile["win_rate"] = 0.0
-
-    profile["xp_into_level"] = (
-        profile["xp"] % XP_PER_LEVEL
-    )
-
-    profile["xp_to_next_level"] = (
-        XP_PER_LEVEL
-        - profile["xp_into_level"]
-    )
-
-    return profile
-
-
-def format_player_profile(user_id):
-
-    """
-    Creates a ready-to-send Game Center profile.
-    """
-
-    profile = get_player_profile(
-        user_id
-    )
-
-    if not profile:
-
-        return (
-            "🎮 <b>GAME CENTER PROFILE</b>\n\n"
-            "No profile found yet.\n"
-            "Play a game to get started!"
-        )
-
-    display_name = (
-        profile["display_name"]
-        or profile["username"]
-        or f"Player {user_id}"
-    )
-
-    if (
-        profile["username"]
-        and not display_name.startswith("@")
-        and display_name != profile["display_name"]
-    ):
-        display_name = (
-            f"{display_name} "
-            f"(@{profile['username']})"
-        )
-
-    return (
-        "🎮 <b>GAME CENTER PROFILE</b>\n\n"
-        f"👤 <b>{display_name}</b>\n\n"
-        f"⭐ Level: <b>{profile['level']}</b>\n"
-        f"✨ XP: <b>{profile['xp']}</b>\n"
-        f"🪙 AZ Coins: <b>{profile['coins']}</b>\n\n"
-        f"🎮 Games: <b>{profile['games_played']}</b>\n"
-        f"🏆 Wins: <b>{profile['wins']}</b>\n"
-        f"💥 Losses: <b>{profile['losses']}</b>\n"
-        f"📈 Win Rate: <b>{profile['win_rate']}%</b>\n\n"
-        f"⭐ XP to next level: "
-        f"<b>{profile['xp_to_next_level']}</b>"
-    )
-
-
-# ==========================================================
-# PLAYER RANK
-# ==========================================================
-
-def get_player_rank(
-    user_id,
-    field="xp",
-):
-
-    initialize_game_database()
-
-    allowed = {
-        "xp": "xp",
-        "coins": "coins",
-        "wins": "wins",
-        "games_played": "games_played",
-    }
-
-    column = allowed.get(
-        field,
-        "xp",
-    )
-
-    conn = get_connection()
-
-    try:
-
-        row = conn.execute(
-            f"""
-            SELECT COUNT(*) + 1
-            FROM game_players
-            WHERE {column} > (
-                SELECT COALESCE({column}, 0)
-                FROM game_players
-                WHERE user_id = ?
-            )
-            """,
-            (user_id,),
-        ).fetchone()
-
-        return int(row[0]) if row else None
-
-    finally:
-
-        conn.close()
-
-
-# ==========================================================
-# RECORD RESULT
-# ==========================================================
-
-def record_game_result(
-    user_id,
-    game_id,
-    score=0,
-    won=False,
-):
-
-    initialize_game_database()
-
-    now = datetime.now(
-        timezone.utc
-    ).isoformat()
-
-    score = int(score or 0)
-
-    xp_gain = (
-        WIN_XP
-        if won
-        else BASE_XP
-    )
-
-    coin_gain = (
-        WIN_COINS
-        if won
-        else BASE_COINS
-    )
-
-    conn = get_connection()
-
-    try:
-
-        # Make absolutely sure player exists.
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO game_players (
-                user_id,
-                created_at,
-                updated_at
-            )
-            VALUES (?, ?, ?)
-            """,
-            (
-                user_id,
-                now,
-                now,
-            ),
-        )
-
-        # Update player totals.
-        conn.execute(
-            """
-            UPDATE game_players
-            SET
-                games_played = games_played + 1,
-                wins = wins + ?,
-                losses = losses + ?,
-                xp = xp + ?,
-                coins = coins + ?,
-                level = 1 + ((xp + ?) / ?),
-                updated_at = ?
-            WHERE user_id = ?
-            """,
-            (
-                1 if won else 0,
-                0 if won else 1,
-                xp_gain,
-                coin_gain,
-                xp_gain,
-                XP_PER_LEVEL,
-                now,
-                user_id,
-            ),
-        )
-
-        # Record score.
-        conn.execute(
-            """
-            INSERT INTO game_scores (
-                user_id,
-                game_id,
-                score,
-                created_at
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                game_id,
-                score,
-                now,
-            ),
-        )
-
-        # Update per-game statistics.
-        conn.execute(
-            """
-            INSERT INTO game_stats (
-                user_id,
-                game_id,
-                games_played,
-                wins,
-                losses,
-                high_score
-            )
-            VALUES (?, ?, 1, ?, ?, ?)
-
-            ON CONFLICT(user_id, game_id)
-            DO UPDATE SET
-                games_played = games_played + 1,
-                wins = wins + excluded.wins,
-                losses = losses + excluded.losses,
-                high_score =
-                    CASE
-                        WHEN excluded.high_score > high_score
-                        THEN excluded.high_score
-                        ELSE high_score
-                    END
-            """,
-            (
-                user_id,
-                game_id,
-                1 if won else 0,
-                0 if won else 1,
-                score,
-            ),
-        )
-
-        conn.commit()
-
-    except Exception:
-
-        conn.rollback()
-
-        logger.exception(
-            "Could not record game result."
-        )
-
-        raise
-
-    finally:
-
-        conn.close()
-
-    # Check achievements after the transaction.
-    try:
-        check_achievements(
-            user_id
-        )
-    except Exception:
-        logger.exception(
-            "Achievement check failed for user %s",
-            user_id,
-        )
-
-
-# ==========================================================
-# GAME STATISTICS
-# ==========================================================
-
-def get_game_stats(
+def get_player_game_stats(
     user_id,
     game_id,
 ):
@@ -727,323 +592,21 @@ def get_game_stats(
         conn.close()
 
 
-def get_all_game_stats(
-    user_id,
-):
-
-    initialize_game_database()
-
-    conn = get_connection()
-
-    try:
-
-        return conn.execute(
-            """
-            SELECT
-                game_id,
-                games_played,
-                wins,
-                losses,
-                high_score
-            FROM game_stats
-            WHERE user_id = ?
-            ORDER BY games_played DESC
-            """,
-            (user_id,),
-        ).fetchall()
-
-    finally:
-
-        conn.close()
-
-
-def get_game_leaderboard(
-    game_id,
-    limit=10,
-):
-
-    initialize_game_database()
-
-    conn = get_connection()
-
-    try:
-
-        return conn.execute(
-            """
-            SELECT
-                gp.display_name,
-                gp.username,
-                gs.high_score,
-                gs.wins,
-                gs.games_played
-            FROM game_stats gs
-            LEFT JOIN game_players gp
-                ON gp.user_id = gs.user_id
-            WHERE gs.game_id = ?
-            ORDER BY
-                gs.high_score DESC,
-                gs.wins DESC,
-                gs.games_played DESC
-            LIMIT ?
-            """,
-            (
-                game_id,
-                limit,
-            ),
-        ).fetchall()
-
-    finally:
-
-        conn.close()
-
-
-# ==========================================================
-# RECENT ACTIVITY
-# ==========================================================
-
-def get_recent_scores(
-    user_id,
-    limit=10,
-):
-
-    initialize_game_database()
-
-    conn = get_connection()
-
-    try:
-
-        return conn.execute(
-            """
-            SELECT
-                game_id,
-                score,
-                created_at
-            FROM game_scores
-            WHERE user_id = ?
-            ORDER BY id DESC
-            LIMIT ?
-            """,
-            (
-                user_id,
-                limit,
-            ),
-        ).fetchall()
-
-    finally:
-
-        conn.close()
-
-
-# ==========================================================
-# ACHIEVEMENTS
-# ==========================================================
-
-def get_player_achievements(
-    user_id,
-):
-
-    initialize_game_database()
-
-    conn = get_connection()
-
-    try:
-
-        return conn.execute(
-            """
-            SELECT
-                achievement_id,
-                earned_at
-            FROM game_achievements
-            WHERE user_id = ?
-            ORDER BY earned_at ASC
-            """,
-            (user_id,),
-        ).fetchall()
-
-    finally:
-
-        conn.close()
-
-
-def check_achievements(
-    user_id,
-):
-
-    profile = get_player_profile(
-        user_id
-    )
-
-    if not profile:
-        return []
-
-    earned = {
-        row[0]
-        for row in get_player_achievements(
-            user_id
-        )
-    }
-
-    possible = []
-
-    if profile["games_played"] >= 1:
-        possible.append("first_game")
-
-    if profile["wins"] >= 1:
-        possible.append("first_win")
-
-    if profile["wins"] >= 5:
-        possible.append("five_wins")
-
-    if profile["wins"] >= 10:
-        possible.append("ten_wins")
-
-    if profile["games_played"] >= 50:
-        possible.append("fifty_games")
-
-    if profile["games_played"] >= 100:
-        possible.append("hundred_games")
-
-    if profile["level"] >= 5:
-        possible.append("level_five")
-
-    if profile["level"] >= 10:
-        possible.append("level_ten")
-
-    newly_earned = []
-
-    conn = get_connection()
-
-    try:
-
-        for achievement_id in possible:
-
-            if achievement_id in earned:
-                continue
-
-            achievement = ACHIEVEMENTS.get(
-                achievement_id
-            )
-
-            if not achievement:
-                continue
-
-            now = datetime.now(
-                timezone.utc
-            ).isoformat()
-
-            cursor = conn.execute(
-                """
-                INSERT OR IGNORE INTO game_achievements (
-                    user_id,
-                    achievement_id,
-                    earned_at
-                )
-                VALUES (?, ?, ?)
-                """,
-                (
-                    user_id,
-                    achievement_id,
-                    now,
-                ),
-            )
-
-            if cursor.rowcount:
-
-                newly_earned.append(
-                    achievement_id
-                )
-
-                conn.execute(
-                    """
-                    UPDATE game_players
-                    SET
-                        xp = xp + ?,
-                        coins = coins + ?,
-                        level = 1 + ((xp + ?) / ?),
-                        updated_at = ?
-                    WHERE user_id = ?
-                    """,
-                    (
-                        achievement["xp"],
-                        achievement["coins"],
-                        achievement["xp"],
-                        XP_PER_LEVEL,
-                        now,
-                        user_id,
-                    ),
-                )
-
-        conn.commit()
-
-    except Exception:
-
-        conn.rollback()
-
-        logger.exception(
-            "Could not update achievements."
-        )
-
-        raise
-
-    finally:
-
-        conn.close()
-
-    return newly_earned
-
-
-def format_achievements(
-    user_id,
-):
-
-    earned_rows = get_player_achievements(
-        user_id
-    )
-
-    earned = {
-        row[0]
-        for row in earned_rows
-    }
-
-    lines = [
-        "🏆 <b>ACHIEVEMENTS</b>",
-        "",
-    ]
-
-    for achievement_id, achievement in ACHIEVEMENTS.items():
-
-        if achievement_id in earned:
-            marker = "✅"
-        else:
-            marker = "🔒"
-
-        lines.append(
-            f"{marker} <b>{achievement['name']}</b>"
-        )
-
-        lines.append(
-            achievement["description"]
-        )
-
-        lines.append("")
-
-    lines.append(
-        f"🏆 Unlocked: "
-        f"<b>{len(earned)}/{len(ACHIEVEMENTS)}</b>"
-    )
-
-    return "\n".join(lines)
-
-
 # ==========================================================
 # LEADERBOARDS
 # ==========================================================
 
-def get_leaderboard_by_xp(
-    limit=10,
-):
+def get_leaderboard_by_xp(limit=10):
 
     initialize_game_database()
+
+    limit = max(
+        1,
+        min(
+            safe_int(limit, 10),
+            100,
+        ),
+    )
 
     conn = get_connection()
 
@@ -1057,7 +620,9 @@ def get_leaderboard_by_xp(
                 xp,
                 level
             FROM game_players
-            ORDER BY xp DESC, level DESC
+            ORDER BY xp DESC,
+                     level DESC,
+                     games_played DESC
             LIMIT ?
             """,
             (limit,),
@@ -1068,11 +633,17 @@ def get_leaderboard_by_xp(
         conn.close()
 
 
-def get_leaderboard_by_coins(
-    limit=10,
-):
+def get_leaderboard_by_coins(limit=10):
 
     initialize_game_database()
+
+    limit = max(
+        1,
+        min(
+            safe_int(limit, 10),
+            100,
+        ),
+    )
 
     conn = get_connection()
 
@@ -1085,7 +656,8 @@ def get_leaderboard_by_coins(
                 username,
                 coins
             FROM game_players
-            ORDER BY coins DESC
+            ORDER BY coins DESC,
+                     games_played DESC
             LIMIT ?
             """,
             (limit,),
@@ -1096,11 +668,17 @@ def get_leaderboard_by_coins(
         conn.close()
 
 
-def get_leaderboard_by_games(
-    limit=10,
-):
+def get_leaderboard_by_games(limit=10):
 
     initialize_game_database()
+
+    limit = max(
+        1,
+        min(
+            safe_int(limit, 10),
+            100,
+        ),
+    )
 
     conn = get_connection()
 
@@ -1113,7 +691,8 @@ def get_leaderboard_by_games(
                 username,
                 games_played
             FROM game_players
-            ORDER BY games_played DESC
+            ORDER BY games_played DESC,
+                     wins DESC
             LIMIT ?
             """,
             (limit,),
@@ -1124,11 +703,17 @@ def get_leaderboard_by_games(
         conn.close()
 
 
-def get_leaderboard_by_wins(
-    limit=10,
-):
+def get_leaderboard_by_wins(limit=10):
 
     initialize_game_database()
+
+    limit = max(
+        1,
+        min(
+            safe_int(limit, 10),
+            100,
+        ),
+    )
 
     conn = get_connection()
 
@@ -1141,7 +726,8 @@ def get_leaderboard_by_wins(
                 username,
                 wins
             FROM game_players
-            ORDER BY wins DESC, games_played ASC
+            ORDER BY wins DESC,
+                     games_played DESC
             LIMIT ?
             """,
             (limit,),
@@ -1150,57 +736,6 @@ def get_leaderboard_by_wins(
     finally:
 
         conn.close()
-
-
-def format_leaderboard(
-    leaderboard,
-    title,
-    value_label,
-):
-
-    lines = [
-        title,
-        "",
-    ]
-
-    if not leaderboard:
-
-        lines.append(
-            "No players yet."
-        )
-
-        return "\n".join(lines)
-
-    medals = [
-        "🥇",
-        "🥈",
-        "🥉",
-    ]
-
-    for index, row in enumerate(
-        leaderboard,
-        start=1,
-    ):
-
-        display_name = (
-            row[0]
-            or row[1]
-            or "Player"
-        )
-
-        value = row[-1]
-
-        if index <= 3:
-            marker = medals[index - 1]
-        else:
-            marker = f"{index}."
-
-        lines.append(
-            f"{marker} <b>{display_name}</b> — "
-            f"{value} {value_label}"
-        )
-
-    return "\n".join(lines)
 
 
 # ==========================================================
@@ -1221,9 +756,7 @@ def game_back_keyboard():
     )
 
 
-def replay_keyboard(
-    game_id,
-):
+def replay_keyboard(game_id):
 
     return InlineKeyboardMarkup(
         [
@@ -1283,42 +816,9 @@ async def show_result(
         f"🪙 <b>+{coins} AZ Coins</b>"
     )
 
-    # Show newly earned achievements.
-    try:
-
-        new_achievements = check_achievements(
-            query.from_user.id
-        )
-
-        if new_achievements:
-
-            result += (
-                "\n\n🏆 <b>ACHIEVEMENT UNLOCKED!</b>"
-            )
-
-            for achievement_id in new_achievements:
-
-                achievement = ACHIEVEMENTS.get(
-                    achievement_id
-                )
-
-                if achievement:
-
-                    result += (
-                        f"\n{achievement['name']}"
-                    )
-
-    except Exception:
-
-        logger.exception(
-            "Could not display achievements."
-        )
-
     await query.edit_message_text(
         result,
-        reply_markup=replay_keyboard(
-            game_id
-        ),
+        reply_markup=replay_keyboard(game_id),
         parse_mode=ParseMode.HTML,
     )
 
@@ -1512,7 +1012,9 @@ async def number_guess_answer(
         if correct
         else max(
             10,
-            50 - abs(guess - target) * 5,
+            50 - abs(
+                guess - target
+            ) * 5,
         )
     )
 
@@ -1521,7 +1023,8 @@ async def number_guess_answer(
         "number_guess",
         "🔢 <b>NUMBER GUESS</b>",
         (
-            f"🎯 My number was <b>{target}</b>.\n\n"
+            f"🎯 My number was "
+            f"<b>{target}</b>.\n\n"
             +
             (
                 "🎉 You got it!"
@@ -1615,10 +1118,15 @@ async def high_low_answer(
     second = data["second"]
 
     if second == first:
+
         won = False
+
     elif choice == "high":
+
         won = second > first
+
     else:
+
         won = second < first
 
     await show_result(
@@ -1650,20 +1158,88 @@ async def coin_flip_game(
     context,
 ):
 
-    result = random.choice(
+    context.user_data[
+        "coin_flip"
+    ] = random.choice(
         [
             "HEADS",
             "TAILS",
         ]
     )
 
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🙂 HEADS",
+                    callback_data="game_coin_heads",
+                ),
+                InlineKeyboardButton(
+                    "😎 TAILS",
+                    callback_data="game_coin_tails",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Game Center",
+                    callback_data="games_home",
+                )
+            ],
+        ]
+    )
+
+    await query.edit_message_text(
+        "🪙 <b>COIN FLIP</b>\n\n"
+        "Pick a side.\n\n"
+        "Heads or Tails?",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def coin_flip_answer(
+    query,
+    context,
+    choice,
+):
+
+    result = context.user_data.pop(
+        "coin_flip",
+        None,
+    )
+
+    if result is None:
+
+        await query.answer(
+            "That coin flip has ended.",
+            show_alert=True,
+        )
+
+        return
+
+    choice = str(
+        choice
+    ).upper()
+
+    won = choice == result
+
     await show_result(
         query,
         "coin_flip",
         "🪙 <b>COIN FLIP</b>",
-        f"The coin landed on <b>{result}</b>!",
-        50,
-        True,
+        (
+            f"You picked: <b>{choice}</b>\n"
+            f"The coin landed: <b>{result}</b>\n\n"
+            +
+            (
+                "🎉 You called it!"
+                if won
+                else
+                "😅 Wrong side!"
+            )
+        ),
+        100 if won else 20,
+        won,
     )
 
 
@@ -2066,14 +1642,12 @@ async def trivia_answer(
     answer_index,
 ):
 
-    data = context.user_data.pop(
-        "trivia",
-        None,
+    data = context.user_data.get(
+        "trivia"
     )
 
-    answers = context.user_data.pop(
-        "trivia_answers",
-        None,
+    answers = context.user_data.get(
+        "trivia_answers"
     )
 
     if not data or not answers:
@@ -2106,6 +1680,17 @@ async def trivia_answer(
 
         return
 
+    # Consume state only after validating callback.
+    context.user_data.pop(
+        "trivia",
+        None,
+    )
+
+    context.user_data.pop(
+        "trivia_answers",
+        None,
+    )
+
     correct = data["correct"]
     game_id = data["game_id"]
 
@@ -2133,6 +1718,8 @@ async def trivia_answer(
 
 # ==========================================================
 # CODE BREAKER
+#
+# Supports multiple guesses.
 # ==========================================================
 
 async def code_breaker_game(
@@ -2147,7 +1734,10 @@ async def code_breaker_game(
 
     context.user_data[
         "code_breaker"
-    ] = code
+    ] = {
+        "code": code,
+        "attempts": 0,
+    }
 
     guesses = [
         100,
@@ -2202,12 +1792,11 @@ async def code_breaker_answer(
     guess,
 ):
 
-    code = context.user_data.pop(
-        "code_breaker",
-        None,
+    state = context.user_data.get(
+        "code_breaker"
     )
 
-    if code is None:
+    if not state:
 
         await query.answer(
             "That game has already ended.",
@@ -2234,49 +1823,113 @@ async def code_breaker_answer(
 
         return
 
-    won = guess == code
+    code = safe_int(
+        state.get("code")
+    )
+
+    state["attempts"] = (
+        safe_int(
+            state.get("attempts")
+        )
+        + 1
+    )
+
+    attempts = state["attempts"]
+
+    if guess == code:
+
+        context.user_data.pop(
+            "code_breaker",
+            None,
+        )
+
+        score = max(
+            50,
+            120 - (
+                attempts * 10
+            ),
+        )
+
+        message = (
+            "🔓 <b>CODE BROKEN!</b>\n\n"
+            f"The code was <b>{code}</b>!\n"
+            f"Attempts: <b>{attempts}</b>"
+        )
+
+        await show_result(
+            query,
+            "code_breaker",
+            "🔐 <b>CODE BREAKER</b>",
+            message,
+            score,
+            True,
+        )
+
+        return
 
     difference = abs(
         guess - code
     )
 
-    if won:
+    if guess < code:
 
-        score = 100
-
-        message = (
-            "🔓 <b>CODE BROKEN!</b>\n\n"
-            f"The code was <b>{code}</b>!"
-        )
+        hint = "📈 The code is HIGHER."
 
     else:
 
-        score = max(
-            10,
-            100 - difference // 5,
+        hint = "📉 The code is LOWER."
+
+    # Give the player another attempt.
+    guesses = [
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700,
+        800,
+        900,
+    ]
+
+    keyboard = []
+
+    for number in guesses:
+
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    str(number),
+                    callback_data=f"game_code_{number}",
+                )
+            ]
         )
 
-        hint = (
-            "📈 The code is HIGHER."
-            if guess < code
-            else
-            "📉 The code is LOWER."
-        )
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                "⬅️ Quit",
+                callback_data="games_home",
+            )
+        ]
+    )
 
-        message = (
-            f"❌ <b>Incorrect.</b>\n\n"
-            f"{hint}\n"
-            f"Your guess: <b>{guess}</b>\n"
-            f"The code was <b>{code}</b>."
-        )
+    score_hint = max(
+        10,
+        100 - difference // 5,
+    )
 
-    await show_result(
-        query,
-        "code_breaker",
-        "🔐 <b>CODE BREAKER</b>",
-        message,
-        score,
-        won,
+    await query.edit_message_text(
+        "🔐 <b>CODE BREAKER</b>\n\n"
+        f"❌ <b>{guess}</b> is incorrect.\n\n"
+        f"{hint}\n\n"
+        f"Attempt: <b>{attempts}</b>\n"
+        f"Current score potential: <b>{score_hint}</b>\n\n"
+        "Try again!",
+        reply_markup=InlineKeyboardMarkup(
+            keyboard
+        ),
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -2356,9 +2009,8 @@ async def escape_answer(
     choice,
 ):
 
-    correct = context.user_data.pop(
-        "escape",
-        None,
+    correct = context.user_data.get(
+        "escape"
     )
 
     if correct is None:
@@ -2369,6 +2021,26 @@ async def escape_answer(
         )
 
         return
+
+    valid = {
+        value
+        for _, value
+        in ESCAPE_OPTIONS
+    }
+
+    if choice not in valid:
+
+        await query.answer(
+            "Invalid choice.",
+            show_alert=True,
+        )
+
+        return
+
+    context.user_data.pop(
+        "escape",
+        None,
+    )
 
     won = choice == correct
 
@@ -2470,14 +2142,12 @@ async def detective_answer(
     index,
 ):
 
-    culprit = context.user_data.pop(
-        "detective",
-        None,
+    culprit = context.user_data.get(
+        "detective"
     )
 
-    suspects = context.user_data.pop(
-        "detective_suspects",
-        None,
+    suspects = context.user_data.get(
+        "detective_suspects"
     )
 
     if culprit is None or suspects is None:
@@ -2508,6 +2178,16 @@ async def detective_answer(
 
         return
 
+    context.user_data.pop(
+        "detective",
+        None,
+    )
+
+    context.user_data.pop(
+        "detective_suspects",
+        None,
+    )
+
     won = selected == culprit
 
     await show_result(
@@ -2531,18 +2211,30 @@ async def detective_answer(
 
 
 # ==========================================================
-# GENERIC CHALLENGES
+# GENERIC INTERACTIVE CHALLENGES
 # ==========================================================
 
 CHALLENGE_DATA = {
 
+    # ------------------------------------------------------
     # OUTDOOR
+    # ------------------------------------------------------
+
     "fishing": {
         "question": "🎣 Cast your line!",
         "options": [
-            ("🎣 Cast near the rocks", "rocks"),
-            ("🌊 Cast into deep water", "deep"),
-            ("🌿 Cast near the shore", "shore"),
+            (
+                "🎣 Cast near the rocks",
+                "rocks",
+            ),
+            (
+                "🌊 Cast into deep water",
+                "deep",
+            ),
+            (
+                "🌿 Cast near the shore",
+                "shore",
+            ),
         ],
         "success": {
             "rocks": "🐟 You caught a huge bass!",
@@ -2554,9 +2246,18 @@ CHALLENGE_DATA = {
     "camping": {
         "question": "🏕️ Choose your campsite.",
         "options": [
-            ("🌲 Near the trees", "trees"),
-            ("🏞️ Near the lake", "lake"),
-            ("⛰️ On the hill", "hill"),
+            (
+                "🌲 Near the trees",
+                "trees",
+            ),
+            (
+                "🏞️ Near the lake",
+                "lake",
+            ),
+            (
+                "⛰️ On the hill",
+                "hill",
+            ),
         ],
         "success": {
             "trees": "🔥 Perfect campsite!",
@@ -2568,9 +2269,18 @@ CHALLENGE_DATA = {
     "hiking": {
         "question": "🥾 Choose your trail.",
         "options": [
-            ("🌲 Forest trail", "forest"),
-            ("🏔️ Mountain trail", "mountain"),
-            ("🌊 River trail", "river"),
+            (
+                "🌲 Forest trail",
+                "forest",
+            ),
+            (
+                "🏔️ Mountain trail",
+                "mountain",
+            ),
+            (
+                "🌊 River trail",
+                "river",
+            ),
         ],
         "success": {
             "forest": "🌲 You discovered a hidden trail!",
@@ -2582,9 +2292,18 @@ CHALLENGE_DATA = {
     "hunting": {
         "question": "🏹 Choose your position.",
         "options": [
-            ("🌲 Tree line", "trees"),
-            ("🏞️ Open field", "field"),
-            ("⛰️ Ridge", "ridge"),
+            (
+                "🌲 Tree line",
+                "trees",
+            ),
+            (
+                "🏞️ Open field",
+                "field",
+            ),
+            (
+                "⛰️ Ridge",
+                "ridge",
+            ),
         ],
         "success": {
             "trees": "🏹 Perfect shot!",
@@ -2596,9 +2315,18 @@ CHALLENGE_DATA = {
     "survival": {
         "question": "🔥 What do you secure first?",
         "options": [
-            ("💧 Find water", "water"),
-            ("🔥 Build fire", "fire"),
-            ("🏕️ Build shelter", "shelter"),
+            (
+                "💧 Find water",
+                "water",
+            ),
+            (
+                "🔥 Build fire",
+                "fire",
+            ),
+            (
+                "🏕️ Build shelter",
+                "shelter",
+            ),
         ],
         "success": {
             "water": "💧 You found clean water!",
@@ -2607,13 +2335,25 @@ CHALLENGE_DATA = {
         },
     },
 
+    # ------------------------------------------------------
     # SHOOTING
+    # ------------------------------------------------------
+
     "target": {
         "question": "🎯 Pick your target.",
         "options": [
-            ("🎯 Center target", "center"),
-            ("🎯 Left target", "left"),
-            ("🎯 Right target", "right"),
+            (
+                "🎯 Center target",
+                "center",
+            ),
+            (
+                "🎯 Left target",
+                "left",
+            ),
+            (
+                "🎯 Right target",
+                "right",
+            ),
         ],
         "success": {
             "center": "🎯 BULLSEYE!",
@@ -2625,9 +2365,18 @@ CHALLENGE_DATA = {
     "quick_shot": {
         "question": "⚡ Pick your shot.",
         "options": [
-            ("⚡ Fast shot", "fast"),
-            ("🎯 Careful shot", "careful"),
-            ("🔥 Power shot", "power"),
+            (
+                "⚡ Fast shot",
+                "fast",
+            ),
+            (
+                "🎯 Careful shot",
+                "careful",
+            ),
+            (
+                "🔥 Power shot",
+                "power",
+            ),
         ],
         "success": {
             "fast": "⚡ Lightning-fast shot!",
@@ -2639,9 +2388,18 @@ CHALLENGE_DATA = {
     "bullseye": {
         "question": "🎯 Where do you aim?",
         "options": [
-            ("🎯 Dead center", "center"),
-            ("🎯 Upper ring", "upper"),
-            ("🎯 Lower ring", "lower"),
+            (
+                "🎯 Dead center",
+                "center",
+            ),
+            (
+                "🎯 Upper ring",
+                "upper",
+            ),
+            (
+                "🎯 Lower ring",
+                "lower",
+            ),
         ],
         "success": {
             "center": "🎯 PERFECT BULLSEYE!",
@@ -2653,9 +2411,18 @@ CHALLENGE_DATA = {
     "accuracy": {
         "question": "🏹 Choose your shot.",
         "options": [
-            ("🎯 Short range", "short"),
-            ("🎯 Medium range", "medium"),
-            ("🔭 Long range", "long"),
+            (
+                "🎯 Short range",
+                "short",
+            ),
+            (
+                "🎯 Medium range",
+                "medium",
+            ),
+            (
+                "🔭 Long range",
+                "long",
+            ),
         ],
         "success": {
             "short": "🎯 Excellent accuracy!",
@@ -2667,9 +2434,18 @@ CHALLENGE_DATA = {
     "sniper": {
         "question": "🔭 Choose your position.",
         "options": [
-            ("🏔️ High ground", "high"),
-            ("🌲 Tree line", "trees"),
-            ("🏢 Rooftop", "roof"),
+            (
+                "🏔️ High ground",
+                "high",
+            ),
+            (
+                "🌲 Tree line",
+                "trees",
+            ),
+            (
+                "🏢 Rooftop",
+                "roof",
+            ),
         ],
         "success": {
             "high": "🎯 Perfect long-range shot!",
@@ -2678,13 +2454,25 @@ CHALLENGE_DATA = {
         },
     },
 
+    # ------------------------------------------------------
     # BOARD
+    # ------------------------------------------------------
+
     "strategy": {
         "question": "♟️ Choose your move.",
         "options": [
-            ("♟️ Attack", "attack"),
-            ("🛡️ Defend", "defend"),
-            ("🧠 Trap", "trap"),
+            (
+                "♟️ Attack",
+                "attack",
+            ),
+            (
+                "🛡️ Defend",
+                "defend",
+            ),
+            (
+                "🧠 Trap",
+                "trap",
+            ),
         ],
         "success": {
             "attack": "♟️ Brilliant attack!",
@@ -2696,9 +2484,18 @@ CHALLENGE_DATA = {
     "dice_duel": {
         "question": "🎲 Roll against your opponent.",
         "options": [
-            ("🎲 Roll once", "one"),
-            ("🎲 Roll twice", "two"),
-            ("🔥 Risk it", "risk"),
+            (
+                "🎲 Roll once",
+                "one",
+            ),
+            (
+                "🎲 Roll twice",
+                "two",
+            ),
+            (
+                "🔥 Risk it",
+                "risk",
+            ),
         ],
         "success": {
             "one": "🎲 You rolled higher!",
@@ -2707,13 +2504,25 @@ CHALLENGE_DATA = {
         },
     },
 
+    # ------------------------------------------------------
     # SPORTS
+    # ------------------------------------------------------
+
     "football": {
         "question": "🏈 Choose your play.",
         "options": [
-            ("🏈 Pass", "pass"),
-            ("🏃 Run", "run"),
-            ("🔥 Deep pass", "deep"),
+            (
+                "🏈 Pass",
+                "pass",
+            ),
+            (
+                "🏃 Run",
+                "run",
+            ),
+            (
+                "🔥 Deep pass",
+                "deep",
+            ),
         ],
         "success": {
             "pass": "🏈 Perfect pass!",
@@ -2725,9 +2534,18 @@ CHALLENGE_DATA = {
     "basketball": {
         "question": "🏀 Choose your shot.",
         "options": [
-            ("🏀 Layup", "layup"),
-            ("🏀 Mid-range", "mid"),
-            ("🔥 Three pointer", "three"),
+            (
+                "🏀 Layup",
+                "layup",
+            ),
+            (
+                "🏀 Mid-range",
+                "mid",
+            ),
+            (
+                "🔥 Three pointer",
+                "three",
+            ),
         ],
         "success": {
             "layup": "🏀 Easy bucket!",
@@ -2739,9 +2557,18 @@ CHALLENGE_DATA = {
     "baseball": {
         "question": "⚾ Pick your swing.",
         "options": [
-            ("⚾ Contact swing", "contact"),
-            ("🔥 Power swing", "power"),
-            ("🎯 Precision swing", "precision"),
+            (
+                "⚾ Contact swing",
+                "contact",
+            ),
+            (
+                "🔥 Power swing",
+                "power",
+            ),
+            (
+                "🎯 Precision swing",
+                "precision",
+            ),
         ],
         "success": {
             "contact": "⚾ Perfect hit!",
@@ -2753,9 +2580,18 @@ CHALLENGE_DATA = {
     "boxing": {
         "question": "🥊 Choose your combination.",
         "options": [
-            ("🥊 Jab", "jab"),
-            ("🥊 Combination", "combo"),
-            ("🔥 Power punch", "power"),
+            (
+                "🥊 Jab",
+                "jab",
+            ),
+            (
+                "🥊 Combination",
+                "combo",
+            ),
+            (
+                "🔥 Power punch",
+                "power",
+            ),
         ],
         "success": {
             "jab": "🥊 Clean jab!",
@@ -2767,9 +2603,18 @@ CHALLENGE_DATA = {
     "soccer": {
         "question": "⚽ Choose your attack.",
         "options": [
-            ("⚽ Near post", "near"),
-            ("⚽ Far post", "far"),
-            ("🔥 Top corner", "top"),
+            (
+                "⚽ Near post",
+                "near",
+            ),
+            (
+                "⚽ Far post",
+                "far",
+            ),
+            (
+                "🔥 Top corner",
+                "top",
+            ),
         ],
         "success": {
             "near": "⚽ GOAL!",
@@ -2778,13 +2623,25 @@ CHALLENGE_DATA = {
         },
     },
 
+    # ------------------------------------------------------
     # RACING
+    # ------------------------------------------------------
+
     "car_race": {
         "question": "🏎️ Choose your racing line.",
         "options": [
-            ("🏁 Inside line", "inside"),
-            ("🏁 Outside line", "outside"),
-            ("🔥 Aggressive line", "aggressive"),
+            (
+                "🏁 Inside line",
+                "inside",
+            ),
+            (
+                "🏁 Outside line",
+                "outside",
+            ),
+            (
+                "🔥 Aggressive line",
+                "aggressive",
+            ),
         ],
         "success": {
             "inside": "🏎️ Perfect corner!",
@@ -2796,9 +2653,18 @@ CHALLENGE_DATA = {
     "bike_race": {
         "question": "🏍️ Choose your move.",
         "options": [
-            ("🏍️ Tight corner", "tight"),
-            ("🏁 Straight sprint", "sprint"),
-            ("🔥 Late brake", "brake"),
+            (
+                "🏍️ Tight corner",
+                "tight",
+            ),
+            (
+                "🏁 Straight sprint",
+                "sprint",
+            ),
+            (
+                "🔥 Late brake",
+                "brake",
+            ),
         ],
         "success": {
             "tight": "🏍️ Amazing cornering!",
@@ -2810,9 +2676,18 @@ CHALLENGE_DATA = {
     "boat_race": {
         "question": "🚤 Choose your route.",
         "options": [
-            ("🌊 Inside turn", "inside"),
-            ("🌊 Outside turn", "outside"),
-            ("🔥 Straight shot", "straight"),
+            (
+                "🌊 Inside turn",
+                "inside",
+            ),
+            (
+                "🌊 Outside turn",
+                "outside",
+            ),
+            (
+                "🔥 Straight shot",
+                "straight",
+            ),
         ],
         "success": {
             "inside": "🌊 Perfect turn!",
@@ -2824,9 +2699,18 @@ CHALLENGE_DATA = {
     "drag_race": {
         "question": "🏁 The lights are coming down!",
         "options": [
-            ("⚡ Launch early", "early"),
-            ("🏁 Perfect launch", "perfect"),
-            ("🔥 Full send", "full"),
+            (
+                "⚡ Launch early",
+                "early",
+            ),
+            (
+                "🏁 Perfect launch",
+                "perfect",
+            ),
+            (
+                "🔥 Full send",
+                "full",
+            ),
         ],
         "success": {
             "early": "🏁 You got off the line!",
@@ -2838,9 +2722,18 @@ CHALLENGE_DATA = {
     "street_race": {
         "question": "🏎️ Choose your move.",
         "options": [
-            ("🏎️ Take the corner", "corner"),
-            ("🔥 Hit the straight", "straight"),
-            ("🏁 Pass inside", "pass"),
+            (
+                "🏎️ Take the corner",
+                "corner",
+            ),
+            (
+                "🔥 Hit the straight",
+                "straight",
+            ),
+            (
+                "🏁 Pass inside",
+                "pass",
+            ),
         ],
         "success": {
             "corner": "🏁 Perfect corner!",
@@ -2849,13 +2742,25 @@ CHALLENGE_DATA = {
         },
     },
 
+    # ------------------------------------------------------
     # FIGHTING
+    # ------------------------------------------------------
+
     "mma": {
         "question": "🥋 Choose your opening.",
         "options": [
-            ("🥊 Strike", "strike"),
-            ("🤼 Takedown", "take"),
-            ("🔥 Combination", "combo"),
+            (
+                "🥊 Strike",
+                "strike",
+            ),
+            (
+                "🤼 Takedown",
+                "take",
+            ),
+            (
+                "🔥 Combination",
+                "combo",
+            ),
         ],
         "success": {
             "strike": "🥊 Perfect strike!",
@@ -2867,9 +2772,18 @@ CHALLENGE_DATA = {
     "karate": {
         "question": "🥋 Choose your technique.",
         "options": [
-            ("🥋 Front kick", "kick"),
-            ("👊 Punch", "punch"),
-            ("🔥 Combination", "combo"),
+            (
+                "🥋 Front kick",
+                "kick",
+            ),
+            (
+                "👊 Punch",
+                "punch",
+            ),
+            (
+                "🔥 Combination",
+                "combo",
+            ),
         ],
         "success": {
             "kick": "🥋 Perfect strike!",
@@ -2881,9 +2795,18 @@ CHALLENGE_DATA = {
     "street_fight": {
         "question": "👊 Choose your move.",
         "options": [
-            ("👊 Punch", "punch"),
-            ("🦵 Kick", "kick"),
-            ("🔥 Combination", "combo"),
+            (
+                "👊 Punch",
+                "punch",
+            ),
+            (
+                "🦵 Kick",
+                "kick",
+            ),
+            (
+                "🔥 Combination",
+                "combo",
+            ),
         ],
         "success": {
             "punch": "👊 You won the fight!",
@@ -2895,9 +2818,18 @@ CHALLENGE_DATA = {
     "arena": {
         "question": "⚔️ Enter the arena!",
         "options": [
-            ("⚔️ Strike", "strike"),
-            ("🛡️ Defend", "defend"),
-            ("🔥 Critical attack", "critical"),
+            (
+                "⚔️ Strike",
+                "strike",
+            ),
+            (
+                "🛡️ Defend",
+                "defend",
+            ),
+            (
+                "🔥 Critical attack",
+                "critical",
+            ),
         ],
         "success": {
             "strike": "⚔️ Arena victory!",
@@ -2906,13 +2838,25 @@ CHALLENGE_DATA = {
         },
     },
 
+    # ------------------------------------------------------
     # MYSTERY
+    # ------------------------------------------------------
+
     "murder_mystery": {
         "question": "🔎 Which clue do you investigate?",
         "options": [
-            ("🔎 Footprints", "prints"),
-            ("🧤 Glove", "glove"),
-            ("📱 Phone", "phone"),
+            (
+                "🔎 Footprints",
+                "prints",
+            ),
+            (
+                "🧤 Glove",
+                "glove",
+            ),
+            (
+                "📱 Phone",
+                "phone",
+            ),
         ],
         "success": {
             "prints": "🕵🏾 Mystery solved!",
@@ -2924,9 +2868,18 @@ CHALLENGE_DATA = {
     "investigation": {
         "question": "🔍 Which evidence do you examine?",
         "options": [
-            ("📄 Documents", "documents"),
-            ("🔎 Evidence bag", "evidence"),
-            ("📱 Phone records", "phone"),
+            (
+                "📄 Documents",
+                "documents",
+            ),
+            (
+                "🔎 Evidence bag",
+                "evidence",
+            ),
+            (
+                "📱 Phone records",
+                "phone",
+            ),
         ],
         "success": {
             "documents": "🔍 Evidence discovered!",
@@ -2953,6 +2906,8 @@ async def generic_challenge_game(
 
     if not data:
 
+        # Safe fallback for a registered game
+        # that does not have a dedicated challenge.
         won = random.choice(
             [
                 True,
@@ -2996,7 +2951,7 @@ async def generic_challenge_game(
                 InlineKeyboardButton(
                     label,
                     callback_data=(
-                        f"game_challenge_"
+                        "game_challenge_"
                         f"{game_id}_{value}"
                     ),
                 )
@@ -3023,12 +2978,8 @@ async def generic_challenge_game(
     }
 
     await query.edit_message_text(
-        (
-            f"<b>"
-            f"{GAME_NAMES.get(game_id, '🎮 Game')}"
-            f"</b>\n\n"
-            f"{data['question']}"
-        ),
+        f"<b>{GAME_NAMES.get(game_id, '🎮 Game')}</b>\n\n"
+        f"{data['question']}",
         reply_markup=InlineKeyboardMarkup(
             keyboard
         ),
@@ -3045,9 +2996,8 @@ async def generic_challenge_answer(
 
     key = f"challenge_{game_id}"
 
-    state = context.user_data.pop(
-        key,
-        None,
+    state = context.user_data.get(
+        key
     )
 
     if state is None:
@@ -3064,6 +3014,7 @@ async def generic_challenge_answer(
         [],
     )
 
+    # Validate before consuming state.
     if choice not in valid_choices:
 
         await query.answer(
@@ -3072,6 +3023,11 @@ async def generic_challenge_answer(
         )
 
         return
+
+    context.user_data.pop(
+        key,
+        None,
+    )
 
     data = CHALLENGE_DATA.get(
         game_id,
@@ -3088,6 +3044,8 @@ async def generic_challenge_answer(
         "🎮 Challenge complete!",
     )
 
+    # Keep the lightweight challenge format,
+    # but make the outcome and score consistent.
     won = random.random() < 0.75
 
     score = random.randint(
@@ -3144,7 +3102,7 @@ async def play_game(
     ensure_player(
         user_id=user.id,
         username=user.username,
-        display_name=user.full_name,
+        display_name=display_user(user),
     )
 
     logger.info(
@@ -3298,6 +3256,9 @@ async def play_game(
 
 # ==========================================================
 # CENTRAL GAME ACTION ROUTER
+#
+# IMPORTANT:
+#   Callback is answered exactly once whenever possible.
 # ==========================================================
 
 async def games_callback_router(
@@ -3380,6 +3341,34 @@ async def games_callback_router(
                 query,
                 context,
                 "low",
+            )
+
+            return
+
+        # --------------------------------------------------
+        # COIN FLIP
+        # --------------------------------------------------
+
+        if data == "game_coin_heads":
+
+            await query.answer()
+
+            await coin_flip_answer(
+                query,
+                context,
+                "heads",
+            )
+
+            return
+
+        if data == "game_coin_tails":
+
+            await query.answer()
+
+            await coin_flip_answer(
+                query,
+                context,
+                "tails",
             )
 
             return
@@ -3518,10 +3507,15 @@ async def games_callback_router(
 
             if len(parts) < 2:
 
+                logger.warning(
+                    "Invalid challenge callback: %s",
+                    data,
+                )
+
                 return
 
             # Game IDs can contain underscores.
-            # The final element is the option.
+            # The final component is always the choice.
             choice = parts[-1]
 
             game_id = "_".join(
@@ -3530,9 +3524,9 @@ async def games_callback_router(
 
             if game_id not in CHALLENGE_DATA:
 
-                await query.answer(
-                    "Game not found.",
-                    show_alert=True,
+                logger.warning(
+                    "Challenge game not found: %s",
+                    game_id,
                 )
 
                 return
@@ -3577,40 +3571,6 @@ async def games_callback_router(
         except Exception:
 
             pass
-
-
-# ==========================================================
-# OPTIONAL COMPATIBILITY ALIASES
-# ==========================================================
-#
-# These allow other Game Center components to use either
-# the descriptive function names or the shorter names.
-# ==========================================================
-
-get_profile = get_player_profile
-get_stats = get_player_stats
-get_rank = get_player_rank
-get_achievements = get_player_achievements
-get_game_statistics = get_game_stats
-
-
-# ==========================================================
-# INITIALIZE ON IMPORT
-# ==========================================================
-#
-# Safe because initialize_game_database() only uses
-# CREATE TABLE IF NOT EXISTS and never drops/replaces data.
-# ==========================================================
-
-try:
-
-    initialize_game_database()
-
-except Exception:
-
-    logger.exception(
-        "Game Center database initialization on import failed."
-    )
 
 
 # ==========================================================
