@@ -100,7 +100,13 @@ def _save_state(data):
 
 
 async def ensure_games_topic_launcher(context):
-    """Create/update and pin the Game Center launcher in the Games topic."""
+    """Create/update and pin the Game Center launcher in the Games topic.
+
+    IMPORTANT: A previously saved message ID is only reusable when this state
+    record explicitly belongs to the current Games topic. Older state files did
+    not store the topic ID, so those message IDs are treated as stale instead of
+    risking an edit of the Introduction launcher.
+    """
     main_group_id = _main_group_id()
     if not main_group_id:
         logger.warning("Game Center launcher skipped: MAIN_GROUP_ID is not configured.")
@@ -108,6 +114,47 @@ async def ensure_games_topic_launcher(context):
 
     state = _load_state()
     launcher_message_id = state.get("games_topic_launcher_message_id")
+    saved_topic_id = state.get("games_topic_launcher_topic_id")
+    reusable_launcher = False
+
+    try:
+        reusable_launcher = (
+            int(saved_topic_id) == int(GAMES_TOPIC_ID)
+            and int(launcher_message_id) > 0
+        )
+    except (TypeError, ValueError):
+        reusable_launcher = False
+
+    # A legacy/incorrect state entry may point at the Introduction topic. Never
+    # edit it as the Game Center launcher. Remove the stale state and, when
+    # possible, remove that bot-owned message so the bad Game Center post does
+    # not remain in the Introduction topic.
+    if launcher_message_id and not reusable_launcher:
+        logger.warning(
+            "Ignoring stale Game Center launcher state: message=%s saved_topic=%s expected_topic=%s",
+            launcher_message_id,
+            saved_topic_id,
+            GAMES_TOPIC_ID,
+        )
+        try:
+            await context.bot.delete_message(
+                chat_id=main_group_id,
+                message_id=int(launcher_message_id),
+            )
+            logger.info(
+                "Removed stale Game Center launcher message %s from chat %s.",
+                launcher_message_id,
+                main_group_id,
+            )
+        except (TelegramError, TypeError, ValueError):
+            logger.info(
+                "Could not remove stale Game Center launcher message %s; continuing with a new Games-topic launcher.",
+                launcher_message_id,
+            )
+        state.pop("games_topic_launcher_message_id", None)
+        state.pop("games_topic_launcher_topic_id", None)
+        _save_state(state)
+        launcher_message_id = None
 
     text = (
         "🎮 <b>MELANATED AZ GAME CENTER</b> 🎮\n\n"
@@ -164,6 +211,7 @@ async def ensure_games_topic_launcher(context):
         return None
 
     state["games_topic_launcher_message_id"] = sent.message_id
+    state["games_topic_launcher_topic_id"] = GAMES_TOPIC_ID
     _save_state(state)
 
     try:
@@ -196,6 +244,16 @@ async def send_weekly_game_center_reminder(context):
 
     state = _load_state()
     launcher_message_id = state.get("games_topic_launcher_message_id")
+    saved_topic_id = state.get("games_topic_launcher_topic_id")
+
+    try:
+        launcher_message_id = (
+            int(launcher_message_id)
+            if int(saved_topic_id) == int(GAMES_TOPIC_ID)
+            else None
+        )
+    except (TypeError, ValueError):
+        launcher_message_id = None
 
     if launcher_message_id:
         games_link = _telegram_message_link(main_group_id, launcher_message_id)
