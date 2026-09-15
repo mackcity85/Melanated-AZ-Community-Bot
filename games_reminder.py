@@ -2,19 +2,21 @@
 # Melanated AZ - Game Center Reminder
 # ==========================================================
 #
-# Keeps the permanent Games-topic launcher, makes sure the
-# Introduction launcher is posted on startup, sends the weekly
+# Keeps the permanent Games-topic launcher, sends the weekly
 # Games reminder, starts daily community messages, and installs
 # centralized chat cleanup/admin notifications.
 #
 # Raffle auto-sync/pin management is intentionally NOT started
 # here. Raffles are managed by raffle.py when they are created.
+#
+# IMPORTANT:
+# The Introduction topic already has its permanent launcher.
+# This module MUST NOT repost or recreate it on bot startup.
 # ==========================================================
 
 import json
 import logging
 import os
-import re
 from datetime import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -98,7 +100,6 @@ def _save_launcher_id(message_id):
 
 
 def _launcher_keyboard():
-    """Expose game systems plus an Enter button for the current active raffle."""
     rows = [
         [
             InlineKeyboardButton("🎮 OPEN GAME CENTER", callback_data="games_home"),
@@ -140,7 +141,7 @@ LAUNCHER_TEXT = (
 
 
 async def ensure_games_topic_launcher(context):
-    """Create/update and pin the combined Games-topic launcher."""
+    """Create/update and pin the permanent Games-topic launcher."""
     chat_id = _main_group_id()
     if not chat_id:
         logger.warning("Games launcher skipped: MAIN_GROUP_ID is not configured.")
@@ -205,55 +206,6 @@ async def ensure_games_topic_launcher(context):
     return sent.message_id
 
 
-async def ensure_introduction_launcher(context):
-    """Post the existing Introduction launcher and pin the exact message."""
-    try:
-        from bot import post_intro_topic_reminder
-
-        ok, detail = await post_intro_topic_reminder(context)
-
-        if ok:
-            logger.info("Introduction launcher ready: %s", detail)
-
-            match = re.search(r"message\s+(\d+)", detail or "", flags=re.IGNORECASE)
-            if not match:
-                logger.error("Introduction launcher posted but message ID was not returned: %s", detail)
-                return False
-
-            message_id = int(match.group(1))
-            chat_id = _main_group_id()
-
-            try:
-                await context.bot.pin_chat_message(
-                    chat_id=chat_id,
-                    message_id=message_id,
-                    disable_notification=True,
-                )
-                logger.info(
-                    "Introduction launcher pinned | chat=%s | topic=%s | message=%s",
-                    chat_id,
-                    os.environ.get("INTRO_TOPIC_ID", "11570"),
-                    message_id,
-                )
-            except TelegramError as exc:
-                logger.exception(
-                    "Introduction launcher posted but could not be pinned | chat=%s | message=%s | error=%s",
-                    chat_id,
-                    message_id,
-                    exc,
-                )
-                return False
-
-            return True
-
-        logger.error("Introduction launcher FAILED: %s", detail)
-        return False
-
-    except Exception:
-        logger.exception("Could not launch the Introduction topic button.")
-        return False
-
-
 async def send_weekly_game_center_reminder(context):
     """Send the weekly Games reminder to the main chat."""
     chat_id = _main_group_id()
@@ -283,19 +235,18 @@ async def send_weekly_game_center_reminder(context):
     )
 
     try:
-        sent = await context.bot.send_message(
+        await context.bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=keyboard,
             parse_mode=ParseMode.HTML,
         )
-        logger.info("Weekly Games reminder posted | message=%s", sent.message_id)
     except TelegramError:
         logger.exception("Could not send weekly Games reminder.")
 
 
 def start_weekly_game_center_reminder(application):
-    """Register Games/Introduction launchers, weekly reminder, daily messages and cleanup."""
+    """Register Games launcher, weekly reminder, daily messages and cleanup."""
     if not getattr(application, "job_queue", None):
         logger.warning("Games reminder unavailable: JobQueue not installed.")
         return
@@ -305,23 +256,21 @@ def start_weekly_game_center_reminder(application):
 
     for name in (
         "games-topic-launcher",
-        "introduction-topic-launcher",
         "weekly-game-center-reminder",
     ):
         for job in application.job_queue.get_jobs_by_name(name):
             job.schedule_removal()
 
+    # Games launcher: update the existing permanent post when possible.
+    # If it is missing, recreate it. This behavior is ONLY for Games.
     application.job_queue.run_once(
         ensure_games_topic_launcher,
         when=10,
         name="games-topic-launcher",
     )
 
-    application.job_queue.run_once(
-        ensure_introduction_launcher,
-        when=12,
-        name="introduction-topic-launcher",
-    )
+    # DO NOT schedule an Introduction launcher here.
+    # The Introduction topic should contain ONE permanent post only.
 
     application.job_queue.run_daily(
         send_weekly_game_center_reminder,
@@ -335,8 +284,6 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona | daily community messages active | raffle auto-sync DISABLED",
+        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED",
         GAMES_TOPIC_ID,
-        WEEKLY_REMINDER_HOUR,
-        WEEKLY_REMINDER_MINUTE,
     )
