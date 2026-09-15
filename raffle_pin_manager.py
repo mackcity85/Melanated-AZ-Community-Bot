@@ -83,7 +83,6 @@ async def _remove_pinned_raffle(context, state):
     if not message_id:
         _clear_state()
         return
-
     try:
         await context.bot.unpin_chat_message(chat_id=chat_id, message_id=message_id)
     except TelegramError:
@@ -101,7 +100,6 @@ async def _remove_main_chat_navigation(context):
     if not message_id:
         _clear_nav_state()
         return
-
     main_group_id = _main_group_id()
     try:
         await context.bot.unpin_chat_message(chat_id=main_group_id, message_id=message_id)
@@ -125,13 +123,8 @@ async def _publish_main_chat_navigation(context, raffle):
     main_group_id = _main_group_id()
     link = _raffle_message_link(raffle_message_id)
     current = _load_nav_state()
-
-    if (
-        int(current.get("raffle_id") or 0) == raffle_id
-        and int(current.get("message_id") or 0) > 0
-    ):
+    if int(current.get("raffle_id") or 0) == raffle_id and int(current.get("message_id") or 0) > 0:
         return
-
     if current:
         await _remove_main_chat_navigation(context)
 
@@ -142,9 +135,7 @@ async def _publish_main_chat_navigation(context, raffle):
         f"💵 <b>Entry:</b> {html_escape(str(raffle.get('price') or 'See raffle post'))}\n\n"
         "👇🏾 Tap below to open the official raffle post in the Games topic."
     )
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🎟️ GO TO RAFFLE", url=link),
-    ]])
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ GO TO RAFFLE", url=link)]])
 
     try:
         sent = await context.bot.send_message(
@@ -167,18 +158,13 @@ async def _publish_main_chat_navigation(context, raffle):
             except TelegramError:
                 pass
             return
-
         _save_nav_state({
             "raffle_id": raffle_id,
             "message_id": sent.message_id,
             "chat_id": main_group_id,
             "raffle_message_id": raffle_message_id,
         })
-        logger.info(
-            "Main-chat raffle navigation pinned | raffle=%s | message=%s",
-            raffle_id,
-            sent.message_id,
-        )
+        logger.info("Main-chat raffle navigation pinned | raffle=%s | message=%s", raffle_id, sent.message_id)
     except TelegramError:
         logger.exception("Could not publish main-chat raffle navigation | raffle=%s", raffle_id)
 
@@ -214,67 +200,100 @@ def html_escape(value):
     return html.escape(str(value))
 
 
+async def _publish_existing_raffle(context, raffle):
+    """Publish an existing active raffle that has no Telegram post yet; never creates a new raffle."""
+    raffle_id = int(raffle["id"])
+    if int(raffle.get("message_id") or 0):
+        return True
+
+    free = str(raffle.get("price") or "").strip().lower().replace("$", "") in {"", "free", "0", "0.0", "0.00"}
+    if free:
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle_id}")]])
+        payment_notice = "🎟️ Entry is FREE — no payment is required."
+    else:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle_id}")],
+            [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle_id}")],
+            [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle_id}")],
+        ])
+        payment_notice = "⚠️ Your entry remains pending until an admin verifies your payment."
+
+    text = (
+        "🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>\n\n"
+        f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n"
+        f"💵 <b>Entry:</b> {html_escape(raffle.get('price') or 'See raffle details')}\n"
+        f"⏰ <b>Ends:</b> {html_escape(raffle.get('expires_at') or 'Unknown')}\n\n"
+        "👇 Tap below to enter.\n\n"
+        f"{payment_notice}"
+    )
+
+    chat_id = _main_group_id()
+    try:
+        sent = await context.bot.send_message(
+            chat_id=chat_id,
+            message_thread_id=GAMES_TOPIC_ID,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML",
+        )
+        from raffle_database import set_raffle_post
+        set_raffle_post(raffle_id, chat_id, sent.message_id)
+        try:
+            await context.bot.pin_chat_message(chat_id=chat_id, message_id=sent.message_id, disable_notification=True)
+        except TelegramError:
+            logger.exception("Existing raffle %s posted but could not be pinned.", raffle_id)
+        logger.info(
+            "EXISTING RAFFLE REPUBLISHED | raffle=%s | chat=%s | topic=%s | message=%s",
+            raffle_id, chat_id, GAMES_TOPIC_ID, sent.message_id,
+        )
+        return True
+    except TelegramError:
+        logger.exception("Could not republish existing active raffle | raffle=%s", raffle_id)
+        return False
+
+
 async def _finish_expired_raffle(context, raffle):
     """Close an expired raffle, announce the winner, and clear both raffle/navigation pins."""
     raffle_id = int(raffle["id"])
     chat_id = _main_group_id()
     message_id = int(raffle.get("message_id") or 0)
     state = _load_state()
-
     if raffle.get("status") != "active":
         return
-
     entries = get_approved_entries(raffle_id)
     winner = random.choice(entries) if entries else None
     winner_user_id = None
     close_raffle(raffle_id)
-
     if winner:
         winner_user_id = int(winner.get("user_id"))
         winner_name = winner.get("display_name") or winner.get("username") or str(winner_user_id)
         try:
             await context.bot.send_message(
-                chat_id=chat_id,
-                message_thread_id=GAMES_TOPIC_ID,
-                text=(
-                    "🎉 <b>RAFFLE WINNER!</b> 🎉\n\n"
-                    f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n"
-                    f"👑 <b>Winner:</b> {html_escape(winner_name)}\n\n"
-                    "Congratulations! 🔥🎊"
-                ),
-                parse_mode="HTML",
-            )
+                chat_id=chat_id, message_thread_id=GAMES_TOPIC_ID,
+                text=("🎉 <b>RAFFLE WINNER!</b> 🎉\n\n"
+                      f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n"
+                      f"👑 <b>Winner:</b> {html_escape(winner_name)}\n\n"
+                      "Congratulations! 🔥🎊"), parse_mode="HTML")
         except TelegramError:
             logger.exception("Could not post expired raffle winner announcement | raffle=%s", raffle_id)
-
         try:
             await context.bot.send_message(
                 chat_id=winner_user_id,
-                text=(
-                    "🎉 <b>CONGRATULATIONS!</b> 🎉\n\n"
-                    "You won the Melanated AZ raffle!\n\n"
-                    f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n\n"
-                    "An administrator will contact you regarding your prize."
-                ),
-                parse_mode="HTML",
-            )
+                text=("🎉 <b>CONGRATULATIONS!</b> 🎉\n\n"
+                      "You won the Melanated AZ raffle!\n\n"
+                      f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n\n"
+                      "An administrator will contact you regarding your prize."), parse_mode="HTML")
         except TelegramError:
             logger.info("Could not privately notify raffle winner %s.", winner_user_id)
     else:
         try:
             await context.bot.send_message(
-                chat_id=chat_id,
-                message_thread_id=GAMES_TOPIC_ID,
-                text=(
-                    "⚠️ <b>RAFFLE CLOSED</b>\n\n"
-                    f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n\n"
-                    "No approved entries were received."
-                ),
-                parse_mode="HTML",
-            )
+                chat_id=chat_id, message_thread_id=GAMES_TOPIC_ID,
+                text=("⚠️ <b>RAFFLE CLOSED</b>\n\n"
+                      f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n\n"
+                      "No approved entries were received."), parse_mode="HTML")
         except TelegramError:
             logger.exception("Could not post expired raffle closure notice | raffle=%s", raffle_id)
-
     if state and int(state.get("raffle_id") or 0) == raffle_id:
         await _remove_pinned_raffle(context, state)
     elif message_id:
@@ -286,7 +305,6 @@ async def _finish_expired_raffle(context, raffle):
             await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
         except TelegramError:
             pass
-
     await _remove_main_chat_navigation(context)
     logger.info("Expired raffle finalized | raffle=%s | winner=%s", raffle_id, winner_user_id)
 
@@ -294,13 +312,11 @@ async def _finish_expired_raffle(context, raffle):
 async def sync_raffle_pin(context):
     """Keep the official raffle pinned in Games topic and a navigation pin in main chat."""
     await _remove_legacy_raffle_notification_pin(context)
-
     try:
         active = get_active_raffle()
     except Exception:
         logger.exception("Could not load active raffle.")
         return
-
     if not active:
         state = _load_state()
         if state:
@@ -308,7 +324,6 @@ async def sync_raffle_pin(context):
         await _remove_main_chat_navigation(context)
         await _refresh_games_launcher(context)
         return
-
     expires = active.get("expires_at") or active.get("end_time") or active.get("ends_at")
     if expires:
         try:
@@ -326,36 +341,31 @@ async def sync_raffle_pin(context):
     raffle_id = int(active["id"])
     chat_id = _main_group_id()
     message_id = int(active.get("message_id") or 0)
+
     if not message_id:
-        logger.warning("Active raffle %s has no message_id; cannot pin.", raffle_id)
-        await _refresh_games_launcher(context)
-        return
+        published = await _publish_existing_raffle(context, active)
+        if not published:
+            await _refresh_games_launcher(context)
+            return
+        active = get_active_raffle() or active
+        message_id = int(active.get("message_id") or 0)
+        if not message_id:
+            logger.error("Existing raffle %s was published but database message_id is still missing.", raffle_id)
+            return
 
     state = _load_state()
     tracked_id = int(state.get("raffle_id") or 0) if state else 0
     tracked_message_id = int(state.get("message_id") or 0) if state else 0
-
     if tracked_id and tracked_id != raffle_id and tracked_message_id:
         await _remove_pinned_raffle(context, state)
-
     state = _load_state()
     if state.get("raffle_id") != raffle_id or state.get("message_id") != message_id:
         try:
-            await context.bot.pin_chat_message(
-                chat_id=chat_id,
-                message_id=message_id,
-                disable_notification=True,
-            )
+            await context.bot.pin_chat_message(chat_id=chat_id, message_id=message_id, disable_notification=True)
         except TelegramError:
             logger.exception("Could not pin active raffle post in Games topic | raffle=%s", raffle_id)
             return
-        _save_state({
-            "raffle_id": raffle_id,
-            "chat_id": chat_id,
-            "message_id": message_id,
-            "thread_id": GAMES_TOPIC_ID,
-        })
-
+        _save_state({"raffle_id": raffle_id, "chat_id": chat_id, "message_id": message_id, "thread_id": GAMES_TOPIC_ID})
     await _publish_main_chat_navigation(context, active)
     await _refresh_games_launcher(context)
 
@@ -364,25 +374,20 @@ def install_raffle_publish_pin_guard(application):
     """Allow the real raffle post to be pinned while suppressing the legacy notification pin."""
     if getattr(application, "_raffle_publish_pin_guard_installed", False):
         return
-
     application._raffle_publish_pin_guard_installed = True
-
     try:
         import raffle
     except Exception:
         logger.exception("Could not import raffle module for pin guard.")
         return
-
     original_publish = getattr(raffle, "publish_raffle", None)
     if not original_publish:
         logger.warning("raffle.publish_raffle not found; pin guard not installed.")
         return
-
     async def guarded_publish(*args, **kwargs):
         bot = application.bot
         original_pin = bot.pin_chat_message
         pin_count = 0
-
         async def guarded_pin(*pin_args, **pin_kwargs):
             nonlocal pin_count
             pin_count += 1
@@ -390,13 +395,11 @@ def install_raffle_publish_pin_guard(application):
                 return await original_pin(*pin_args, **pin_kwargs)
             logger.info("Suppressed legacy raffle notification pin.")
             return True
-
         bot.pin_chat_message = guarded_pin
         try:
             return await original_publish(*args, **kwargs)
         finally:
             bot.pin_chat_message = original_pin
-
     raffle.publish_raffle = guarded_publish
 
 
@@ -406,11 +409,5 @@ def start_raffle_pin_manager(application):
     if not getattr(application, "job_queue", None):
         logger.warning("JobQueue unavailable; raffle pin manager not started.")
         return
-
-    application.job_queue.run_repeating(
-        sync_raffle_pin,
-        interval=30,
-        first=15,
-        name="raffle-pin-manager",
-    )
+    application.job_queue.run_repeating(sync_raffle_pin, interval=30, first=15, name="raffle-pin-manager")
     logger.info("Raffle pin manager started | interval=30s")
