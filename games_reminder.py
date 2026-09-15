@@ -4,8 +4,9 @@
 #
 # Keeps the permanent Games-topic launcher, makes sure the
 # Introduction launcher is posted on startup, sends the weekly
-# Games reminder, starts daily community messages, and installs
-# centralized chat cleanup/admin notifications.
+# Games reminder, starts daily community messages, installs
+# centralized chat cleanup/admin notifications, and manages
+# the dedicated active-raffle pin.
 # ==========================================================
 
 import json
@@ -23,6 +24,7 @@ from telegram.error import TelegramError
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
 from daily_messages import start_daily_community_messages
 from chat_cleanup import install_chat_cleanup
+from raffle_pin_manager import start_raffle_pin_manager
 
 logger = logging.getLogger("melanatedaz.games_reminder")
 
@@ -94,7 +96,7 @@ def _save_launcher_id(message_id):
 
 
 def _launcher_keyboard():
-    """Expose both game systems from the Games topic."""
+    """Expose game systems and the active raffle from the Games topic."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🎮 OPEN GAME CENTER", callback_data="games_home"),
@@ -103,6 +105,9 @@ def _launcher_keyboard():
         [
             InlineKeyboardButton("🔥 TRUTH OR DARE", callback_data="games_play_truth_dare"),
             InlineKeyboardButton("🎭 DIRTY MINDS", url=f"{PUBLIC_BASE_URL}/real-games/"),
+        ],
+        [
+            InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data="raffle_enter_active"),
         ],
         [
             InlineKeyboardButton("👤 My Profile", callback_data="games_profile"),
@@ -118,7 +123,8 @@ LAUNCHER_TEXT = (
     "🔥 <b>Truth or Dare</b> — jump straight into the party game\n"
     "🌐 <b>Real Game Library</b> — Snake, Pong, Breakout, Tetris, Flappy,\n"
     "Chess, Checkers, Monopoly, Basketball, Target Shooter, card games and more\n"
-    "🎭 <b>Dirty Minds</b> — multiplayer party game with rooms\n\n"
+    "🎭 <b>Dirty Minds</b> — multiplayer party game with rooms\n"
+    "🎟️ <b>Raffle</b> — enter the currently active raffle\n\n"
     "👇 <b>PICK A GAME AND START PLAYING!</b>"
 )
 
@@ -199,7 +205,6 @@ async def ensure_introduction_launcher(context):
         if ok:
             logger.info("Introduction launcher ready: %s", detail)
 
-            # bot.py returns the newly posted message ID in the detail string.
             match = re.search(r"message\s+(\d+)", detail or "", flags=re.IGNORECASE)
             if not match:
                 logger.error("Introduction launcher posted but message ID was not returned: %s", detail)
@@ -280,13 +285,14 @@ async def send_weekly_game_center_reminder(context):
 
 
 def start_weekly_game_center_reminder(application):
-    """Register topic launchers, weekly Games reminder, daily messages, and chat cleanup."""
+    """Register topic launchers, weekly Games reminder, daily messages, chat cleanup, and raffle pin management."""
     if not getattr(application, "job_queue", None):
         logger.warning("Games reminder unavailable: JobQueue not installed.")
         return
 
     install_chat_cleanup(application)
     start_daily_community_messages(application)
+    start_raffle_pin_manager(application)
 
     for name in (
         "games-topic-launcher",
@@ -320,7 +326,7 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona | daily community messages active",
+        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona | daily community messages active | raffle pin manager active",
         GAMES_TOPIC_ID,
         WEEKLY_REMINDER_HOUR,
         WEEKLY_REMINDER_MINUTE,
