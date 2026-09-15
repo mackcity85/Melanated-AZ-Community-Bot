@@ -188,14 +188,6 @@ async def _remove_legacy_raffle_notification_pin(context):
         logger.exception("Could not inspect/remove legacy raffle notification pin.")
 
 
-async def _refresh_games_launcher(context):
-    try:
-        from games_reminder import ensure_games_topic_launcher
-        await ensure_games_topic_launcher(context)
-    except Exception:
-        logger.exception("Could not refresh Games-topic launcher after raffle state change.")
-
-
 def html_escape(value):
     import html
     return html.escape(str(value))
@@ -331,7 +323,7 @@ async def _finish_expired_raffle(context, raffle):
 
 
 async def sync_raffle_pin(context):
-    """Keep the official raffle pinned in Games topic and a navigation pin in main chat."""
+    """Keep the official raffle pinned in Games topic and one navigation pin in main chat."""
     await _remove_legacy_raffle_notification_pin(context)
     try:
         active = get_active_raffle()
@@ -343,8 +335,8 @@ async def sync_raffle_pin(context):
         if state:
             await _remove_pinned_raffle(context, state)
         await _remove_main_chat_navigation(context)
-        await _refresh_games_launcher(context)
         return
+
     expires = active.get("expires_at") or active.get("end_time") or active.get("ends_at")
     if expires:
         try:
@@ -354,7 +346,6 @@ async def sync_raffle_pin(context):
                 expires = expires.replace(tzinfo=timezone.utc)
             if expires <= datetime.now(timezone.utc):
                 await _finish_expired_raffle(context, active)
-                await _refresh_games_launcher(context)
                 return
         except (TypeError, ValueError):
             pass
@@ -363,9 +354,7 @@ async def sync_raffle_pin(context):
     chat_id = _main_group_id()
     message_id = int(active.get("message_id") or 0)
 
-    # The persistent DB can contain a Telegram message_id for a message that was
-    # deleted during an earlier cleanup/deploy. If pinning says "Message to pin
-    # not found", invalidate only that stale reference and republish the SAME raffle.
+    # Recover a stale Telegram message reference once, without creating a new raffle.
     state = _load_state()
     tracked_id = int(state.get("raffle_id") or 0) if state else 0
     tracked_message_id = int(state.get("message_id") or 0) if state else 0
@@ -392,7 +381,6 @@ async def sync_raffle_pin(context):
                         active = get_active_raffle() or active
                         published = await _publish_existing_raffle(context, active)
                         if not published:
-                            await _refresh_games_launcher(context)
                             return
                         active = get_active_raffle() or active
                         message_id = int(active.get("message_id") or 0)
@@ -411,7 +399,6 @@ async def sync_raffle_pin(context):
     if not message_id:
         published = await _publish_existing_raffle(context, active)
         if not published:
-            await _refresh_games_launcher(context)
             return
         active = get_active_raffle() or active
         message_id = int(active.get("message_id") or 0)
@@ -419,7 +406,6 @@ async def sync_raffle_pin(context):
             logger.error("Existing raffle %s was published but database message_id is still missing.", raffle_id)
             return
 
-    # Always verify/pin the current message after any stale-reference recovery.
     state = _load_state()
     if state.get("raffle_id") != raffle_id or state.get("message_id") != message_id:
         try:
@@ -439,7 +425,6 @@ async def sync_raffle_pin(context):
         })
 
     await _publish_main_chat_navigation(context, active)
-    await _refresh_games_launcher(context)
 
 
 def install_raffle_publish_pin_guard(application):
