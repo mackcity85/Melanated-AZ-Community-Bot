@@ -5,6 +5,7 @@ import random
 from datetime import datetime, timezone
 from pathlib import Path
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
 
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
@@ -13,6 +14,7 @@ from raffle_database import get_active_raffle, get_approved_entries, close_raffl
 logger = logging.getLogger("melanatedaz.raffle_pin_manager")
 
 PIN_STATE_FILE = Path("/var/data/raffle_pin.json")
+NAV_STATE_FILE = Path("/var/data/raffle_nav.json")
 
 
 def _main_group_id():
@@ -23,30 +25,60 @@ def _main_group_id():
         return GAMES_CHAT_ID
 
 
-def _load_state():
+def _load_json(path):
     try:
-        return json.loads(PIN_STATE_FILE.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {}
 
 
-def _save_state(state):
+def _save_json(path, state):
     try:
-        PIN_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        PIN_STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(state), encoding="utf-8")
     except OSError:
-        logger.exception("Could not save raffle pin state.")
+        logger.exception("Could not save raffle state: %s", path)
+
+
+def _clear_file(path):
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        logger.exception("Could not clear raffle state: %s", path)
+
+
+def _load_state():
+    return _load_json(PIN_STATE_FILE)
+
+
+def _save_state(state):
+    _save_json(PIN_STATE_FILE, state)
 
 
 def _clear_state():
-    try:
-        PIN_STATE_FILE.unlink(missing_ok=True)
-    except OSError:
-        logger.exception("Could not clear raffle pin state.")
+    _clear_file(PIN_STATE_FILE)
+
+
+def _load_nav_state():
+    return _load_json(NAV_STATE_FILE)
+
+
+def _save_nav_state(state):
+    _save_json(NAV_STATE_FILE, state)
+
+
+def _clear_nav_state():
+    _clear_file(NAV_STATE_FILE)
+
+
+def _raffle_message_link(message_id):
+    """Return a direct link to the raffle message in the Games forum topic."""
+    internal_chat_id = str(abs(_main_group_id())).removeprefix("100")
+    return f"https://t.me/c/{internal_chat_id}/{int(message_id)}?thread={GAMES_TOPIC_ID}"
 
 
 async def _remove_pinned_raffle(context, state):
-    chat_id = int(state.get("chat_id") or _main_group_id())
+    chat_id = _main_group_id()
     message_id = int(state.get("message_id") or 0)
     if not message_id:
         _clear_state()
@@ -61,6 +93,94 @@ async def _remove_pinned_raffle(context, state):
     except TelegramError:
         pass
     _clear_state()
+
+
+async def _remove_main_chat_navigation(context):
+    state = _load_nav_state()
+    message_id = int(state.get("message_id") or 0)
+    if not message_id:
+        _clear_nav_state()
+        return
+
+    main_group_id = _main_group_id()
+    try:
+        await context.bot.unpin_chat_message(chat_id=main_group_id, message_id=message_id)
+    except TelegramError:
+        pass
+    try:
+        await context.bot.delete_message(chat_id=main_group_id, message_id=message_id)
+    except TelegramError:
+        pass
+    _clear_nav_state()
+
+
+async def _publish_main_chat_navigation(context, raffle):
+    """Keep one permanent pinned main-chat message linking to the active Games-topic raffle."""
+    raffle_id = int(raffle["id"])
+    raffle_message_id = int(raffle.get("message_id") or 0)
+    if not raffle_message_id:
+        logger.warning("Active raffle %s has no message_id; cannot create main-chat navigation.", raffle_id)
+        return
+
+    main_group_id = _main_group_id()
+    link = _raffle_message_link(raffle_message_id)
+    current = _load_nav_state()
+
+    if (
+        int(current.get("raffle_id") or 0) == raffle_id
+        and int(current.get("message_id") or 0) > 0
+    ):
+        return
+
+    if current:
+        await _remove_main_chat_navigation(context)
+
+    text = (
+        "📌 <b>RAFFLE NAVIGATION</b>\n\n"
+        "🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b> is live!\n\n"
+        f"🎁 <b>Prize:</b> {html_escape(str(raffle.get('prize') or 'Raffle'))}\n"
+        f"💵 <b>Entry:</b> {html_escape(str(raffle.get('price') or 'See raffle post'))}\n\n"
+        "👇🏾 Tap below to open the official raffle post in the Games topic."
+    )
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("🎟️ GO TO RAFFLE", url=link),
+    ]])
+
+    try:
+        sent = await context.bot.send_message(
+            chat_id=main_group_id,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
+        try:
+            await context.bot.pin_chat_message(
+                chat_id=main_group_id,
+                message_id=sent.message_id,
+                disable_notification=True,
+            )
+        except TelegramError:
+            logger.exception("Could not pin main-chat raffle navigation | raffle=%s", raffle_id)
+            try:
+                await context.bot.delete_message(chat_id=main_group_id, message_id=sent.message_id)
+            except TelegramError:
+                pass
+            return
+
+        _save_nav_state({
+            "raffle_id": raffle_id,
+            "message_id": sent.message_id,
+            "chat_id": main_group_id,
+            "raffle_message_id": raffle_message_id,
+        })
+        logger.info(
+            "Main-chat raffle navigation pinned | raffle=%s | message=%s",
+            raffle_id,
+            sent.message_id,
+        )
+    except TelegramError:
+        logger.exception("Could not publish main-chat raffle navigation | raffle=%s", raffle_id)
 
 
 async def _remove_legacy_raffle_notification_pin(context):
@@ -89,10 +209,15 @@ async def _refresh_games_launcher(context):
         logger.exception("Could not refresh Games-topic launcher after raffle state change.")
 
 
+def html_escape(value):
+    import html
+    return html.escape(str(value))
+
+
 async def _finish_expired_raffle(context, raffle):
-    """Close an expired raffle, announce the winner, and clear its pinned post."""
+    """Close an expired raffle, announce the winner, and clear both raffle/navigation pins."""
     raffle_id = int(raffle["id"])
-    chat_id = int(raffle.get("chat_id") or _main_group_id())
+    chat_id = _main_group_id()
     message_id = int(raffle.get("message_id") or 0)
     state = _load_state()
 
@@ -102,27 +227,21 @@ async def _finish_expired_raffle(context, raffle):
     entries = get_approved_entries(raffle_id)
     winner = random.choice(entries) if entries else None
     winner_user_id = None
-
     close_raffle(raffle_id)
-
-    def html_escape(value):
-        import html
-        return html.escape(str(value))
 
     if winner:
         winner_user_id = int(winner.get("user_id"))
         winner_name = winner.get("display_name") or winner.get("username") or str(winner_user_id)
-        winner_text = (
-            "🎉 <b>RAFFLE WINNER!</b> 🎉\n\n"
-            f"🎁 <b>Prize:</b> {html_escape(str(raffle.get('prize') or 'Raffle'))}\n"
-            f"👑 <b>Winner:</b> {html_escape(str(winner_name))}\n\n"
-            "Congratulations! 🔥🎊"
-        )
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
                 message_thread_id=GAMES_TOPIC_ID,
-                text=winner_text,
+                text=(
+                    "🎉 <b>RAFFLE WINNER!</b> 🎉\n\n"
+                    f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n"
+                    f"👑 <b>Winner:</b> {html_escape(winner_name)}\n\n"
+                    "Congratulations! 🔥🎊"
+                ),
                 parse_mode="HTML",
             )
         except TelegramError:
@@ -134,7 +253,7 @@ async def _finish_expired_raffle(context, raffle):
                 text=(
                     "🎉 <b>CONGRATULATIONS!</b> 🎉\n\n"
                     "You won the Melanated AZ raffle!\n\n"
-                    f"🎁 <b>Prize:</b> {html_escape(str(raffle.get('prize') or 'Raffle'))}\n\n"
+                    f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n\n"
                     "An administrator will contact you regarding your prize."
                 ),
                 parse_mode="HTML",
@@ -148,7 +267,7 @@ async def _finish_expired_raffle(context, raffle):
                 message_thread_id=GAMES_TOPIC_ID,
                 text=(
                     "⚠️ <b>RAFFLE CLOSED</b>\n\n"
-                    f"🎁 <b>Prize:</b> {html_escape(str(raffle.get('prize') or 'Raffle'))}\n\n"
+                    f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n\n"
                     "No approved entries were received."
                 ),
                 parse_mode="HTML",
@@ -156,7 +275,7 @@ async def _finish_expired_raffle(context, raffle):
         except TelegramError:
             logger.exception("Could not post expired raffle closure notice | raffle=%s", raffle_id)
 
-    if state and state.get("raffle_id") == raffle_id:
+    if state and int(state.get("raffle_id") or 0) == raffle_id:
         await _remove_pinned_raffle(context, state)
     elif message_id:
         try:
@@ -168,11 +287,12 @@ async def _finish_expired_raffle(context, raffle):
         except TelegramError:
             pass
 
+    await _remove_main_chat_navigation(context)
     logger.info("Expired raffle finalized | raffle=%s | winner=%s", raffle_id, winner_user_id)
 
 
 async def sync_raffle_pin(context):
-    """Ensure the current active raffle is the only raffle post we track/pin."""
+    """Keep the official raffle pinned in Games topic and a navigation pin in main chat."""
     await _remove_legacy_raffle_notification_pin(context)
 
     try:
@@ -185,6 +305,7 @@ async def sync_raffle_pin(context):
         state = _load_state()
         if state:
             await _remove_pinned_raffle(context, state)
+        await _remove_main_chat_navigation(context)
         await _refresh_games_launcher(context)
         return
 
@@ -203,7 +324,7 @@ async def sync_raffle_pin(context):
             pass
 
     raffle_id = int(active["id"])
-    chat_id = int(active.get("chat_id") or _main_group_id())
+    chat_id = _main_group_id()
     message_id = int(active.get("message_id") or 0)
     if not message_id:
         logger.warning("Active raffle %s has no message_id; cannot pin.", raffle_id)
@@ -226,14 +347,16 @@ async def sync_raffle_pin(context):
                 disable_notification=True,
             )
         except TelegramError:
-            logger.exception("Could not pin active raffle post | raffle=%s", raffle_id)
+            logger.exception("Could not pin active raffle post in Games topic | raffle=%s", raffle_id)
             return
         _save_state({
             "raffle_id": raffle_id,
             "chat_id": chat_id,
             "message_id": message_id,
+            "thread_id": GAMES_TOPIC_ID,
         })
 
+    await _publish_main_chat_navigation(context, active)
     await _refresh_games_launcher(context)
 
 
