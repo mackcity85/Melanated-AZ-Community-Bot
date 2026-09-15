@@ -24,14 +24,12 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-
 from telegram.ext import ContextTypes
 
 from admin import is_admin
 
 
 logger = logging.getLogger(__name__)
-
 
 # ==========================================================
 # SETTINGS
@@ -45,7 +43,6 @@ VALID_LEVELS = (
     "extreme",
 )
 
-
 # ==========================================================
 # TRUTHS
 # ==========================================================
@@ -53,7 +50,6 @@ VALID_LEVELS = (
 TRUTHS = {
 
     "mild": [
-
         "What is something people assume about you that is completely wrong?",
         "What is your biggest green flag when meeting someone new?",
         "What is your favorite way to flirt?",
@@ -77,7 +73,6 @@ TRUTHS = {
     ],
 
     "spicy": [
-
         "What is something that instantly turns up the chemistry for you?",
         "What is your biggest turn-on when meeting someone new?",
         "What is something adventurous on your kink bucket list?",
@@ -106,7 +101,6 @@ TRUTHS = {
     ],
 
     "extreme": [
-
         "What is the boldest experience you would consider trying?",
         "What is one kink you are curious about but have not explored?",
         "What is one fantasy you have discussed with your partner but have not explored yet?",
@@ -135,7 +129,6 @@ TRUTHS = {
     ],
 }
 
-
 # ==========================================================
 # DARES
 # ==========================================================
@@ -143,7 +136,6 @@ TRUTHS = {
 DARES = {
 
     "mild": [
-
         "Give someone in the chat a genuine compliment.",
         "Tell the group your favorite way to flirt.",
         "Give someone your best pickup line.",
@@ -167,7 +159,6 @@ DARES = {
     ],
 
     "spicy": [
-
         "Send someone a flirty message that makes your intentions clear.",
         "Give someone your best seductive pickup line.",
         "Tell someone in the group what caught your attention about them.",
@@ -190,7 +181,6 @@ DARES = {
     ],
 
     "extreme": [
-
         "Give someone your most creative seductive pickup line.",
         "Tell someone exactly what made you notice them.",
         "Tell the group about one adventure that is on your bucket list.",
@@ -216,7 +206,6 @@ DARES = {
         "Tell the group something adventurous you would like to experience someday.",
     ],
 }
-
 
 # ==========================================================
 # ENABLED
@@ -359,7 +348,9 @@ async def truth(
         requested_level = context.args[0].lower()
 
         if requested_level in TRUTHS:
+
             level = requested_level
+
             context.user_data[
                 "truth_dare_level"
             ] = level
@@ -405,7 +396,9 @@ async def dare(
         requested_level = context.args[0].lower()
 
         if requested_level in DARES:
+
             level = requested_level
+
             context.user_data[
                 "truth_dare_level"
             ] = level
@@ -433,7 +426,8 @@ async def truth_dare_admin_menu(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    # FIXED: centralized async admin authorization
+    if not user or not await is_admin(user.id, context):
         return
 
     query = update.callback_query
@@ -511,7 +505,8 @@ async def toggle_truth_dare(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    # FIXED: centralized async admin authorization
+    if not user or not await is_admin(user.id, context):
         return
 
     query = update.callback_query
@@ -525,6 +520,7 @@ async def toggle_truth_dare(
     )
 
     if query:
+
         await query.answer(
             f"Truth or Dare {status}"
         )
@@ -546,7 +542,8 @@ async def truth_dare_help(
 
     user = update.effective_user
 
-    if not user or not is_admin(user.id):
+    # FIXED: centralized async admin authorization
+    if not user or not await is_admin(user.id, context):
         return
 
     query = update.callback_query
