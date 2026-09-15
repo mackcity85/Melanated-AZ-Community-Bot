@@ -6,9 +6,10 @@
 # Daily community messages and active raffle topic posts are preserved.
 # User/member messages are never targeted by this module.
 # Bot ID: 8810138488
+#
+# IMPORTANT: This module does NOT mirror notifications to the admin group.
 # ==========================================================
 
-import html
 import json
 import logging
 import os
@@ -49,7 +50,9 @@ def _admin_group_id():
 
 
 def _cleanup_group_ids():
-    return {_main_group_id(), _admin_group_id()}
+    # Cleanup is intentionally limited to the main community group.
+    # The admin group is never used as a notification mirror.
+    return {_main_group_id()}
 
 
 def _is_daily_community_message(text: str) -> bool:
@@ -216,7 +219,6 @@ def install_chat_cleanup(application):
         chat_id = kwargs.get("chat_id")
         if chat_id is None and args:
             chat_id = args[0]
-        thread_id = kwargs.get("message_thread_id")
         text = kwargs.get("text")
         if text is None and len(args) > 1:
             text = args[1]
@@ -227,40 +229,12 @@ def install_chat_cleanup(application):
         if result and chat_id in _cleanup_group_ids():
             schedule_cleanup(application, result)
 
-        main_id = _main_group_id()
-        admin_id = _admin_group_id()
-        if (
-            result
-            and chat_id == main_id
-            and admin_id
-            and admin_id != main_id
-            and not _is_daily_community_message(text)
-            and not _is_raffle_topic_message(result)
-        ):
-            try:
-                topic_note = f"\n📍 Topic ID: {thread_id}" if thread_id else ""
-                admin_text = (
-                    "<b>🔔 BOT NOTIFICATION</b>"
-                    f"{html.escape(topic_note)}\n\n"
-                    f"{html.escape(text[:3800])}"
-                )
-                admin_result = await original_send_message(
-                    self,
-                    chat_id=admin_id,
-                    text=admin_text,
-                    parse_mode="HTML",
-                )
-                if admin_result:
-                    schedule_cleanup(application, admin_result)
-            except TelegramError as exc:
-                logger.warning("Could not mirror bot notification to admin group: %s", exc)
-
         return result
 
     bot_class.send_message = wrapped_send_message
     bot_class._melanated_chat_cleanup_installed = True
     logger.info(
-        "Chat cleanup installed: temporary bot messages expire after %s seconds; daily community messages and raffle topic posts are preserved; persistent store=%s.",
+        "Chat cleanup installed: temporary bot messages expire after %s seconds; daily community messages and raffle topic posts are preserved; admin-group notification mirroring DISABLED; persistent store=%s.",
         CLEANUP_SECONDS,
         MESSAGE_STORE,
     )
