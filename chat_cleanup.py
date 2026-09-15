@@ -6,7 +6,6 @@ import html
 import json
 import logging
 import os
-import types
 from pathlib import Path
 
 from telegram import Message
@@ -234,7 +233,12 @@ async def cleanup_service_messages(update, context):
 
 
 def install_chat_cleanup(application):
-    """Install cleanup handler and mirror outgoing main-chat notifications."""
+    """Install cleanup handler and mirror outgoing main-chat notifications.
+
+    python-telegram-bot v20+ prevents assigning methods directly to an
+    ExtBot instance. Patch the bot class once instead of assigning
+    ``application.bot.send_message`` on the instance.
+    """
     if getattr(application, "_melanated_chat_cleanup_installed", False):
         return
 
@@ -245,7 +249,18 @@ def install_chat_cleanup(application):
     )
 
     bot = application.bot
-    original_send_message = bot.send_message
+    bot_class = type(bot)
+
+    if getattr(bot_class, "_melanated_chat_cleanup_patched", False):
+        logger.info(
+            "Chat cleanup already patched on bot class | main=%s | admin=%s | temporary messages=%ss",
+            _main_group_id(),
+            _admin_group_id(),
+            CLEANUP_SECONDS,
+        )
+        return
+
+    original_send_message = bot_class.send_message
 
     async def wrapped_send_message(self, *args, **kwargs):
         chat_id = kwargs.get("chat_id")
@@ -258,7 +273,7 @@ def install_chat_cleanup(application):
             text = args[1]
         text = str(text or "")
 
-        result = await original_send_message(*args, **kwargs)
+        result = await original_send_message(self, *args, **kwargs)
 
         main_id = _main_group_id()
         admin_id = _admin_group_id()
@@ -281,6 +296,7 @@ def install_chat_cleanup(application):
                         f"{html.escape(text[:3800])}"
                     )
                     await original_send_message(
+                        self,
                         chat_id=admin_id,
                         text=admin_text,
                         parse_mode="HTML",
@@ -290,7 +306,8 @@ def install_chat_cleanup(application):
 
         return result
 
-    bot.send_message = types.MethodType(wrapped_send_message, bot)
+    bot_class.send_message = wrapped_send_message
+    bot_class._melanated_chat_cleanup_patched = True
     logger.info(
         "Chat cleanup installed | main=%s | admin=%s | temporary messages=%ss",
         _main_group_id(),
