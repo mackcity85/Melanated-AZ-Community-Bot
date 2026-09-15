@@ -5,7 +5,7 @@
 # Persistent Birthday Announcement Scheduler
 #
 # Birthday announcements:
-#   - Run every day at 9:00 AM
+#   - Run every day at exactly 9:00 AM Arizona/MST
 #   - Only announce birthdays matching today's MM/DD
 #   - Multiple birthdays are combined into ONE message
 #   - Announcement remains for 24 hours
@@ -20,9 +20,9 @@
 
 import logging
 from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
 from telegram.ext import ContextTypes
-
 from telegram.error import TelegramError
 
 from config import RAFFLE_CHAT_ID
@@ -48,6 +48,10 @@ BIRTHDAY_DELETE_JOB_PREFIX = (
 )
 
 BIRTHDAY_ANNOUNCEMENT_SECONDS = 86400
+
+# Arizona uses Mountain Standard Time (MST / UTC-7) year-round.
+# America/Phoenix does not switch to daylight saving time.
+ARIZONA_TZ = ZoneInfo("America/Phoenix")
 
 
 # ==========================================================
@@ -191,15 +195,19 @@ async def birthday_scheduler(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    today = datetime.now()
+    # Always calculate today's birthday date in Arizona time.
+    # This prevents Render's UTC date from being used.
+    now_arizona = datetime.now(ARIZONA_TZ)
 
-    month_day = today.strftime(
+    month_day = now_arizona.strftime(
         "%m/%d"
     )
 
     logger.info(
-        "🎂 Birthday scheduler checking %s",
+        "🎂 Birthday scheduler checking %s "
+        "(Arizona time: %s)",
         month_day,
+        now_arizona.strftime("%Y-%m-%d %H:%M:%S %Z"),
     )
 
     birthdays = get_birthdays_for_date(
@@ -357,7 +365,11 @@ def start_birthday_scheduler(
         return
 
     # ------------------------------------------------------
-    # Run every day at 9:00 AM.
+    # Run every day at exactly 9:00 AM Arizona/MST.
+    # ------------------------------------------------------
+    # The timezone is attached directly to the scheduled time,
+    # so the job does not depend on Render's operating-system
+    # timezone or UTC configuration.
     # ------------------------------------------------------
 
     application.job_queue.run_daily(
@@ -365,13 +377,15 @@ def start_birthday_scheduler(
         time=time(
             hour=9,
             minute=0,
+            tzinfo=ARIZONA_TZ,
         ),
         name=BIRTHDAY_JOB_NAME,
     )
 
     logger.info(
         "🎂 Birthday scheduler started — "
-        "daily at 9:00 AM."
+        "daily at exactly 9:00 AM Arizona/MST "
+        "(America/Phoenix, UTC-7)."
     )
 
 
