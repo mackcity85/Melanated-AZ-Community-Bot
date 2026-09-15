@@ -245,6 +245,21 @@ async def send_weekly_game_center_reminder(context):
         logger.exception("Could not send weekly Games reminder.")
 
 
+async def disable_daily_raffle_status(context):
+    """Keep raffle status scheduling disabled even though legacy bot.py registers it."""
+    job_queue = getattr(context.application, "job_queue", None)
+    if not job_queue:
+        return
+
+    removed = 0
+    for job in job_queue.get_jobs_by_name("daily-raffle-status"):
+        job.schedule_removal()
+        removed += 1
+
+    if removed:
+        logger.info("Automatic raffle status disabled: removed %s daily-raffle-status job(s).", removed)
+
+
 def start_weekly_game_center_reminder(application):
     """Register Games launcher, weekly reminder, daily messages and cleanup."""
     if not getattr(application, "job_queue", None):
@@ -269,6 +284,14 @@ def start_weekly_game_center_reminder(application):
         name="games-topic-launcher",
     )
 
+    # Remove the legacy automatic raffle-status job after bot.py registers it.
+    # This does NOT create, repost, pin, or modify any raffle.
+    application.job_queue.run_once(
+        disable_daily_raffle_status,
+        when=20,
+        name="disable-daily-raffle-status",
+    )
+
     # DO NOT schedule an Introduction launcher here.
     # The Introduction topic should contain ONE permanent post only.
 
@@ -284,6 +307,6 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED",
+        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED | automatic raffle status DISABLED",
         GAMES_TOPIC_ID,
     )
