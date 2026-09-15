@@ -33,10 +33,25 @@ if _admin_ids:
 
 
 # ==========================================================
-# RAFFLE GROUP
+# COMMUNITY / RAFFLE GROUP
+# ==========================================================
+# MAIN_GROUP_ID is the authoritative community supergroup.
+# RAFFLE_CHAT_ID remains supported as an optional override so
+# older deployments/configurations continue to work.
 # ==========================================================
 
-RAFFLE_CHAT_ID = None
+MAIN_GROUP_ID = None
+
+_main_group_id = os.environ.get("MAIN_GROUP_ID", "").strip()
+
+if _main_group_id:
+    try:
+        MAIN_GROUP_ID = int(_main_group_id)
+    except ValueError:
+        MAIN_GROUP_ID = None
+
+
+RAFFLE_CHAT_ID = MAIN_GROUP_ID
 
 _raffle_chat_id = os.environ.get(
     "RAFFLE_CHAT_ID",
@@ -47,7 +62,9 @@ if _raffle_chat_id:
     try:
         RAFFLE_CHAT_ID = int(_raffle_chat_id)
     except ValueError:
-        RAFFLE_CHAT_ID = None
+        # If an invalid optional override is supplied, keep the
+        # working MAIN_GROUP_ID fallback instead of setting None.
+        RAFFLE_CHAT_ID = MAIN_GROUP_ID
 
 
 # ==========================================================
@@ -88,6 +105,10 @@ ZELLE_PHONE = os.environ.get(
 
 print(
     f"Loaded Admin IDs: {ADMIN_IDS}"
+)
+
+print(
+    f"Main Group ID: {MAIN_GROUP_ID}"
 )
 
 print(
