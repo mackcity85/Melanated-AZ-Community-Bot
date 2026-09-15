@@ -241,15 +241,16 @@ def install_chat_cleanup(application):
         main_id = _main_group_id()
         admin_id = _admin_group_id()
         if main_id is not None and chat_id == main_id and result:
+            is_daily = _is_daily_community_message(text)
             is_permanent = _is_permanent_launcher(main_id, thread_id, result.message_id, text)
 
             if not is_permanent:
                 schedule_cleanup(application, result)
 
-            # Mirror temporary bot notifications to the admin group.
-            # Daily community messages are intentionally kept in the main chat,
-            # but they still count as notifications and are mirrored to admins.
-            if admin_id and not _is_permanent_launcher(main_id, thread_id, result.message_id, text):
+            # Mirror all temporary bot notifications to the admin group.
+            # Daily community greetings are permanent in the main chat but
+            # are still mirrored to admins so admins receive every notification.
+            if admin_id and (not is_permanent or is_daily):
                 try:
                     topic_note = f"\n📍 Topic ID: {thread_id}" if thread_id else ""
                     admin_text = (
