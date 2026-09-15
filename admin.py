@@ -4,6 +4,15 @@
 #
 # COMPLETE ADMIN PANEL
 #
+# ADMIN AUTHORIZATION:
+#   - ADMIN_GROUP_ID membership grants admin-panel access
+#   - Accepted statuses:
+#       member
+#       administrator
+#       creator
+#   - ADMIN_IDS remains an emergency/configured fallback
+#   - MAIN_GROUP_ID is NOT required for admin-panel access
+#
 # Includes:
 #   - Raffle management
 #   - Repost active raffle
@@ -14,12 +23,11 @@
 #   - Truth or Dare
 #   - Games
 #   - Dirty Minds multiplayer
+#   - Holiday Exchange
 # ==========================================================
 
 import logging
 import os
-
-from telegram.error import TelegramError
 
 from telegram import (
     Update,
@@ -27,6 +35,7 @@ from telegram import (
     InlineKeyboardMarkup,
 )
 
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from config import ADMIN_IDS
@@ -53,93 +62,237 @@ from raffle_database import (
     get_member,
 )
 
+
 logger = logging.getLogger(__name__)
 
 
 # ==========================================================
-# ADMIN CHECK
+# ADMIN AUTHORIZATION
 # ==========================================================
 
 async def is_admin(user_id, context=None):
-    """Return True only when the user is a Telegram administrator in both groups.
-
-    Admin access is controlled by Telegram group roles, not ordinary membership.
-    The user must be an administrator/creator in:
-      1. MAIN_GROUP_ID
-      2. ADMIN_GROUP_ID
-
-    This is checked live on each protected admin-panel action.
     """
+    Check whether a Telegram user is authorized to use the
+    Melanated AZ admin panel.
+
+    PRIMARY AUTHORIZATION:
+        Current membership in ADMIN_GROUP_ID.
+
+    Accepted ADMIN_GROUP_ID statuses:
+        - member
+        - administrator
+        - creator
+
+    FALLBACK:
+        ADMIN_IDS remains an emergency/configured fallback.
+
+    IMPORTANT:
+        MAIN_GROUP_ID is intentionally NOT checked here.
+
+    This performs a LIVE Telegram membership check.
+    """
+
     try:
         user_id = int(user_id)
     except (TypeError, ValueError):
         return False
 
-    if context is None:
-        return False
+    # ------------------------------------------------------
+    # ADMIN_IDS FALLBACK
+    # ------------------------------------------------------
 
-    def env_int(name):
-        try:
-            return int(os.environ.get(name, "0") or "0")
-        except (TypeError, ValueError):
-            logger.warning("%s is not a valid integer; admin authorization cannot use it.", name)
-            return 0
+    try:
+        configured_admin_ids = {
+            int(admin_id)
+            for admin_id in (ADMIN_IDS or [])
+        }
 
-    main_group_id = env_int("MAIN_GROUP_ID")
-    admin_group_id = env_int("ADMIN_GROUP_ID")
-
-    if not main_group_id or not admin_group_id:
-        logger.error(
-            "Admin authorization requires both MAIN_GROUP_ID and ADMIN_GROUP_ID."
-        )
-        return False
-
-    async def is_group_admin(chat_id):
-        try:
-            member = await context.bot.get_chat_member(
-                chat_id=chat_id,
-                user_id=user_id,
-            )
-            status = getattr(member, "status", None)
-            return status in {"administrator", "creator"}
-        except TelegramError:
+        if user_id in configured_admin_ids:
             logger.info(
-                "Admin group-role check failed | user_id=%s | chat_id=%s",
+                "Admin authorization granted via ADMIN_IDS | "
+                "user_id=%s",
                 user_id,
-                chat_id,
             )
-            return False
-        except Exception:
-            logger.exception(
-                "Unexpected admin group-role check error | user_id=%s | chat_id=%s",
-                user_id,
-                chat_id,
-            )
-            return False
+            return True
 
-    main_admin = await is_group_admin(main_group_id)
-    if not main_admin:
-        logger.info(
-            "Admin authorization denied | user_id=%s | reason=not_main_group_admin",
+    except Exception:
+        logger.exception(
+            "Unable to process ADMIN_IDS."
+        )
+
+    # ------------------------------------------------------
+    # BOT CONTEXT REQUIRED FOR LIVE GROUP CHECK
+    # ------------------------------------------------------
+
+    if context is None:
+        logger.warning(
+            "Admin authorization failed: no bot context | "
+            "user_id=%s",
             user_id,
         )
         return False
 
-    admin_admin = await is_group_admin(admin_group_id)
-    if not admin_admin:
-        logger.info(
-            "Admin authorization denied | user_id=%s | reason=not_admin_group_admin",
-            user_id,
+    # ------------------------------------------------------
+    # ADMIN GROUP ID
+    # ------------------------------------------------------
+
+    try:
+        admin_group_id = int(
+            os.environ.get(
+                "ADMIN_GROUP_ID",
+                "0",
+            ) or "0"
         )
+    except (TypeError, ValueError):
+
+        logger.error(
+            "ADMIN_GROUP_ID is not a valid integer."
+        )
+
         return False
 
-    logger.info(
-        "Admin authorization granted | user_id=%s | main_group=%s | admin_group=%s",
-        user_id,
-        main_group_id,
-        admin_group_id,
+    if not admin_group_id:
+
+        logger.error(
+            "ADMIN_GROUP_ID is not configured."
+        )
+
+        return False
+
+    # ------------------------------------------------------
+    # LIVE ADMIN GROUP MEMBERSHIP CHECK
+    # ------------------------------------------------------
+
+    try:
+
+        member = await context.bot.get_chat_member(
+            chat_id=admin_group_id,
+            user_id=user_id,
+        )
+
+        status = getattr(
+            member,
+            "status",
+            None,
+        )
+
+        if status in {
+            "member",
+            "administrator",
+            "creator",
+        }:
+
+            logger.info(
+                "Admin authorization granted via "
+                "ADMIN_GROUP_ID | user_id=%s | "
+                "status=%s | admin_group=%s",
+                user_id,
+                status,
+                admin_group_id,
+            )
+
+            return True
+
+        logger.info(
+            "Admin authorization denied | "
+            "user_id=%s | status=%s | "
+            "admin_group=%s",
+            user_id,
+            status,
+            admin_group_id,
+        )
+
+        return False
+
+    except TelegramError as exc:
+
+        logger.warning(
+            "Could not verify ADMIN_GROUP_ID membership | "
+            "user_id=%s | admin_group=%s | error=%s",
+            user_id,
+            admin_group_id,
+            exc,
+        )
+
+        return False
+
+    except Exception:
+
+        logger.exception(
+            "Unexpected ADMIN_GROUP_ID membership check "
+            "error | user_id=%s | admin_group=%s",
+            user_id,
+            admin_group_id,
+        )
+
+        return False
+
+
+# ==========================================================
+# CONSISTENT ADMIN AUTHORIZATION GATE
+# ==========================================================
+
+async def require_admin(
+    update,
+    context,
+    *,
+    alert=True,
+):
+    """
+    Central authorization helper.
+
+    Every privileged admin handler should call this before
+    performing its protected operation.
+    """
+
+    user = update.effective_user
+
+    if not user:
+
+        return False
+
+    authorized = await is_admin(
+        user.id,
+        context,
     )
-    return True
+
+    if authorized:
+        return True
+
+    query = update.callback_query
+
+    if query:
+
+        try:
+
+            await query.answer(
+                "⛔ You are not authorized.",
+                show_alert=alert,
+            )
+
+        except Exception:
+            pass
+
+    elif update.effective_message:
+
+        try:
+
+            await update.effective_message.reply_text(
+                "⛔ You are not authorized to use "
+                "the admin panel."
+            )
+
+        except Exception:
+            pass
+
+    logger.warning(
+        "Unauthorized admin action blocked | "
+        "user_id=%s | callback=%s",
+        user.id,
+        query.data if query else None,
+    )
+
+    return False
 
 
 # ==========================================================
@@ -268,7 +421,10 @@ def admin_menu_text():
         "Access the Melanated AZ Games Center.\n\n"
 
         "🎭 **DIRTY MINDS**\n"
-        "Create and manage multiplayer Dirty Minds rooms."
+        "Create and manage multiplayer Dirty Minds rooms.\n\n"
+
+        "🎁 **HOLIDAY EXCHANGE**\n"
+        "Manage the Holiday Exchange."
     )
 
 
@@ -281,17 +437,11 @@ async def admin_menu(
     context: ContextTypes.DEFAULT_TYPE,
 ):
 
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        if update.effective_message:
-
-            await update.effective_message.reply_text(
-                "⛔ You are not authorized to use "
-                "the admin panel."
-            )
-
+    if not await require_admin(
+        update,
+        context,
+        alert=True,
+    ):
         return
 
     query = update.callback_query
@@ -303,21 +453,37 @@ async def admin_menu(
         except Exception:
             pass
 
-        await query.edit_message_text(
-            text=admin_menu_text(),
-            reply_markup=admin_main_keyboard(),
-            parse_mode="Markdown",
-        )
+        try:
+
+            await query.edit_message_text(
+                text=admin_menu_text(),
+                reply_markup=admin_main_keyboard(),
+                parse_mode="Markdown",
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Unable to display admin menu."
+            )
 
         return
 
     if update.effective_message:
 
-        await update.effective_message.reply_text(
-            text=admin_menu_text(),
-            reply_markup=admin_main_keyboard(),
-            parse_mode="Markdown",
-        )
+        try:
+
+            await update.effective_message.reply_text(
+                text=admin_menu_text(),
+                reply_markup=admin_main_keyboard(),
+                parse_mode="Markdown",
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Unable to send admin menu."
+            )
 
 
 # ==========================================================
@@ -330,6 +496,19 @@ async def run_raffle_handler(
     context,
     action_name,
 ):
+    """
+    Protected wrapper for raffle actions.
+
+    Authorization is checked AGAIN here so raffle handlers
+    cannot accidentally become exposed if called elsewhere.
+    """
+
+    if not await require_admin(
+        update,
+        context,
+        alert=True,
+    ):
+        return
 
     try:
 
@@ -368,13 +547,22 @@ async def run_raffle_handler(
 
 async def admin_start_raffle(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if query:
 
-        await query.answer(
-            "Starting raffle setup..."
-        )
+        try:
+            await query.answer(
+                "Starting raffle setup..."
+            )
+        except Exception:
+            pass
 
     await run_raffle_handler(
         start_raffle,
@@ -386,10 +574,20 @@ async def admin_start_raffle(update, context):
 
 async def admin_status(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if query:
-        await query.answer()
+
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
     await run_raffle_handler(
         raffle_status,
@@ -401,10 +599,20 @@ async def admin_status(update, context):
 
 async def admin_entries(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if query:
-        await query.answer()
+
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
     await run_raffle_handler(
         raffle_entries,
@@ -416,10 +624,20 @@ async def admin_entries(update, context):
 
 async def admin_pending(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if query:
-        await query.answer()
+
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
     await run_raffle_handler(
         pending_entries,
@@ -431,10 +649,20 @@ async def admin_pending(update, context):
 
 async def admin_completed(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if query:
-        await query.answer()
+
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
     await run_raffle_handler(
         paid_entry,
@@ -446,10 +674,20 @@ async def admin_completed(update, context):
 
 async def admin_draw(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if query:
-        await query.answer()
+
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
     await run_raffle_handler(
         draw_raffle,
@@ -465,28 +703,20 @@ async def admin_draw(update, context):
 
 async def admin_repost_raffle(update, context):
 
-    query = update.callback_query
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        if query:
-
-            await query.answer(
-                "⛔ You are not authorized.",
-                show_alert=True,
-            )
-
+    if not await require_admin(
+        update,
+        context,
+    ):
         return
+
+    query = update.callback_query
 
     if query:
 
         try:
-
             await query.answer(
                 "🔄 Reposting active raffle..."
             )
-
         except Exception:
             pass
 
@@ -524,23 +754,21 @@ async def admin_repost_raffle(update, context):
 
 async def admin_manual_entry(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
-        return
-
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     context.user_data.pop(
         "admin_manual_raffle_members",
@@ -693,9 +921,15 @@ async def show_manual_raffle_member_selector(
     page=0,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
-    if not query:
+    if not query or not query.message:
         return
 
     chat_id = query.message.chat_id
@@ -707,14 +941,19 @@ async def show_manual_raffle_member_selector(
 
     if not members:
 
-        from config import RAFFLE_CHAT_ID
+        try:
+            from config import RAFFLE_CHAT_ID
 
-        members = get_members(
-            chat_id=int(RAFFLE_CHAT_ID),
-            limit=1000,
-        )
+            members = get_members(
+                chat_id=int(RAFFLE_CHAT_ID),
+                limit=1000,
+            )
 
-        chat_id = int(RAFFLE_CHAT_ID)
+            chat_id = int(RAFFLE_CHAT_ID)
+
+        except Exception:
+
+            members = []
 
     context.user_data[
         "admin_manual_raffle_members"
@@ -786,20 +1025,15 @@ async def admin_manual_select(
     member_user_id,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
-        return
-
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
         return
 
     try:
@@ -864,9 +1098,12 @@ async def admin_manual_select(
         "admin_manual_raffle_selected_name"
     ] = name
 
-    await query.answer(
-        "Member selected."
-    )
+    try:
+        await query.answer(
+            "Member selected."
+        )
+    except Exception:
+        pass
 
     keyboard = InlineKeyboardMarkup(
         [
@@ -907,20 +1144,15 @@ async def admin_manual_confirm(
     member_user_id,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
-        return
-
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
         return
 
     try:
@@ -954,9 +1186,14 @@ async def admin_manual_confirm(
         except (TypeError, ValueError):
             pass
 
-    await query.answer(
-        "Adding raffle entry..."
-    )
+    try:
+
+        await query.answer(
+            "Adding raffle entry..."
+        )
+
+    except Exception:
+        pass
 
     try:
 
@@ -1018,14 +1255,23 @@ async def admin_manual_confirm(
 
 async def admin_manual_cancel(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    await query.answer(
-        "Manual entry cancelled."
-    )
+    try:
+        await query.answer(
+            "Manual entry cancelled."
+        )
+    except Exception:
+        pass
 
     for key in [
         "admin_manual_raffle_members",
@@ -1053,12 +1299,21 @@ async def admin_manual_cancel(update, context):
 
 async def admin_cancel(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     keyboard = InlineKeyboardMarkup(
         [
@@ -1088,13 +1343,22 @@ async def admin_cancel(update, context):
 
 async def admin_confirm_cancel(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if query:
 
-        await query.answer(
-            "Cancelling raffle..."
-        )
+        try:
+            await query.answer(
+                "Cancelling raffle..."
+            )
+        except Exception:
+            pass
 
     await run_raffle_handler(
         cancel_raffle,
@@ -1252,7 +1516,7 @@ def birthday_member_keyboard(
 
 
 # ==========================================================
-# SHOW MEMBER SELECTOR
+# SHOW BIRTHDAY MEMBER SELECTOR
 # ==========================================================
 
 async def show_birthday_member_selector(
@@ -1261,9 +1525,15 @@ async def show_birthday_member_selector(
     page=0,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
-    if not query:
+    if not query or not query.message:
         return
 
     chat_id = query.message.chat_id
@@ -1335,23 +1605,21 @@ async def show_birthday_member_selector(
 
 async def admin_birthday_add(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
-        return
-
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     context.user_data[
         "admin_birthday_chat_id"
@@ -1383,20 +1651,15 @@ async def admin_birthday_select(
     member_user_id,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
-        return
-
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
         return
 
     try:
@@ -1468,9 +1731,12 @@ async def admin_birthday_select(
         "awaiting_admin_birthday"
     ] = True
 
-    await query.answer(
-        "Member selected."
-    )
+    try:
+        await query.answer(
+            "Member selected."
+        )
+    except Exception:
+        pass
 
     await query.edit_message_text(
         "🎂 **Birthday for Selected Member**\n\n"
@@ -1504,15 +1770,15 @@ async def admin_birthday_text_handler(
     ):
         return False
 
-    if not await is_admin(user.id, context):
+    if not await require_admin(
+        update,
+        context,
+        alert=False,
+    ):
 
         context.user_data.pop(
             "awaiting_admin_birthday",
             None,
-        )
-
-        await message.reply_text(
-            "⛔ You are not authorized."
         )
 
         return True
@@ -1529,7 +1795,10 @@ async def admin_birthday_text_handler(
         "admin_birthday_selected_name"
     )
 
-    if birthday_chat_id is None or selected_user_id is None:
+    if (
+        birthday_chat_id is None
+        or selected_user_id is None
+    ):
 
         context.user_data.pop(
             "awaiting_admin_birthday",
@@ -1651,12 +1920,21 @@ async def admin_birthday_text_handler(
 
 async def admin_birthdays(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     birthdays = get_all_birthdays()
 
@@ -1788,12 +2066,21 @@ def birthday_list_keyboard():
 
 async def admin_birthday_remove(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     birthdays = get_all_birthdays()
 
@@ -1835,7 +2122,16 @@ async def admin_remove_birthday(
     birthday_id,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
+
+    if not query:
+        return
 
     try:
         birthday_id = int(birthday_id)
@@ -1854,9 +2150,12 @@ async def admin_remove_birthday(
 
     if removed:
 
-        await query.answer(
-            "Birthday removed."
-        )
+        try:
+            await query.answer(
+                "Birthday removed."
+            )
+        except Exception:
+            pass
 
         await admin_birthday_remove(
             update,
@@ -1877,20 +2176,15 @@ async def admin_remove_birthday(
 
 async def admin_games(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
-        return
-
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
         return
 
     try:
@@ -1969,20 +2263,15 @@ async def admin_dirty_minds(
     context,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
-        return
-
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
         return
 
     try:
@@ -2041,24 +2330,24 @@ async def admin_create_dirty_minds(
     context,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
     user = update.effective_user
 
     if not query or not user:
         return
 
-    if not await is_admin(user.id, context):
-
+    try:
         await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
+            "Creating Dirty Minds game..."
         )
-
-        return
-
-    await query.answer(
-        "Creating Dirty Minds game..."
-    )
+    except Exception:
+        pass
 
     try:
 
@@ -2068,6 +2357,7 @@ async def admin_create_dirty_minds(
 
         try:
             from real_games.game_manager import GAME_MANAGER
+
         except ImportError:
 
             logger.exception(
@@ -2100,9 +2390,11 @@ async def admin_create_dirty_minds(
     except ImportError:
 
         try:
+
             from real_games.dirty_minds import (
                 create_dirty_minds_state
             )
+
         except ImportError:
 
             logger.exception(
@@ -2139,7 +2431,6 @@ async def admin_create_dirty_minds(
             state=create_dirty_minds_state(),
         )
 
-        # The admin who creates the game becomes the host.
         display_name = (
             user.full_name
             or user.first_name
@@ -2151,12 +2442,13 @@ async def admin_create_dirty_minds(
             display_name,
         )
 
-        # Store host metadata.
         room.host_id = str(user.id)
 
-        # Make sure the player record has host status.
         if str(user.id) in room.players:
-            room.players[str(user.id)]["host"] = True
+
+            room.players[
+                str(user.id)
+            ]["host"] = True
 
     except Exception:
 
@@ -2231,7 +2523,9 @@ async def admin_create_dirty_minds(
 
         from config import RAFFLE_CHAT_ID
 
-        community_chat_id = int(RAFFLE_CHAT_ID)
+        community_chat_id = int(
+            RAFFLE_CHAT_ID
+        )
 
     except Exception:
 
@@ -2348,22 +2642,22 @@ async def admin_dirty_rooms(
     context,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
     user = update.effective_user
 
     if not query or not user:
         return
 
-    if not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
-        return
-
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     try:
 
@@ -2373,6 +2667,7 @@ async def admin_dirty_rooms(
 
         try:
             from real_games.game_manager import GAME_MANAGER
+
         except ImportError:
 
             await query.edit_message_text(
@@ -2482,22 +2777,22 @@ async def admin_dirty_view_room(
     room_id,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
     user = update.effective_user
 
     if not query or not user:
         return
 
-    if not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
-        return
-
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     try:
 
@@ -2507,13 +2802,18 @@ async def admin_dirty_view_room(
 
         try:
             from real_games.game_manager import GAME_MANAGER
+
         except ImportError:
+
             await query.edit_message_text(
                 "❌ Game manager unavailable."
             )
+
             return
 
-    room = GAME_MANAGER.get(room_id)
+    room = GAME_MANAGER.get(
+        room_id
+    )
 
     if not room:
 
@@ -2547,7 +2847,11 @@ async def admin_dirty_view_room(
 
     for player in players.values():
 
-        host_marker = " 👑" if player.get("host") else ""
+        host_marker = (
+            " 👑"
+            if player.get("host")
+            else ""
+        )
 
         player_lines.append(
             f"• {player.get('name', 'Player')}{host_marker}"
@@ -2603,24 +2907,24 @@ async def admin_dirty_close_room(
     room_id,
 ):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
     user = update.effective_user
 
     if not query or not user:
         return
 
-    if not await is_admin(user.id, context):
-
+    try:
         await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
+            "Closing room..."
         )
-
-        return
-
-    await query.answer(
-        "Closing room..."
-    )
+    except Exception:
+        pass
 
     try:
 
@@ -2630,13 +2934,18 @@ async def admin_dirty_close_room(
 
         try:
             from real_games.game_manager import GAME_MANAGER
+
         except ImportError:
+
             await query.edit_message_text(
                 "❌ Game manager unavailable."
             )
+
             return
 
-    room = GAME_MANAGER.get(room_id)
+    room = GAME_MANAGER.get(
+        room_id
+    )
 
     if not room:
 
@@ -2656,7 +2965,9 @@ async def admin_dirty_close_room(
 
         return
 
-    GAME_MANAGER.remove(room.room_id)
+    GAME_MANAGER.remove(
+        room.room_id
+    )
 
     await query.edit_message_text(
         "🛑 **DIRTY MINDS ROOM CLOSED**\n\n"
@@ -2695,32 +3006,157 @@ async def admin_dirty_close_room(
 
 async def admin_truthdare(update, context):
 
-    from truth_dare import truth_dare_admin_menu
-
-    await truth_dare_admin_menu(
+    if not await require_admin(
         update,
         context,
-    )
+    ):
+        return
+
+    try:
+
+        from truth_dare import truth_dare_admin_menu
+
+        await truth_dare_admin_menu(
+            update,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Truth or Dare admin menu failed."
+        )
+
+        query = update.callback_query
+
+        if query:
+
+            try:
+
+                await query.edit_message_text(
+                    "❌ **Truth or Dare Error**\n\n"
+                    "The Truth or Dare admin menu could "
+                    "not be loaded.\n\n"
+                    "Please check the Render logs.",
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "⬅️ Back",
+                                    callback_data="admin_back",
+                                )
+                            ]
+                        ]
+                    ),
+                    parse_mode="Markdown",
+                )
+
+            except Exception:
+                pass
 
 
 async def admin_truthdare_toggle(update, context):
 
-    from truth_dare import toggle_truth_dare
-
-    await toggle_truth_dare(
+    if not await require_admin(
         update,
         context,
-    )
+    ):
+        return
+
+    try:
+
+        from truth_dare import toggle_truth_dare
+
+        await toggle_truth_dare(
+            update,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Truth or Dare toggle failed."
+        )
 
 
 async def admin_truthdare_help(update, context):
 
-    from truth_dare import truth_dare_help
-
-    await truth_dare_help(
+    if not await require_admin(
         update,
         context,
-    )
+    ):
+        return
+
+    try:
+
+        from truth_dare import truth_dare_help
+
+        await truth_dare_help(
+            update,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Truth or Dare help failed."
+        )
+
+
+# ==========================================================
+# HOLIDAY EXCHANGE
+# ==========================================================
+
+async def admin_holiday_exchange(
+    update,
+    context,
+):
+
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
+    try:
+
+        await holiday_exchange_admin_callback(
+            update,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Holiday Exchange admin callback failed."
+        )
+
+        query = update.callback_query
+
+        if query:
+
+            try:
+
+                await query.edit_message_text(
+                    "❌ **Holiday Exchange Error**\n\n"
+                    "The Holiday Exchange admin panel "
+                    "could not be loaded.\n\n"
+                    "Please check the Render logs.",
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    "⬅️ Back",
+                                    callback_data="admin_back",
+                                )
+                            ]
+                        ]
+                    ),
+                    parse_mode="Markdown",
+                )
+
+            except Exception:
+                pass
 
 
 # ==========================================================
@@ -2729,14 +3165,23 @@ async def admin_truthdare_help(update, context):
 
 async def admin_refresh(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    await query.answer(
-        "Admin panel refreshed."
-    )
+    try:
+        await query.answer(
+            "Admin panel refreshed."
+        )
+    except Exception:
+        pass
 
     await query.edit_message_text(
         text=admin_menu_text(),
@@ -2751,12 +3196,21 @@ async def admin_refresh(update, context):
 
 async def admin_back(update, context):
 
+    if not await require_admin(
+        update,
+        context,
+    ):
+        return
+
     query = update.callback_query
 
     if not query:
         return
 
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     for key in [
         "awaiting_admin_birthday",
@@ -2798,17 +3252,18 @@ async def admin_button(
     if not query:
         return
 
-    user = update.effective_user
+    # ------------------------------------------------------
+    # FIRST SECURITY GATE
+    # ------------------------------------------------------
 
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
+    if not await require_admin(
+        update,
+        context,
+        alert=True,
+    ):
         return
 
+    user = update.effective_user
     data = query.data or ""
 
     logger.info(
@@ -2843,9 +3298,12 @@ async def admin_button(
     # HOLIDAY EXCHANGE
     # ------------------------------------------------------
 
-    if data == "admin_holiday_exchange" or data.startswith("admin_hx_"):
+    if (
+        data == "admin_holiday_exchange"
+        or data.startswith("admin_hx_")
+    ):
 
-        await holiday_exchange_admin_callback(
+        await admin_holiday_exchange(
             update,
             context,
         )
@@ -2891,8 +3349,6 @@ async def admin_button(
 
             return
 
-        await query.answer()
-
         members = context.user_data.get(
             "admin_manual_raffle_members"
         )
@@ -2918,6 +3374,11 @@ async def admin_button(
             1,
             (total + page_size - 1) // page_size,
         )
+
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
         await query.edit_message_text(
             "🎟️ **Manual Raffle Entry**\n\n"
@@ -3203,8 +3664,6 @@ async def admin_button(
 
             return
 
-        await query.answer()
-
         members = context.user_data.get(
             "admin_birthday_members"
         )
@@ -3230,6 +3689,11 @@ async def admin_button(
             1,
             (total + page_size - 1) // page_size,
         )
+
+        try:
+            await query.answer()
+        except Exception:
+            pass
 
         await query.edit_message_text(
             "🎂 **Add Member Birthday**\n\n"
