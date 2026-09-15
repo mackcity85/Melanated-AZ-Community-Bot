@@ -4,9 +4,11 @@
 #
 # Keeps the permanent Games-topic launcher, makes sure the
 # Introduction launcher is posted on startup, sends the weekly
-# Games reminder, starts daily community messages, installs
-# centralized chat cleanup/admin notifications, and manages
-# the dedicated active-raffle pin.
+# Games reminder, starts daily community messages, and installs
+# centralized chat cleanup/admin notifications.
+#
+# Raffle auto-sync/pin management is intentionally NOT started
+# here. Raffles are managed by raffle.py when they are created.
 # ==========================================================
 
 import json
@@ -24,7 +26,6 @@ from telegram.error import TelegramError
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
 from daily_messages import start_daily_community_messages
 from chat_cleanup import install_chat_cleanup
-from raffle_pin_manager import start_raffle_pin_manager
 from raffle_database import get_active_raffle
 
 logger = logging.getLogger("melanatedaz.games_reminder")
@@ -294,14 +295,13 @@ async def send_weekly_game_center_reminder(context):
 
 
 def start_weekly_game_center_reminder(application):
-    """Register topic launchers, weekly Games reminder, daily messages, chat cleanup, and raffle pin management."""
+    """Register Games/Introduction launchers, weekly reminder, daily messages and cleanup."""
     if not getattr(application, "job_queue", None):
         logger.warning("Games reminder unavailable: JobQueue not installed.")
         return
 
     install_chat_cleanup(application)
     start_daily_community_messages(application)
-    start_raffle_pin_manager(application)
 
     for name in (
         "games-topic-launcher",
@@ -335,7 +335,7 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona | daily community messages active | raffle pin manager active",
+        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona | daily community messages active | raffle auto-sync DISABLED",
         GAMES_TOPIC_ID,
         WEEKLY_REMINDER_HOUR,
         WEEKLY_REMINDER_MINUTE,
