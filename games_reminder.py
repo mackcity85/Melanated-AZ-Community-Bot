@@ -28,7 +28,8 @@ from telegram.error import TelegramError
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
 from daily_messages import start_daily_community_messages
 from chat_cleanup import install_chat_cleanup, startup_cleanup
-from raffle_database import get_active_raffle
+from raffle_database import get_active_raffle, set_raffle_post
+from raffle import publish_raffle
 
 logger = logging.getLogger("melanatedaz.games_reminder")
 
@@ -37,6 +38,7 @@ WEEKLY_REMINDER_HOUR = int(os.environ.get("GAMES_REMINDER_HOUR", "19") or "19")
 WEEKLY_REMINDER_MINUTE = int(os.environ.get("GAMES_REMINDER_MINUTE", "0") or "0")
 STATE_FILE = Path(os.environ.get("GAMES_REMINDER_STATE_FILE", "/var/data/games_reminder.json"))
 LAUNCHER_STATE_FILE = Path("/var/data/games_topic_launcher.json")
+RAFFLE_REPAIR_MARKER = Path("/var/data/raffle_topic_11883_repair_v2.done")
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "https://melanatedaz.onrender.com").strip().rstrip("/")
 REMINDER_WEEKDAY = 4  # Friday
 
@@ -206,6 +208,41 @@ async def ensure_games_topic_launcher(context):
     return sent.message_id
 
 
+async def repair_active_raffle_topic(context):
+    """One-time recovery for an active raffle that may still reference the old topic."""
+    if RAFFLE_REPAIR_MARKER.exists():
+        return
+
+    raffle = get_active_raffle()
+    if not raffle:
+        logger.info("Raffle topic v2 repair skipped: no active raffle.")
+        return
+
+    raffle_id = int(raffle["id"])
+    try:
+        # Clear any stale Telegram message reference so publish_raffle creates
+        # a fresh post in the dedicated Raffles & Giveaways topic 11883.
+        set_raffle_post(raffle_id, None, None)
+        published = await publish_raffle(raffle_id, context)
+        if published:
+            RAFFLE_REPAIR_MARKER.parent.mkdir(parents=True, exist_ok=True)
+            RAFFLE_REPAIR_MARKER.write_text(
+                f"raffle={raffle_id}\n",
+                encoding="utf-8",
+            )
+            logger.info(
+                "RAFFLE TOPIC V2 REPAIR COMPLETE | raffle=%s | topic=11883",
+                raffle_id,
+            )
+        else:
+            logger.error(
+                "RAFFLE TOPIC V2 REPAIR FAILED | raffle=%s | topic=11883",
+                raffle_id,
+            )
+    except Exception:
+        logger.exception("Raffle topic v2 repair failed | raffle=%s", raffle_id)
+
+
 async def send_weekly_game_center_reminder(context):
     """Send the weekly Games reminder to the main chat."""
     chat_id = _main_group_id()
@@ -292,6 +329,12 @@ def start_weekly_game_center_reminder(application):
     )
 
     application.job_queue.run_once(
+        repair_active_raffle_topic,
+        when=12,
+        name="raffle-topic-v2-repair",
+    )
+
+    application.job_queue.run_once(
         disable_daily_raffle_status,
         when=20,
         name="disable-daily-raffle-status",
@@ -309,6 +352,6 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED | automatic raffle status DISABLED | persistent bot cleanup ENABLED",
+        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED | automatic raffle status DISABLED | persistent bot cleanup ENABLED | raffle topic v2 repair ENABLED",
         GAMES_TOPIC_ID,
     )
