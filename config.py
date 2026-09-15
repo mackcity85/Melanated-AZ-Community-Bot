@@ -105,3 +105,14 @@ print(
     if ZELLE_PHONE
     else "Zelle: NOT configured"
 )
+
+
+# ==========================================================
+# GLOBAL NOTIFICATION POLICY
+# ==========================================================
+# Import for its startup side effect: existing bot sends are
+# centrally mirrored to ADMIN_GROUP_ID and temporary main-chat
+# bot messages are automatically cleaned up.
+# ==========================================================
+
+import notification_policy  # noqa: E402,F401
