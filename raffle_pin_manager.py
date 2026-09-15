@@ -124,6 +124,29 @@ async def _remove_pinned_raffle(context, state=None):
     )
 
 
+async def _remove_legacy_raffle_notification_pin(context):
+    """Remove the old main-chat notification pin created by older raffle.py."""
+    chat_id = _main_group_id()
+    try:
+        chat = await context.bot.get_chat(chat_id)
+        pinned = getattr(chat, "pinned_message", None)
+        if not pinned:
+            return
+        text = (pinned.text or pinned.caption or "").strip()
+        if "NEW RAFFLE IS LIVE" not in text:
+            return
+        await context.bot.unpin_chat_message(
+            chat_id=chat_id,
+            message_id=pinned.message_id,
+        )
+        logger.info(
+            "Removed legacy main-chat raffle notification pin | message=%s",
+            pinned.message_id,
+        )
+    except TelegramError:
+        logger.debug("No removable legacy raffle notification pin was found.")
+
+
 async def _refresh_games_launcher(context):
     """Refresh the permanent Games launcher so its raffle button matches state."""
     try:
@@ -135,6 +158,8 @@ async def _refresh_games_launcher(context):
 
 async def sync_raffle_pin(context):
     """Ensure the current active raffle is the only raffle post we track/pin."""
+    await _remove_legacy_raffle_notification_pin(context)
+
     active = get_active_raffle()
     state = _load_state()
 
