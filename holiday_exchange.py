@@ -23,7 +23,9 @@ from telegram.ext import ContextTypes
 
 from config import RAFFLE_CHAT_ID
 
+
 logger = logging.getLogger("melanated_az_holiday_exchange")
+
 
 DB_PATH = (
     "/var/data/holiday_exchange.db"
@@ -37,10 +39,14 @@ DB_PATH = (
 # ==========================================================
 
 def db_connect():
-    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(DB_PATH) or ".",
+        exist_ok=True,
+    )
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+
     return conn
 
 
@@ -118,7 +124,10 @@ def parse_deadline(value):
     text = str(value).strip()
 
     try:
-        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(
+            text.replace("Z", "+00:00")
+        )
+
     except ValueError:
         for fmt in (
             "%Y-%m-%d",
@@ -126,16 +135,25 @@ def parse_deadline(value):
             "%b %d, %Y",
         ):
             try:
-                dt = datetime.strptime(text, fmt)
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = datetime.strptime(
+                    text,
+                    fmt,
+                )
+                dt = dt.replace(
+                    tzinfo=timezone.utc
+                )
                 break
+
             except ValueError:
                 continue
+
         else:
             return None
 
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(
+            tzinfo=timezone.utc
+        )
 
     return dt.astimezone(timezone.utc)
 
@@ -146,7 +164,9 @@ def format_deadline(value):
     if not dt:
         return str(value or "Not set")
 
-    return dt.strftime("%b %d, %Y at %I:%M %p UTC")
+    return dt.strftime(
+        "%b %d, %Y at %I:%M %p UTC"
+    )
 
 
 # ==========================================================
@@ -179,9 +199,11 @@ async def is_admin(user_id, context=None):
 
     except Exception:
         logger.exception(
-            "Holiday Exchange admin authorization failed | user_id=%s",
+            "Holiday Exchange admin authorization failed | "
+            "user_id=%s",
             user_id,
         )
+
         return False
 
 
@@ -267,7 +289,10 @@ def list_recent_exchanges(limit=10):
             (int(limit),),
         ).fetchall()
 
-        return [dict(row) for row in rows]
+        return [
+            dict(row)
+            for row in rows
+        ]
 
 
 def close_exchange(exchange_id):
@@ -335,7 +360,9 @@ def add_participant(
         if not event or event["status"] != "open":
             return False, "Signups are closed."
 
-        deadline = parse_deadline(event["signup_deadline"])
+        deadline = parse_deadline(
+            event["signup_deadline"]
+        )
 
         if deadline and utc_now() > deadline:
             return False, "The signup deadline has passed."
@@ -374,7 +401,10 @@ def add_participant(
         return True, "You're in!"
 
 
-def remove_participant(exchange_id, user_id):
+def remove_participant(
+    exchange_id,
+    user_id,
+):
     with db_connect() as conn:
         event = conn.execute(
             """
@@ -408,7 +438,10 @@ def remove_participant(exchange_id, user_id):
         return True, "You've been removed from the exchange."
 
 
-def get_participants(exchange_id, active_only=True):
+def get_participants(
+    exchange_id,
+    active_only=True,
+):
     with db_connect() as conn:
         sql = """
             SELECT *
@@ -428,7 +461,10 @@ def get_participants(exchange_id, active_only=True):
             (int(exchange_id),),
         ).fetchall()
 
-        return [dict(row) for row in rows]
+        return [
+            dict(row)
+            for row in rows
+        ]
 
 
 def participant_count(exchange_id):
@@ -450,7 +486,10 @@ def participant_count(exchange_id):
 # MATCHING
 # ==========================================================
 
-def get_user_match(exchange_id, user_id):
+def get_user_match(
+    exchange_id,
+    user_id,
+):
     with db_connect() as conn:
         row = conn.execute(
             """
@@ -485,7 +524,10 @@ def _build_derangement(ids):
 
         if all(
             giver != receiver
-            for giver, receiver in zip(ids, receivers)
+            for giver, receiver in zip(
+                ids,
+                receivers,
+            )
         ):
             return receivers
 
@@ -510,10 +552,18 @@ def draw_exchange(exchange_id):
             return False, "Exchange not found.", []
 
         if event["status"] == "drawn":
-            return False, "This exchange has already been drawn.", []
+            return (
+                False,
+                "This exchange has already been drawn.",
+                [],
+            )
 
         if event["status"] == "cancelled":
-            return False, "This exchange is cancelled.", []
+            return (
+                False,
+                "This exchange is cancelled.",
+                [],
+            )
 
         participants = conn.execute(
             """
@@ -550,7 +600,10 @@ def draw_exchange(exchange_id):
             (int(exchange_id),),
         )
 
-        for giver, receiver in zip(ids, receivers):
+        for giver, receiver in zip(
+            ids,
+            receivers,
+        ):
             conn.execute(
                 """
                 INSERT INTO exchange_matches
@@ -587,8 +640,10 @@ def draw_exchange(exchange_id):
 
         conn.commit()
 
-        return True, "Matches drawn successfully.", list(
-            zip(ids, receivers)
+        return (
+            True,
+            "Matches drawn successfully.",
+            list(zip(ids, receivers)),
         )
 
 
@@ -615,7 +670,10 @@ def exchange_member_keyboard(exchange_id):
     )
 
 
-def admin_exchange_keyboard(exchange_id, status):
+def admin_exchange_keyboard(
+    exchange_id,
+    status,
+):
     rows = []
 
     if status == "open":
@@ -668,7 +726,10 @@ def admin_exchange_keyboard(exchange_id, status):
 # PUBLIC DISPLAY
 # ==========================================================
 
-def exchange_public_text(event, count):
+def exchange_public_text(
+    event,
+    count,
+):
     return (
         f"🎁 <b>{event['name']}</b>\n\n"
         f"🏷️ <b>Holiday / Theme:</b> "
@@ -701,7 +762,9 @@ async def post_exchange(
     if not event:
         return None
 
-    count = participant_count(event["id"])
+    count = participant_count(
+        event["id"]
+    )
 
     text = exchange_public_text(
         event,
@@ -719,7 +782,9 @@ async def post_exchange(
         ),
         text=text,
         reply_markup=(
-            exchange_member_keyboard(event["id"])
+            exchange_member_keyboard(
+                event["id"]
+            )
             if event["status"] == "open"
             else None
         ),
@@ -751,7 +816,10 @@ async def holiday_exchange_command(
         )
 
         if sent:
-            await update.effective_message.delete()
+            try:
+                await update.effective_message.delete()
+            except TelegramError:
+                pass
 
     except TelegramError:
         logger.exception(
@@ -769,8 +837,10 @@ async def create_exchange_command(
 ):
     user = update.effective_user
 
-    # CENTRALIZED ADMIN AUTHORIZATION
-    if not user or not await is_admin(user.id, context):
+    if not user or not await is_admin(
+        user.id,
+        context,
+    ):
         await update.effective_message.reply_text(
             "⛔ Admins only."
         )
@@ -837,11 +907,16 @@ async def create_exchange_command(
         gift_deadline,
     )
 
-    event = get_exchange(exchange_id)
+    event = get_exchange(
+        exchange_id
+    )
 
     await update.effective_message.reply_text(
         "✅ <b>HOLIDAY EXCHANGE CREATED</b>\n\n"
-        + exchange_public_text(event, 0)
+        + exchange_public_text(
+            event,
+            0,
+        )
         + "\n\n"
         "Use /holidayexchange to post it to the group.",
         parse_mode=ParseMode.HTML,
@@ -889,7 +964,9 @@ async def holiday_exchange_callback(
             )
             return
 
-        event = get_exchange(exchange_id)
+        event = get_exchange(
+            exchange_id
+        )
 
         if not event:
             await query.answer(
@@ -1020,17 +1097,23 @@ async def holiday_exchange_admin_callback(
     query = update.callback_query
     user = update.effective_user
 
-    # CENTRALIZED ADMIN AUTHORIZATION
     if (
         not query
         or not user
-        or not await is_admin(user.id, context)
+        or not await is_admin(
+            user.id,
+            context,
+        )
     ):
         if query:
-            await query.answer(
-                "⛔ Admins only.",
-                show_alert=True,
-            )
+            try:
+                await query.answer(
+                    "⛔ Admins only.",
+                    show_alert=True,
+                )
+            except Exception:
+                pass
+
         return
 
     data = query.data or ""
@@ -1047,7 +1130,9 @@ async def holiday_exchange_admin_callback(
                 "🎁 <b>HOLIDAY EXCHANGE ADMIN</b>\n\n"
                 + exchange_public_text(
                     event,
-                    participant_count(event["id"]),
+                    participant_count(
+                        event["id"]
+                    ),
                 )
             )
 
@@ -1114,7 +1199,9 @@ async def holiday_exchange_admin_callback(
         )
         return
 
-    event = get_exchange(exchange_id)
+    event = get_exchange(
+        exchange_id
+    )
 
     if not event:
         await query.answer(
@@ -1189,6 +1276,11 @@ async def holiday_exchange_admin_callback(
                 if not match:
                     continue
 
+                recipient_name = (
+                    match.get("display_name")
+                    or str(match["receiver_user_id"])
+                )
+
                 try:
                     await context.bot.send_message(
                         chat_id=int(giver_id),
@@ -1203,8 +1295,7 @@ async def holiday_exchange_admin_callback(
                             f"📅 Gift by: "
                             f"<b>{format_deadline(event['gift_deadline'])}</b>\n\n"
                             f"🎯 <b>Your recipient:</b> "
-                            f"{match.get('display_name') "
-                            f"or match['receiver_user_id']}"
+                            f"{recipient_name}"
                             + (
                                 f" (@{match['username']})"
                                 if match.get("username")
