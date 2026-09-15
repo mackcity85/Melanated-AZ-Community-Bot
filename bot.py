@@ -102,6 +102,12 @@ from truth_dare import (
     truth_dare_callback,
 )
 
+from holiday_exchange import (
+    holiday_exchange_command,
+    create_exchange_command,
+    holiday_exchange_callback,
+)
+
 # ----------------------------------------------------------
 # EXISTING GAME CENTER
 # ----------------------------------------------------------
@@ -3040,6 +3046,16 @@ def build_application():
         ),
 
         (
+            "holidayexchange",
+            holiday_exchange_command,
+        ),
+
+        (
+            "createexchange",
+            create_exchange_command,
+        ),
+
+        (
             "postintro",
             post_intro_topic_command,
         ),
@@ -3076,6 +3092,21 @@ def build_application():
                 r"bonus_|"
                 r"remove_)"
             ),
+        )
+    )
+
+    # ======================================================
+    # HOLIDAY EXCHANGE CALLBACKS
+    # ======================================================
+    # Public participant actions are owned by holiday_exchange.py.
+    # Admin Holiday Exchange callbacks continue through the existing
+    # centralized admin router below.
+    # ======================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            holiday_exchange_callback,
+            pattern=r"^hx_(join|leave)_",
         )
     )
 
