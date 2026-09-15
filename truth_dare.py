@@ -522,7 +522,7 @@ async def toggle_truth_dare(
     user = update.effective_user
 
     # IMPORTANT:
-    # This used to call is_admin(user.id) without context.
+    # This used to call if not user or not await is_admin(user.id, context):     return without context.
     # That caused the admin button to fail with the new
     # centralized ADMIN_GROUP_ID authorization.
     if not user or not await is_admin(
