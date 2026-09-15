@@ -2,16 +2,17 @@
 # Melanated AZ - Game Center Reminder
 # ==========================================================
 #
-# Keeps the permanent Games-topic launcher, sends the weekly
-# Games reminder, starts daily community messages, and installs
-# centralized chat cleanup/admin notifications.
+# Daily community messages and centralized chat cleanup remain
+# enabled here. Automatic Games-topic launcher/reminder posts
+# are intentionally disabled; the owner will post Games content
+# manually when desired.
 #
 # Raffle auto-sync/pin management is intentionally NOT started
-# here. Raffles are managed by raffle.py when they are created.
+# here. Raffles are managed by raffle.py / bot.py when created.
 #
 # IMPORTANT:
-# The Introduction topic already has its permanent launcher.
-# This module MUST NOT repost or recreate it on bot startup.
+# This module MUST NOT repost or recreate the Games launcher
+# or send recurring Games reminders on bot startup.
 # ==========================================================
 
 import json
@@ -143,73 +144,13 @@ LAUNCHER_TEXT = (
 
 
 async def ensure_games_topic_launcher(context):
-    """Create/update and pin the permanent Games-topic launcher."""
-    chat_id = _main_group_id()
-    if not chat_id:
-        logger.warning("Games launcher skipped: MAIN_GROUP_ID is not configured.")
-        return None
-
-    existing_message_id = _load_launcher_id()
-
-    if existing_message_id:
-        try:
-            message = await context.bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=existing_message_id,
-                text=LAUNCHER_TEXT,
-                reply_markup=_launcher_keyboard(),
-                parse_mode=ParseMode.HTML,
-            )
-            try:
-                await context.bot.pin_chat_message(
-                    chat_id=chat_id,
-                    message_id=existing_message_id,
-                    disable_notification=True,
-                )
-            except TelegramError:
-                logger.warning("Games-topic launcher exists but could not be pinned.")
-            return message.message_id
-        except TelegramError:
-            logger.info("Saved Games-topic launcher is unavailable; creating a new launcher.")
-
-    try:
-        sent = await context.bot.send_message(
-            chat_id=chat_id,
-            message_thread_id=GAMES_TOPIC_ID,
-            text=LAUNCHER_TEXT,
-            reply_markup=_launcher_keyboard(),
-            parse_mode=ParseMode.HTML,
-        )
-    except TelegramError:
-        logger.exception(
-            "Could not create Games-topic launcher | chat=%s | topic=%s",
-            chat_id,
-            GAMES_TOPIC_ID,
-        )
-        return None
-
-    _save_launcher_id(sent.message_id)
-
-    try:
-        await context.bot.pin_chat_message(
-            chat_id=chat_id,
-            message_id=sent.message_id,
-            disable_notification=True,
-        )
-    except TelegramError:
-        logger.warning("Games-topic launcher posted but could not be pinned.")
-
-    logger.info(
-        "Combined Games-topic launcher ready | chat=%s | topic=%s | message=%s",
-        chat_id,
-        GAMES_TOPIC_ID,
-        sent.message_id,
-    )
-    return sent.message_id
+    """Legacy launcher function retained for compatibility; never scheduled automatically."""
+    logger.info("Automatic Games-topic launcher is disabled; no post created.")
+    return None
 
 
 async def repair_active_raffle_topic(context):
-    """One-time recovery for an active raffle that may still reference the old topic."""
+    """Legacy raffle repair function retained for compatibility; not scheduled here."""
     if RAFFLE_REPAIR_MARKER.exists():
         return
 
@@ -220,66 +161,22 @@ async def repair_active_raffle_topic(context):
 
     raffle_id = int(raffle["id"])
     try:
-        # Clear any stale Telegram message reference so publish_raffle creates
-        # a fresh post in the dedicated Raffles & Giveaways topic 11883.
         set_raffle_post(raffle_id, None, None)
         published = await publish_raffle(raffle_id, context)
         if published:
             RAFFLE_REPAIR_MARKER.parent.mkdir(parents=True, exist_ok=True)
-            RAFFLE_REPAIR_MARKER.write_text(
-                f"raffle={raffle_id}\n",
-                encoding="utf-8",
-            )
-            logger.info(
-                "RAFFLE TOPIC V2 REPAIR COMPLETE | raffle=%s | topic=11883",
-                raffle_id,
-            )
+            RAFFLE_REPAIR_MARKER.write_text(f"raffle={raffle_id}\n", encoding="utf-8")
+            logger.info("RAFFLE TOPIC V2 REPAIR COMPLETE | raffle=%s | topic=11883", raffle_id)
         else:
-            logger.error(
-                "RAFFLE TOPIC V2 REPAIR FAILED | raffle=%s | topic=11883",
-                raffle_id,
-            )
+            logger.error("RAFFLE TOPIC V2 REPAIR FAILED | raffle=%s | topic=11883", raffle_id)
     except Exception:
         logger.exception("Raffle topic v2 repair failed | raffle=%s", raffle_id)
 
 
 async def send_weekly_game_center_reminder(context):
-    """Send the weekly Games reminder to the main chat."""
-    chat_id = _main_group_id()
-    if not chat_id:
-        return
-
-    launcher_id = _load_launcher_id()
-    games_link = _telegram_message_link(chat_id, launcher_id) if launcher_id else _topic_link(chat_id)
-    if not games_link:
-        logger.warning("Weekly Games reminder skipped: no valid Games-topic link.")
-        return
-
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎮 ENTER THE GAME CENTER", url=games_link)],
-    ])
-
-    text = (
-        "🎮 <b>GAME NIGHT REMINDER!</b> 🎮\n\n"
-        "Pull up to the <b>Games topic</b> and pick your game!\n\n"
-        "🔥 Truth or Dare\n"
-        "🎭 Dirty Minds\n"
-        "🐍 Snake • 🏓 Pong • 🧱 Breakout\n"
-        "♟️ Chess • Checkers • Monopoly\n"
-        "🏀 Basketball • 🎯 Target Shooter\n"
-        "🃏 Blackjack • UNO • Solitaire\n\n"
-        "👇 <b>TAP BELOW TO PLAY!</b>"
-    )
-
-    try:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
-    except TelegramError:
-        logger.exception("Could not send weekly Games reminder.")
+    """Legacy weekly reminder function retained for compatibility; never scheduled automatically."""
+    logger.info("Automatic weekly Games reminder is disabled; no post created.")
+    return None
 
 
 async def disable_daily_raffle_status(context):
@@ -298,15 +195,13 @@ async def disable_daily_raffle_status(context):
 
 
 def start_weekly_game_center_reminder(application):
-    """Register Games launcher, weekly reminder, daily messages and cleanup."""
+    """Keep cleanup/daily community services; disable all automatic Games posts."""
     if not getattr(application, "job_queue", None):
         logger.warning("Games reminder unavailable: JobQueue not installed.")
         return
 
     install_chat_cleanup(application)
 
-    # Persistent sweep: remove bot messages recorded before a Render restart.
-    # Daily community messages are never stored, so they are never swept.
     application.job_queue.run_once(
         startup_cleanup,
         when=5,
@@ -315,43 +210,18 @@ def start_weekly_game_center_reminder(application):
 
     start_daily_community_messages(application)
 
-    for name in (
+    # Explicitly remove any legacy Games jobs that may have been registered
+    # by an earlier version during the same process lifetime.
+    disabled_names = (
         "games-topic-launcher",
         "weekly-game-center-reminder",
-    ):
+        "raffle-topic-v2-repair",
+        "disable-daily-raffle-status",
+    )
+    for name in disabled_names:
         for job in application.job_queue.get_jobs_by_name(name):
             job.schedule_removal()
 
-    application.job_queue.run_once(
-        ensure_games_topic_launcher,
-        when=10,
-        name="games-topic-launcher",
-    )
-
-    application.job_queue.run_once(
-        repair_active_raffle_topic,
-        when=12,
-        name="raffle-topic-v2-repair",
-    )
-
-    application.job_queue.run_once(
-        disable_daily_raffle_status,
-        when=20,
-        name="disable-daily-raffle-status",
-    )
-
-    application.job_queue.run_daily(
-        send_weekly_game_center_reminder,
-        time(
-            hour=WEEKLY_REMINDER_HOUR,
-            minute=WEEKLY_REMINDER_MINUTE,
-            tzinfo=ARIZONA_TZ,
-        ),
-        days=(REMINDER_WEEKDAY,),
-        name="weekly-game-center-reminder",
-    )
-
     logger.info(
-        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED | automatic raffle status DISABLED | persistent bot cleanup ENABLED | raffle topic v2 repair ENABLED",
-        GAMES_TOPIC_ID,
+        "Automatic Games posts DISABLED | no Games launcher | no weekly Games reminder | no automatic Games pin | daily community messages remain enabled | persistent cleanup enabled"
     )
