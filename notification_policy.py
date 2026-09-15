@@ -5,12 +5,13 @@
 # Central policy for bot-generated notifications in the main
 # community chat.
 #
-# - Mirrors bot notifications to ADMIN_GROUP_ID.
+# - Does NOT mirror bot notifications to ADMIN_GROUP_ID.
 # - Automatically removes temporary bot messages from the
 #   main community chat after CLEAN_CHAT_SECONDS.
 # - Never removes permanent Games, Introduction, or Raffles /
 #   Giveaways topic posts.
-# - Never mirrors/deletes messages already sent to the admin group.
+# - Admin group remains available for admin/authentication flows;
+#   this module does not send notification copies there.
 #
 # This patches ExtBot.send_message once at import time so existing
 # modules do not need to be rewritten one-by-one.
@@ -20,8 +21,8 @@ import asyncio
 import logging
 import os
 
-from telegram.error import TelegramError
 from telegram.ext import ExtBot
+from telegram.error import TelegramError
 
 logger = logging.getLogger("melanatedaz.notification_policy")
 
@@ -71,19 +72,13 @@ def _is_permanent_launcher(kwargs):
     return _as_int(topic_id, 0) in PERMANENT_TOPIC_IDS
 
 
-def _clean_admin_copy_kwargs(kwargs):
-    """Remove main-chat-only routing/reply fields before mirroring."""
-    copy = dict(kwargs)
-    copy.pop("chat_id", None)
-    copy.pop("message_thread_id", None)
-    copy.pop("reply_to_message_id", None)
-    copy.pop("reply_parameters", None)
-    copy.pop("allow_sending_without_reply", None)
-    return copy
-
-
 async def _send_message_with_policy(self, *args, **kwargs):
-    """Send normally, mirror to admins, and clean temporary main-chat posts."""
+    """Send normally and clean temporary main-chat posts.
+
+    IMPORTANT: This policy intentionally sends NO notification copies
+    to the admin group. Admin-group messages are reserved for explicit
+    admin workflows elsewhere in the bot.
+    """
     sent = await _ORIGINAL_SEND_MESSAGE(self, *args, **kwargs)
 
     chat_id = kwargs.get("chat_id")
@@ -95,25 +90,6 @@ async def _send_message_with_policy(self, *args, **kwargs):
         return sent
 
     permanent = _is_permanent_launcher(kwargs)
-
-    # Mirror temporary notifications to the admin group. Permanent topic
-    # posts remain in their own topic and are not duplicated into admin chat.
-    admin_id = _admin_group_id()
-    if admin_id and not permanent:
-        try:
-            admin_kwargs = _clean_admin_copy_kwargs(kwargs)
-            await _ORIGINAL_SEND_MESSAGE(
-                self,
-                chat_id=admin_id,
-                **admin_kwargs,
-            )
-        except TelegramError:
-            logger.exception(
-                "Could not mirror bot notification to ADMIN_GROUP_ID=%s",
-                admin_id,
-            )
-        except Exception:
-            logger.exception("Unexpected admin notification mirror failure.")
 
     # Temporary main-chat notifications are removed automatically.
     # Permanent Games/Introduction/Raffles topic posts are left alone.
@@ -170,10 +146,9 @@ def install_notification_policy():
     _PATCHED = True
 
     logger.info(
-        "Clean-chat policy enabled | delete_after=%ss | main_group=%s | admin_group=%s | permanent_topics=%s",
+        "Clean-chat policy enabled | delete_after=%ss | main_group=%s | admin notifications MIRRORING DISABLED | permanent_topics=%s",
         CLEAN_CHAT_SECONDS,
         _main_group_id(),
-        _admin_group_id(),
         sorted(PERMANENT_TOPIC_IDS),
     )
 
