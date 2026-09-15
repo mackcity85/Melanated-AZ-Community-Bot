@@ -1,23 +1,28 @@
 # ==========================================================
 # Melanated AZ Bot - chat_cleanup.py
-# Automatic cleanup for bot messages in the main/admin groups.
+# Persistent cleanup for bot messages in the main/admin groups.
 #
 # Default: delete temporary bot messages after 3 minutes.
 # Daily community messages are intentionally preserved.
 # User/member messages are never targeted by this module.
+# Bot ID: 8810138488
 # ==========================================================
 
 import html
+import json
 import logging
 import os
+from pathlib import Path
 
 from telegram import Update
 from telegram.error import TelegramError
-from telegram.ext import ContextTypes, MessageHandler, filters
+from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
 
 CLEANUP_SECONDS = int(os.environ.get("CHAT_CLEANUP_SECONDS", "180") or "180")
+BOT_ID = 8810138488
+MESSAGE_STORE = Path(os.environ.get("CHAT_CLEANUP_STORE", "/var/data/bot_cleanup_messages.json"))
 DAILY_MESSAGE_MARKERS = (
     "DAILY COMMUNITY",
     "GOOD MORNING",
@@ -51,54 +56,113 @@ def _is_daily_community_message(text: str) -> bool:
     return any(marker in upper for marker in DAILY_MESSAGE_MARKERS)
 
 
-def _is_permanent_launcher(chat_id, thread_id, message_id, text) -> bool:
-    """Only daily community messages remain permanent."""
-    return _is_daily_community_message(text)
+def _load_store():
+    try:
+        if not MESSAGE_STORE.exists():
+            return []
+        data = json.loads(MESSAGE_STORE.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, ValueError, TypeError) as exc:
+        logger.warning("Could not load bot cleanup store: %s", exc)
+        return []
+
+
+def _save_store(records):
+    try:
+        MESSAGE_STORE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = MESSAGE_STORE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(records, separators=(",", ":")), encoding="utf-8")
+        tmp.replace(MESSAGE_STORE)
+    except OSError as exc:
+        logger.warning("Could not save bot cleanup store: %s", exc)
+
+
+def _remember_message(message):
+    if not message or message.chat_id not in _cleanup_group_ids():
+        return
+    text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
+    if _is_daily_community_message(text):
+        return
+
+    records = _load_store()
+    record = {"chat_id": int(message.chat_id), "message_id": int(message.message_id)}
+    if record not in records:
+        records.append(record)
+    # Keep the persistent file bounded while retaining enough history for a startup sweep.
+    _save_store(records[-5000:])
+
+
+def _forget_message(chat_id, message_id):
+    records = _load_store()
+    records = [r for r in records if not (r.get("chat_id") == chat_id and r.get("message_id") == message_id)]
+    _save_store(records)
+
+
+async def _delete_record(context, record):
+    chat_id = record.get("chat_id")
+    message_id = record.get("message_id")
+    if chat_id is None or message_id is None:
+        return
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        _forget_message(chat_id, message_id)
+    except TelegramError as exc:
+        # MESSAGE_ID_INVALID / message-not-found and permission errors are left logged.
+        logger.debug("Cleanup could not delete %s/%s: %s", chat_id, message_id, exc)
 
 
 async def _delete_after(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
     if not job or not job.data:
         return
-
-    chat_id = job.data.get("chat_id")
-    message_id = job.data.get("message_id")
-    if chat_id is None or message_id is None:
-        return
-
-    try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except TelegramError as exc:
-        logger.debug(
-            "Cleanup could not delete %s/%s: %s",
-            chat_id,
-            message_id,
-            exc,
-        )
+    record = job.data
+    await _delete_record(context, record)
 
 
 def schedule_cleanup(application, message, delay=None):
     if not application or not message:
         return
 
-    if _is_permanent_launcher(
-        message.chat_id,
-        getattr(message, "message_thread_id", None),
-        message.message_id,
-        getattr(message, "text", ""),
-    ):
+    text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
+    if _is_daily_community_message(text):
         return
 
+    if message.chat_id not in _cleanup_group_ids():
+        return
+
+    _remember_message(message)
     seconds = CLEANUP_SECONDS if delay is None else delay
     application.job_queue.run_once(
         _delete_after,
         when=seconds,
-        data={
-            "chat_id": message.chat_id,
-            "message_id": message.message_id,
-        },
+        data={"chat_id": message.chat_id, "message_id": message.message_id},
         name=f"cleanup:{message.chat_id}:{message.message_id}",
     )
+
+
+async def startup_cleanup(application):
+    """Delete previously recorded bot messages after a Render restart."""
+    records = _load_store()
+    if not records:
+        logger.info("Bot cleanup startup sweep: no stored bot messages.")
+        return
+
+    logger.info("Bot cleanup startup sweep: checking %s stored bot messages.", len(records))
+    remaining = []
+    for record in records:
+        chat_id = record.get("chat_id")
+        message_id = record.get("message_id")
+        if chat_id not in _cleanup_group_ids() or not isinstance(message_id, int):
+            continue
+        try:
+            await application.bot.delete_message(chat_id=chat_id, message_id=message_id)
+            logger.info("Startup cleanup deleted bot message %s/%s.", chat_id, message_id)
+        except TelegramError as exc:
+            # Keep records that may still be deletable later. Daily messages are
+            # never stored, so they cannot be touched by this sweep.
+            remaining.append(record)
+            logger.debug("Startup cleanup could not delete %s/%s: %s", chat_id, message_id, exc)
+    _save_store(remaining[-5000:])
 
 
 async def cleanup_service_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -110,21 +174,14 @@ async def cleanup_service_messages(update: Update, context: ContextTypes.DEFAULT
     if message.chat_id != main_id:
         return
 
-    # Telegram service messages are removed immediately from the main group.
     try:
         await message.delete()
     except TelegramError as exc:
         logger.debug("Could not delete service message: %s", exc)
 
 
-
 def install_chat_cleanup(application):
-    """Install automatic 3-minute cleanup for bot text messages.
-
-    Daily community messages are exempt. The main group and admin group
-    (including the configured ADMIN_GROUP_ID, currently -5241371581) are
-    covered. Member/user messages are not intercepted.
-    """
+    """Install persistent 3-minute cleanup for bot text messages."""
     bot_class = application.bot.__class__
 
     if getattr(bot_class, "_melanated_chat_cleanup_installed", False):
@@ -136,7 +193,6 @@ def install_chat_cleanup(application):
         chat_id = kwargs.get("chat_id")
         if chat_id is None and args:
             chat_id = args[0]
-
         thread_id = kwargs.get("message_thread_id")
         text = kwargs.get("text")
         if text is None and len(args) > 1:
@@ -145,17 +201,13 @@ def install_chat_cleanup(application):
 
         result = await original_send_message(self, *args, **kwargs)
 
-        cleanup_ids = _cleanup_group_ids()
-        if result and chat_id in cleanup_ids:
+        if result and chat_id in _cleanup_group_ids():
             schedule_cleanup(application, result)
 
-        # Keep the existing admin notification mirror for messages sent to
-        # the main group, but make the mirrored notification temporary too.
         main_id = _main_group_id()
         admin_id = _admin_group_id()
         if (
             result
-            and main_id is not None
             and chat_id == main_id
             and admin_id
             and admin_id != main_id
@@ -177,15 +229,14 @@ def install_chat_cleanup(application):
                 if admin_result:
                     schedule_cleanup(application, admin_result)
             except TelegramError as exc:
-                logger.warning(
-                    "Could not mirror bot notification to admin group: %s", exc
-                )
+                logger.warning("Could not mirror bot notification to admin group: %s", exc)
 
         return result
 
     bot_class.send_message = wrapped_send_message
     bot_class._melanated_chat_cleanup_installed = True
     logger.info(
-        "Chat cleanup installed: temporary bot messages expire after %s seconds; daily community messages are preserved.",
+        "Chat cleanup installed: bot messages expire after %s seconds; daily community messages are preserved; persistent store=%s.",
         CLEANUP_SECONDS,
+        MESSAGE_STORE,
     )
