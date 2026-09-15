@@ -55,9 +55,18 @@ def _games_launcher_id():
         return None
 
 
+def _is_daily_community_message(text):
+    """Daily community prompts are intentionally permanent and are not cleanup notices."""
+    value = (text or "").strip()
+    return "Keep it grown, keep it respectful" in value and "PASS is always allowed" in value
+
+
 def _is_permanent_launcher(chat_id, thread_id, message_id, text):
     if chat_id != _main_group_id():
         return False
+
+    if _is_daily_community_message(text):
+        return True
 
     if message_id in {
         _read_int_file(GAME_CENTER_PIN_FILE),
@@ -232,10 +241,14 @@ def install_chat_cleanup(application):
         main_id = _main_group_id()
         admin_id = _admin_group_id()
         if main_id is not None and chat_id == main_id and result:
-            if not _is_permanent_launcher(main_id, thread_id, result.message_id, text):
+            is_permanent = _is_permanent_launcher(main_id, thread_id, result.message_id, text)
+
+            if not is_permanent:
                 schedule_cleanup(application, result)
 
             # Mirror temporary bot notifications to the admin group.
+            # Daily community messages are intentionally kept in the main chat,
+            # but they still count as notifications and are mirrored to admins.
             if admin_id and not _is_permanent_launcher(main_id, thread_id, result.message_id, text):
                 try:
                     topic_note = f"\n📍 Topic ID: {thread_id}" if thread_id else ""
