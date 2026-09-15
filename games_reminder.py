@@ -3,8 +3,9 @@
 # ==========================================================
 #
 # Keeps the permanent Games-topic launcher, makes sure the
-# Introduction launcher is posted on startup, and sends the
-# weekly Games reminder.
+# Introduction launcher is posted on startup, sends the weekly
+# Games reminder, starts daily community messages, and installs
+# centralized chat cleanup/admin notifications.
 # ==========================================================
 
 import json
@@ -19,8 +20,10 @@ from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
+from daily_messages import start_daily_community_messages
+from chat_cleanup import install_chat_cleanup
 
-logger = logging.getLogger("melanated_az.games_reminder")
+logger = logging.getLogger("melanatedaz.games_reminder")
 
 ARIZONA_TZ = ZoneInfo("America/Phoenix")
 WEEKLY_REMINDER_HOUR = int(os.environ.get("GAMES_REMINDER_HOUR", "19") or "19")
@@ -249,10 +252,13 @@ async def send_weekly_game_center_reminder(context):
 
 
 def start_weekly_game_center_reminder(application):
-    """Register both topic launchers and the weekly Games reminder."""
+    """Register topic launchers, weekly Games reminder, daily messages, and chat cleanup."""
     if not getattr(application, "job_queue", None):
         logger.warning("Games reminder unavailable: JobQueue not installed.")
         return
+
+    install_chat_cleanup(application)
+    start_daily_community_messages(application)
 
     for name in (
         "games-topic-launcher",
@@ -262,8 +268,6 @@ def start_weekly_game_center_reminder(application):
         for job in application.job_queue.get_jobs_by_name(name):
             job.schedule_removal()
 
-    # Give bot.py time to finish startup/imports before calling its
-    # Introduction function dynamically.
     application.job_queue.run_once(
         ensure_games_topic_launcher,
         when=10,
@@ -288,7 +292,7 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona",
+        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona | daily community messages active",
         GAMES_TOPIC_ID,
         WEEKLY_REMINDER_HOUR,
         WEEKLY_REMINDER_MINUTE,
