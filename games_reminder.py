@@ -11,6 +11,7 @@
 import json
 import logging
 import os
+import re
 from datetime import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -189,11 +190,7 @@ async def ensure_games_topic_launcher(context):
 
 
 async def ensure_introduction_launcher(context):
-    """Run the existing bot.py Introduction launcher on startup.
-
-    The import is intentionally deferred until the scheduled job runs so
-    bot.py has finished importing and there is no circular-import failure.
-    """
+    """Post the existing Introduction launcher and pin the exact message."""
     try:
         from bot import post_intro_topic_reminder
 
@@ -201,10 +198,41 @@ async def ensure_introduction_launcher(context):
 
         if ok:
             logger.info("Introduction launcher ready: %s", detail)
-        else:
-            logger.error("Introduction launcher FAILED: %s", detail)
 
-        return ok
+            # bot.py returns the newly posted message ID in the detail string.
+            match = re.search(r"message\s+(\d+)", detail or "", flags=re.IGNORECASE)
+            if not match:
+                logger.error("Introduction launcher posted but message ID was not returned: %s", detail)
+                return False
+
+            message_id = int(match.group(1))
+            chat_id = _main_group_id()
+
+            try:
+                await context.bot.pin_chat_message(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    disable_notification=True,
+                )
+                logger.info(
+                    "Introduction launcher pinned | chat=%s | topic=%s | message=%s",
+                    chat_id,
+                    os.environ.get("INTRO_TOPIC_ID", "11570"),
+                    message_id,
+                )
+            except TelegramError as exc:
+                logger.exception(
+                    "Introduction launcher posted but could not be pinned | chat=%s | message=%s | error=%s",
+                    chat_id,
+                    message_id,
+                    exc,
+                )
+                return False
+
+            return True
+
+        logger.error("Introduction launcher FAILED: %s", detail)
+        return False
 
     except Exception:
         logger.exception("Could not launch the Introduction topic button.")
