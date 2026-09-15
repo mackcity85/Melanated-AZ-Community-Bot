@@ -14,6 +14,12 @@
 #   - Admin enable/disable
 #   - PASS is always allowed
 #   - Consent-focused
+#
+# ADMIN AUTHORIZATION:
+#   - Uses centralized admin.is_admin()
+#   - ADMIN_GROUP_ID membership is primary authorization
+#   - ADMIN_IDS remains the configured fallback
+#   - MAIN_GROUP_ID is NOT required
 # ==========================================================
 
 import logging
@@ -24,12 +30,14 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+
 from telegram.ext import ContextTypes
 
 from admin import is_admin
 
 
 logger = logging.getLogger(__name__)
+
 
 # ==========================================================
 # SETTINGS
@@ -42,6 +50,7 @@ VALID_LEVELS = (
     "spicy",
     "extreme",
 )
+
 
 # ==========================================================
 # TRUTHS
@@ -129,6 +138,7 @@ TRUTHS = {
     ],
 }
 
+
 # ==========================================================
 # DARES
 # ==========================================================
@@ -206,6 +216,7 @@ DARES = {
         "Tell the group something adventurous you would like to experience someday.",
     ],
 }
+
 
 # ==========================================================
 # ENABLED
@@ -426,8 +437,13 @@ async def truth_dare_admin_menu(
 
     user = update.effective_user
 
-    # FIXED: centralized async admin authorization
-    if not user or not await is_admin(user.id, context):
+    # IMPORTANT:
+    # Pass context so admin.py can perform the live
+    # ADMIN_GROUP_ID membership check.
+    if not user or not await is_admin(
+        user.id,
+        context,
+    ):
         return
 
     query = update.callback_query
@@ -505,8 +521,14 @@ async def toggle_truth_dare(
 
     user = update.effective_user
 
-    # FIXED: centralized async admin authorization
-    if not user or not await is_admin(user.id, context):
+    # IMPORTANT:
+    # This used to call is_admin(user.id) without context.
+    # That caused the admin button to fail with the new
+    # centralized ADMIN_GROUP_ID authorization.
+    if not user or not await is_admin(
+        user.id,
+        context,
+    ):
         return
 
     query = update.callback_query
@@ -521,9 +543,12 @@ async def toggle_truth_dare(
 
     if query:
 
-        await query.answer(
-            f"Truth or Dare {status}"
-        )
+        try:
+            await query.answer(
+                f"Truth or Dare {status}"
+            )
+        except Exception:
+            pass
 
     await truth_dare_admin_menu(
         update,
@@ -542,8 +567,12 @@ async def truth_dare_help(
 
     user = update.effective_user
 
-    # FIXED: centralized async admin authorization
-    if not user or not await is_admin(user.id, context):
+    # IMPORTANT:
+    # Pass context for centralized admin authorization.
+    if not user or not await is_admin(
+        user.id,
+        context,
+    ):
         return
 
     query = update.callback_query
@@ -667,10 +696,13 @@ async def truth_dare_callback(
 
         if not TRUTH_DARE_ENABLED:
 
-            await query.answer(
-                "Truth or Dare is disabled.",
-                show_alert=True,
-            )
+            try:
+                await query.answer(
+                    "Truth or Dare is disabled.",
+                    show_alert=True,
+                )
+            except Exception:
+                pass
 
             return
 
@@ -697,10 +729,13 @@ async def truth_dare_callback(
 
         if not TRUTH_DARE_ENABLED:
 
-            await query.answer(
-                "Truth or Dare is disabled.",
-                show_alert=True,
-            )
+            try:
+                await query.answer(
+                    "Truth or Dare is disabled.",
+                    show_alert=True,
+                )
+            except Exception:
+                pass
 
             return
 
