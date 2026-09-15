@@ -124,6 +124,15 @@ async def _remove_pinned_raffle(context, state=None):
     )
 
 
+async def _refresh_games_launcher(context):
+    """Refresh the permanent Games launcher so its raffle button matches state."""
+    try:
+        from games_reminder import ensure_games_topic_launcher
+        await ensure_games_topic_launcher(context)
+    except Exception:
+        logger.exception("Could not refresh Games-topic launcher after raffle state change.")
+
+
 async def sync_raffle_pin(context):
     """Ensure the current active raffle is the only raffle post we track/pin."""
     active = get_active_raffle()
@@ -132,6 +141,7 @@ async def sync_raffle_pin(context):
     if not active:
         if state:
             await _remove_pinned_raffle(context, state)
+        await _refresh_games_launcher(context)
         return
 
     try:
@@ -139,7 +149,10 @@ async def sync_raffle_pin(context):
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
         if expires <= datetime.now(timezone.utc):
-            logger.info("Active raffle %s is expired; leaving closure/draw to the raffle system.", active["id"])
+            logger.info(
+                "Active raffle %s is expired; leaving closure/draw to the raffle system.",
+                active["id"],
+            )
             return
     except (TypeError, ValueError):
         pass
@@ -149,6 +162,7 @@ async def sync_raffle_pin(context):
     raffle_id = int(active["id"])
 
     if not message_id:
+        await _refresh_games_launcher(context)
         return
 
     if state and (
@@ -181,6 +195,8 @@ async def sync_raffle_pin(context):
                 chat_id,
                 message_id,
             )
+
+    await _refresh_games_launcher(context)
 
 
 def install_raffle_publish_pin_guard():
