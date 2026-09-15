@@ -1,24 +1,8 @@
 # ==========================================================
 # Melanated AZ Bot
 # bot.py
-#
-# COMPLETE CLEAN DROP-IN LAUNCHER
-#
-# Includes:
-#   - Existing raffle system
-#   - Existing birthday system
-#   - Existing Game Center
-#   - Existing Truth or Dare
-#   - Existing media moderation
-#   - NEW separate Real Games system
-#   - NEW Monopoly web game
-#   - NEW Telegram deep-links for Real Games
-#
-# IMPORTANT:
-#   - Existing games/ package is NOT replaced.
-#   - Existing raffle database is NOT replaced.
-#   - Existing raffle callbacks remain owned by raffle.py.
-#   - Real Games lives separately in real_games/.
+# ==========================================================
+# PATCH: Raffle topic repair / single-post behavior
 # ==========================================================
 
 import logging
@@ -31,51 +15,14 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Flask
 
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ChatPermissions,
-)
-
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.constants import ParseMode
+from telegram.error import TelegramError, BadRequest
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, ChatMemberHandler, filters
 
-from telegram.error import (
-    TelegramError,
-    BadRequest,
-)
-
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    ChatMemberHandler,
-    filters,
-)
-
-from config import (
-    BOT_TOKEN,
-    ADMIN_IDS,
-    RAFFLE_CHAT_ID,
-)
-
-from admin import (
-    admin_menu,
-    admin_button,
-    admin_birthday_text_handler,
-    is_admin,
-)
-
-from birthday import (
-    birthday,
-    my_birthday,
-    remove_my_birthday,
-    birthday_callback,
-    birthday_text_handler,
-)
-
+from config import BOT_TOKEN, ADMIN_IDS, RAFFLE_CHAT_ID
+from admin import admin_menu, admin_button, admin_birthday_text_handler, is_admin
+from birthday import birthday, my_birthday, remove_my_birthday, birthday_callback, birthday_text_handler
 from raffle import (
     start_raffle,
     handle_raffle_setup,
@@ -88,3416 +35,577 @@ from raffle import (
     cancel_raffle,
     draw_raffle,
     raffle_callback,
+    publish_raffle,
 )
-
-from raffle_database import (
-    get_database_stats,
-    check_database_integrity,
-)
-
-from truth_dare import (
-    truth,
-    dare,
-    truth_dare_menu,
-    truth_dare_callback,
-)
-
-# ----------------------------------------------------------
-# EXISTING GAME CENTER
-# ----------------------------------------------------------
-
-from games.game_center import (
-    games_command,
-    game_center_callback_router,
-    initialize_game_database,
-    ensure_pinned_game_center,
-)
-
+from raffle_database import get_database_stats, check_database_integrity, get_active_raffle, set_raffle_post
+from truth_dare import truth, dare, truth_dare_menu, truth_dare_callback
+from games.game_center import games_command, game_center_callback_router, initialize_game_database, ensure_pinned_game_center
 from games_reminder import start_weekly_game_center_reminder
+from real_games import real_games_bp, handle_real_game_deep_link
+from real_games.monopoly import monopoly_bp
 
-# ----------------------------------------------------------
-# NEW REAL GAMES
-#
-# This is completely separate from games/
-# ----------------------------------------------------------
-
-from real_games import (
-    real_games_bp,
-    handle_real_game_deep_link,
-)
-
-from real_games.monopoly import (
-    monopoly_bp,
-)
-
-
-# ==========================================================
-# LOGGING
-# ==========================================================
-
-logging.basicConfig(
-    format=(
-        "%(asctime)s | "
-        "%(levelname)s | "
-        "%(name)s | "
-        "%(message)s"
-    ),
-    level=logging.INFO,
-)
-
-logger = logging.getLogger(
-    "melanated_az_bot"
-)
-
-
-# ==========================================================
-# STARTUP INFORMATION
-# ==========================================================
-
-logger.info(
-    "=========================================================="
-)
-
-logger.info(
-    "Starting Melanated AZ Bot"
-)
-
-logger.info(
-    "Loaded Admin IDs: %s",
-    list(ADMIN_IDS),
-)
-
-logger.info(
-    "Raffle Chat ID: %s",
-    RAFFLE_CHAT_ID,
-)
-
-logger.info(
-    "=========================================================="
-)
-
-
-# ==========================================================
-# FLASK HEALTH SERVER
-# ==========================================================
+logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
+logger = logging.getLogger("melanated_az_bot")
 
 app = Flask(__name__)
-
-
-# ----------------------------------------------------------
-# EXISTING HEALTH ROUTES
-# ----------------------------------------------------------
+app.register_blueprint(real_games_bp)
+app.register_blueprint(monopoly_bp)
 
 @app.route("/")
 def health_check():
-
-    return (
-        "Melanated AZ Bot is running.",
-        200,
-    )
-
+    return "Melanated AZ Bot is running.", 200
 
 @app.route("/health")
 def health():
-
-    return (
-        "OK",
-        200,
-    )
-
-
-# ----------------------------------------------------------
-# NEW REAL GAMES ROUTES
-#
-# These do NOT interfere with the existing health routes.
-# ----------------------------------------------------------
-
-app.register_blueprint(
-    real_games_bp
-)
-
-app.register_blueprint(
-    monopoly_bp
-)
-
-logger.info(
-    "Real Games web routes registered."
-)
-
-logger.info(
-    "Real Games URL: /real-games/"
-)
-
-logger.info(
-    "Monopoly URL: /real-games/monopoly/"
-)
-
+    return "OK", 200
 
 def run_flask():
+    port = int(os.environ.get("PORT", "10000"))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
-    port = int(
-        os.environ.get(
-            "PORT",
-            "10000",
-        )
-    )
-
-    logger.info(
-        "Starting Flask on port %s",
-        port,
-    )
-
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False,
-        use_reloader=False,
-    )
-
-
-# ==========================================================
-# MESSAGE DELETION
-# ==========================================================
-
-async def delete_message_later(
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def delete_message_later(context):
     job = context.job
-
     if not job:
         return
-
     data = job.data or {}
-
-    if (
-        data.get("chat_id") is None
-        or data.get("message_id") is None
-    ):
+    if data.get("chat_id") is None or data.get("message_id") is None:
         return
-
     try:
-
-        await context.bot.delete_message(
-            chat_id=data["chat_id"],
-            message_id=data["message_id"],
-        )
-
+        await context.bot.delete_message(chat_id=data["chat_id"], message_id=data["message_id"])
     except TelegramError:
-
         pass
 
-
-async def delete_after(
-    context: ContextTypes.DEFAULT_TYPE,
-    message,
-    seconds=30,
-):
-
+async def delete_after(context, message, seconds=30):
     if message and context.job_queue:
+        context.job_queue.run_once(delete_message_later, when=seconds, data={"chat_id": message.chat_id, "message_id": message.message_id})
 
-        context.job_queue.run_once(
-            delete_message_later,
-            when=seconds,
-            data={
-                "chat_id": message.chat_id,
-                "message_id": message.message_id,
-            },
-        )
-
-
-# ==========================================================
-# BOT USERNAME
-# ==========================================================
-
-async def get_bot_username(
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    username = (
-        context.application.bot_data.get(
-            "bot_username"
-        )
-    )
-
+async def get_bot_username(context):
+    username = context.application.bot_data.get("bot_username")
     if username:
         return username
-
     try:
-
         me = await context.bot.get_me()
-
         username = me.username
-
         if username:
-
-            context.application.bot_data[
-                "bot_username"
-            ] = username
-
+            context.application.bot_data["bot_username"] = username
         return username
-
     except Exception:
-
-        logger.exception(
-            "Could not retrieve bot username."
-        )
-
+        logger.exception("Could not retrieve bot username.")
         return None
-
-
-# ==========================================================
-# MEDIA MODERATION
-# ==========================================================
 
 MEDIA_WARNING_SECONDS = 30
 
-
-async def send_media_warning(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def send_media_warning(update, context):
     message = update.effective_message
     user = update.effective_user
-
     if not message or not user:
         return
-
-    username = await get_bot_username(
-        context
-    )
-
-    keyboard = (
-        InlineKeyboardMarkup(
-            [[
-                InlineKeyboardButton(
-                    "🤖 Post with Melanated AZ Bot",
-                    url=f"https://t.me/{username}",
-                )
-            ]]
-        )
-        if username
-        else None
-    )
-
-    text = (
-        "⚠️ <b>Media Spoiler Required</b>\n\n"
-        f"{user.mention_html()}, your photo/video "
-        "was removed because it was not marked "
-        "as a spoiler.\n\n"
-        "Please resend the media using Telegram's "
-        "🚫 <b>Spoiler</b> option."
-    )
-
+    username = await get_bot_username(context)
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🤖 Post with Melanated AZ Bot", url=f"https://t.me/{username}")]]) if username else None
+    text = "⚠️ <b>Media Spoiler Required</b>\n\n" + f"{user.mention_html()}, your photo/video was removed because it was not marked as a spoiler.\n\nPlease resend the media using Telegram's 🚫 <b>Spoiler</b> option."
     try:
-
-        warning = await context.bot.send_message(
-            chat_id=message.chat_id,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
-
-        await delete_after(
-            context,
-            warning,
-            MEDIA_WARNING_SECONDS,
-        )
-
+        warning = await context.bot.send_message(chat_id=message.chat_id, text=text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        await delete_after(context, warning, MEDIA_WARNING_SECONDS)
     except TelegramError:
+        logger.exception("Could not send media warning.")
 
-        logger.exception(
-            "Could not send media warning."
-        )
-
-
-async def send_private_media_warning(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def send_private_media_warning(update, context):
     user = update.effective_user
-
     if not user:
         return
-
-    username = await get_bot_username(
-        context
-    )
-
-    keyboard = (
-        InlineKeyboardMarkup(
-            [[
-                InlineKeyboardButton(
-                    "🤖 Open Melanated AZ Bot",
-                    url=f"https://t.me/{username}",
-                )
-            ]]
-        )
-        if username
-        else None
-    )
-
-    text = (
-        "👋 Hey! This is the Melanated AZ Bot "
-        "from the Melanated AZ group.\n\n"
-        "Your photo/video was removed because "
-        "Telegram's Spoiler option was not enabled.\n\n"
-        "📸 <b>How to post it correctly:</b>\n\n"
-        "1️⃣ Select your photo or video.\n"
-        "2️⃣ Tap the ⋮ menu/options.\n"
-        "3️⃣ Select <b>Hide with Spoiler</b>.\n"
-        "4️⃣ Send the media."
-    )
-
+    username = await get_bot_username(context)
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🤖 Open Melanated AZ Bot", url=f"https://t.me/{username}")]]) if username else None
+    text = "👋 Hey! This is the Melanated AZ Bot from the Melanated AZ group.\n\nYour photo/video was removed because Telegram's Spoiler option was not enabled.\n\n📸 <b>How to post it correctly:</b>\n\n1️⃣ Select your photo or video.\n2️⃣ Tap the ⋮ menu/options.\n3️⃣ Select <b>Hide with Spoiler</b>.\n4️⃣ Send the media."
     try:
-
-        await context.bot.send_message(
-            chat_id=user.id,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
-
+        await context.bot.send_message(chat_id=user.id, text=text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
     except TelegramError:
+        logger.info("Could not send private media warning to %s.", user.id)
 
-        logger.info(
-            "Could not send private media warning "
-            "to %s.",
-            user.id,
-        )
-
-
-async def handle_photo(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def handle_photo(update, context):
     message = update.effective_message
-
-    if not message:
+    if not message or message.has_media_spoiler:
         return
-
-    if message.has_media_spoiler:
-        return
-
     try:
-
         await message.delete()
-
     except TelegramError:
-
         pass
+    await send_media_warning(update, context)
+    await send_private_media_warning(update, context)
 
-    await send_media_warning(
-        update,
-        context,
-    )
-
-    await send_private_media_warning(
-        update,
-        context,
-    )
-
-
-async def handle_video(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def handle_video(update, context):
     message = update.effective_message
-
-    if not message:
+    if not message or message.has_media_spoiler:
         return
-
-    if message.has_media_spoiler:
-        return
-
     try:
-
         await message.delete()
-
     except TelegramError:
-
         pass
+    await send_media_warning(update, context)
+    await send_private_media_warning(update, context)
 
-    await send_media_warning(
-        update,
-        context,
-    )
-
-    await send_private_media_warning(
-        update,
-        context,
-    )
-
-
-async def handle_animation(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def handle_animation(update, context):
     return
 
-
-async def handle_image_document(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
+async def handle_image_document(update, context):
     return
-
 
 # ==========================================================
 # COMMUNITY HUMAN VERIFICATION + INTRO SYSTEM
 # ==========================================================
-
-COMMUNITY_DB = (
-    "/var/data/community_security.db"
-    if os.path.isdir("/var/data")
-    else "./community_security.db"
-)
-
+COMMUNITY_DB = "/var/data/community_security.db" if os.path.isdir("/var/data") else "./community_security.db"
 INTRO_HOURS = 48
 INTRO_TOPIC_ID = int(os.environ.get("INTRO_TOPIC_ID", "11570") or "11570")
 INTRO_MAX_CHARS = 3500
 VERIFICATION_MAX_ATTEMPTS = 3
 VERIFICATION_MESSAGE_TTL_MINUTES = 5
-
-# Inactivity management
 MEMBER_INACTIVITY_DAYS = int(os.environ.get("MEMBER_INACTIVITY_DAYS", "30") or "30")
 ADMIN_INACTIVITY_DAYS = int(os.environ.get("ADMIN_INACTIVITY_DAYS", "14") or "14")
 ADMIN_GROUP_ID_ENV = os.environ.get("ADMIN_GROUP_ID", "") or ""
 INACTIVITY_CHECK_HOURS = int(os.environ.get("INACTIVITY_CHECK_HOURS", "6") or "6")
-
-# New-member intro video. The MP4 can live beside bot.py on Render/GitHub.
-# Telegram will send the video with its embedded audio.
-INTRO_VIDEO_PATH = os.environ.get(
-    "INTRO_VIDEO_PATH",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "melanated_az_intro.mp4"),
-).strip()
+INTRO_VIDEO_PATH = os.environ.get("INTRO_VIDEO_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "melanated_az_intro.mp4")).strip()
 INTRO_VIDEO_FILE_ID = os.environ.get("INTRO_VIDEO_FILE_ID", "").strip()
-INTRO_VIDEO_DELETE_SECONDS = int(
-    os.environ.get("INTRO_VIDEO_DELETE_SECONDS", "300") or "300"
-)
-
-HUMAN_CHALLENGES = [
-    ("🍎 Apple", ["🍎 Apple", "🚗 Car", "👟 Shoe"]),
-    ("🐶 Dog", ["🌳 Tree", "🐶 Dog", "🚲 Bike"]),
-    ("🌙 Moon", ["🍕 Pizza", "🌙 Moon", "🎸 Guitar"]),
-    ("🚗 Car", ["🚗 Car", "🍌 Banana", "🎧 Headphones"]),
-    ("🐟 Fish", ["📱 Phone", "🐟 Fish", "👕 Shirt"]),
-    ("☀️ Sun", ["☀️ Sun", "🍔 Burger", "⚽ Ball"]),
-    ("🍕 Pizza", ["🪑 Chair", "🍕 Pizza", "🌴 Palm Tree"]),
-    ("🎸 Guitar", ["🎸 Guitar", "🥤 Drink", "🧢 Hat"]),
-]
-
+INTRO_VIDEO_DELETE_SECONDS = int(os.environ.get("INTRO_VIDEO_DELETE_SECONDS", "300") or "300")
+HUMAN_CHALLENGES = [("🍎 Apple", ["🍎 Apple", "🚗 Car", "👟 Shoe"]),("🐶 Dog", ["🌳 Tree", "🐶 Dog", "🚲 Bike"]),("🌙 Moon", ["🍕 Pizza", "🌙 Moon", "🎸 Guitar"]),("🚗 Car", ["🚗 Car", "🍌 Banana", "🎧 Headphones"]),("🐟 Fish", ["📱 Phone", "🐟 Fish", "👕 Shirt"]),("☀️ Sun", ["☀️ Sun", "🍔 Burger", "⚽ Ball"]),("🍕 Pizza", ["🪑 Chair", "🍕 Pizza", "🌴 Palm Tree"]),("🎸 Guitar", ["🎸 Guitar", "🥤 Drink", "🧢 Hat"])]
 
 def community_db_connect():
-    conn = sqlite3.connect(COMMUNITY_DB)
-    conn.row_factory = sqlite3.Row
-    return conn
-
+    conn = sqlite3.connect(COMMUNITY_DB); conn.row_factory = sqlite3.Row; return conn
 
 def initialize_community_security_database():
     os.makedirs(os.path.dirname(COMMUNITY_DB) or ".", exist_ok=True)
     with community_db_connect() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS community_members (
-                chat_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                username TEXT,
-                first_name TEXT,
-                joined_at TEXT,
-                verified_at TEXT,
-                intro_deadline TEXT,
-                intro_posted_at TEXT,
-                intro_text TEXT,
-                intro_message_id INTEGER,
-                last_post_at TEXT,
-                verification_attempts INTEGER DEFAULT 0,
-                verification_message_id INTEGER,
-                verification_challenge TEXT,
-                verification_expires_at TEXT,
-                inactivity_notice_at TEXT,
-                inactivity_notice_message_id INTEGER,
-                status TEXT DEFAULT 'pending_verification',
-                PRIMARY KEY (chat_id, user_id)
-            )
-        """)
-
-        # Safe migrations for an existing community_security.db.
-        columns = {row[1] for row in conn.execute("PRAGMA table_info(community_members)").fetchall()}
-        if "intro_text" not in columns:
-            conn.execute("ALTER TABLE community_members ADD COLUMN intro_text TEXT")
-        if "intro_message_id" not in columns:
-            conn.execute("ALTER TABLE community_members ADD COLUMN intro_message_id INTEGER")
-        if "inactivity_notice_at" not in columns:
-            conn.execute("ALTER TABLE community_members ADD COLUMN inactivity_notice_at TEXT")
-        if "inactivity_notice_message_id" not in columns:
-            conn.execute("ALTER TABLE community_members ADD COLUMN inactivity_notice_message_id INTEGER")
-
+        conn.execute("""CREATE TABLE IF NOT EXISTS community_members (chat_id INTEGER NOT NULL,user_id INTEGER NOT NULL,username TEXT,first_name TEXT,joined_at TEXT,verified_at TEXT,intro_deadline TEXT,intro_posted_at TEXT,intro_text TEXT,intro_message_id INTEGER,last_post_at TEXT,verification_attempts INTEGER DEFAULT 0,verification_message_id INTEGER,verification_challenge TEXT,verification_expires_at TEXT,inactivity_notice_at TEXT,inactivity_notice_message_id INTEGER,status TEXT DEFAULT 'pending_verification',PRIMARY KEY (chat_id,user_id))""")
+        columns={row[1] for row in conn.execute("PRAGMA table_info(community_members)").fetchall()}
+        for col, definition in [("intro_text","TEXT"),("intro_message_id","INTEGER"),("inactivity_notice_at","TEXT"),("inactivity_notice_message_id","INTEGER")]:
+            if col not in columns: conn.execute(f"ALTER TABLE community_members ADD COLUMN {col} {definition}")
         conn.commit()
 
-
-def utc_now():
-    return datetime.now(timezone.utc)
-
-
-def iso_now():
-    return utc_now().isoformat()
-
-
+def utc_now(): return datetime.now(timezone.utc)
+def iso_now(): return utc_now().isoformat()
 def parse_iso(value):
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value)
-    except Exception:
-        return None
+    if not value: return None
+    try: return datetime.fromisoformat(value)
+    except Exception: return None
 
+def community_member(chat_id,user_id):
+    with community_db_connect() as conn: return conn.execute("SELECT * FROM community_members WHERE chat_id=? AND user_id=?",(chat_id,user_id)).fetchone()
 
-def community_member(chat_id, user_id):
+def save_joining_member(chat_id,user):
     with community_db_connect() as conn:
-        return conn.execute(
-            "SELECT * FROM community_members WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
-        ).fetchone()
+        conn.execute("""INSERT INTO community_members (chat_id,user_id,username,first_name,joined_at,status) VALUES (?,?,?,?,?,'pending_verification') ON CONFLICT(chat_id,user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name,joined_at=excluded.joined_at,verified_at=NULL,intro_deadline=NULL,intro_posted_at=NULL,intro_text=NULL,intro_message_id=NULL,last_post_at=NULL,verification_attempts=0,verification_message_id=NULL,verification_challenge=NULL,verification_expires_at=NULL,inactivity_notice_at=NULL,inactivity_notice_message_id=NULL,status='pending_verification'""",(chat_id,user.id,user.username,user.first_name,iso_now())); conn.commit()
 
+def set_verification_challenge(chat_id,user_id,answer,options,message_id):
+    expires=utc_now()+timedelta(minutes=VERIFICATION_MESSAGE_TTL_MINUTES)
+    with community_db_connect() as conn: conn.execute("UPDATE community_members SET verification_challenge=?,verification_expires_at=?,verification_message_id=? WHERE chat_id=? AND user_id=?",(answer+"###"+"|||".join(options),expires.isoformat(),message_id,chat_id,user_id)); conn.commit()
 
-def save_joining_member(chat_id, user):
-    joined = utc_now()
+def increment_verification_attempt(chat_id,user_id):
     with community_db_connect() as conn:
-        conn.execute("""
-            INSERT INTO community_members
-                (chat_id, user_id, username, first_name, joined_at, status)
-            VALUES (?, ?, ?, ?, ?, 'pending_verification')
-            ON CONFLICT(chat_id, user_id) DO UPDATE SET
-                username=excluded.username,
-                first_name=excluded.first_name,
-                joined_at=excluded.joined_at,
-                verified_at=NULL,
-                intro_deadline=NULL,
-                intro_posted_at=NULL,
-                intro_text=NULL,
-                intro_message_id=NULL,
-                last_post_at=NULL,
-                verification_attempts=0,
-                verification_message_id=NULL,
-                verification_challenge=NULL,
-                verification_expires_at=NULL,
-                inactivity_notice_at=NULL,
-                inactivity_notice_message_id=NULL,
-                status='pending_verification'
-        """, (
-            chat_id,
-            user.id,
-            user.username,
-            user.first_name,
-            joined.isoformat(),
-        ))
-        conn.commit()
+        conn.execute("UPDATE community_members SET verification_attempts=verification_attempts+1 WHERE chat_id=? AND user_id=?",(chat_id,user_id)); conn.commit(); row=conn.execute("SELECT verification_attempts FROM community_members WHERE chat_id=? AND user_id=?",(chat_id,user_id)).fetchone(); return int(row[0]) if row else VERIFICATION_MAX_ATTEMPTS
 
+def mark_verified(chat_id,user_id):
+    now=utc_now(); deadline=now+timedelta(hours=INTRO_HOURS)
+    with community_db_connect() as conn: conn.execute("UPDATE community_members SET verified_at=?,intro_deadline=?,status='verified_intro_pending',verification_challenge=NULL,verification_expires_at=NULL WHERE chat_id=? AND user_id=?",(now.isoformat(),deadline.isoformat(),chat_id,user_id)); conn.commit()
 
-def set_verification_challenge(chat_id, user_id, answer, options, message_id):
-    expires = utc_now() + timedelta(minutes=VERIFICATION_MESSAGE_TTL_MINUTES)
-    payload = "|||".join(options)
-    with community_db_connect() as conn:
-        conn.execute("""
-            UPDATE community_members
-            SET verification_challenge=?,
-                verification_expires_at=?,
-                verification_message_id=?
-            WHERE chat_id=? AND user_id=?
-        """, (
-            answer + "###" + payload,
-            expires.isoformat(),
-            message_id,
-            chat_id,
-            user_id,
-        ))
-        conn.commit()
+def save_intro(chat_id,user_id,intro_text,intro_message_id=None):
+    now=iso_now()
+    with community_db_connect() as conn: conn.execute("UPDATE community_members SET intro_posted_at=COALESCE(intro_posted_at,?),intro_text=?,intro_message_id=?,last_post_at=?,status='active' WHERE chat_id=? AND user_id=?",(now,intro_text,intro_message_id,now,chat_id,user_id)); conn.commit()
 
+def ensure_tracked_member(chat_id,user):
+    if not user or user.is_bot:return
+    now=iso_now()
+    with community_db_connect() as conn: conn.execute("INSERT INTO community_members (chat_id,user_id,username,first_name,joined_at,verified_at,last_post_at,status) VALUES (?,?,?,?,?,?,?,'active') ON CONFLICT(chat_id,user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name",(chat_id,user.id,user.username,user.first_name,now,now,now)); conn.commit()
 
-def increment_verification_attempt(chat_id, user_id):
-    with community_db_connect() as conn:
-        conn.execute("""
-            UPDATE community_members
-            SET verification_attempts=verification_attempts+1
-            WHERE chat_id=? AND user_id=?
-        """, (chat_id, user_id))
-        conn.commit()
-        row = conn.execute(
-            "SELECT verification_attempts FROM community_members WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
-        ).fetchone()
-        return int(row[0]) if row else VERIFICATION_MAX_ATTEMPTS
-
-
-def mark_verified(chat_id, user_id):
-    now = utc_now()
-    deadline = now + timedelta(hours=INTRO_HOURS)
-    with community_db_connect() as conn:
-        conn.execute("""
-            UPDATE community_members
-            SET verified_at=?,
-                intro_deadline=?,
-                status='verified_intro_pending',
-                verification_challenge=NULL,
-                verification_expires_at=NULL
-            WHERE chat_id=? AND user_id=?
-        """, (
-            now.isoformat(),
-            deadline.isoformat(),
-            chat_id,
-            user_id,
-        ))
-        conn.commit()
-
-
-def save_intro(chat_id, user_id, intro_text, intro_message_id=None):
-    now = iso_now()
-    with community_db_connect() as conn:
-        conn.execute("""
-            UPDATE community_members
-            SET intro_posted_at=COALESCE(intro_posted_at, ?),
-                intro_text=?,
-                intro_message_id=?,
-                last_post_at=?,
-                status='active'
-            WHERE chat_id=? AND user_id=?
-        """, (
-            now, intro_text, intro_message_id, now, chat_id, user_id
-        ))
-        conn.commit()
-
-
-def get_saved_intro(chat_id, user_id):
-    with community_db_connect() as conn:
-        row = conn.execute(
-            "SELECT intro_text, intro_message_id FROM community_members WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
-        ).fetchone()
-        return row
-
-
-def mark_member_post(chat_id, user_id):
-    row = community_member(chat_id, user_id)
-    if not row or row["status"] != "active":
-        return False
-    with community_db_connect() as conn:
-        conn.execute(
-            """UPDATE community_members
-               SET last_post_at=?, inactivity_notice_at=NULL, inactivity_notice_message_id=NULL
-               WHERE chat_id=? AND user_id=?""",
-            (iso_now(), chat_id, user_id),
-        )
-        conn.commit()
+def mark_member_post(chat_id,user_id):
+    row=community_member(chat_id,user_id)
+    if not row or row["status"]!="active": return False
+    with community_db_connect() as conn: conn.execute("UPDATE community_members SET last_post_at=?,inactivity_notice_at=NULL,inactivity_notice_message_id=NULL WHERE chat_id=? AND user_id=?",(iso_now(),chat_id,user_id)); conn.commit()
     return True
 
-
-def ensure_tracked_member(chat_id, user):
-    """Create an active tracking record for existing members not seen by the join handler."""
-    if not user or user.is_bot:
-        return
-    now = iso_now()
-    with community_db_connect() as conn:
-        conn.execute("""
-            INSERT INTO community_members
-                (chat_id, user_id, username, first_name, joined_at, verified_at, last_post_at, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-            ON CONFLICT(chat_id, user_id) DO UPDATE SET
-                username=excluded.username,
-                first_name=excluded.first_name
-        """, (
-            chat_id, user.id, user.username, user.first_name, now, now, now,
-        ))
-        conn.commit()
-
-
 def seed_admin_activity():
-    """Give configured admins a tracking baseline without changing existing activity timestamps."""
-    main_group_id = configured_main_group_id()
-    if not main_group_id:
-        return
-    now = iso_now()
+    main_group_id=configured_main_group_id()
+    if not main_group_id:return
+    now=iso_now()
     with community_db_connect() as conn:
-        for admin_id in ADMIN_IDS:
-            conn.execute("""
-                INSERT INTO community_members
-                    (chat_id, user_id, joined_at, verified_at, last_post_at, status)
-                VALUES (?, ?, ?, ?, ?, 'active')
-                ON CONFLICT(chat_id, user_id) DO UPDATE SET
-                    status=CASE WHEN community_members.status IN ('left','removed') THEN 'active' ELSE community_members.status END
-            """, (main_group_id, int(admin_id), now, now, now))
+        for admin_id in ADMIN_IDS: conn.execute("INSERT INTO community_members (chat_id,user_id,joined_at,verified_at,last_post_at,status) VALUES (?,?,?,?,?,'active') ON CONFLICT(chat_id,user_id) DO UPDATE SET status=CASE WHEN community_members.status IN ('left','removed') THEN 'active' ELSE community_members.status END",(main_group_id,int(admin_id),now,now,now))
         conn.commit()
-
-
-def configured_admin_group_id():
-    try:
-        return int(ADMIN_GROUP_ID_ENV.strip() or "0")
-    except (TypeError, ValueError):
-        logger.warning("ADMIN_GROUP_ID is not a valid integer; admin inactivity removal is disabled.")
-        return 0
-
-
-def inactivity_keyboard(user_id):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💜 I'M STAYING", callback_data=f"inactive:stay:{user_id}")],
-        [InlineKeyboardButton("🚪 LEAVE GROUP", callback_data=f"inactive:leave:{user_id}")],
-    ])
-
-
-async def send_inactivity_notice(context, row):
-    user_id = int(row["user_id"])
-    days = MEMBER_INACTIVITY_DAYS
-    text = (
-        "👋🏾 <b>Hey! We haven't seen you around Melanated AZ lately.</b> 💜\n\n"
-        f"It's been about <b>{days} days</b> since your last post.\n\n"
-        "If you're still rocking with us, tap <b>💜 I'M STAYING</b> and your activity timer will reset.\n\n"
-        "If you're ready to move on, tap <b>🚪 LEAVE GROUP</b> and I'll remove you from the group.\n\n"
-        "No pressure either way. 🖤💜"
-    )
-    try:
-        message = await context.bot.send_message(
-            chat_id=user_id,
-            text=text,
-            reply_markup=inactivity_keyboard(user_id),
-            parse_mode=ParseMode.HTML,
-        )
-        with community_db_connect() as conn:
-            conn.execute(
-                "UPDATE community_members SET inactivity_notice_at=?, inactivity_notice_message_id=? WHERE chat_id=? AND user_id=?",
-                (iso_now(), message.message_id, row["chat_id"], user_id),
-            )
-            conn.commit()
-        logger.info("Inactive member notice sent | user_id=%s", user_id)
-        return True
-    except TelegramError:
-        logger.info("Could not DM inactive member %s. They may not have started the bot.", user_id)
-        return False
-
-
-async def inactivity_callback(update, context):
-    query = update.callback_query
-    if not query or not query.data:
-        return
-
-    parts = query.data.split(":")
-    if len(parts) != 3 or parts[0] != "inactive":
-        return
-
-    try:
-        target_user_id = int(parts[2])
-    except ValueError:
-        return
-
-    user = update.effective_user
-    if not user or user.id != target_user_id:
-        await query.answer("This button belongs to another member.", show_alert=True)
-        return
-
-    main_group_id = configured_main_group_id()
-    if not main_group_id:
-        await query.answer("Community automation is not configured.", show_alert=True)
-        return
-
-    action = parts[1]
-    if action == "stay":
-        now = iso_now()
-        with community_db_connect() as conn:
-            conn.execute(
-                """UPDATE community_members
-                   SET last_post_at=?, inactivity_notice_at=NULL, inactivity_notice_message_id=NULL, status='active'
-                   WHERE chat_id=? AND user_id=?""",
-                (now, main_group_id, target_user_id),
-            )
-            conn.commit()
-        await query.answer("You're staying! 💜 Timer reset.")
-        try:
-            await query.edit_message_text(
-                "💜 <b>You're staying!</b>\n\n"
-                "Your Melanated AZ activity timer has been reset. Welcome back. 🔥",
-                parse_mode=ParseMode.HTML,
-            )
-        except TelegramError:
-            pass
-        return
-
-    if action == "leave":
-        try:
-            await context.bot.ban_chat_member(chat_id=main_group_id, user_id=target_user_id)
-            try:
-                await context.bot.unban_chat_member(
-                    chat_id=main_group_id, user_id=target_user_id, only_if_banned=True
-                )
-            except TypeError:
-                await context.bot.unban_chat_member(chat_id=main_group_id, user_id=target_user_id)
-
-            with community_db_connect() as conn:
-                conn.execute(
-                    "UPDATE community_members SET status='left', inactivity_notice_at=NULL, inactivity_notice_message_id=NULL WHERE chat_id=? AND user_id=?",
-                    (main_group_id, target_user_id),
-                )
-                conn.commit()
-
-            await query.answer("You have been removed from Melanated AZ.")
-            try:
-                await query.edit_message_text(
-                    "🚪 <b>You've left Melanated AZ.</b>\n\n"
-                    "No hard feelings. The door is always open if you ever want to come back. 💜",
-                    parse_mode=ParseMode.HTML,
-                )
-            except TelegramError:
-                pass
-        except TelegramError:
-            logger.exception("Could not remove inactive member %s", target_user_id)
-            await query.answer("I couldn't remove you automatically. Please contact an admin.", show_alert=True)
-
-
-async def remove_inactive_admin_from_admin_group(context, user_id, admin_group_id):
-    try:
-        await context.bot.ban_chat_member(chat_id=admin_group_id, user_id=user_id)
-        try:
-            await context.bot.unban_chat_member(
-                chat_id=admin_group_id, user_id=user_id, only_if_banned=True
-            )
-        except TypeError:
-            await context.bot.unban_chat_member(chat_id=admin_group_id, user_id=user_id)
-        logger.info("Inactive admin removed from admin group | user_id=%s | admin_group=%s", user_id, admin_group_id)
-        return True
-    except TelegramError:
-        logger.exception("Could not remove inactive admin %s from admin group %s", user_id, admin_group_id)
-        return False
-
-
-async def restrict_member(bot, chat_id, user_id):
-    try:
-        await bot.restrict_chat_member(
-            chat_id=chat_id,
-            user_id=user_id,
-            permissions=ChatPermissions(can_send_messages=False),
-        )
-        return True
-    except TelegramError:
-        logger.exception("Could not restrict member %s in %s", user_id, chat_id)
-        return False
-
-
-async def restore_member(bot, chat_id, user_id):
-    try:
-        await bot.restrict_chat_member(
-            chat_id=chat_id,
-            user_id=user_id,
-            permissions=ChatPermissions(
-                can_send_messages=True,
-                can_send_audios=True,
-                can_send_documents=True,
-                can_send_photos=True,
-                can_send_videos=True,
-                can_send_video_notes=True,
-                can_send_voice_notes=True,
-                can_send_polls=True,
-                can_send_other_messages=True,
-                can_add_web_page_previews=True,
-                can_invite_users=True,
-            ),
-        )
-        return True
-    except TelegramError:
-        logger.exception("Could not restore member %s in %s", user_id, chat_id)
-        return False
-
-
-async def send_human_challenge(chat_id, user_id, context):
-    row = community_member(chat_id, user_id)
-    if not row:
-        return
-
-    answer, options = random.choice(HUMAN_CHALLENGES)
-    shuffled = list(options)
-    random.shuffle(shuffled)
-
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(option, callback_data=f"human_verify:{user_id}:{i}")]
-        for i, option in enumerate(shuffled)
-    ])
-
-    text = (
-        "🤖 <b>QUICK HUMAN CHECK</b>\n\n"
-        "Before you join the conversation, prove you're human. 👀\n\n"
-        f"<b>Which one is {answer.split(' ', 1)[1].lower()}?</b>\n\n"
-        "Tap the correct answer below."
-    )
-
-    try:
-        message = await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
-        set_verification_challenge(
-            chat_id,
-            user_id,
-            answer,
-            shuffled,
-            message.message_id,
-        )
-        logger.info("Human verification challenge sent to %s in %s", user_id, chat_id)
-    except TelegramError:
-        logger.exception("Could not send human verification to %s", user_id)
-
 
 def configured_main_group_id():
-    """Return the configured main community chat ID, or 0 if not configured."""
-    try:
-        return int(os.environ.get("MAIN_GROUP_ID", "0") or "0")
-    except (TypeError, ValueError):
-        logger.warning("MAIN_GROUP_ID is not a valid integer; community automation is not scoped.")
-        return 0
+    try:return int(os.environ.get("MAIN_GROUP_ID","0") or "0")
+    except (TypeError,ValueError):return 0
 
+def configured_admin_group_id():
+    try:return int(ADMIN_GROUP_ID_ENV.strip() or "0")
+    except (TypeError,ValueError):return 0
 
 def community_chat_is_allowed(chat_id):
-    """Keep community automation limited to MAIN_GROUP_ID when configured."""
-    main_group_id = configured_main_group_id()
-    return not main_group_id or chat_id == main_group_id
+    main=configured_main_group_id(); return not main or chat_id==main
 
+def inactivity_keyboard(user_id):
+    return InlineKeyboardMarkup([[InlineKeyboardButton("💜 I'M STAYING",callback_data=f"inactive:stay:{user_id}")],[InlineKeyboardButton("🚪 LEAVE GROUP",callback_data=f"inactive:leave:{user_id}")]])
 
-async def community_chat_member_diagnostic(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """Log every chat_member update so membership events can be diagnosed."""
-    event = update.chat_member
-    if not event:
-        return
-
+async def send_inactivity_notice(context,row):
     try:
-        old_member = event.old_chat_member
-        new_member = event.new_chat_member
-        user = new_member.user if new_member else None
-        chat = event.chat
+        message=await context.bot.send_message(chat_id=int(row["user_id"]),text=f"👋🏾 <b>Hey! We haven't seen you around Melanated AZ lately.</b> 💜\n\nIt's been about <b>{MEMBER_INACTIVITY_DAYS} days</b> since your last post.\n\nIf you're still rocking with us, tap <b>💜 I'M STAYING</b>.\n\nIf you're ready to move on, tap <b>🚪 LEAVE GROUP</b>.",reply_markup=inactivity_keyboard(int(row["user_id"])),parse_mode=ParseMode.HTML)
+        with community_db_connect() as conn: conn.execute("UPDATE community_members SET inactivity_notice_at=?,inactivity_notice_message_id=? WHERE chat_id=? AND user_id=?",(iso_now(),message.message_id,row["chat_id"],row["user_id"])); conn.commit()
+    except TelegramError: pass
 
-        logger.info(
-            "CHAT_MEMBER UPDATE RECEIVED | chat_id=%s | chat_title=%r | "
-            "user_id=%s | user=%r | old_status=%s | new_status=%s | "
-            "main_group_match=%s",
-            chat.id if chat else None,
-            getattr(chat, "title", None),
-            user.id if user else None,
-            getattr(user, "username", None) if user else None,
-            getattr(old_member, "status", None),
-            getattr(new_member, "status", None),
-            community_chat_is_allowed(chat.id) if chat else False,
-        )
-    except Exception:
-        logger.exception("Failed while logging chat_member diagnostic update.")
+async def inactivity_callback(update,context):
+    query=update.callback_query; user=update.effective_user
+    if not query or not query.data or not user:return
+    parts=query.data.split(":")
+    if len(parts)!=3:return
+    try: target=int(parts[2])
+    except ValueError:return
+    if user.id!=target: await query.answer("This button belongs to another member.",show_alert=True); return
+    main=configured_main_group_id()
+    if parts[1]=="stay":
+        with community_db_connect() as conn: conn.execute("UPDATE community_members SET last_post_at=?,inactivity_notice_at=NULL,inactivity_notice_message_id=NULL,status='active' WHERE chat_id=? AND user_id=?",(iso_now(),main,target)); conn.commit()
+        await query.answer("You're staying! 💜 Timer reset.")
+        try: await query.edit_message_text("💜 <b>You're staying!</b>\n\nYour activity timer has been reset.",parse_mode=ParseMode.HTML)
+        except TelegramError: pass
+    elif parts[1]=="leave":
+        try:
+            await context.bot.ban_chat_member(chat_id=main,user_id=target); await context.bot.unban_chat_member(chat_id=main,user_id=target,only_if_banned=True)
+            with community_db_connect() as conn: conn.execute("UPDATE community_members SET status='left',inactivity_notice_at=NULL,inactivity_notice_message_id=NULL WHERE chat_id=? AND user_id=?",(main,target)); conn.commit()
+            await query.answer("You have been removed from Melanated AZ.")
+        except TelegramError: await query.answer("I couldn't remove you automatically. Please contact an admin.",show_alert=True)
 
+async def remove_inactive_admin_from_admin_group(context,user_id,admin_group_id):
+    try: await context.bot.ban_chat_member(chat_id=admin_group_id,user_id=user_id); await context.bot.unban_chat_member(chat_id=admin_group_id,user_id=user_id,only_if_banned=True); return True
+    except TelegramError:return False
 
-async def community_exit(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """Send Melanated AZ's exit message when a member leaves or is removed."""
-    event = update.chat_member
-    if not event:
-        return
+async def restrict_member(bot,chat_id,user_id):
+    try: await bot.restrict_chat_member(chat_id=chat_id,user_id=user_id,permissions=ChatPermissions(can_send_messages=False)); return True
+    except TelegramError:return False
 
-    chat = event.chat
-    logger.info("COMMUNITY EXIT HANDLER ENTERED | chat_id=%s", chat.id if chat else None)
-    if not chat or not community_chat_is_allowed(chat.id):
-        return
+async def restore_member(bot,chat_id,user_id):
+    try: await bot.restrict_chat_member(chat_id=chat_id,user_id=user_id,permissions=ChatPermissions(can_send_messages=True,can_send_audios=True,can_send_documents=True,can_send_photos=True,can_send_videos=True,can_send_video_notes=True,can_send_voice_notes=True,can_send_polls=True,can_send_other_messages=True,can_add_web_page_previews=True,can_invite_users=True)); return True
+    except TelegramError:return False
 
-    old_status = event.old_chat_member.status
-    new_status = event.new_chat_member.status
-
-    left = (
-        old_status in {"member", "administrator", "creator"}
-        and new_status in {"left", "kicked"}
-    )
-    if not left:
-        return
-
-    user = event.old_chat_member.user
-    logger.info(
-        "COMMUNITY EXIT DETECTED | chat_id=%s | user_id=%s | old=%s | new=%s",
-        chat.id,
-        user.id if user else None,
-        old_status,
-        new_status,
-    )
-    if not user or user.is_bot:
-        return
-
-    name = user.first_name or user.username or "Someone"
-
-    # Mark the member as gone so the security monitor no longer processes them.
+async def send_human_challenge(chat_id,user_id,context):
+    row=community_member(chat_id,user_id)
+    if not row:return
+    answer,options=random.choice(HUMAN_CHALLENGES); shuffled=list(options); random.shuffle(shuffled)
+    keyboard=InlineKeyboardMarkup([[InlineKeyboardButton(option,callback_data=f"human_verify:{user_id}:{i}")] for i,option in enumerate(shuffled)])
     try:
-        with community_db_connect() as conn:
-            conn.execute(
-                "UPDATE community_members SET status='left' WHERE chat_id=? AND user_id=?",
-                (chat.id, user.id),
-            )
-            conn.commit()
-    except Exception:
-        logger.exception("Could not mark departing member %s as left", user.id)
+        message=await context.bot.send_message(chat_id=chat_id,text=f"🤖 <b>QUICK HUMAN CHECK</b>\n\nBefore you join the conversation, prove you're human. 👀\n\n<b>Which one is {answer.split(' ',1)[1].lower()}?</b>\n\nTap the correct answer below.",reply_markup=keyboard,parse_mode=ParseMode.HTML)
+        set_verification_challenge(chat_id,user_id,answer,shuffled,message.message_id)
+    except TelegramError: logger.exception("Could not send human verification to %s",user_id)
 
+async def community_chat_member_diagnostic(update,context): return
+
+async def community_exit(update,context):
+    event=update.chat_member
+    if not event or not community_chat_is_allowed(event.chat.id):return
+    old=event.old_chat_member.status; new=event.new_chat_member.status
+    if old not in {"member","administrator","creator"} or new not in {"left","kicked"}:return
+    user=event.old_chat_member.user
+    if not user or user.is_bot:return
+    with community_db_connect() as conn: conn.execute("UPDATE community_members SET status='left' WHERE chat_id=? AND user_id=?",(event.chat.id,user.id)); conn.commit()
     try:
-        exit_message = await context.bot.send_message(
-            chat_id=chat.id,
-            text=(
-                f"👋🏾 <b>{name} has left Melanated AZ.</b> 💜\n\n"
-                "We wish you nothing but good vibes wherever you go. 🖤💜\n\n"
-                "🔥 The door is always open if you ever decide to come back."
-            ),
-            parse_mode=ParseMode.HTML,
-        )
-        # Keep the group clean; remove the exit notice after 5 minutes.
-        if context.job_queue:
-            context.job_queue.run_once(
-                delete_message_job,
-                300,
-                data=(chat.id, exit_message.message_id),
-            )
-    except TelegramError:
-        logger.exception("Could not send community exit message for %s", user.id)
+        msg=await context.bot.send_message(chat_id=event.chat.id,text=f"👋🏾 <b>{user.first_name or user.username or 'Someone'} has left Melanated AZ.</b> 💜\n\nWe wish you nothing but good vibes wherever you go. 🖤💜",parse_mode=ParseMode.HTML)
+        if context.job_queue: context.job_queue.run_once(delete_message_job,300,data=(event.chat.id,msg.message_id))
+    except TelegramError: pass
 
-
-async def send_community_intro_video(chat_id, context, member_name):
-    """Send the Melanated AZ intro video with its embedded audio."""
-    if not INTRO_VIDEO_FILE_ID and not os.path.isfile(INTRO_VIDEO_PATH):
-        logger.warning(
-            "New-member intro video not found: %s. "
-            "Upload melanated_az_intro.mp4 with bot.py or set INTRO_VIDEO_FILE_ID.",
-            INTRO_VIDEO_PATH,
-        )
-        return None
-
-    video_file = None
+async def send_community_intro_video(chat_id,context,member_name):
+    if not INTRO_VIDEO_FILE_ID and not os.path.isfile(INTRO_VIDEO_PATH): return None
+    video_file=INTRO_VIDEO_FILE_ID or open(INTRO_VIDEO_PATH,"rb")
     try:
-        if INTRO_VIDEO_FILE_ID:
-            video_file = INTRO_VIDEO_FILE_ID
-        else:
-            video_file = open(INTRO_VIDEO_PATH, "rb")
-
-        intro_video = await context.bot.send_video(
-            chat_id=chat_id,
-            video=video_file,
-            caption=(
-                f"🎬 <b>WELCOME TO MELANATED AZ, {member_name}!</b> 💜\n\n"
-                "Turn it up. 🔥🖤💜"
-            ),
-            parse_mode=ParseMode.HTML,
-            supports_streaming=True,
-        )
-
-        if context.job_queue and intro_video:
-            context.job_queue.run_once(
-                delete_message_job,
-                INTRO_VIDEO_DELETE_SECONDS,
-                data=(chat_id, intro_video.message_id),
-            )
-
-        logger.info(
-            "New-member intro video sent | chat_id=%s | message_id=%s | user=%s | source=%s",
-            chat_id,
-            intro_video.message_id if intro_video else None,
-            member_name,
-            "file_id" if INTRO_VIDEO_FILE_ID else INTRO_VIDEO_PATH,
-        )
+        intro_video=await context.bot.send_video(chat_id=chat_id,video=video_file,caption=f"🎬 <b>WELCOME TO MELANATED AZ, {member_name}!</b> 💜\n\nTurn it up. 🔥🖤💜",parse_mode=ParseMode.HTML,supports_streaming=True)
+        if context.job_queue: context.job_queue.run_once(delete_message_job,INTRO_VIDEO_DELETE_SECONDS,data=(chat_id,intro_video.message_id))
         return intro_video
-    except (TelegramError, OSError):
-        logger.exception(
-            "Could not send new-member intro video | chat_id=%s",
-            chat_id,
-        )
-        return None
+    except (TelegramError,OSError): return None
     finally:
-        if video_file is not None and hasattr(video_file, "close"):
-            try:
-                video_file.close()
-            except Exception:
-                pass
+        if hasattr(video_file,"close"):
+            try: video_file.close()
+            except Exception: pass
 
-
-async def community_welcome(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    """Two-step join protection: human check, then 48-hour introduction."""
-    event = update.chat_member
-    if not event:
-        return
-
-    chat = event.chat
-    logger.info("COMMUNITY WELCOME HANDLER ENTERED | chat_id=%s", chat.id if chat else None)
-    if not chat or not community_chat_is_allowed(chat.id):
-        return
-
-    old_status = event.old_chat_member.status
-    new_status = event.new_chat_member.status
-    joined = (
-        new_status in {"member", "administrator"}
-        and old_status in {"left", "kicked"}
-    )
-    if not joined:
-        logger.info(
-            "COMMUNITY WELCOME IGNORED | chat_id=%s | old=%s | new=%s",
-            chat.id,
-            old_status,
-            new_status,
-        )
-        return
-
-    user = event.new_chat_member.user
-    logger.info(
-        "COMMUNITY JOIN DETECTED | chat_id=%s | user_id=%s | old=%s | new=%s",
-        chat.id,
-        user.id if user else None,
-        old_status,
-        new_status,
-    )
-    if not user or user.is_bot:
-        return
-
-    # Never challenge configured admins.
-    if await is_admin(user.id, context):
-        return
-
-    save_joining_member(chat.id, user)
-    await restrict_member(context.bot, chat.id, user.id)
-
-    name = user.first_name or "there"
-
-    # Play the Melanated AZ intro song first, then send the normal welcome
-    # and verification instructions.
-    await send_community_intro_video(chat.id, context, name)
-
+async def community_welcome(update,context):
+    event=update.chat_member
+    if not event or not community_chat_is_allowed(event.chat.id):return
+    old=event.old_chat_member.status; new=event.new_chat_member.status
+    if new not in {"member","administrator"} or old not in {"left","kicked"}:return
+    user=event.new_chat_member.user
+    if not user or user.is_bot or await is_admin(user.id,context):return
+    save_joining_member(event.chat.id,user); await restrict_member(context.bot,event.chat.id,user.id); name=user.first_name or "there"; await send_community_intro_video(event.chat.id,context,name)
     try:
-        welcome = await context.bot.send_message(
-            chat_id=chat.id,
-            text=(
-                f"👋🏾 <b>WELCOME TO MELANATED AZ, {name}!</b> 💜🔥\n\n"
-                "🛡️ <b>FIRST THINGS FIRST...</b>\n\n"
-                "You need to complete a quick human verification before you can post.\n\n"
-                "Once you're verified, you'll have <b>48 HOURS</b> to introduce yourself to the community.\n\n"
-                "Good energy. Real people. Real connections. 🖤💜"
-            ),
-            parse_mode=ParseMode.HTML,
-        )
-        context.job_queue.run_once(
-            delete_message_job,
-            VERIFICATION_MESSAGE_TTL_MINUTES * 60,
-            data=(chat.id, welcome.message_id),
-        )
-    except TelegramError:
-        logger.exception("Could not send community welcome for %s", user.id)
+        welcome=await context.bot.send_message(chat_id=event.chat.id,text=f"👋🏾 <b>WELCOME TO MELANATED AZ, {name}!</b> 💜🔥\n\n🛡️ <b>FIRST THINGS FIRST...</b>\n\nYou need to complete a quick human verification before you can post.\n\nOnce you're verified, you'll have <b>48 HOURS</b> to introduce yourself to the community.\n\nGood energy. Real people. Real connections. 🖤💜",parse_mode=ParseMode.HTML); context.job_queue.run_once(delete_message_job,VERIFICATION_MESSAGE_TTL_MINUTES*60,data=(event.chat.id,welcome.message_id))
+    except TelegramError: pass
+    await send_human_challenge(event.chat.id,user.id,context)
 
-    await send_human_challenge(chat.id, user.id, context)
+async def human_verification_callback(update,context):
+    query=update.callback_query
+    if not query or not query.data:return
+    try: await query.answer()
+    except Exception: pass
+    parts=query.data.split(":")
+    if len(parts)!=3:return
+    try: target=int(parts[1]); selected=int(parts[2])
+    except ValueError:return
+    user=update.effective_user; chat=update.effective_chat
+    if not user or not chat or user.id!=target:return
+    row=community_member(chat.id,user.id)
+    if not row or row["status"]!="pending_verification":return
+    expires=parse_iso(row["verification_expires_at"]); challenge=row["verification_challenge"] or ""
+    if not expires or expires<utc_now() or "###" not in challenge: await send_human_challenge(chat.id,user.id,context); return
+    answer,blob=challenge.split("###",1); options=blob.split("|||")
+    if selected<0 or selected>=len(options):return
+    if options[selected]!=answer:
+        attempts=increment_verification_attempt(chat.id,user.id)
+        if attempts>=VERIFICATION_MAX_ATTEMPTS: await remove_unverified_member(context.bot,chat.id,user.id); return
+        await send_human_challenge(chat.id,user.id,context); return
+    mark_verified(chat.id,user.id); await restore_member(context.bot,chat.id,user.id); private_opened=await send_private_intro_prompt(user,context)
+    try: await query.edit_message_text("✅ <b>HUMAN VERIFICATION PASSED!</b> 🎉\n\nYou're cleared to participate. 💜\n\n👋🏾 I've sent your introduction instructions privately.\nYour intro submission will stay private until the finished introduction is posted in the 👋 Introductions topic.",parse_mode=ParseMode.HTML)
+    except TelegramError: pass
 
+def intro_private_keyboard(user_id): return InlineKeyboardMarkup([[InlineKeyboardButton("👋🏾 Submit My Introduction",callback_data=f"intro_submit_{user_id}")]])
+def intro_view_keyboard(user_id): return InlineKeyboardMarkup([[InlineKeyboardButton("✏️ Update My Intro",callback_data=f"intro_submit_{user_id}")],[InlineKeyboardButton("❌ Close",callback_data=f"intro_close_{user_id}")]])
+def intro_topic_text(user,intro_text,updated=False): return f"👋🏾 <b>{'UPDATED INTRODUCTION' if updated else 'INTRODUCTION'}</b>\n\n👤 <b>{html.escape(user.full_name or user.first_name or 'Melanated AZ Member')}</b>\n\n{html.escape(intro_text)}"
 
-async def human_verification_callback(update, context):
-    query = update.callback_query
-    if not query or not query.data:
-        return
+async def send_private_intro_prompt(user,context,update_existing=False):
+    if not user:return False
+    context.user_data["awaiting_intro_submission"]=True; context.user_data["intro_submission_user_id"]=user.id
+    text=("✏️ <b>Update Your Melanated AZ Introduction</b>\n\n" if update_existing else "👋🏾 <b>Let's Get Your Introduction Saved</b>\n\n")+("Your current intro is saved. Send your new intro below and I'll replace it.\n\n" if update_existing else "Your introduction will be saved to your Melanated AZ member profile and posted in the 👋 Introductions topic.\n\n")+"🔒 <b>This submission stays private.</b> The group will only see the finished introduction after you submit it.\n\nTell us what you go by, your relationship / dynamic status, where you're from, what city & state you're in, what brought you to Melanated AZ, what you're into, and what you're looking for — or whatever you're comfortable sharing.\n\n"+f"Keep it under <b>{INTRO_MAX_CHARS} characters</b>.\n\n👇🏾 <b>Send your introduction as your next message.</b>"
+    try: await context.bot.send_message(chat_id=user.id,text=text,parse_mode=ParseMode.HTML,reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel",callback_data=f"intro_close_{user.id}")]])); return True
+    except TelegramError:return False
 
-    try:
-        await query.answer()
-    except Exception:
-        pass
-
-    parts = query.data.split(":")
-    if len(parts) != 3:
-        return
-
-    try:
-        target_user_id = int(parts[1])
-        selected_index = int(parts[2])
-    except ValueError:
-        return
-
-    user = update.effective_user
-    chat = update.effective_chat
-    if not user or not chat or user.id != target_user_id:
-        try:
-            await query.answer("This verification belongs to another member.", show_alert=True)
-        except Exception:
-            pass
-        return
-
-    row = community_member(chat.id, user.id)
-    if not row or row["status"] != "pending_verification":
-        try:
-            await query.answer("You're already verified.", show_alert=True)
-        except Exception:
-            pass
-        return
-
-    expires = parse_iso(row["verification_expires_at"])
-    challenge = row["verification_challenge"] or ""
-    if not expires or expires < utc_now() or "###" not in challenge:
-        await send_human_challenge(chat.id, user.id, context)
-        try:
-            await query.answer("That challenge expired. Here's a new one.", show_alert=True)
-        except Exception:
-            pass
-        return
-
-    answer, options_blob = challenge.split("###", 1)
-    options = options_blob.split("|||")
-    if selected_index < 0 or selected_index >= len(options):
-        return
-
-    if options[selected_index] != answer:
-        attempts = increment_verification_attempt(chat.id, user.id)
-        if attempts >= VERIFICATION_MAX_ATTEMPTS:
-            try:
-                await query.answer("Verification failed. You have been removed.", show_alert=True)
-            except Exception:
-                pass
-            await remove_unverified_member(context.bot, chat.id, user.id)
-            return
-
-        try:
-            await query.answer(
-                f"❌ Not quite. Attempt {attempts}/{VERIFICATION_MAX_ATTEMPTS}.",
-                show_alert=True,
-            )
-        except Exception:
-            pass
-        await send_human_challenge(chat.id, user.id, context)
-        return
-
-    mark_verified(chat.id, user.id)
-    await restore_member(context.bot, chat.id, user.id)
-
-    # Keep the actual introduction flow private. The group only sees the
-    # verification result; the bot opens the intro submission in the user's DM.
-    private_opened = await send_private_intro_prompt(user, context)
-    try:
-        group_text = (
-            "✅ <b>HUMAN VERIFICATION PASSED!</b> 🎉\n\n"
-            "You're cleared to participate. 💜\n\n"
-            "👋🏾 I've sent your introduction instructions privately.\n"
-            "Your intro submission will stay private until the finished introduction is posted in the 👋 Introductions topic."
-        )
-        fallback_keyboard = None
-        if not private_opened:
-            bot_username = await get_bot_username(context)
-            group_text += "\n\n📩 <b>Open the bot privately to submit your introduction.</b>"
-            if bot_username:
-                fallback_keyboard = InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "👋🏾 Open Private Intro",
-                        url=f"https://t.me/{bot_username}?start=intro",
-                    )
-                ]])
-        await query.edit_message_text(group_text, parse_mode=ParseMode.HTML, reply_markup=fallback_keyboard)
-    except TelegramError:
-        pass
-
-
-def intro_private_keyboard(user_id):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("👋🏾 Submit My Introduction", callback_data=f"intro_submit_{user_id}")]
-    ])
-
-
-def intro_view_keyboard(user_id):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✏️ Update My Intro", callback_data=f"intro_submit_{user_id}")],
-        [InlineKeyboardButton("❌ Close", callback_data=f"intro_close_{user_id}")],
-    ])
-
-
-def intro_topic_text(user, intro_text, updated=False):
-    name = html.escape(user.full_name or user.first_name or "Melanated AZ Member")
-    safe_intro = html.escape(intro_text)
-    action = "UPDATED INTRODUCTION" if updated else "INTRODUCTION"
-    return (
-        f"👋🏾 <b>{action}</b>\n\n"
-        f"👤 <b>{name}</b>\n\n"
-        f"{safe_intro}"
-    )
-
-
-async def send_private_intro_prompt(user, context, update_existing=False):
-    if not user:
-        return False
-    text = (
-        "✏️ <b>Update Your Melanated AZ Introduction</b>\n\n"
-        if update_existing else
-        "👋🏾 <b>Let's Get Your Introduction Saved</b>\n\n"
-    ) + (
-        "Your current intro is saved. Send your new intro below and I'll replace it.\n\n"
-        if update_existing else
-        "Your introduction will be saved to your Melanated AZ member profile and posted in the 👋 Introductions topic.\n\n"
-    ) + (
-        "🔒 <b>This submission stays private.</b> The group will only see the finished introduction after you submit it.\n\n"
-        "Tell us what you go by, your relationship / dynamic status, where you're from, what city & state you're in, what brought you to Melanated AZ, what you're into, and what you're looking for — or whatever you're comfortable sharing.\n\n"
-        f"Keep it under <b>{INTRO_MAX_CHARS} characters</b>.\n\n"
-        "👇🏾 <b>Send your introduction as your next message.</b>"
-    )
-    context.user_data["awaiting_intro_submission"] = True
-    context.user_data["intro_submission_user_id"] = user.id
-    try:
-        await context.bot.send_message(
-            chat_id=user.id,
-            text=text,
-            parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data=f"intro_close_{user.id}")]]),
-        )
-        return True
-    except TelegramError:
-        logger.info("Could not open private intro flow for user %s", user.id)
-        return False
-
-
-async def intro_callback(update, context):
-    query = update.callback_query
-    user = update.effective_user
-    if not query or not user or not query.data:
-        return
-
-    parts = query.data.split("_")
-    if len(parts) != 3:
-        return
-    try:
-        target_user_id = int(parts[2])
-    except ValueError:
-        return
-
-    if user.id != target_user_id:
-        await query.answer("This intro button belongs to another member.", show_alert=True)
-        return
-
+async def intro_callback(update,context):
+    query=update.callback_query; user=update.effective_user
+    if not query or not user or not query.data:return
+    try: target=int(query.data.split("_")[-1])
+    except ValueError:return
+    if user.id!=target:return
     if query.data.startswith("intro_close_"):
-        context.user_data.pop("awaiting_intro_submission", None)
-        context.user_data.pop("intro_submission_user_id", None)
-        await query.answer("Intro submission closed.")
-        try:
-            await query.edit_message_text("👍🏾 <b>Intro submission closed.</b>", parse_mode=ParseMode.HTML)
-        except TelegramError:
-            pass
-        return
+        context.user_data.pop("awaiting_intro_submission",None); context.user_data.pop("intro_submission_user_id",None); await query.answer("Intro submission closed."); return
+    if query.data.startswith("intro_submit_"):
+        row=community_member(configured_main_group_id(),user.id)
+        if not row or not row["verified_at"]: await query.answer("You need to be verified in Melanated AZ first.",show_alert=True); return
+        await query.answer(); await send_private_intro_prompt(user,context,update_existing=bool(row["intro_text"]))
 
-    if not query.data.startswith("intro_submit_"):
-        return
+async def private_intro_text_handler(update,context):
+    message=update.effective_message; user=update.effective_user; chat=update.effective_chat
+    if not message or not user or not chat or chat.type!="private" or user.is_bot or not context.user_data.get("awaiting_intro_submission") or context.user_data.get("intro_submission_user_id")!=user.id or not message.text or message.text.startswith("/"):return
+    intro_text=message.text.strip()
+    if not intro_text or len(intro_text)>INTRO_MAX_CHARS:return
+    main=configured_main_group_id(); row=community_member(main,user.id) if main else None
+    if not row or not row["verified_at"]:return
+    try: topic_message=await context.bot.send_message(chat_id=main,message_thread_id=INTRO_TOPIC_ID,text=intro_topic_text(user,intro_text,updated=bool(row["intro_text"])),parse_mode=ParseMode.HTML)
+    except TelegramError: return
+    save_intro(main,user.id,intro_text,topic_message.message_id); context.user_data.pop("awaiting_intro_submission",None); context.user_data.pop("intro_submission_user_id",None)
+    await message.reply_text("🎉 <b>INTRO SAVED!</b> 💜\n\nYour introduction is now posted in the 👋 Introductions topic.",parse_mode=ParseMode.HTML,reply_markup=intro_view_keyboard(user.id))
 
-    main_group_id = configured_main_group_id()
-    row = community_member(main_group_id, user.id) if main_group_id else None
-    if not row or not row["verified_at"] or row["status"] in {"pending_verification", "removed", "left"}:
-        await query.answer("You need to be verified in Melanated AZ first.", show_alert=True)
-        return
-
+async def private_intro_view_callback(update,context):
+    query=update.callback_query; user=update.effective_user
+    if not query or not user or not query.data:return
+    try: target=int(query.data.split("_")[-1])
+    except ValueError:return
+    if user.id!=target:return
+    row=community_member(configured_main_group_id(),user.id); intro=row["intro_text"] if row else None
+    if not intro:return
     await query.answer()
-    existing = bool(row["intro_text"]) if "intro_text" in row.keys() else False
-    await send_private_intro_prompt(user, context, update_existing=existing)
+    if query.data.startswith("intro_view_"): await query.message.reply_text("👋🏾 <b>Your Saved Introduction</b>\n\n"+html.escape(intro),parse_mode=ParseMode.HTML,reply_markup=intro_view_keyboard(user.id))
 
+async def verification_message_guard(update,context):
+    message=update.effective_message; user=update.effective_user; chat=update.effective_chat
+    if not message or not user or not chat or user.is_bot:return
+    main=configured_main_group_id()
+    if main and chat.id!=main:return
+    if await is_admin(user.id,context):
+        if not community_member(chat.id,user.id):ensure_tracked_member(chat.id,user)
+        mark_member_post(chat.id,user.id); return
+    row=community_member(chat.id,user.id)
+    if not row:ensure_tracked_member(chat.id,user); mark_member_post(chat.id,user.id); return
+    if row["status"]=="pending_verification":
+        try: await message.delete()
+        except TelegramError:pass
+    elif row["status"]=="active":mark_member_post(chat.id,user.id)
 
-async def private_intro_text_handler(update, context):
-    message = update.effective_message
-    user = update.effective_user
-    chat = update.effective_chat
-    if not message or not user or not chat or chat.type != "private" or user.is_bot:
-        return
-    if not context.user_data.get("awaiting_intro_submission"):
-        return
-    if context.user_data.get("intro_submission_user_id") != user.id:
-        return
-    if not message.text or message.text.startswith("/"):
-        return
-
-    intro_text = message.text.strip()
-    if not intro_text:
-        await message.reply_text("Please send some text for your introduction.")
-        return
-    if len(intro_text) > INTRO_MAX_CHARS:
-        await message.reply_text(
-            f"⚠️ Your intro is {len(intro_text)} characters. Please keep it under {INTRO_MAX_CHARS} characters and send it again."
-        )
-        return
-
-    main_group_id = configured_main_group_id()
-    if not main_group_id:
-        await message.reply_text("⚠️ The main group is not configured. Please contact an admin.")
-        return
-
-    row = community_member(main_group_id, user.id)
-    if not row or not row["verified_at"]:
-        context.user_data.pop("awaiting_intro_submission", None)
-        context.user_data.pop("intro_submission_user_id", None)
-        await message.reply_text("⚠️ I couldn't verify your Melanated AZ membership. Please contact an admin.")
-        return
-
-    try:
-        topic_message = await context.bot.send_message(
-            chat_id=main_group_id,
-            message_thread_id=INTRO_TOPIC_ID,
-            text=intro_topic_text(user, intro_text, updated=bool(row["intro_text"])),
-            parse_mode=ParseMode.HTML,
-        )
-    except TelegramError:
-        logger.exception("Could not post introduction to topic for user %s", user.id)
-        await message.reply_text(
-            "⚠️ I saved your submission attempt, but I couldn't post it to the Introductions topic. Please contact an admin."
-        )
-        return
-
-    save_intro(main_group_id, user.id, intro_text, topic_message.message_id)
-    context.user_data.pop("awaiting_intro_submission", None)
-    context.user_data.pop("intro_submission_user_id", None)
-
-    await message.reply_text(
-        "🎉 <b>INTRO SAVED!</b> 💜\n\n"
-        "Your introduction is now attached to your Melanated AZ member profile and posted in the 👋 Introductions topic.\n\n"
-        "🔒 Your submission process was private. The group only sees the finished introduction.\n\n"
-        "You can update it anytime.",
-        parse_mode=ParseMode.HTML,
-        reply_markup=intro_view_keyboard(user.id),
-    )
-
-
-async def private_intro_view_callback(update, context):
-    query = update.callback_query
-    user = update.effective_user
-    if not query or not user or not query.data:
-        return
-    try:
-        target_user_id = int(query.data.split("_")[-1])
-    except ValueError:
-        return
-    if user.id != target_user_id:
-        await query.answer("This intro belongs to another member.", show_alert=True)
-        return
-    main_group_id = configured_main_group_id()
-    row = community_member(main_group_id, user.id) if main_group_id else None
-    intro_text = row["intro_text"] if row and "intro_text" in row.keys() else None
-    if not intro_text:
-        await query.answer("You don't have a saved intro yet.", show_alert=True)
-        return
-    if query.data.startswith("intro_view_"):
-        await query.answer()
-        await query.message.reply_text(
-            "👋🏾 <b>Your Saved Introduction</b>\n\n" + html.escape(intro_text),
-            parse_mode=ParseMode.HTML,
-            reply_markup=intro_view_keyboard(user.id),
-        )
-        return
-
-
-
-async def verification_message_guard(update, context):
-    message = update.effective_message
-    user = update.effective_user
-    chat = update.effective_chat
-    if not message or not user or not chat or user.is_bot:
-        return
-
-    # Only act on the configured main group when one is supplied.
-    main_group_id = int(os.environ.get("MAIN_GROUP_ID", "0") or "0")
-    if main_group_id and chat.id != main_group_id:
-        return
-
-    # Track configured admins as well; they are exempt from member inactivity
-    # but are subject to the separate admin-group inactivity rule.
-    if await is_admin(user.id, context):
-        row = community_member(chat.id, user.id)
-        if not row:
-            ensure_tracked_member(chat.id, user)
-        mark_member_post(chat.id, user.id)
-        return
-
-    row = community_member(chat.id, user.id)
-    if not row:
-        # Existing members who were already in the group before this system was
-        # deployed are added to tracking the first time they post.
-        ensure_tracked_member(chat.id, user)
-        mark_member_post(chat.id, user.id)
-        return
-
-    status = row["status"]
-    if status == "pending_verification":
-        try:
-            await message.delete()
-        except TelegramError:
-            pass
-        return
-
-    if status == "verified_intro_pending":
-        # Introduction submission is now handled privately through the bot.
-        # Do not treat ordinary group messages as introductions.
-        return
-
-    if status == "active":
-        mark_member_post(chat.id, user.id)
-
-
-async def remove_unverified_member(bot, chat_id, user_id):
-    try:
-        await bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
-        try:
-            await bot.unban_chat_member(chat_id=chat_id, user_id=user_id, only_if_banned=True)
-        except TypeError:
-            await bot.unban_chat_member(chat_id=chat_id, user_id=user_id)
-    except TelegramError:
-        logger.exception("Could not remove unverified member %s from %s", user_id, chat_id)
-
-    with community_db_connect() as conn:
-        conn.execute(
-            "UPDATE community_members SET status='removed' WHERE chat_id=? AND user_id=?",
-            (chat_id, user_id),
-        )
-        conn.commit()
-
+async def remove_unverified_member(bot,chat_id,user_id):
+    try: await bot.ban_chat_member(chat_id=chat_id,user_id=user_id); await bot.unban_chat_member(chat_id=chat_id,user_id=user_id,only_if_banned=True)
+    except TelegramError:pass
+    with community_db_connect() as conn: conn.execute("UPDATE community_members SET status='removed' WHERE chat_id=? AND user_id=?",(chat_id,user_id)); conn.commit()
 
 async def delete_message_job(context):
-    data = context.job.data if context.job else None
-    if not data:
-        return
-    chat_id, message_id = data
-    try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except TelegramError:
-        pass
-
+    data=context.job.data if context.job else None
+    if not data:return
+    try: await context.bot.delete_message(chat_id=data[0],message_id=data[1])
+    except TelegramError:pass
 
 async def send_monthly_intro_reminders(context):
-    """Remind verified members who still have no saved intro.
-
-    Telegram bots cannot start a private conversation with users who have never
-    opened the bot. Those members are directed to the bot from the group via
-    the /start=intro deep link.
-    """
-    main_group_id = configured_main_group_id()
-    if not main_group_id:
-        logger.warning("Monthly intro reminders skipped: MAIN_GROUP_ID is not configured.")
-        return
-
-    with community_db_connect() as conn:
-        rows = conn.execute("""
-            SELECT * FROM community_members
-            WHERE chat_id=?
-              AND status IN ('active', 'verified_intro_pending')
-              AND verified_at IS NOT NULL
-              AND (intro_text IS NULL OR TRIM(intro_text)='')
-        """, (main_group_id,)).fetchall()
-
-    text = (
-        "👋🏾 <b>Hey! Just wanted to say hey!</b>\n\n"
-        "We’re updating the <b>👋 Introductions</b> page and would love for you to help us out. "
-        "The admins and everyone in the community would love to get to know you and know a little about who you are. 💜\n\n"
-        "Take a few minutes and tell us:\n\n"
-        "• What do you go by?\n"
-        "• Relationship / dynamic status?\n"
-        "• Where are you from?\n"
-        "• What city &amp; state are you in?\n"
-        "• What brings you to Melanated AZ?\n"
-        "• What are you into?\n"
-        "• What are you looking for?\n\n"
-        "Nothing formal — <b>just be yourself, have fun with it, and let us get to know you!</b> 😏🔥"
-    )
-
-    bot_username = await get_bot_username(context)
-    group_keyboard = None
-    if bot_username:
-        group_keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(
-                "👋🏾 Submit My Introduction",
-                url=f"https://t.me/{bot_username}?start=intro",
-            )
-        ]])
-
-    sent = 0
-    skipped = 0
-    for row in rows:
-        user_id = int(row["user_id"])
-        try:
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=text,
-                parse_mode=ParseMode.HTML,
-                reply_markup=(InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "👋🏾 Submit My Introduction",
-                        callback_data=f"intro_submit_{user_id}",
-                    )
-                ]]) if bot_username else None),
-            )
-            sent += 1
-        except TelegramError:
-            skipped += 1
-            logger.info("Could not DM monthly intro reminder to user %s", user_id)
-
-    topic_ok, topic_detail = await post_intro_topic_reminder(context)
-
-    logger.info(
-        "Monthly intro reminders complete: DMs sent=%s | DMs skipped=%s | no-intro-members=%s | topic_ok=%s | topic_detail=%s",
-        sent, skipped, len(rows), topic_ok, topic_detail,
-    )
-
-
-
-async def post_intro_topic_reminder(context):
-    """Post the public intro reminder to the configured forum topic.
-
-    Returns (True, detail) on success or (False, detail) on failure so the
-    admin can see the actual Telegram/configuration problem immediately.
-    """
-    main_group_id = configured_main_group_id()
-    if not main_group_id:
-        detail = "MAIN_GROUP_ID is not configured."
-        logger.error("Intro topic reminder failed: %s", detail)
-        return False, detail
-
-    if not INTRO_TOPIC_ID:
-        detail = "INTRO_TOPIC_ID is not configured."
-        logger.error("Intro topic reminder failed: %s", detail)
-        return False, detail
-
-    bot_username = await get_bot_username(context)
-    if not bot_username:
-        detail = "Bot username could not be resolved."
-        logger.error("Intro topic reminder failed: %s", detail)
-        return False, detail
-
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            "👋🏾 Submit My Introduction",
-            url=f"https://t.me/{bot_username}?start=intro",
-        )
-    ]])
-
-    text = (
-        "👋🏾 <b>INTRODUCTIONS REMINDER</b>\n\n"
-        "We’re updating the <b>👋 Introductions</b> page and would love for you to help us out. "
-        "The admins and everyone in the community would love to get to know you and know a little about who you are. 💜\n\n"
-        "Take a few minutes and tell us:\n\n"
-        "• What do you go by?\n"
-        "• Relationship / dynamic status?\n"
-        "• Where are you from?\n"
-        "• What city &amp; state are you in?\n"
-        "• What brings you to Melanated AZ?\n"
-        "• What are you into?\n"
-        "• What are you looking for?\n\n"
-        "Nothing formal — <b>just be yourself, have fun with it, and let us get to know you!</b> 😏🔥"
-    )
-
-    try:
-        sent = await context.bot.send_message(
-            chat_id=main_group_id,
-            message_thread_id=INTRO_TOPIC_ID,
-            text=text,
-            parse_mode=ParseMode.HTML,
-            reply_markup=keyboard,
-        )
-        logger.info(
-            "INTRO TOPIC REMINDER POSTED: chat=%s topic=%s message=%s",
-            main_group_id, INTRO_TOPIC_ID, sent.message_id,
-        )
-        return True, f"Posted to chat {main_group_id}, topic {INTRO_TOPIC_ID}, message {sent.message_id}."
-    except TelegramError as exc:
-        detail = f"Telegram error: {exc}"
-        logger.exception(
-            "FAILED TO POST INTRO TOPIC REMINDER: chat=%s topic=%s",
-            main_group_id, INTRO_TOPIC_ID,
-        )
-        return False, detail
-
-
-async def post_intro_topic_command(update, context):
-    """Admin-only manual test/post for the Introductions topic."""
-    user = update.effective_user
-    message = update.effective_message
-    if not user or not message:
-        return
-
-    if not await is_admin(user.id, context):
-        await message.reply_text("⛔ You are not authorized to use /postintro.")
-        return
-
-    ok, detail = await post_intro_topic_reminder(context)
-    if ok:
-        await message.reply_text(
-            "✅ Intro reminder posted successfully.\n\n"
-            f"{detail}"
-        )
-    else:
-        await message.reply_text(
-            "❌ Intro reminder FAILED.\n\n"
-            f"{detail}\n\n"
-            "This tells us exactly what Telegram is rejecting."
-        )
+    return
 
 def start_monthly_intro_reminders(application):
-    """Send the intro reminder now, then repeat every 30 days."""
-    if not application.job_queue:
-        logger.warning("Monthly intro reminders unavailable: JobQueue not installed.")
-        return
-
-    application.job_queue.run_repeating(
-        send_monthly_intro_reminders,
-        interval=30 * 24 * 60 * 60,
-        first=1,
-        name="monthly-intro-reminders",
-    )
-    logger.info("Monthly intro reminders started: first run now, then every 30 days.")
-
+    # Disabled: the Introductions topic has ONE permanent launcher/reminder.
+    logger.info("Monthly public introduction reposts disabled.")
 
 async def community_security_monitor(context):
-    now = utc_now()
-
-    # ------------------------------------------------------
-    # JOIN / INTRO ENFORCEMENT
-    # ------------------------------------------------------
-    with community_db_connect() as conn:
-        rows = conn.execute("""
-            SELECT * FROM community_members
-            WHERE status IN ('pending_verification', 'verified_intro_pending')
-        """).fetchall()
-
+    now=utc_now()
+    with community_db_connect() as conn: rows=conn.execute("SELECT * FROM community_members WHERE status IN ('pending_verification','verified_intro_pending')").fetchall()
     for row in rows:
-        deadline = parse_iso(row["intro_deadline"])
-        joined = parse_iso(row["joined_at"])
-
-        if row["status"] == "pending_verification":
-            if joined and joined + timedelta(hours=INTRO_HOURS) <= now:
-                await remove_unverified_member(context.bot, row["chat_id"], row["user_id"])
-
-        elif row["status"] == "verified_intro_pending":
-            if deadline and deadline <= now:
-                await remove_unverified_member(context.bot, row["chat_id"], row["user_id"])
-
-    # ------------------------------------------------------
-    # REGULAR MEMBER INACTIVITY
-    # ------------------------------------------------------
-    main_group_id = configured_main_group_id()
-    if not main_group_id:
-        return
-
-    member_cutoff = now - timedelta(days=MEMBER_INACTIVITY_DAYS)
-    with community_db_connect() as conn:
-        inactive_members = conn.execute("""
-            SELECT * FROM community_members
-            WHERE chat_id=?
-              AND status='active'
-              AND last_post_at IS NOT NULL
-              AND last_post_at <= ?
-              AND inactivity_notice_at IS NULL
-        """, (main_group_id, member_cutoff.isoformat())).fetchall()
-
-    for row in inactive_members:
-        if await is_admin(int(row["user_id"]), context):
-            continue
-        await send_inactivity_notice(context, row)
-
-    # ------------------------------------------------------
-    # ADMIN INACTIVITY
-    # ------------------------------------------------------
-    admin_group_id = configured_admin_group_id()
-    if not admin_group_id:
-        return
-
-    admin_cutoff = now - timedelta(days=ADMIN_INACTIVITY_DAYS)
-    with community_db_connect() as conn:
-        inactive_admins = conn.execute("""
-            SELECT * FROM community_members
-            WHERE chat_id=?
-              AND status='active'
-              AND last_post_at IS NOT NULL
-              AND last_post_at <= ?
-        """, (main_group_id, admin_cutoff.isoformat())).fetchall()
-
-    for row in inactive_admins:
-        user_id = int(row["user_id"])
-        if not await is_admin(user_id, context):
-            continue
-        await remove_inactive_admin_from_admin_group(context, user_id, admin_group_id)
-
-
+        deadline=parse_iso(row["intro_deadline"]); joined=parse_iso(row["joined_at"])
+        if row["status"]=="pending_verification" and joined and joined+timedelta(hours=INTRO_HOURS)<=now: await remove_unverified_member(context.bot,row["chat_id"],row["user_id"])
+        elif row["status"]=="verified_intro_pending" and deadline and deadline<=now: await remove_unverified_member(context.bot,row["chat_id"],row["user_id"])
+    main=configured_main_group_id()
+    if not main:return
+    cutoff=now-timedelta(days=MEMBER_INACTIVITY_DAYS)
+    with community_db_connect() as conn: inactive=conn.execute("SELECT * FROM community_members WHERE chat_id=? AND status='active' AND last_post_at IS NOT NULL AND last_post_at<=? AND inactivity_notice_at IS NULL",(main,cutoff.isoformat())).fetchall()
+    for row in inactive:
+        if not await is_admin(int(row["user_id"]),context): await send_inactivity_notice(context,row)
+    admin_group=configured_admin_group_id()
+    if not admin_group:return
+    cutoff=now-timedelta(days=ADMIN_INACTIVITY_DAYS)
+    with community_db_connect() as conn: admins=conn.execute("SELECT * FROM community_members WHERE chat_id=? AND status='active' AND last_post_at IS NOT NULL AND last_post_at<=?",(main,cutoff.isoformat())).fetchall()
+    for row in admins:
+        if await is_admin(int(row["user_id"]),context): await remove_inactive_admin_from_admin_group(context,int(row["user_id"]),admin_group)
 
 def start_community_security_monitor(application):
-    if not application.job_queue:
-        logger.warning("Community security monitor unavailable: JobQueue not installed.")
-        return
-    application.job_queue.run_repeating(
-        community_security_monitor,
-        interval=INACTIVITY_CHECK_HOURS * 60 * 60,
-        first=60,
-        name="community-security-monitor",
-    )
-    logger.info("Community security monitor started.")
+    if application.job_queue: application.job_queue.run_repeating(community_security_monitor,interval=INACTIVITY_CHECK_HOURS*60*60,first=60,name="community-security-monitor")
 
+async def text_router(update,context):
+    if await admin_birthday_text_handler(update,context):return
+    await birthday_text_handler(update,context)
 
-# ==========================================================
-# TEXT ROUTER
-# ==========================================================
-
-async def text_router(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    if await admin_birthday_text_handler(
-        update,
-        context,
-    ):
-        return
-
-    if await birthday_text_handler(
-        update,
-        context,
-    ):
-        return
-
-
-# ==========================================================
-# /START
-#
-# IMPORTANT:
-# Telegram deep-links also arrive through /start.
-#
-# Examples:
-#
-# /start rg_monopoly
-# /start rg_join_AB12CD34
-#
-# We check Real Games FIRST.
-# If it is not a Real Games payload,
-# normal /start continues.
-# ==========================================================
-
-async def start_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    message = update.effective_message
-    user = update.effective_user
-
-    if not message or not user:
-        return
-
-    # ------------------------------------------------------
-    # REAL GAMES DEEP-LINK
-    # ------------------------------------------------------
-
+async def start_command(update,context):
+    message=update.effective_message; user=update.effective_user
+    if not message or not user:return
     try:
-
-        handled = await handle_real_game_deep_link(
-            update,
-            context,
-        )
-
-        if handled:
-
-            logger.info(
-                "Real Games deep-link handled for user %s",
-                user.id,
-            )
-
-            return
-
-    except Exception:
-
-        logger.exception(
-            "Real Games deep-link processing failed."
-        )
-
-        await message.reply_text(
-            "⚠️ I couldn't open that game link. "
-            "Please try again."
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # PRIVATE INTRO DEEP-LINK
-    # ------------------------------------------------------
-
-    if context.args and context.args[0].lower() == "intro":
-        main_group_id = configured_main_group_id()
-        row = community_member(main_group_id, user.id) if main_group_id else None
-        if not row or not row["verified_at"]:
-            await message.reply_text(
-                "👋🏾 <b>You need to complete Melanated AZ verification first.</b>\n\n"
-                "Once you're verified, use the private intro button to submit your introduction.",
-                parse_mode=ParseMode.HTML,
-            )
-            return
-        existing = bool(row["intro_text"]) if "intro_text" in row.keys() else False
-        await send_private_intro_prompt(user, context, update_existing=existing)
-        return
-
-    # ------------------------------------------------------
-    # NORMAL /START
-    # ------------------------------------------------------
-
-    text = (
-        "👋 <b>Welcome to Melanated AZ Bot!</b>\n\n"
-        "I'm the bot for the Melanated AZ community.\n\n"
-        "🎂 Birthdays\n"
-        "🎟️ Raffles\n"
-        "🔥 Truth or Dare\n"
-        "🎮 Game Center\n"
-        "🎲 Real Games\n"
-        "🛡️ Media protection\n\n"
-        "Birthday: <code>/birthday</code>\n"
-        "Truth or Dare: <code>/truthdare</code>\n"
-        "Game Center: <code>/games</code>\n"
-        "Real Games: <code>/realgames</code>"
-    )
-
-    if await is_admin(user.id, context):
-
-        text += (
-            "\n\n👑 <b>Admin:</b>\n"
-            "Use <code>/admin</code> to open "
-            "the admin panel."
-        )
-
-    keyboard = InlineKeyboardMarkup(
-        [[
-            InlineKeyboardButton(
-                "🎮 REAL GAMES",
-                callback_data="real_games_menu",
-            )
-        ]]
-    )
-
-    await message.reply_text(
-        text,
-        reply_markup=keyboard,
-        parse_mode=ParseMode.HTML,
-    )
-
-
-async def my_intro_command(update, context):
-    message = update.effective_message
-    user = update.effective_user
-    if not message or not user or message.chat.type != "private":
-        return
-    main_group_id = configured_main_group_id()
-    row = community_member(main_group_id, user.id) if main_group_id else None
-    intro_text = row["intro_text"] if row and "intro_text" in row.keys() else None
-    if not intro_text:
-        await message.reply_text(
-            "👋🏾 <b>You don't have a saved introduction yet.</b>\n\nTap below to submit one.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=intro_private_keyboard(user.id),
-        )
-        return
-    await message.reply_text(
-        "👋🏾 <b>Your Saved Introduction</b>\n\n" + html.escape(intro_text),
-        parse_mode=ParseMode.HTML,
-        reply_markup=intro_view_keyboard(user.id),
-    )
-
-
-# ==========================================================
-# /STARTGAMES
-#
-# Opens the Real Games launcher with a large PLAY GAMES
-# button.
-# ==========================================================
-
-async def startgames_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    message = update.effective_message
-
-    if not message:
-        return
-
-    games_url = (
-        "https://melanatedaz.onrender.com/real-games/"
-    )
-
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🎮 PLAY GAMES",
-                    url=games_url,
-                )
-            ]
-        ]
-    )
-
-    text = (
-        "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
-        "Ready to play?\n\n"
-        "Choose from our playable games:\n\n"
-        "🎮 <b>Arcade</b>\n"
-        "🎲 <b>Board Games</b>\n"
-        "🏀 <b>Sports</b>\n"
-        "🔫 <b>Shooting</b>\n\n"
-        "Tap the button below to enter the Game Center!"
-    )
-
-    await message.reply_text(
-        text,
-        reply_markup=keyboard,
-        parse_mode=ParseMode.HTML,
-    )
-
-
-# ==========================================================
-# /REALGAMES
-# ==========================================================
-
-async def real_games_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    message = update.effective_message
-
-    if not message:
-        return
-
-    base_url = (
-        context.application.bot_data.get(
-            "public_base_url"
-        )
-        or os.environ.get(
-            "PUBLIC_BASE_URL",
-            "",
-        )
-    ).rstrip("/")
-
-    if base_url:
-
-        games_url = (
-            f"{base_url}/real-games/"
-        )
-
-        monopoly_url = (
-            f"{base_url}/real-games/monopoly/"
-        )
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🎮 REAL GAMES",
-                        url=games_url,
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "🎲 MONOPOLY",
-                        url=monopoly_url,
-                    )
-                ],
-            ]
-        )
-
-        text = (
-            "🎮 <b>Melanated AZ Real Games</b>\n\n"
-            "These are the interactive browser games.\n\n"
-            "Choose a game below:"
-        )
-
-    else:
-
-        keyboard = None
-
-        text = (
-            "🎮 <b>Melanated AZ Real Games</b>\n\n"
-            "The game server URL has not been configured yet.\n\n"
-            "Set the Render environment variable:\n\n"
-            "<code>PUBLIC_BASE_URL</code>"
-        )
-
-    await message.reply_text(
-        text,
-        reply_markup=keyboard,
-        parse_mode=ParseMode.HTML,
-    )
-
-
-# ==========================================================
-# /ADMIN
-# ==========================================================
-
-async def admin_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    user = update.effective_user
-
-    if not user:
-        return
-
-    if not await is_admin(user.id, context):
-
-        await update.effective_message.reply_text(
-            "⛔ You are not authorized to use "
-            "the admin panel."
-        )
-
-        return
-
-    await admin_menu(
-        update,
-        context,
-    )
-
-
-# ==========================================================
-# ADMIN CALLBACK ROUTER
-# ==========================================================
-
-async def admin_callback_router(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    if not query:
-        return
-
-    user = update.effective_user
-
-    if not user or not await is_admin(user.id, context):
-
-        await query.answer(
-            "⛔ You are not authorized.",
-            show_alert=True,
-        )
-
-        return
-
-    try:
-
-        await admin_button(
-            update,
-            context,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Admin callback failed."
-        )
-
-        try:
-
-            await query.answer(
-                "⚠️ Something went wrong.",
-                show_alert=True,
-            )
-
-        except Exception:
-
-            pass
-
-
-# ==========================================================
-# BIRTHDAY CALLBACK ROUTER
-# ==========================================================
-
-async def birthday_callback_router(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    try:
-
-        await birthday_callback(
-            update,
-            context,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Birthday callback failed."
-        )
-
-        query = update.callback_query
-
-        if query:
-
-            try:
-
-                await query.answer(
-                    "⚠️ Something went wrong.",
-                    show_alert=True,
-                )
-
-            except Exception:
-
-                pass
-
-
-# ==========================================================
-# GAME CENTER CALLBACK ROUTER
-# ==========================================================
-
-async def game_center_callback_router_wrapper(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    try:
-
-        await game_center_callback_router(
-            update,
-            context,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Game Center callback failed."
-        )
-
-        query = update.callback_query
-
-        if query:
-
-            try:
-
-                await query.answer(
-                    "⚠️ Game Center action failed.",
-                    show_alert=True,
-                )
-
-            except Exception:
-
-                pass
-
-
-# ==========================================================
-# REAL GAMES CALLBACK ROUTER
-#
-# This is intentionally separate from games/.
-# ==========================================================
-
-async def real_games_callback_router(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    if not query:
-        return
-
-    try:
-
-        await query.answer()
-
-    except Exception:
-
-        pass
-
-    base_url = (
-        context.application.bot_data.get(
-            "public_base_url"
-        )
-        or os.environ.get(
-            "PUBLIC_BASE_URL",
-            "",
-        )
-    ).rstrip("/")
-
-    if not base_url:
-
-        await query.message.reply_text(
-            "⚠️ Real Games are not configured yet.\n\n"
-            "The Render PUBLIC_BASE_URL environment "
-            "variable needs to be set."
-        )
-
-        return
-
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🎲 MONOPOLY",
-                    url=(
-                        f"{base_url}"
-                        "/real-games/monopoly/"
-                    ),
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🎮 ALL REAL GAMES",
-                    url=(
-                        f"{base_url}"
-                        "/real-games/"
-                    ),
-                )
-            ],
-        ]
-    )
-
-    await query.message.reply_text(
-        "🎮 <b>REAL GAMES</b>\n\n"
-        "Choose a game:",
-        reply_markup=keyboard,
-        parse_mode=ParseMode.HTML,
-    )
-
-
-# ==========================================================
-# TRUTH OR DARE CALLBACK ROUTER
-# ==========================================================
-
-async def truth_dare_callback_router(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    try:
-
-        await truth_dare_callback(
-            update,
-            context,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Truth or Dare callback failed."
-        )
-
-        query = update.callback_query
-
-        if query:
-
-            try:
-
-                await query.answer(
-                    "⚠️ Something went wrong.",
-                    show_alert=True,
-                )
-
-            except Exception:
-
-                pass
-
-
-# ==========================================================
-# RAFFLE CALLBACK ROUTER
-# ==========================================================
-
-async def raffle_callback_router(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    query = update.callback_query
-
-    logger.info(
-        "=========================================================="
-    )
-
-    logger.info(
-        "RAFFLE CALLBACK HANDLER TRIGGERED"
-    )
-
-    logger.info(
-        "Callback query exists: %s",
-        bool(query),
-    )
-
-    if query:
-
-        logger.info(
-            "Callback data: %s",
-            query.data,
-        )
-
-        logger.info(
-            "Callback user: %s",
-            getattr(
-                update.effective_user,
-                "id",
-                None,
-            ),
-        )
-
-        logger.info(
-            "Callback username: %s",
-            getattr(
-                update.effective_user,
-                "username",
-                None,
-            ),
-        )
-
-        callback_message = getattr(
-            query,
-            "message",
-            None,
-        )
-
-        logger.info(
-            "Callback chat ID: %s",
-            getattr(
-                callback_message,
-                "chat_id",
-                None,
-            ),
-        )
-
-        logger.info(
-            "Callback message ID: %s",
-            getattr(
-                callback_message,
-                "message_id",
-                None,
-            ),
-        )
-
-    else:
-
-        logger.warning(
-            "RAFFLE CALLBACK HANDLER RECEIVED "
-            "WITHOUT callback_query!"
-        )
-
-    logger.info(
-        "Calling raffle.raffle_callback()..."
-    )
-
-    try:
-
-        await raffle_callback(
-            update,
-            context,
-        )
-
-        logger.info(
-            "raffle.raffle_callback() completed successfully."
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Raffle callback failed."
-        )
-
-        if query:
-
-            try:
-
-                await query.answer(
-                    "⚠️ Raffle action failed.",
-                    show_alert=True,
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "Could not answer failed "
-                    "raffle callback."
-                )
-
-    logger.info(
-        "=========================================================="
-    )
-
-
-# ==========================================================
-# DATABASE STARTUP CHECK
-# ==========================================================
+        if await handle_real_game_deep_link(update,context):return
+    except Exception: logger.exception("Real Games deep-link processing failed."); return
+    if context.args and context.args[0].lower()=="intro":
+        row=community_member(configured_main_group_id(),user.id)
+        if not row or not row["verified_at"]: await message.reply_text("👋🏾 <b>You need to complete Melanated AZ verification first.</b>",parse_mode=ParseMode.HTML); return
+        await send_private_intro_prompt(user,context,update_existing=bool(row["intro_text"])); return
+    text="👋 <b>Welcome to Melanated AZ Bot!</b>\n\n🎂 Birthdays\n🎟️ Raffles\n🔥 Truth or Dare\n🎮 Game Center\n🎲 Real Games\n🛡️ Media protection"
+    if await is_admin(user.id,context):text+="\n\n👑 <b>Admin:</b> <code>/admin</code>"
+    await message.reply_text(text,reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎮 REAL GAMES",callback_data="real_games_menu")]]),parse_mode=ParseMode.HTML)
+
+async def my_intro_command(update,context):
+    message=update.effective_message; user=update.effective_user
+    if not message or not user or message.chat.type!="private":return
+    row=community_member(configured_main_group_id(),user.id); intro=row["intro_text"] if row else None
+    if not intro: await message.reply_text("👋🏾 <b>You don't have a saved introduction yet.</b>",parse_mode=ParseMode.HTML,reply_markup=intro_private_keyboard(user.id)); return
+    await message.reply_text("👋🏾 <b>Your Saved Introduction</b>\n\n"+html.escape(intro),parse_mode=ParseMode.HTML,reply_markup=intro_view_keyboard(user.id))
+
+async def startgames_command(update,context):
+    if update.effective_message: await update.effective_message.reply_text("🎮 <b>MELANATED AZ GAME CENTER</b>\n\nTap below to enter the Game Center!",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎮 PLAY GAMES",url="https://melanatedaz.onrender.com/real-games/")]]),parse_mode=ParseMode.HTML)
+
+async def real_games_command(update,context):
+    if update.effective_message: await update.effective_message.reply_text("🎮 <b>Melanated AZ Real Games</b>\n\nChoose a game below:",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎮 REAL GAMES",url="https://melanatedaz.onrender.com/real-games/")],[InlineKeyboardButton("🎲 MONOPOLY",url="https://melanatedaz.onrender.com/real-games/monopoly/")]]),parse_mode=ParseMode.HTML)
+
+async def admin_command(update,context):
+    if update.effective_user and await is_admin(update.effective_user.id,context): await admin_menu(update,context)
+    elif update.effective_message: await update.effective_message.reply_text("⛔ You are not authorized to use the admin panel.")
+
+async def admin_callback_router(update,context):
+    if update.effective_user and await is_admin(update.effective_user.id,context): await admin_button(update,context)
+
+async def birthday_callback_router(update,context): await birthday_callback(update,context)
+async def game_center_callback_router_wrapper(update,context): await game_center_callback_router(update,context)
+async def real_games_callback_router(update,context):
+    query=update.callback_query
+    if not query:return
+    await query.answer()
+    await query.message.reply_text("🎮 <b>REAL GAMES</b>\n\nChoose a game:",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎲 MONOPOLY",url="https://melanatedaz.onrender.com/real-games/monopoly/")],[InlineKeyboardButton("🎮 ALL REAL GAMES",url="https://melanatedaz.onrender.com/real-games/")]]),parse_mode=ParseMode.HTML)
+async def truth_dare_callback_router(update,context): await truth_dare_callback(update,context)
+async def raffle_callback_router(update,context): await raffle_callback(update,context)
 
 def database_startup_check():
-
     try:
-
-        stats = get_database_stats()
-
-        logger.info(
-            "=========================================================="
-        )
-
-        logger.info(
-            "Melanated AZ Bot - Persistent Database"
-        )
-
-        logger.info(
-            "=========================================================="
-        )
-
-        logger.info(
-            "Database path       : %s",
-            stats.get("database"),
-        )
-
-        logger.info(
-            "Database directory  : %s",
-            stats.get("database_directory"),
-        )
-
-        logger.info(
-            "Database exists     : %s",
-            stats.get("exists"),
-        )
-
-        logger.info(
-            "Database size       : %s",
-            stats.get("size"),
-        )
-
-        logger.info(
-            "Persistent directory: %s",
-            stats.get("persistent"),
-        )
-
-        logger.info(
-            "=========================================================="
-        )
-
-        logger.info(
-            "Melanated AZ Bot - Database Statistics"
-        )
-
-        logger.info(
-            "=========================================================="
-        )
-
-        logger.info(
-            "Database       : %s",
-            stats.get("database"),
-        )
-
-        logger.info(
-            "Raffles        : %s",
-            stats.get("raffles"),
-        )
-
-        logger.info(
-            "Raffle Entries : %s",
-            stats.get("raffle_entries"),
-        )
-
-        logger.info(
-            "Birthdays      : %s",
-            stats.get("birthdays"),
-        )
-
-        logger.info(
-            "Known Members  : %s",
-            stats.get("members"),
-        )
-
-        logger.info(
-            "Integrity      : %s",
-            "OK"
-            if check_database_integrity()
-            else "FAILED",
-        )
-
-        logger.info(
-            "=========================================================="
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Database startup check failed."
-        )
-
-
-# ==========================================================
-# GAME DATABASE
-# ==========================================================
+        stats=get_database_stats(); logger.info("Database: %s | Raffles=%s | Entries=%s | Birthdays=%s | Integrity=%s",stats.get("database"),stats.get("raffles"),stats.get("raffle_entries"),stats.get("birthdays"),"OK" if check_database_integrity() else "FAILED")
+    except Exception:logger.exception("Database startup check failed.")
 
 def game_database_startup_check():
-
-    try:
-
-        initialize_game_database()
-
-        logger.info(
-            "Game Center database: READY"
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Game Center database initialization failed."
-        )
-
-
-# ==========================================================
-# REAL GAMES STARTUP CHECK
-# ==========================================================
+    try:initialize_game_database(); logger.info("Game Center database: READY")
+    except Exception:logger.exception("Game Center database initialization failed.")
 
 def real_games_startup_check():
+    logger.info("Real Games URL: %s",os.environ.get("PUBLIC_BASE_URL","").strip().rstrip("/")+"/real-games/")
 
-    public_url = os.environ.get(
-        "PUBLIC_BASE_URL",
-        "",
-    ).strip().rstrip("/")
-
-    if public_url:
-
-        logger.info(
-            "=========================================================="
-        )
-
-        logger.info(
-            "Real Games: READY"
-        )
-
-        logger.info(
-            "Public URL: %s",
-            public_url,
-        )
-
-        logger.info(
-            "Real Games: %s/real-games/",
-            public_url,
-        )
-
-        logger.info(
-            "Monopoly: %s/real-games/monopoly/",
-            public_url,
-        )
-
-        logger.info(
-            "=========================================================="
-        )
-
-    else:
-
-        logger.warning(
-            "=========================================================="
-        )
-
-        logger.warning(
-            "PUBLIC_BASE_URL is NOT configured."
-        )
-
-        logger.warning(
-            "Real Games can still run locally, but "
-            "Telegram game links will not have a "
-            "public Render URL."
-        )
-
-        logger.warning(
-            "Set PUBLIC_BASE_URL in Render."
-        )
-
-        logger.warning(
-            "=========================================================="
-        )
-
-
-# ==========================================================
-# POST INIT
-# ==========================================================
-
-async def post_init(
-    application: Application,
-):
-
-    # ------------------------------------------------------
-    # BOT INFORMATION
-    # ------------------------------------------------------
-
-    try:
-
-        me = await application.bot.get_me()
-
-        application.bot_data[
-            "bot_username"
-        ] = me.username
-
-        logger.info(
-            "Bot username: @%s",
-            me.username,
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Could not retrieve bot information."
-        )
-
-    # ------------------------------------------------------
-    # COMMUNITY CONFIGURATION / BOT PERMISSIONS DIAGNOSTIC
-    # ------------------------------------------------------
-
-    main_group_id = configured_main_group_id()
-    logger.info("Community MAIN_GROUP_ID: %s", main_group_id or "NOT SET")
-
-    if main_group_id:
-        try:
-            bot_member = await application.bot.get_chat_member(
-                chat_id=main_group_id,
-                user_id=application.bot.id,
-            )
-            logger.info(
-                "Community bot membership: status=%s | can_restrict_members=%s | "
-                "can_delete_messages=%s | can_invite_users=%s",
-                bot_member.status,
-                getattr(bot_member, "can_restrict_members", None),
-                getattr(bot_member, "can_delete_messages", None),
-                getattr(bot_member, "can_invite_users", None),
-            )
-        except TelegramError:
-            logger.exception(
-                "Could not inspect bot membership/permissions for MAIN_GROUP_ID=%s",
-                main_group_id,
-            )
-    else:
-        logger.warning(
-            "MAIN_GROUP_ID is not configured. Community join/exit handlers will accept chat_member events from any group where this bot is present."
-        )
-
-    # ------------------------------------------------------
-    # PUBLIC URL
-    # ------------------------------------------------------
-
-    public_url = os.environ.get(
-        "PUBLIC_BASE_URL",
-        "",
-    ).strip().rstrip("/")
-
-    if public_url:
-
-        application.bot_data[
-            "public_base_url"
-        ] = public_url
-
-        logger.info(
-            "Public Base URL loaded: %s",
-            public_url,
-        )
-
-    else:
-
-        application.bot_data[
-            "public_base_url"
-        ] = ""
-
-        logger.warning(
-            "PUBLIC_BASE_URL is not configured."
-        )
-
-
-
-# ==========================================================
-# ERROR HANDLER
-# ==========================================================
-
-async def error_handler(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    error = context.error
-
-    if isinstance(
-        error,
-        BadRequest,
-    ):
-
-        logger.warning(
-            "Telegram BadRequest: %s",
-            error,
-        )
-
+async def repair_active_raffle_post(context):
+    """One-time repair: publish the existing active raffle once in topic 11883.
+    No repeating manager. No new raffle. A persistent marker prevents reposts on restarts.
+    """
+    marker="/var/data/raffle_topic_11883_repair_v1.done" if os.path.isdir("/var/data") else "./raffle_topic_11883_repair_v1.done"
+    if os.path.exists(marker):
+        logger.info("Raffle topic 11883 one-time repair already completed.")
         return
-
-    logger.exception(
-        "Unhandled bot exception:",
-        exc_info=error,
-    )
-
-
-# ==========================================================
-# BUILD APPLICATION
-# ==========================================================
+    raffle=get_active_raffle()
+    if not raffle:
+        logger.info("Raffle topic repair skipped: no active raffle.")
+        return
+    raffle_id=int(raffle["id"])
+    try:
+        # Clear the stale Telegram post reference left by the disabled auto-sync manager.
+        set_raffle_post(raffle_id,None,None)
+        if await publish_raffle(raffle_id,context):
+            os.makedirs(os.path.dirname(marker) or ".",exist_ok=True)
+            with open(marker,"w",encoding="utf-8") as fh: fh.write(f"raffle={raffle_id}\n")
+            logger.info("ONE-TIME RAFFLE REPAIR COMPLETE | raffle=%s | topic=11883",raffle_id)
+        else:
+            logger.error("ONE-TIME RAFFLE REPAIR FAILED | raffle=%s | topic=11883",raffle_id)
+    except Exception:
+        logger.exception("One-time raffle topic repair failed.")
 
 def build_application():
-
-    if not BOT_TOKEN:
-
-        raise RuntimeError(
-            "BOT_TOKEN is not configured."
-        )
-
-    application = (
-        Application.builder()
-        .token(BOT_TOKEN)
-        .post_init(post_init)
-        .build()
-    )
-
-    # ======================================================
-    # COMMANDS
-    # ======================================================
-
-    for command, callback in [
-
-        (
-            "start",
-            start_command,
-        ),
-
-        (
-            "startgames",
-            startgames_command,
-        ),
-
-        (
-            "myintro",
-            my_intro_command,
-        ),
-
-        (
-            "realgames",
-            real_games_command,
-        ),
-
-        (
-            "admin",
-            admin_command,
-        ),
-
-        (
-            "startraffle",
-            start_raffle,
-        ),
-
-        (
-            "rafflestatus",
-            raffle_status,
-        ),
-
-        (
-            "entries",
-            raffle_entries,
-        ),
-
-        (
-            "pending",
-            pending_entries,
-        ),
-
-        (
-            "paid",
-            paid_entry,
-        ),
-
-        (
-            "cancelraffle",
-            cancel_raffle,
-        ),
-
-        (
-            "draw",
-            draw_raffle,
-        ),
-
-        (
-            "games",
-            games_command,
-        ),
-
-        (
-            "birthday",
-            birthday,
-        ),
-
-        (
-            "mybirthday",
-            my_birthday,
-        ),
-
-        (
-            "removebirthday",
-            remove_my_birthday,
-        ),
-
-        (
-            "truthdare",
-            truth_dare_menu,
-        ),
-
-        (
-            "truth",
-            truth,
-        ),
-
-        (
-            "dare",
-            dare,
-        ),
-
-        (
-            "postintro",
-            post_intro_topic_command,
-        ),
-
-    ]:
-
-        application.add_handler(
-            CommandHandler(
-                command,
-                callback,
-            )
-        )
-
-    # ======================================================
-    # RAFFLE CALLBACKS
-    #
-    # raffle.py remains the ONLY owner of raffle
-    # callback processing.
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            raffle_callback_router,
-            pattern=(
-                r"^(raffle_|"
-                r"approve_|"
-                r"deny_|"
-                r"enter_|"
-                r"pay_|"
-                r"payment_|"
-                r"paid_|"
-                r"draw_|"
-                r"reroll_|"
-                r"bonus_|"
-                r"remove_)"
-            ),
-        )
-    )
-
-    # ======================================================
-    # ADMIN CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            admin_callback_router,
-            pattern=r"^admin_",
-        )
-    )
-
-    # ======================================================
-    # BIRTHDAY CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            birthday_callback_router,
-            pattern=r"^birthday_",
-        )
-    )
-
-    # ======================================================
-    # EXISTING GAME CENTER CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            game_center_callback_router_wrapper,
-            pattern=r"^games_",
-        )
-    )
-
-    application.add_handler(
-        CallbackQueryHandler(
-            game_center_callback_router_wrapper,
-            pattern=r"^game_",
-        )
-    )
-
-    # ======================================================
-    # NEW REAL GAMES CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            real_games_callback_router,
-            pattern=r"^real_games_",
-        )
-    )
-
-    # ======================================================
-    # TRUTH OR DARE CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            truth_dare_callback_router,
-            pattern=r"^truthdare_",
-        )
-    )
-
-    # ======================================================
-    # INTRODUCTION CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            intro_callback,
-            pattern=r"^intro_(submit|close)_",
-        )
-    )
-
-    # ======================================================
-    # INACTIVITY CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            inactivity_callback,
-            pattern=r"^inactive:",
-        )
-    )
-
-    # ======================================================
-    # HUMAN VERIFICATION CALLBACKS
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            human_verification_callback,
-            pattern=r"^human_verify:",
-        )
-    )
-
-    # ======================================================
-    # COMMUNITY MESSAGE GUARD
-    # ======================================================
-
-    application.add_handler(
-        MessageHandler(
-            filters.ALL,
-            verification_message_guard,
-        ),
-        group=1,
-    )
-
-    # ======================================================
-    # COMMUNITY CHAT_MEMBER DIAGNOSTIC
-    # ======================================================
-
-    application.add_handler(
-        ChatMemberHandler(
-            community_chat_member_diagnostic,
-            ChatMemberHandler.CHAT_MEMBER,
-        ),
-        group=0,
-    )
-
-    # ======================================================
-    # COMMUNITY WELCOME
-    #
-    # IMPORTANT:
-    # Both welcome and exit listen for CHAT_MEMBER updates.
-    # PTB processes handlers by group and stops after the first
-    # matching handler in a group. Keep welcome and exit in
-    # different groups so a join is not consumed by community_exit.
-    # ======================================================
-
-    application.add_handler(
-        ChatMemberHandler(
-            community_welcome,
-            ChatMemberHandler.CHAT_MEMBER,
-        ),
-        group=1,
-    )
-
-    # ======================================================
-    # COMMUNITY EXIT
-    # ======================================================
-
-    application.add_handler(
-        ChatMemberHandler(
-            community_exit,
-            ChatMemberHandler.CHAT_MEMBER,
-        ),
-        group=2,
-    )
-
-    # ======================================================
-    # MEDIA
-    # ======================================================
-
-    application.add_handler(
-        MessageHandler(
-            filters.PHOTO,
-            handle_photo,
-        ),
-        group=5,
-    )
-
-    application.add_handler(
-        MessageHandler(
-            filters.VIDEO,
-            handle_video,
-        ),
-        group=5,
-    )
-
-    application.add_handler(
-        MessageHandler(
-            filters.ANIMATION,
-            handle_animation,
-        ),
-        group=5,
-    )
-
-    application.add_handler(
-        MessageHandler(
-            filters.Document.IMAGE,
-            handle_image_document,
-        ),
-        group=5,
-    )
-
-    # ======================================================
-    # PRIVATE INTRO FLOW
-    # ======================================================
-
-    application.add_handler(
-        CallbackQueryHandler(
-            intro_callback,
-            pattern=r"^intro_(submit|close)_",
-        ),
-        group=0,
-    )
-
-    application.add_handler(
-        CallbackQueryHandler(
-            private_intro_view_callback,
-            pattern=r"^intro_view_",
-        ),
-        group=0,
-    )
-
-    application.add_handler(
-        MessageHandler(
-            filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
-            private_intro_text_handler,
-        ),
-        group=0,
-    )
-
-    # ======================================================
-    # RAFFLE SETUP TEXT
-    #
-    # Handles the follow-up message after an admin clicks
-    # Start Raffle, e.g. "$100 Cash Prize | $5".
-    # This must run before the general text router.
-    # ======================================================
-
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_raffle_setup,
-        ),
-        group=0,
-    )
-
-    # ======================================================
-    # TEXT
-    # ======================================================
-
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            text_router,
-        ),
-        group=10,
-    )
-
-    # ======================================================
-    # ERROR HANDLER
-    # ======================================================
-
-    application.add_error_handler(
-        error_handler
-    )
-
-    logger.info(
-        "All Telegram handlers registered."
-    )
-
-    logger.info(
-        "Raffle callback handler registered."
-    )
-
-    logger.info(
-        "Existing Game Center callbacks registered."
-    )
-
-    logger.info(
-        "Real Games callback handler registered."
-    )
-
-    logger.info(
-        "Real Games deep-link handler registered."
-    )
-
+    if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
+    application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command)]: application.add_handler(CommandHandler(command,callback))
+    application.add_handler(CallbackQueryHandler(raffle_callback_router,pattern=r"^(raffle_|approve_|deny_|enter_|pay_|payment_|paid_|draw_|reroll_|bonus_|remove_)"))
+    application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^admin_"))
+    application.add_handler(CallbackQueryHandler(birthday_callback_router,pattern=r"^birthday_"))
+    application.add_handler(CallbackQueryHandler(game_center_callback_router_wrapper,pattern=r"^(games_|game_)"))
+    application.add_handler(CallbackQueryHandler(real_games_callback_router,pattern=r"^real_games_"))
+    application.add_handler(CallbackQueryHandler(truth_dare_callback_router,pattern=r"^truthdare_"))
+    application.add_handler(CallbackQueryHandler(intro_callback,pattern=r"^intro_(submit|close)_"))
+    application.add_handler(CallbackQueryHandler(inactivity_callback,pattern=r"^inactive:"))
+    application.add_handler(CallbackQueryHandler(human_verification_callback,pattern=r"^human_verify:"))
+    application.add_handler(MessageHandler(filters.ALL,verification_message_guard),group=1)
+    application.add_handler(ChatMemberHandler(community_chat_member_diagnostic,ChatMemberHandler.CHAT_MEMBER),group=0)
+    application.add_handler(ChatMemberHandler(community_welcome,ChatMemberHandler.CHAT_MEMBER),group=1)
+    application.add_handler(ChatMemberHandler(community_exit,ChatMemberHandler.CHAT_MEMBER),group=2)
+    application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)
+    application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
+    application.add_handler(MessageHandler(filters.ANIMATION,handle_animation),group=5)
+    application.add_handler(MessageHandler(filters.Document.IMAGE,handle_image_document),group=5)
+    application.add_handler(CallbackQueryHandler(private_intro_view_callback,pattern=r"^intro_view_"),group=0)
+    application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,private_intro_text_handler),group=0)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_raffle_setup),group=0)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,text_router),group=10)
+    application.add_error_handler(error_handler)
     return application
 
+async def post_init(application):
+    try:
+        me=await application.bot.get_me(); application.bot_data["bot_username"]=me.username
+    except Exception:logger.exception("Could not retrieve bot information.")
+    main=configured_main_group_id()
+    if main:
+        try:
+            member=await application.bot.get_chat_member(main,application.bot.id)
+            logger.info("Community bot membership: status=%s | can_restrict_members=%s | can_delete_messages=%s",member.status,getattr(member,"can_restrict_members",None),getattr(member,"can_delete_messages",None))
+        except TelegramError:logger.exception("Could not inspect bot membership.")
+    application.bot_data["public_base_url"]=os.environ.get("PUBLIC_BASE_URL","").strip().rstrip("/")
 
-# ==========================================================
-# MAIN
-# ==========================================================
+async def error_handler(update,context):
+    if isinstance(context.error,BadRequest):logger.warning("Telegram BadRequest: %s",context.error); return
+    logger.exception("Unhandled bot exception:",exc_info=context.error)
 
 def main():
-
-    logger.info(
-        "=========================================================="
-    )
-
-    logger.info(
-        "Starting Melanated AZ Bot"
-    )
-
-    logger.info(
-        "=========================================================="
-    )
-
-    logger.info(
-        "Loaded Admin IDs: %s",
-        list(ADMIN_IDS),
-    )
-
-    logger.info(
-        "Raffle Chat ID: %s",
-        RAFFLE_CHAT_ID,
-    )
-
-    # ------------------------------------------------------
-    # DATABASE
-    # ------------------------------------------------------
-
-    database_startup_check()
-
-    # ------------------------------------------------------
-    # EXISTING GAME CENTER DATABASE
-    # ------------------------------------------------------
-
-    game_database_startup_check()
-
-    # ------------------------------------------------------
-    # NEW REAL GAMES
-    # ------------------------------------------------------
-
-    real_games_startup_check()
-
-    # ------------------------------------------------------
-    # START FLASK
-    # ------------------------------------------------------
-
-    threading.Thread(
-        target=run_flask,
-        daemon=True,
-        name="flask-health-server",
-    ).start()
-
-    logger.info(
-        "Flask health server started."
-    )
-
-    # ------------------------------------------------------
-    # COMMUNITY SECURITY DATABASE
-    # ------------------------------------------------------
-
-    initialize_community_security_database()
-    seed_admin_activity()
-
-    logger.info(
-        "Community inactivity settings: members=%sd | admins=%sd | check=%sh | admin_group=%s",
-        MEMBER_INACTIVITY_DAYS,
-        ADMIN_INACTIVITY_DAYS,
-        INACTIVITY_CHECK_HOURS,
-        configured_admin_group_id() or "disabled",
-    )
-
-    # ------------------------------------------------------
-    # BUILD TELEGRAM APPLICATION
-    # ------------------------------------------------------
-
-    application = build_application()
-
-    # ------------------------------------------------------
-    # SCHEDULED JOBS
-    # ------------------------------------------------------
-    # Register ALL application jobs in the same place. The
-    # community jobs are already confirmed working on Render.
-    # Raffle jobs are intentionally registered here as well so
-    # the startup log proves they were added before polling.
-
+    database_startup_check(); game_database_startup_check(); real_games_startup_check()
+    threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
+    initialize_community_security_database(); seed_admin_activity()
+    application=build_application()
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
-
-    logger.info("Registering weekly Game Center reminder scheduler...")
     start_weekly_game_center_reminder(application)
-
-    logger.info("Registering daily raffle status scheduler...")
-    start_daily_raffle_status(application)
-
-    logger.info("Registering raffle entry cleanup recovery scheduler...")
+    # Daily raffle status is intentionally disabled: the raffle should be one post, not recurring status messages.
+    logger.info("Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883.")
     start_raffle_cleanup_recovery(application)
+    # One-time repair of the existing active raffle. This does NOT create a raffle and does NOT repeat.
+    if application.job_queue:
+        application.job_queue.run_once(repair_active_raffle_post,when=10,name="one-time-raffle-topic-repair")
+    logger.info("Raffle topic configured: chat=%s topic=11883 | one-time repair enabled",RAFFLE_CHAT_ID)
+    allowed_updates=list(Update.ALL_TYPES)
+    if "chat_member" not in allowed_updates:allowed_updates.append("chat_member")
+    application.run_polling(allowed_updates=allowed_updates,drop_pending_updates=False,close_loop=False)
 
-    logger.info("Raffle schedulers registered successfully.")
-
-    logger.info(
-        "Telegram application created."
-    )
-
-    # ------------------------------------------------------
-    # START POLLING
-    # ------------------------------------------------------
-
-    logger.info(
-        "Starting Telegram polling..."
-    )
-
-    # Telegram does not include chat_member updates unless they are explicitly
-    # requested in allowed_updates. Keep every normal update type enabled while
-    # guaranteeing chat_member is present for joins, leaves, verification, and
-    # the community exit message.
-    allowed_updates = list(Update.ALL_TYPES)
-    if "chat_member" not in allowed_updates:
-        allowed_updates.append("chat_member")
-
-    logger.info(
-        "Telegram allowed updates configured; chat_member=%s",
-        "chat_member" in allowed_updates,
-    )
-
-    application.run_polling(
-        allowed_updates=allowed_updates,
-        drop_pending_updates=False,
-        close_loop=False,
-    )
-
-
-# ==========================================================
-# ENTRY POINT
-# ==========================================================
-
-if __name__ == "__main__":
-
-    main()
-
-
-# ==========================================================
-# END bot.py
-# ==========================================================
+if __name__=="__main__":main()
