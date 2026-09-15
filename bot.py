@@ -110,6 +110,7 @@ from games.game_center import (
     games_command,
     game_center_callback_router,
     initialize_game_database,
+    ensure_pinned_game_center,
 )
 
 from games_reminder import start_weekly_game_center_reminder
