@@ -69,6 +69,14 @@ def _is_active_raffle_post(chat_id, thread_id, text):
     return value.startswith("🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>")
 
 
+def _is_raffle_navigation_message(chat_id, thread_id, text):
+    """The main-chat raffle navigation message remains pinned until the raffle ends."""
+    if chat_id != _main_group_id() or thread_id:
+        return False
+    value = (text or "").strip()
+    return value.startswith("📌 <b>RAFFLE NAVIGATION</b>")
+
+
 def _is_permanent_launcher(chat_id, thread_id, message_id, text):
     if chat_id != _main_group_id():
         return False
@@ -77,6 +85,9 @@ def _is_permanent_launcher(chat_id, thread_id, message_id, text):
         return True
 
     if _is_active_raffle_post(chat_id, thread_id, text):
+        return True
+
+    if _is_raffle_navigation_message(chat_id, thread_id, text):
         return True
 
     if message_id in {
