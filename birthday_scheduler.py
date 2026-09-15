@@ -80,13 +80,20 @@ def birthday_message(
         )
 
         return (
-            "🎉🎂 HAPPY BIRTHDAY! 🎂🎉\n\n"
-            f"Help us wish {name} a very Happy Birthday! 🥳\n\n"
-            "👑 From everyone at Melanated AZ — "
-            "we hope your day is filled with good vibes, "
-            "good people, love, laughter, and plenty of fun! 💜\n\n"
-            "🎁 HAPPY BIRTHDAY! 🎉\n\n"
-            "💜 Enjoy YOUR day!"
+            "🎉🎂🥳 IT'S YOUR BIRTHDAY! 🥳🎂🎉\n\n"
+            f"🚨🎉 MELANATED AZ, LET'S CELEBRATE {name.upper()}! 🎉🚨\n\n"
+            "Today is ALL about you! 💜\n"
+            "So everybody show some love, drop those birthday vibes, "
+            "and help us make sure they feel celebrated! 🥳🎈🙌🏾\n\n"
+            "👑 From all of us at Melanated AZ — we are wishing you "
+            "a birthday filled with BIG smiles, real love, good people, "
+            "great energy, unforgettable moments, and everything that "
+            "makes YOU happy! 💜🔥🎁\n\n"
+            "🎊🎊 LET'S TURN UP FOR THE BIRTHDAY STAR! 🎊🎊\n\n"
+            "🥂 Here's to another year, another chapter, and plenty more "
+            "memories to make! 🎉\n\n"
+            f"💜 HAPPY BIRTHDAY, {name}! 👑🎂\n"
+            "🎉 WE CELEBRATE YOU TODAY! 🎉"
         )
 
     # ------------------------------------------------------
@@ -94,10 +101,12 @@ def birthday_message(
     # ------------------------------------------------------
 
     lines = [
-        "🎉🎂 HAPPY BIRTHDAY! 🎂🎉",
+        "🎉🎂🥳 IT'S A BIRTHDAY CELEBRATION! 🥳🎂🎉",
         "",
-        "Help us wish our birthday members a "
-        "VERY HAPPY BIRTHDAY! 🥳💜",
+        "🚨🎉 MELANATED AZ, LET'S SHOW OUR BIRTHDAY STARS",
+        "SOME SERIOUS LOVE TODAY! 🎉🚨",
+        "",
+        "These are YOUR birthday stars — so let's celebrate THEM! 💜🙌🏾",
         "",
     ]
 
@@ -116,13 +125,14 @@ def birthday_message(
     lines.extend(
         [
             "",
-            "👑 From everyone at Melanated AZ — "
-            "we hope your day is filled with good vibes, "
-            "good people, love, laughter, and plenty of fun! 💜",
+            "👑 From ALL of us at Melanated AZ — we are celebrating YOU! "
+            "May your day be filled with BIG energy, real love, good people, "
+            "laughter, unforgettable memories, and plenty of reasons to smile! 💜🔥",
             "",
-            "🎁 HAPPY BIRTHDAY TO ALL OF YOU! 🎉",
+            "🎊🎊 EVERYBODY DROP SOME BIRTHDAY LOVE! 🎊🎊",
             "",
-            "💜 Enjoy YOUR day!",
+            "🥳 HAPPY BIRTHDAY TO OUR BIRTHDAY STARS! 👑🎂",
+            "💜 WE CELEBRATE YOU TODAY — ENJOY YOUR DAY! 🎉",
         ]
     )
 
