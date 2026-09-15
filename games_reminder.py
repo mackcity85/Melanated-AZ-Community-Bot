@@ -2,16 +2,9 @@
 # Melanated AZ - Game Center Reminder
 # ==========================================================
 #
-# Keeps the permanent Games-topic launcher and sends the
-# weekly reminder. The launcher exposes BOTH game systems:
-#
-#   1. Telegram Game Center games (games/game_center.py)
-#   2. Real Games web library (real_games/)
-#
-# Truth or Dare is a Telegram Game Center game and is exposed
-# directly from the Games-topic launcher.
-# Dirty Minds is a multiplayer Real Game and is exposed through
-# the Real Games library because it requires a room/player key.
+# Keeps the permanent Games-topic launcher, makes sure the
+# Introduction launcher is posted on startup, and sends the
+# weekly Games reminder.
 # ==========================================================
 
 import json
@@ -26,8 +19,6 @@ from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
-from games.game_center import games_home_keyboard
-from games.game_center import games_play_callback
 
 logger = logging.getLogger("melanated_az.games_reminder")
 
@@ -74,28 +65,6 @@ def _topic_link(chat_id):
     return f"https://t.me/c/{internal_id}/{GAMES_TOPIC_ID}"
 
 
-def _load_state():
-    try:
-        if STATE_FILE.exists():
-            with STATE_FILE.open("r", encoding="utf-8") as handle:
-                data = json.load(handle)
-                return data if isinstance(data, dict) else {}
-    except Exception:
-        logger.exception("Could not read Game Center reminder state file.")
-    return {}
-
-
-def _save_state(data):
-    try:
-        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        temp = STATE_FILE.with_suffix(".tmp")
-        with temp.open("w", encoding="utf-8") as handle:
-            json.dump(data, handle, indent=2)
-        temp.replace(STATE_FILE)
-    except Exception:
-        logger.exception("Could not save Game Center reminder state file.")
-
-
 def _load_launcher_id():
     try:
         if LAUNCHER_STATE_FILE.exists():
@@ -121,7 +90,7 @@ def _save_launcher_id(message_id):
 
 
 def _launcher_keyboard():
-    """Expose the Telegram Game Center AND the Real Games library."""
+    """Expose both game systems from the Games topic."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🎮 OPEN GAME CENTER", callback_data="games_home"),
@@ -140,7 +109,7 @@ def _launcher_keyboard():
 
 LAUNCHER_TEXT = (
     "🎮🔥 <b>MELANATED AZ GAME CENTER</b> 🔥🎮\n\n"
-    "The Games topic now has <b>both game systems</b> in one place!\n\n"
+    "The Games topic has <b>both game systems</b> in one place!\n\n"
     "🎮 <b>Game Center</b> — Telegram games, XP, AZ Coins & leaderboards\n"
     "🔥 <b>Truth or Dare</b> — jump straight into the party game\n"
     "🌐 <b>Real Game Library</b> — Snake, Pong, Breakout, Tetris, Flappy,\n"
@@ -216,6 +185,29 @@ async def ensure_games_topic_launcher(context):
     return sent.message_id
 
 
+async def ensure_introduction_launcher(context):
+    """Run the existing bot.py Introduction launcher on startup.
+
+    The import is intentionally deferred until the scheduled job runs so
+    bot.py has finished importing and there is no circular-import failure.
+    """
+    try:
+        from bot import post_intro_topic_reminder
+
+        ok, detail = await post_intro_topic_reminder(context)
+
+        if ok:
+            logger.info("Introduction launcher ready: %s", detail)
+        else:
+            logger.error("Introduction launcher FAILED: %s", detail)
+
+        return ok
+
+    except Exception:
+        logger.exception("Could not launch the Introduction topic button.")
+        return False
+
+
 async def send_weekly_game_center_reminder(context):
     """Send the weekly Games reminder to the main chat."""
     chat_id = _main_group_id()
@@ -257,19 +249,31 @@ async def send_weekly_game_center_reminder(context):
 
 
 def start_weekly_game_center_reminder(application):
-    """Register the combined Games launcher and weekly reminder."""
+    """Register both topic launchers and the weekly Games reminder."""
     if not getattr(application, "job_queue", None):
         logger.warning("Games reminder unavailable: JobQueue not installed.")
         return
 
-    for name in ("games-topic-launcher", "weekly-game-center-reminder"):
+    for name in (
+        "games-topic-launcher",
+        "introduction-topic-launcher",
+        "weekly-game-center-reminder",
+    ):
         for job in application.job_queue.get_jobs_by_name(name):
             job.schedule_removal()
 
+    # Give bot.py time to finish startup/imports before calling its
+    # Introduction function dynamically.
     application.job_queue.run_once(
         ensure_games_topic_launcher,
         when=10,
         name="games-topic-launcher",
+    )
+
+    application.job_queue.run_once(
+        ensure_introduction_launcher,
+        when=12,
+        name="introduction-topic-launcher",
     )
 
     application.job_queue.run_daily(
@@ -284,9 +288,8 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games reminder scheduled | Friday %02d:%02d Arizona | chat=%s | topic=%s",
+        "Games + Introduction launchers scheduled | Games topic=%s | Intro topic startup=12s | Friday %02d:%02d Arizona",
+        GAMES_TOPIC_ID,
         WEEKLY_REMINDER_HOUR,
         WEEKLY_REMINDER_MINUTE,
-        _main_group_id(),
-        GAMES_TOPIC_ID,
     )
