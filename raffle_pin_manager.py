@@ -2,11 +2,12 @@ import json
 import logging
 import os
 import random
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import TelegramError
+from telegram.error import BadRequest, TelegramError
 
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
 from raffle_database import get_active_raffle, get_approved_entries, close_raffle
@@ -200,8 +201,32 @@ def html_escape(value):
     return html.escape(str(value))
 
 
+def _clear_raffle_post_reference(raffle_id):
+    """Clear a stale Telegram message reference without changing raffle status or entries."""
+    db_name = os.environ.get("RAFFLE_DB_NAME", "/var/data/raffle.db").strip() or "/var/data/raffle.db"
+    db_name = os.path.abspath(db_name)
+    if not db_name.startswith("/var/data/"):
+        logger.error("Refusing to modify unexpected raffle database path: %s", db_name)
+        return False
+    conn = None
+    try:
+        conn = sqlite3.connect(db_name, timeout=30, check_same_thread=False)
+        conn.execute("UPDATE raffles SET chat_id=NULL, message_id=NULL WHERE id=?", (int(raffle_id),))
+        conn.commit()
+        logger.warning("Cleared stale Telegram post reference | raffle=%s", raffle_id)
+        return True
+    except Exception:
+        if conn:
+            conn.rollback()
+        logger.exception("Could not clear stale Telegram post reference | raffle=%s", raffle_id)
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+
 async def _publish_existing_raffle(context, raffle):
-    """Publish an existing active raffle that has no Telegram post yet; never creates a new raffle."""
+    """Publish an existing active raffle that has no valid Telegram post; never creates a new raffle."""
     raffle_id = int(raffle["id"])
     if int(raffle.get("message_id") or 0):
         return True
@@ -238,10 +263,6 @@ async def _publish_existing_raffle(context, raffle):
         )
         from raffle_database import set_raffle_post
         set_raffle_post(raffle_id, chat_id, sent.message_id)
-        try:
-            await context.bot.pin_chat_message(chat_id=chat_id, message_id=sent.message_id, disable_notification=True)
-        except TelegramError:
-            logger.exception("Existing raffle %s posted but could not be pinned.", raffle_id)
         logger.info(
             "EXISTING RAFFLE REPUBLISHED | raffle=%s | chat=%s | topic=%s | message=%s",
             raffle_id, chat_id, GAMES_TOPIC_ID, sent.message_id,
@@ -342,6 +363,51 @@ async def sync_raffle_pin(context):
     chat_id = _main_group_id()
     message_id = int(active.get("message_id") or 0)
 
+    # The persistent DB can contain a Telegram message_id for a message that was
+    # deleted during an earlier cleanup/deploy. If pinning says "Message to pin
+    # not found", invalidate only that stale reference and republish the SAME raffle.
+    state = _load_state()
+    tracked_id = int(state.get("raffle_id") or 0) if state else 0
+    tracked_message_id = int(state.get("message_id") or 0) if state else 0
+    if tracked_id and tracked_id != raffle_id and tracked_message_id:
+        await _remove_pinned_raffle(context, state)
+
+    if message_id:
+        state = _load_state()
+        if state.get("raffle_id") != raffle_id or state.get("message_id") != message_id:
+            try:
+                await context.bot.pin_chat_message(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    disable_notification=True,
+                )
+            except BadRequest as exc:
+                if "message to pin not found" in str(exc).lower():
+                    logger.warning(
+                        "Active raffle %s references a missing Telegram message=%s; republishing SAME raffle.",
+                        raffle_id, message_id,
+                    )
+                    _clear_state()
+                    if _clear_raffle_post_reference(raffle_id):
+                        active = get_active_raffle() or active
+                        published = await _publish_existing_raffle(context, active)
+                        if not published:
+                            await _refresh_games_launcher(context)
+                            return
+                        active = get_active_raffle() or active
+                        message_id = int(active.get("message_id") or 0)
+                        if not message_id:
+                            logger.error("Raffle %s was republished but message_id is still missing.", raffle_id)
+                            return
+                    else:
+                        return
+                else:
+                    logger.exception("Could not pin active raffle post in Games topic | raffle=%s", raffle_id)
+                    return
+            except TelegramError:
+                logger.exception("Could not pin active raffle post in Games topic | raffle=%s", raffle_id)
+                return
+
     if not message_id:
         published = await _publish_existing_raffle(context, active)
         if not published:
@@ -353,19 +419,25 @@ async def sync_raffle_pin(context):
             logger.error("Existing raffle %s was published but database message_id is still missing.", raffle_id)
             return
 
-    state = _load_state()
-    tracked_id = int(state.get("raffle_id") or 0) if state else 0
-    tracked_message_id = int(state.get("message_id") or 0) if state else 0
-    if tracked_id and tracked_id != raffle_id and tracked_message_id:
-        await _remove_pinned_raffle(context, state)
+    # Always verify/pin the current message after any stale-reference recovery.
     state = _load_state()
     if state.get("raffle_id") != raffle_id or state.get("message_id") != message_id:
         try:
-            await context.bot.pin_chat_message(chat_id=chat_id, message_id=message_id, disable_notification=True)
+            await context.bot.pin_chat_message(
+                chat_id=chat_id,
+                message_id=message_id,
+                disable_notification=True,
+            )
         except TelegramError:
             logger.exception("Could not pin active raffle post in Games topic | raffle=%s", raffle_id)
             return
-        _save_state({"raffle_id": raffle_id, "chat_id": chat_id, "message_id": message_id, "thread_id": GAMES_TOPIC_ID})
+        _save_state({
+            "raffle_id": raffle_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "thread_id": GAMES_TOPIC_ID,
+        })
+
     await _publish_main_chat_navigation(context, active)
     await _refresh_games_launcher(context)
 
@@ -384,10 +456,12 @@ def install_raffle_publish_pin_guard(application):
     if not original_publish:
         logger.warning("raffle.publish_raffle not found; pin guard not installed.")
         return
+
     async def guarded_publish(*args, **kwargs):
         bot = application.bot
         original_pin = bot.pin_chat_message
         pin_count = 0
+
         async def guarded_pin(*pin_args, **pin_kwargs):
             nonlocal pin_count
             pin_count += 1
@@ -395,11 +469,13 @@ def install_raffle_publish_pin_guard(application):
                 return await original_pin(*pin_args, **pin_kwargs)
             logger.info("Suppressed legacy raffle notification pin.")
             return True
+
         bot.pin_chat_message = guarded_pin
         try:
             return await original_publish(*args, **kwargs)
         finally:
             bot.pin_chat_message = original_pin
+
     raffle.publish_raffle = guarded_publish
 
 
@@ -409,5 +485,10 @@ def start_raffle_pin_manager(application):
     if not getattr(application, "job_queue", None):
         logger.warning("JobQueue unavailable; raffle pin manager not started.")
         return
-    application.job_queue.run_repeating(sync_raffle_pin, interval=30, first=15, name="raffle-pin-manager")
+    application.job_queue.run_repeating(
+        sync_raffle_pin,
+        interval=30,
+        first=15,
+        name="raffle-pin-manager",
+    )
     logger.info("Raffle pin manager started | interval=30s")
