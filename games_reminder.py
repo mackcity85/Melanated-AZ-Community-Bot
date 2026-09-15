@@ -27,7 +27,7 @@ from telegram.error import TelegramError
 
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
 from daily_messages import start_daily_community_messages
-from chat_cleanup import install_chat_cleanup
+from chat_cleanup import install_chat_cleanup, startup_cleanup
 from raffle_database import get_active_raffle
 
 logger = logging.getLogger("melanatedaz.games_reminder")
@@ -267,6 +267,15 @@ def start_weekly_game_center_reminder(application):
         return
 
     install_chat_cleanup(application)
+
+    # Persistent sweep: remove bot messages recorded before a Render restart.
+    # Daily community messages are never stored, so they are never swept.
+    application.job_queue.run_once(
+        startup_cleanup,
+        when=5,
+        name="persistent-bot-message-cleanup",
+    )
+
     start_daily_community_messages(application)
 
     for name in (
@@ -276,24 +285,17 @@ def start_weekly_game_center_reminder(application):
         for job in application.job_queue.get_jobs_by_name(name):
             job.schedule_removal()
 
-    # Games launcher: update the existing permanent post when possible.
-    # If it is missing, recreate it. This behavior is ONLY for Games.
     application.job_queue.run_once(
         ensure_games_topic_launcher,
         when=10,
         name="games-topic-launcher",
     )
 
-    # Remove the legacy automatic raffle-status job after bot.py registers it.
-    # This does NOT create, repost, pin, or modify any raffle.
     application.job_queue.run_once(
         disable_daily_raffle_status,
         when=20,
         name="disable-daily-raffle-status",
     )
-
-    # DO NOT schedule an Introduction launcher here.
-    # The Introduction topic should contain ONE permanent post only.
 
     application.job_queue.run_daily(
         send_weekly_game_center_reminder,
@@ -307,6 +309,6 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED | automatic raffle status DISABLED",
+        "Games reminder scheduled | Games topic=%s | Introduction reposting DISABLED | raffle auto-sync DISABLED | automatic raffle status DISABLED | persistent bot cleanup ENABLED",
         GAMES_TOPIC_ID,
     )
