@@ -165,7 +165,6 @@ GAME_CATEGORIES = {
 # ==========================================================
 
 CATEGORY_ORDER = [
-
     "arcade",
     "outdoor",
     "shooting",
@@ -176,7 +175,6 @@ CATEGORY_ORDER = [
     "racing",
     "mystery",
     "fighting",
-
 ]
 
 
@@ -185,7 +183,6 @@ CATEGORY_ORDER = [
 # ==========================================================
 
 CATEGORY_BUTTONS = {
-
     "arcade": "🕹️ Arcade",
     "outdoor": "🌲 Outdoor",
     "shooting": "🎯 Shooting",
@@ -196,7 +193,6 @@ CATEGORY_BUTTONS = {
     "racing": "🏎️ Racing",
     "mystery": "🕵🏾 Mystery",
     "fighting": "🥊 Fighting",
-
 }
 
 
@@ -219,9 +215,7 @@ def games_home_keyboard():
 
         row = []
 
-        first = CATEGORY_ORDER[
-            index
-        ]
+        first = CATEGORY_ORDER[index]
 
         row.append(
             InlineKeyboardButton(
@@ -264,9 +258,7 @@ def games_home_keyboard():
         ]
     )
 
-    return InlineKeyboardMarkup(
-        rows
-    )
+    return InlineKeyboardMarkup(rows)
 
 
 # ==========================================================
@@ -283,12 +275,9 @@ def category_keyboard(category):
     )
 
     if not category_data:
-
         return games_home_keyboard()
 
-    game_ids = category_data[
-        "games"
-    ]
+    game_ids = category_data["games"]
 
     rows = []
 
@@ -300,9 +289,7 @@ def category_keyboard(category):
 
         row = []
 
-        first_game = game_ids[
-            index
-        ]
+        first_game = game_ids[index]
 
         row.append(
             InlineKeyboardButton(
@@ -316,9 +303,7 @@ def category_keyboard(category):
             )
         )
 
-        if index + 1 < len(
-            game_ids
-        ):
+        if index + 1 < len(game_ids):
 
             second_game = game_ids[
                 index + 1
@@ -347,9 +332,174 @@ def category_keyboard(category):
         ]
     )
 
-    return InlineKeyboardMarkup(
-        rows
-    )
+    return InlineKeyboardMarkup(rows)
+
+
+# ==========================================================
+# ADMIN GAME CENTER MENU
+# ==========================================================
+
+async def games_admin_menu(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    """
+    Admin entry point for the Game Center.
+
+    This function is called from admin.py when an administrator
+    selects the Game Center button.
+
+    Authorization is handled through the centralized admin.py
+    authorization system.
+
+    ADMIN_GROUP_ID membership is the primary authorization
+    source, with ADMIN_IDS remaining the configured fallback.
+    """
+
+    user = update.effective_user
+    query = update.callback_query
+
+    if not user:
+        return
+
+    # ------------------------------------------------------
+    # CENTRALIZED ADMIN AUTHORIZATION
+    # ------------------------------------------------------
+
+    try:
+
+        from admin import is_admin
+
+        authorized = await is_admin(
+            user.id,
+            context,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unable to verify Game Center admin access | "
+            "user_id=%s",
+            user.id,
+        )
+
+        if query:
+
+            try:
+
+                await query.answer(
+                    "⚠️ Unable to verify admin access.",
+                    show_alert=True,
+                )
+
+            except Exception:
+                pass
+
+        return
+
+    if not authorized:
+
+        logger.warning(
+            "Unauthorized Game Center admin access attempt | "
+            "user_id=%s",
+            user.id,
+        )
+
+        if query:
+
+            try:
+
+                await query.answer(
+                    "⛔ You are not authorized.",
+                    show_alert=True,
+                )
+
+            except Exception:
+                pass
+
+        return
+
+    # ------------------------------------------------------
+    # INITIALIZE DATABASE
+    # ------------------------------------------------------
+
+    try:
+
+        initialize_game_database()
+
+    except Exception:
+
+        logger.exception(
+            "Could not initialize Game Center database "
+            "from admin menu."
+        )
+
+    # ------------------------------------------------------
+    # CALLBACK
+    # ------------------------------------------------------
+
+    if query:
+
+        try:
+
+            await query.answer()
+
+        except Exception:
+
+            logger.debug(
+                "Could not answer Game Center admin callback.",
+                exc_info=True,
+            )
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🎮 Open Game Center",
+                        callback_data="games_home",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "⬅️ Back to Admin Panel",
+                        callback_data="admin_back",
+                    )
+                ],
+            ]
+        )
+
+        await query.edit_message_text(
+            "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
+            "✅ Admin access confirmed.\n\n"
+            "Use the Game Center below to view "
+            "and launch the available games.",
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML,
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # COMMAND / MESSAGE FALLBACK
+    # ------------------------------------------------------
+
+    if update.effective_message:
+
+        await update.effective_message.reply_text(
+            "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
+            "✅ Admin access confirmed.",
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "🎮 Open Game Center",
+                            callback_data="games_home",
+                        )
+                    ]
+                ]
+            ),
+            parse_mode=ParseMode.HTML,
+        )
 
 
 # ==========================================================
@@ -449,13 +599,9 @@ async def games_category_callback(
 
         data = query.data or ""
 
-        prefix = (
-            "games_category_"
-        )
+        prefix = "games_category_"
 
-        if not data.startswith(
-            prefix
-        ):
+        if not data.startswith(prefix):
 
             await query.answer(
                 "Category not found.",
@@ -544,8 +690,6 @@ async def games_profile_callback(
         )
 
     initialize_game_database()
-
-    # Make sure the player exists.
 
     from .games import ensure_player
 
@@ -815,13 +959,9 @@ async def games_play_callback(
 
         data = query.data or ""
 
-        prefix = (
-            "games_play_"
-        )
+        prefix = "games_play_"
 
-        if not data.startswith(
-            prefix
-        ):
+        if not data.startswith(prefix):
 
             await query.answer(
                 "Game not found.",
@@ -973,9 +1113,7 @@ async def games_action_callback(
     # Gameplay callbacks start with game_
     # ------------------------------------------------------
 
-    if not data.startswith(
-        "game_"
-    ):
+    if not data.startswith("game_"):
 
         try:
 
