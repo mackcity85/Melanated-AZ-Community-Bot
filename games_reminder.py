@@ -25,6 +25,7 @@ from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
 from daily_messages import start_daily_community_messages
 from chat_cleanup import install_chat_cleanup
 from raffle_pin_manager import start_raffle_pin_manager
+from raffle_database import get_active_raffle
 
 logger = logging.getLogger("melanatedaz.games_reminder")
 
@@ -96,8 +97,8 @@ def _save_launcher_id(message_id):
 
 
 def _launcher_keyboard():
-    """Expose game systems and the active raffle from the Games topic."""
-    return InlineKeyboardMarkup([
+    """Expose game systems plus an Enter button for the current active raffle."""
+    rows = [
         [
             InlineKeyboardButton("🎮 OPEN GAME CENTER", callback_data="games_home"),
             InlineKeyboardButton("🌐 REAL GAME LIBRARY", url=f"{PUBLIC_BASE_URL}/real-games/"),
@@ -106,14 +107,22 @@ def _launcher_keyboard():
             InlineKeyboardButton("🔥 TRUTH OR DARE", callback_data="games_play_truth_dare"),
             InlineKeyboardButton("🎭 DIRTY MINDS", url=f"{PUBLIC_BASE_URL}/real-games/"),
         ],
-        [
-            InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data="raffle_enter_active"),
-        ],
-        [
-            InlineKeyboardButton("👤 My Profile", callback_data="games_profile"),
-            InlineKeyboardButton("🏆 Leaderboards", callback_data="games_leaderboards"),
-        ],
+    ]
+
+    active = get_active_raffle()
+    if active:
+        rows.append([
+            InlineKeyboardButton(
+                "🎟️ ENTER ACTIVE RAFFLE",
+                callback_data=f"enter_{int(active['id'])}",
+            )
+        ])
+
+    rows.append([
+        InlineKeyboardButton("👤 My Profile", callback_data="games_profile"),
+        InlineKeyboardButton("🏆 Leaderboards", callback_data="games_leaderboards"),
     ])
+    return InlineKeyboardMarkup(rows)
 
 
 LAUNCHER_TEXT = (
@@ -124,7 +133,7 @@ LAUNCHER_TEXT = (
     "🌐 <b>Real Game Library</b> — Snake, Pong, Breakout, Tetris, Flappy,\n"
     "Chess, Checkers, Monopoly, Basketball, Target Shooter, card games and more\n"
     "🎭 <b>Dirty Minds</b> — multiplayer party game with rooms\n"
-    "🎟️ <b>Raffle</b> — enter the currently active raffle\n\n"
+    "🎟️ <b>Raffle</b> — the button appears here whenever a raffle is active\n\n"
     "👇 <b>PICK A GAME AND START PLAYING!</b>"
 )
 
