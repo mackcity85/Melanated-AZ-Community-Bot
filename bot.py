@@ -76,6 +76,35 @@ from birthday import (
     birthday_text_handler,
 )
 
+# ----------------------------------------------------------
+# BIRTHDAY SCHEDULER TIMEZONE
+# ----------------------------------------------------------
+# Melanated AZ birthday shout-outs must run at 9:00 AM MST.
+# Render commonly runs in UTC, so explicitly set the process
+# timezone to America/Phoenix (Arizona MST, UTC-7 year-round)
+# before loading the birthday scheduler.
+# ----------------------------------------------------------
+try:
+    import time as _system_time
+
+    os.environ["TZ"] = "America/Phoenix"
+
+    if hasattr(_system_time, "tzset"):
+        _system_time.tzset()
+
+    logger = logging.getLogger("melanated_az_bot")
+    logger.info(
+        "Birthday scheduler timezone configured: America/Phoenix (MST)"
+    )
+except Exception:
+    logging.getLogger("melanated_az_bot").exception(
+        "Unable to configure birthday scheduler timezone."
+    )
+
+from birthday_scheduler import (
+    start_birthday_scheduler,
+)
+
 from raffle import (
     start_raffle,
     handle_raffle_setup,
@@ -3473,6 +3502,27 @@ def main():
 
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
+
+    # Force the birthday scheduler to use Arizona MST (UTC-7).
+    # This prevents Render's UTC timezone from shifting the 9:00 AM
+    # birthday shout-outs to the wrong hour.
+    try:
+        from zoneinfo import ZoneInfo
+
+        application.job_queue.scheduler.timezone = ZoneInfo(
+            "America/Phoenix"
+        )
+
+        logger.info(
+            "Birthday scheduler timezone set to America/Phoenix (MST)."
+        )
+    except Exception:
+        logger.exception(
+            "Unable to set birthday scheduler timezone; startup aborted."
+        )
+        raise
+
+    start_birthday_scheduler(application)
 
     logger.info("Registering daily raffle status scheduler...")
     start_daily_raffle_status(application)
