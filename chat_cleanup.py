@@ -61,11 +61,22 @@ def _is_daily_community_message(text):
     return "Keep it grown, keep it respectful" in value and "PASS is always allowed" in value
 
 
+def _is_active_raffle_post(chat_id, thread_id, text):
+    """The official active raffle post is permanent while the raffle is live."""
+    if chat_id != _main_group_id() or thread_id != GAMES_TOPIC_ID:
+        return False
+    value = (text or "").strip()
+    return value.startswith("🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>")
+
+
 def _is_permanent_launcher(chat_id, thread_id, message_id, text):
     if chat_id != _main_group_id():
         return False
 
     if _is_daily_community_message(text):
+        return True
+
+    if _is_active_raffle_post(chat_id, thread_id, text):
         return True
 
     if message_id in {
