@@ -1,17 +1,15 @@
 # ==========================================================
 # Melanated AZ - Game Center Reminder
-# COMPLETE DROP-IN MODULE
 #
 # Purpose:
-#   - Keeps a permanent Game Center launcher in the Games topic.
+#   - Uses the REAL Game Center launcher from games/game_center.py.
+#   - Keeps the launcher in the Games topic.
 #   - Pins the launcher in the Games topic.
 #   - Sends a weekly reminder in the MAIN chat.
-#   - Main-chat reminder links directly to the Games topic.
 #
-# Schedule:
-#   Friday at 7:00 PM Arizona time.
-#
-# Existing games are not changed.
+# IMPORTANT:
+#   This module does NOT create a separate GAMEE launcher.
+#   The actual Game Center buttons are owned by game_center.py.
 # ==========================================================
 
 import json
@@ -25,13 +23,20 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
+from games.game_center import (
+    GAMES_CHAT_ID,
+    GAMES_TOPIC_ID,
+    ensure_pinned_game_center,
+)
+
 logger = logging.getLogger("melanated_az.games_reminder")
 
 ARIZONA_TZ = ZoneInfo("America/Phoenix")
-GAMES_TOPIC_ID = int(os.environ.get("GAMES_TOPIC_ID", "8809") or "8809")
 WEEKLY_REMINDER_HOUR = int(os.environ.get("GAMES_REMINDER_HOUR", "19") or "19")
 WEEKLY_REMINDER_MINUTE = int(os.environ.get("GAMES_REMINDER_MINUTE", "0") or "0")
 STATE_FILE = Path(os.environ.get("GAMES_REMINDER_STATE_FILE", "/var/data/games_reminder.json"))
+LEGACY_MIGRATION_FILE = Path("/var/data/game_center_launcher_v2_migrated")
+GAME_CENTER_PIN_FILE = Path("/var/data/game_center_pin.txt")
 
 # Friday = 4 in Python's Monday=0 weekday numbering.
 REMINDER_WEEKDAY = 4
@@ -39,9 +44,9 @@ REMINDER_WEEKDAY = 4
 
 def _main_group_id():
     try:
-        return int(os.environ.get("MAIN_GROUP_ID", "0") or "0")
+        return int(os.environ.get("MAIN_GROUP_ID", str(GAMES_CHAT_ID)) or str(GAMES_CHAT_ID))
     except (TypeError, ValueError):
-        return 0
+        return int(GAMES_CHAT_ID)
 
 
 def _telegram_message_link(chat_id, message_id):
@@ -62,7 +67,7 @@ def _telegram_message_link(chat_id, message_id):
 
 
 def _topic_link(chat_id):
-    """Build the direct Telegram link for the configured Games topic."""
+    """Build the direct Telegram link for the Games topic."""
     try:
         chat_id = int(chat_id)
     except (TypeError, ValueError):
@@ -99,144 +104,48 @@ def _save_state(data):
         logger.exception("Could not save Game Center reminder state file.")
 
 
-async def ensure_games_topic_launcher(context):
-    """Create/update and pin the Game Center launcher in the Games topic.
+async def _migrate_legacy_game_center_pin(context):
+    """Reset the old launcher state once so the real Game Center owns it."""
+    if LEGACY_MIGRATION_FILE.exists():
+        return
 
-    IMPORTANT: A previously saved message ID is only reusable when this state
-    record explicitly belongs to the current Games topic. Older state files did
-    not store the topic ID, so those message IDs are treated as stale instead of
-    risking an edit of the Introduction launcher.
-    """
-    main_group_id = _main_group_id()
-    if not main_group_id:
-        logger.warning("Game Center launcher skipped: MAIN_GROUP_ID is not configured.")
-        return None
-
-    state = _load_state()
-    launcher_message_id = state.get("games_topic_launcher_message_id")
-    saved_topic_id = state.get("games_topic_launcher_topic_id")
-    reusable_launcher = False
-
+    old_message_id = None
     try:
-        reusable_launcher = (
-            int(saved_topic_id) == int(GAMES_TOPIC_ID)
-            and int(launcher_message_id) > 0
-        )
-    except (TypeError, ValueError):
-        reusable_launcher = False
+        if GAME_CENTER_PIN_FILE.exists():
+            old_message_id = GAME_CENTER_PIN_FILE.read_text(encoding="utf-8").strip()
+    except Exception:
+        logger.exception("Could not inspect legacy Game Center pin state.")
 
-    # A legacy/incorrect state entry may point at the Introduction topic. Never
-    # edit it as the Game Center launcher. Remove the stale state and, when
-    # possible, remove that bot-owned message so the bad Game Center post does
-    # not remain in the Introduction topic.
-    if launcher_message_id and not reusable_launcher:
-        logger.warning(
-            "Ignoring stale Game Center launcher state: message=%s saved_topic=%s expected_topic=%s",
-            launcher_message_id,
-            saved_topic_id,
-            GAMES_TOPIC_ID,
-        )
+    if old_message_id:
         try:
             await context.bot.delete_message(
-                chat_id=main_group_id,
-                message_id=int(launcher_message_id),
+                chat_id=GAMES_CHAT_ID,
+                message_id=int(old_message_id),
             )
-            logger.info(
-                "Removed stale Game Center launcher message %s from chat %s.",
-                launcher_message_id,
-                main_group_id,
-            )
+            logger.info("Removed legacy Game Center launcher message %s during migration.", old_message_id)
         except (TelegramError, TypeError, ValueError):
-            logger.info(
-                "Could not remove stale Game Center launcher message %s; continuing with a new Games-topic launcher.",
-                launcher_message_id,
-            )
-        state.pop("games_topic_launcher_message_id", None)
-        state.pop("games_topic_launcher_topic_id", None)
-        _save_state(state)
-        launcher_message_id = None
-
-    text = (
-        "🎮 <b>MELANATED AZ GAME CENTER</b> 🎮\n\n"
-        "Welcome to the Games topic! 🔥\n\n"
-        "🎮 <b>GAMEE</b> — Pick a game and play\n"
-        "😈 <b>DIRTY MINDS</b> — See how dirty your mind really is 👀\n\n"
-        "🔥 Challenge somebody\n"
-        "🏆 Compete for bragging rights\n"
-        "😂 Have some fun with the crew\n\n"
-        "👇 <b>ENTER THE GAME CENTER & START PLAYING!</b>"
-    )
-
-    # GAMEE opens Telegram's GAMEE bot. Dirty Minds remains in the existing
-    # Melanated AZ system and can be reached from the existing Games controls.
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎮 GAMEE — PLAY NOW", url="https://t.me/gamee")],
-    ])
-
-    if launcher_message_id:
-        try:
-            await context.bot.edit_message_text(
-                chat_id=main_group_id,
-                message_id=int(launcher_message_id),
-                text=text,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.HTML,
-            )
-            try:
-                await context.bot.pin_chat_message(
-                    chat_id=main_group_id,
-                    message_id=int(launcher_message_id),
-                    disable_notification=True,
-                )
-            except TelegramError:
-                logger.warning("Game Center launcher exists but could not be pinned.")
-            return int(launcher_message_id)
-        except TelegramError:
-            logger.info("Saved Game Center launcher message is no longer available; creating a new one.")
+            logger.info("Legacy Game Center launcher %s could not be deleted; continuing.", old_message_id)
 
     try:
-        sent = await context.bot.send_message(
-            chat_id=main_group_id,
-            message_thread_id=GAMES_TOPIC_ID,
-            text=text,
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
-    except TelegramError:
-        logger.exception(
-            "Could not create Game Center launcher in Games topic | chat=%s | topic=%s",
-            main_group_id,
-            GAMES_TOPIC_ID,
-        )
-        return None
-
-    state["games_topic_launcher_message_id"] = sent.message_id
-    state["games_topic_launcher_topic_id"] = GAMES_TOPIC_ID
-    _save_state(state)
+        GAME_CENTER_PIN_FILE.unlink(missing_ok=True)
+    except Exception:
+        logger.exception("Could not reset legacy Game Center pin file.")
 
     try:
-        await context.bot.pin_chat_message(
-            chat_id=main_group_id,
-            message_id=sent.message_id,
-            disable_notification=True,
-        )
-    except TelegramError:
-        logger.warning(
-            "Game Center launcher posted but could not be pinned | message=%s",
-            sent.message_id,
-        )
+        LEGACY_MIGRATION_FILE.parent.mkdir(parents=True, exist_ok=True)
+        LEGACY_MIGRATION_FILE.write_text("migrated\n", encoding="utf-8")
+    except Exception:
+        logger.exception("Could not write Game Center migration marker.")
 
-    logger.info(
-        "Game Center launcher ready | chat=%s | topic=%s | message=%s",
-        main_group_id,
-        GAMES_TOPIC_ID,
-        sent.message_id,
-    )
-    return sent.message_id
+
+async def ensure_games_topic_launcher(context):
+    """Delegate launcher creation to the actual Game Center module."""
+    await _migrate_legacy_game_center_pin(context)
+    return await ensure_pinned_game_center(context.bot)
 
 
 async def send_weekly_game_center_reminder(context):
-    """Send the weekly Game Center reminder to the main chat."""
+    """Send the weekly reminder to the main chat and link to the real launcher."""
     main_group_id = _main_group_id()
     if not main_group_id:
         logger.warning("Weekly Game Center reminder skipped: MAIN_GROUP_ID is not configured.")
@@ -246,20 +155,20 @@ async def send_weekly_game_center_reminder(context):
     launcher_message_id = state.get("games_topic_launcher_message_id")
     saved_topic_id = state.get("games_topic_launcher_topic_id")
 
+    # Prefer the authoritative Game Center pin file created by game_center.py.
+    if GAME_CENTER_PIN_FILE.exists():
+        try:
+            launcher_message_id = int(GAME_CENTER_PIN_FILE.read_text(encoding="utf-8").strip())
+        except (OSError, TypeError, ValueError):
+            pass
+
     try:
-        launcher_message_id = (
-            int(launcher_message_id)
-            if int(saved_topic_id) == int(GAMES_TOPIC_ID)
-            else None
-        )
+        if saved_topic_id is not None and int(saved_topic_id) != int(GAMES_TOPIC_ID):
+            launcher_message_id = None
     except (TypeError, ValueError):
-        launcher_message_id = None
+        pass
 
-    if launcher_message_id:
-        games_link = _telegram_message_link(main_group_id, launcher_message_id)
-    else:
-        games_link = _topic_link(main_group_id)
-
+    games_link = _telegram_message_link(GAMES_CHAT_ID, launcher_message_id) if launcher_message_id else _topic_link(GAMES_CHAT_ID)
     if not games_link:
         logger.warning("Weekly Game Center reminder skipped: could not build Games topic link.")
         return
@@ -270,13 +179,12 @@ async def send_weekly_game_center_reminder(context):
 
     text = (
         "🎮 <b>GAME CENTER REMINDER!</b> 🎮\n\n"
-        "Don’t forget to pull up to the <b>🎮 Games topic</b> and get your game on!\n\n"
-        "🎮 <b>GAMEE</b> — Pick a game and play\n"
-        "😈 <b>DIRTY MINDS</b> — See how dirty your mind really is 👀\n\n"
-        "🔥 Challenge somebody\n"
-        "🏆 Compete for bragging rights\n"
-        "😂 Have some fun with the crew\n\n"
-        "👇 <b>TAP BELOW TO ENTER THE GAME CENTER & START PLAYING!</b> 🎮"
+        "The real <b>Melanated AZ Game Center</b> is ready in the <b>Games</b> topic.\n\n"
+        "🎮 Play the available games\n"
+        "😈 Play <b>Dirty Minds</b>\n"
+        "🏆 Check your profile and leaderboards\n"
+        "🔥 Challenge the crew\n\n"
+        "👇 <b>TAP BELOW TO ENTER THE GAME CENTER!</b>"
     )
 
     try:
@@ -296,24 +204,24 @@ async def send_weekly_game_center_reminder(context):
 
 
 def start_weekly_game_center_reminder(application):
-    """Register the weekly Game Center launcher/reminder jobs."""
+    """Register the real Game Center launcher and weekly reminder jobs."""
     if not getattr(application, "job_queue", None):
-        logger.warning("Weekly Game Center reminder unavailable: JobQueue not installed.")
+        logger.warning("Game Center scheduler unavailable: JobQueue not installed.")
         return
 
-    # Remove duplicates after bot restarts/deploys.
     for name in ("games-topic-launcher", "weekly-game-center-reminder"):
         for job in application.job_queue.get_jobs_by_name(name):
             job.schedule_removal()
 
-    # Ensure the pinned Games-topic launcher shortly after startup.
+    # Startup launcher: this calls games/game_center.py, which owns the
+    # OPEN GAME CENTER / My Profile / Leaderboards buttons.
     application.job_queue.run_once(
         ensure_games_topic_launcher,
         when=10,
         name="games-topic-launcher",
     )
 
-    # Weekly reminder every Friday at 7:00 PM Arizona time.
+    # Weekly Friday reminder at 7:00 PM Arizona time.
     application.job_queue.run_daily(
         send_weekly_game_center_reminder,
         time(
@@ -326,10 +234,10 @@ def start_weekly_game_center_reminder(application):
     )
 
     logger.info(
-        "Weekly Game Center reminder scheduled | Friday %02d:%02d | timezone=%s | main_chat=%s | games_topic=%s",
+        "Game Center scheduler registered | Friday %02d:%02d | timezone=%s | chat=%s | topic=%s",
         WEEKLY_REMINDER_HOUR,
         WEEKLY_REMINDER_MINUTE,
         ARIZONA_TZ.key,
-        _main_group_id(),
+        GAMES_CHAT_ID,
         GAMES_TOPIC_ID,
     )
