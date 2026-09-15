@@ -12,7 +12,8 @@ import logging
 import random
 import os
 import html
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -49,6 +50,139 @@ from raffle_database import (
 )
 
 logger = logging.getLogger("melanated_az_raffle")
+
+
+# ==========================================================
+# RAFFLE SCHEDULERS / AUTOMATION
+# ==========================================================
+
+RAFFLE_STATUS_HOUR = int(os.environ.get("RAFFLE_STATUS_HOUR", "8") or "8")
+RAFFLE_STATUS_MINUTE = int(os.environ.get("RAFFLE_STATUS_MINUTE", "0") or "0")
+RAFFLE_STATUS_TIMEZONE = ZoneInfo(os.environ.get("RAFFLE_STATUS_TIMEZONE", "America/Phoenix") or "America/Phoenix")
+
+
+async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
+    """Post the current active raffle status to the Games topic every morning."""
+    raffle = get_active_raffle()
+    if not raffle:
+        logger.info("Daily raffle status skipped: no active raffle.")
+        return
+
+    approved = get_approved_entries(raffle["id"])
+    pending = get_pending_entries(raffle["id"])
+    free = is_free_raffle(raffle.get("price"))
+
+    rows = [[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]]
+    if not free:
+        rows += [
+            [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle['id']}")],
+            [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle['id']}")],
+        ]
+
+    text = (
+        "🎟️ <b>RAFFLE STATUS</b>\n\n"
+        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
+        f"✅ <b>Approved Entries:</b> {len(approved)}\n"
+        f"⏳ <b>Pending Entries:</b> {len(pending)}\n\n"
+        "👇 <b>Tap ENTER RAFFLE to join!</b>"
+    )
+
+    try:
+        sent = await context.bot.send_message(
+            chat_id=int(RAFFLE_CHAT_ID),
+            message_thread_id=RAFFLE_GAMES_TOPIC_ID,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(rows),
+            parse_mode=ParseMode.HTML,
+        )
+        logger.info(
+            "DAILY RAFFLE STATUS POSTED | raffle=%s | chat=%s | topic=%s | message=%s",
+            raffle["id"], RAFFLE_CHAT_ID, RAFFLE_GAMES_TOPIC_ID, sent.message_id,
+        )
+    except TelegramError:
+        logger.exception("Could not post daily raffle status | raffle=%s", raffle["id"])
+
+
+def start_daily_raffle_status(application):
+    """Register the daily 8:00 AM Arizona raffle status job exactly once."""
+    if not getattr(application, "job_queue", None):
+        logger.warning("Daily raffle status unavailable: JobQueue not installed.")
+        return
+
+    for job in application.job_queue.get_jobs_by_name("daily-raffle-status"):
+        job.schedule_removal()
+
+    application.job_queue.run_daily(
+        send_daily_raffle_status,
+        time(
+            hour=RAFFLE_STATUS_HOUR,
+            minute=RAFFLE_STATUS_MINUTE,
+            tzinfo=RAFFLE_STATUS_TIMEZONE,
+        ),
+        days=tuple(range(7)),
+        name="daily-raffle-status",
+    )
+    logger.info(
+        "Daily raffle status scheduled | time=%02d:%02d | timezone=%s | chat=%s | topic=%s",
+        RAFFLE_STATUS_HOUR, RAFFLE_STATUS_MINUTE, RAFFLE_STATUS_TIMEZONE.key,
+        RAFFLE_CHAT_ID, RAFFLE_GAMES_TOPIC_ID,
+    )
+
+
+async def recover_raffle_cleanup_jobs(context: ContextTypes.DEFAULT_TYPE):
+    """Recovery heartbeat. Existing one-hour cleanup jobs remain authoritative.
+
+    This intentionally does not modify the raffle database because the supplied
+    raffle_database.py has no persisted cleanup table. It keeps the expected
+    recovery scheduler available without risking existing raffle data.
+    """
+    logger.debug("Raffle cleanup recovery heartbeat executed.")
+
+
+def start_raffle_cleanup_recovery(application):
+    """Register the 30-second cleanup recovery heartbeat expected by bot.py."""
+    if not getattr(application, "job_queue", None):
+        logger.warning("Raffle cleanup recovery unavailable: JobQueue not installed.")
+        return
+
+    for job in application.job_queue.get_jobs_by_name("raffle-entry-cleanup-recovery"):
+        job.schedule_removal()
+
+    application.job_queue.run_repeating(
+        recover_raffle_cleanup_jobs,
+        interval=30,
+        first=5,
+        name="raffle-entry-cleanup-recovery",
+    )
+    logger.info(
+        "Raffle entry cleanup recovery scheduled | interval=30s | chat=%s | topic=%s",
+        RAFFLE_CHAT_ID, RAFFLE_GAMES_TOPIC_ID,
+    )
+
+
+def format_expiration(value):
+    """Format a stored raffle expiration timestamp for Telegram."""
+    if not value:
+        return "Unknown"
+    try:
+        return datetime.fromisoformat(str(value)).strftime("%b %d, %Y at %I:%M %p")
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def display_user(entry):
+    """Return a safe display name for a raffle entry."""
+    name = entry.get("display_name") or entry.get("name")
+    username = entry.get("username")
+    user_id = entry.get("user_id")
+    if name:
+        return html.escape(str(name))
+    if username:
+        username = str(username)
+        return html.escape(username if username.startswith("@") else f"@{username}")
+    return html.escape(str(user_id or "Unknown"))
 
 
 async def is_raffle_admin_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
