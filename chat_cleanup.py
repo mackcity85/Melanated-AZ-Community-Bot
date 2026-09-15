@@ -3,7 +3,7 @@
 # Persistent cleanup for bot messages in the main/admin groups.
 #
 # Default: delete temporary bot messages after 3 minutes.
-# Daily community messages are intentionally preserved.
+# Daily community messages and active raffle topic posts are preserved.
 # User/member messages are never targeted by this module.
 # Bot ID: 8810138488
 # ==========================================================
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 CLEANUP_SECONDS = int(os.environ.get("CHAT_CLEANUP_SECONDS", "180") or "180")
 BOT_ID = 8810138488
+RAFFLE_TOPIC_ID = 11883
 MESSAGE_STORE = Path(os.environ.get("CHAT_CLEANUP_STORE", "/var/data/bot_cleanup_messages.json"))
 DAILY_MESSAGE_MARKERS = (
     "DAILY COMMUNITY",
@@ -56,6 +57,29 @@ def _is_daily_community_message(text: str) -> bool:
     return any(marker in upper for marker in DAILY_MESSAGE_MARKERS)
 
 
+def _is_raffle_topic_message(message) -> bool:
+    """Raffle posts are permanent until the raffle manager closes/removes them."""
+    if not message:
+        return False
+    try:
+        return (
+            int(message.chat_id) == _main_group_id()
+            and int(getattr(message, "message_thread_id", 0) or 0) == RAFFLE_TOPIC_ID
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _record_is_raffle_topic(record) -> bool:
+    try:
+        return (
+            int(record.get("chat_id")) == _main_group_id()
+            and int(record.get("thread_id", 0) or 0) == RAFFLE_TOPIC_ID
+        )
+    except (TypeError, ValueError, AttributeError):
+        return False
+
+
 def _load_store():
     try:
         if not MESSAGE_STORE.exists():
@@ -81,14 +105,13 @@ def _remember_message(message):
     if not message or message.chat_id not in _cleanup_group_ids():
         return
     text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
-    if _is_daily_community_message(text):
+    if _is_daily_community_message(text) or _is_raffle_topic_message(message):
         return
 
     records = _load_store()
     record = {"chat_id": int(message.chat_id), "message_id": int(message.message_id)}
     if record not in records:
         records.append(record)
-    # Keep the persistent file bounded while retaining enough history for a startup sweep.
     _save_store(records[-5000:])
 
 
@@ -101,13 +124,12 @@ def _forget_message(chat_id, message_id):
 async def _delete_record(context, record):
     chat_id = record.get("chat_id")
     message_id = record.get("message_id")
-    if chat_id is None or message_id is None:
+    if chat_id is None or message_id is None or _record_is_raffle_topic(record):
         return
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
         _forget_message(chat_id, message_id)
     except TelegramError as exc:
-        # MESSAGE_ID_INVALID / message-not-found and permission errors are left logged.
         logger.debug("Cleanup could not delete %s/%s: %s", chat_id, message_id, exc)
 
 
@@ -124,7 +146,7 @@ def schedule_cleanup(application, message, delay=None):
         return
 
     text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
-    if _is_daily_community_message(text):
+    if _is_daily_community_message(text) or _is_raffle_topic_message(message):
         return
 
     if message.chat_id not in _cleanup_group_ids():
@@ -141,7 +163,7 @@ def schedule_cleanup(application, message, delay=None):
 
 
 async def startup_cleanup(application):
-    """Delete previously recorded bot messages after a Render restart."""
+    """Delete previously recorded temporary bot messages after a Render restart."""
     records = _load_store()
     if not records:
         logger.info("Bot cleanup startup sweep: no stored bot messages.")
@@ -152,14 +174,15 @@ async def startup_cleanup(application):
     for record in records:
         chat_id = record.get("chat_id")
         message_id = record.get("message_id")
+        if _record_is_raffle_topic(record):
+            remaining.append(record)
+            continue
         if chat_id not in _cleanup_group_ids() or not isinstance(message_id, int):
             continue
         try:
             await application.bot.delete_message(chat_id=chat_id, message_id=message_id)
             logger.info("Startup cleanup deleted bot message %s/%s.", chat_id, message_id)
         except TelegramError as exc:
-            # Keep records that may still be deletable later. Daily messages are
-            # never stored, so they cannot be touched by this sweep.
             remaining.append(record)
             logger.debug("Startup cleanup could not delete %s/%s: %s", chat_id, message_id, exc)
     _save_store(remaining[-5000:])
@@ -181,7 +204,7 @@ async def cleanup_service_messages(update: Update, context: ContextTypes.DEFAULT
 
 
 def install_chat_cleanup(application):
-    """Install persistent 3-minute cleanup for bot text messages."""
+    """Install persistent 3-minute cleanup for temporary bot text messages."""
     bot_class = application.bot.__class__
 
     if getattr(bot_class, "_melanated_chat_cleanup_installed", False):
@@ -212,6 +235,7 @@ def install_chat_cleanup(application):
             and admin_id
             and admin_id != main_id
             and not _is_daily_community_message(text)
+            and not _is_raffle_topic_message(result)
         ):
             try:
                 topic_note = f"\n📍 Topic ID: {thread_id}" if thread_id else ""
@@ -236,7 +260,7 @@ def install_chat_cleanup(application):
     bot_class.send_message = wrapped_send_message
     bot_class._melanated_chat_cleanup_installed = True
     logger.info(
-        "Chat cleanup installed: bot messages expire after %s seconds; daily community messages are preserved; persistent store=%s.",
+        "Chat cleanup installed: temporary bot messages expire after %s seconds; daily community messages and raffle topic posts are preserved; persistent store=%s.",
         CLEANUP_SECONDS,
         MESSAGE_STORE,
     )
