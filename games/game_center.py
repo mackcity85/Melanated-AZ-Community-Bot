@@ -14,6 +14,10 @@
 #   games_react
 #   game_*
 #
+# Also handles:
+#   Automatic Game Center launcher
+#   Automatic Games-topic pin
+#
 # Actual gameplay is handled by games.py.
 #
 # ==========================================================
@@ -48,6 +52,262 @@ from .games import (
 logger = logging.getLogger(
     "melanated_az_bot.games"
 )
+
+
+# ==========================================================
+# AUTOMATIC GAME CENTER PINNED LAUNCHER
+# ==========================================================
+#
+# Games group:
+#   Chat ID: -1002697105809
+#
+# Games topic:
+#   Thread ID: 8809
+#
+# The message ID is stored on Render persistent disk so
+# Render restarts do not create a new pinned announcement.
+#
+# ==========================================================
+
+GAMES_CHAT_ID = -1002697105809
+GAMES_TOPIC_ID = 8809
+
+GAME_CENTER_PIN_FILE = (
+    "/var/data/game_center_pin.txt"
+)
+
+
+GAME_CENTER_PIN_TEXT = (
+    "🎮🔥 <b>MELANATED AZ GAME CENTER IS LIVE!</b> 🔥🎮\n\n"
+    "The Games Room just got a whole lot more fun! 😈🎯🏆\n\n"
+    "🎮 <b>Play games</b>\n"
+    "⭐ <b>Earn XP</b>\n"
+    "🪙 <b>Stack AZ Coins</b>\n"
+    "🏆 <b>Climb the leaderboards</b>\n"
+    "👤 <b>Build your player profile</b>\n\n"
+    "From quick games to challenges, "
+    "there's always something to play!\n\n"
+    "👇🏾 <b>LET'S PLAY!</b>\n\n"
+    "Tap <b>OPEN GAME CENTER</b> below "
+    "and pick your game!\n\n"
+    "🔥 Who's taking the top spot? 👀🏆"
+)
+
+
+def pinned_game_center_keyboard():
+    """
+    Keyboard attached to the permanent Game Center
+    Games-topic launcher.
+    """
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "🎮 OPEN GAME CENTER",
+                    callback_data="games_home",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "👤 My Profile",
+                    callback_data="games_profile",
+                ),
+                InlineKeyboardButton(
+                    "🏆 Leaderboards",
+                    callback_data="games_leaderboards",
+                ),
+            ],
+        ]
+    )
+
+
+def _load_pinned_game_center_id():
+    """
+    Load the saved pinned Game Center message ID.
+
+    Returns:
+        int | None
+    """
+
+    try:
+
+        with open(
+            GAME_CENTER_PIN_FILE,
+            "r",
+            encoding="utf-8",
+        ) as file:
+
+            value = file.read().strip()
+
+        if not value:
+            return None
+
+        return int(value)
+
+    except (
+        FileNotFoundError,
+        ValueError,
+        OSError,
+    ):
+
+        return None
+
+
+def _save_pinned_game_center_id(
+    message_id,
+):
+    """
+    Save the pinned Game Center message ID
+    to Render persistent storage.
+    """
+
+    try:
+
+        with open(
+            GAME_CENTER_PIN_FILE,
+            "w",
+            encoding="utf-8",
+        ) as file:
+
+            file.write(
+                str(message_id)
+            )
+
+    except OSError:
+
+        logger.exception(
+            "Could not save Game Center pinned "
+            "message ID."
+        )
+
+
+async def ensure_pinned_game_center(
+    bot,
+):
+    """
+    Make sure the permanent Game Center launcher
+    exists and is pinned in the Games topic.
+
+    Behavior:
+
+    1. Check for previously saved message ID.
+    2. If it exists, update the message/buttons.
+    3. Re-pin the existing message.
+    4. If the old message was deleted, create a new one.
+    5. Save the new message ID.
+    6. Pin the new message.
+
+    This prevents duplicate Game Center announcements
+    every time Render restarts the bot.
+    """
+
+    existing_message_id = (
+        _load_pinned_game_center_id()
+    )
+
+    # ------------------------------------------------------
+    # EXISTING LAUNCHER
+    # ------------------------------------------------------
+
+    if existing_message_id:
+
+        try:
+
+            message = (
+                await bot.edit_message_text(
+                    chat_id=GAMES_CHAT_ID,
+                    message_id=existing_message_id,
+                    text=GAME_CENTER_PIN_TEXT,
+                    reply_markup=(
+                        pinned_game_center_keyboard()
+                    ),
+                    parse_mode=ParseMode.HTML,
+                )
+            )
+
+            # Re-pin the existing launcher.
+            try:
+
+                await bot.pin_chat_message(
+                    chat_id=GAMES_CHAT_ID,
+                    message_id=existing_message_id,
+                    disable_notification=True,
+                )
+
+            except Exception:
+
+                logger.exception(
+                    "Could not re-pin existing "
+                    "Game Center launcher."
+                )
+
+            logger.info(
+                "Existing Game Center launcher verified | "
+                "chat_id=%s | topic_id=%s | message_id=%s",
+                GAMES_CHAT_ID,
+                GAMES_TOPIC_ID,
+                existing_message_id,
+            )
+
+            return message
+
+        except Exception:
+
+            logger.info(
+                "Saved Game Center launcher no longer "
+                "exists or could not be edited. "
+                "Creating a new launcher."
+            )
+
+    # ------------------------------------------------------
+    # CREATE NEW LAUNCHER
+    # ------------------------------------------------------
+
+    message = await bot.send_message(
+        chat_id=GAMES_CHAT_ID,
+        message_thread_id=GAMES_TOPIC_ID,
+        text=GAME_CENTER_PIN_TEXT,
+        reply_markup=(
+            pinned_game_center_keyboard()
+        ),
+        parse_mode=ParseMode.HTML,
+    )
+
+    # Save message ID before attempting to pin so the
+    # launcher can still be identified after a restart.
+    _save_pinned_game_center_id(
+        message.message_id
+    )
+
+    # ------------------------------------------------------
+    # PIN NEW LAUNCHER
+    # ------------------------------------------------------
+
+    try:
+
+        await bot.pin_chat_message(
+            chat_id=GAMES_CHAT_ID,
+            message_id=message.message_id,
+            disable_notification=True,
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Game Center launcher was created but "
+            "could not be pinned."
+        )
+
+    logger.info(
+        "Created Game Center launcher | "
+        "chat_id=%s | topic_id=%s | message_id=%s",
+        GAMES_CHAT_ID,
+        GAMES_TOPIC_ID,
+        message.message_id,
+    )
+
+    return message
 
 
 # ==========================================================
@@ -705,10 +965,15 @@ async def games_profile_callback(
 
     if not stats:
 
-        await query.answer(
-            "Unable to load your profile.",
-            show_alert=True,
-        )
+        try:
+
+            await query.answer(
+                "Unable to load your profile.",
+                show_alert=True,
+            )
+
+        except Exception:
+            pass
 
         return
 
@@ -1022,16 +1287,26 @@ async def games_play_callback(
             game_id,
         )
 
+        # The callback has normally already been answered,
+        # so do not attempt to answer it again here.
+        #
+        # Instead, notify the user through the existing
+        # message when possible.
         try:
 
-            await query.answer(
-                "⚠️ Unable to start that game.",
-                show_alert=True,
-            )
+            if query.message:
+
+                await query.message.reply_text(
+                    "⚠️ Unable to start that game. "
+                    "Please try again."
+                )
 
         except Exception:
 
-            pass
+            logger.debug(
+                "Could not send Game Center start failure message.",
+                exc_info=True,
+            )
 
 
 # ==========================================================
