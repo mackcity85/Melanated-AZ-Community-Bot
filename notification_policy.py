@@ -8,7 +8,8 @@
 # - Mirrors bot notifications to ADMIN_GROUP_ID.
 # - Automatically removes temporary bot messages from the
 #   main community chat after CLEAN_CHAT_SECONDS.
-# - Never removes the permanent Games or Introduction launchers.
+# - Never removes permanent Games, Introduction, or Raffles /
+#   Giveaways topic posts.
 # - Never mirrors/deletes messages already sent to the admin group.
 #
 # This patches ExtBot.send_message once at import time so existing
@@ -18,21 +19,22 @@
 import asyncio
 import logging
 import os
-from functools import wraps
 
 from telegram.error import TelegramError
 from telegram.ext import ExtBot
 
-logger = logging.getLogger("melanated_az.notification_policy")
+logger = logging.getLogger("melanatedaz.notification_policy")
 
 CLEAN_CHAT_SECONDS = int(os.environ.get("CLEAN_CHAT_SECONDS", "180") or "180")
 ADMIN_GROUP_ID_ENV = os.environ.get("ADMIN_GROUP_ID", "") or ""
 MAIN_GROUP_ID_ENV = os.environ.get("MAIN_GROUP_ID", "") or ""
 
-# Permanent forum launchers. These must remain in place.
+# Permanent forum topics. Messages posted in these topics must not
+# be treated as temporary bot notifications.
 PERMANENT_TOPIC_IDS = {
     8809,   # Games
     11570,  # Introduction
+    11883,  # Raffles / Giveaways
 }
 
 _PATCHED = False
@@ -80,32 +82,6 @@ def _clean_admin_copy_kwargs(kwargs):
     return copy
 
 
-async def _delete_later(bot, chat_id, message_id):
-    if CLEAN_CHAT_SECONDS <= 0:
-        return
-
-    await asyncio.sleep(CLEAN_CHAT_SECONDS)
-
-    try:
-        await _ORIGINAL_SEND_MESSAGE.__self__.delete_message(
-            chat_id=chat_id,
-            message_id=message_id,
-        )
-    except TelegramError as exc:
-        logger.debug(
-            "Temporary bot message could not be removed | chat=%s | message=%s | %s",
-            chat_id,
-            message_id,
-            exc,
-        )
-    except Exception:
-        logger.exception(
-            "Unexpected clean-chat failure | chat=%s | message=%s",
-            chat_id,
-            message_id,
-        )
-
-
 async def _send_message_with_policy(self, *args, **kwargs):
     """Send normally, mirror to admins, and clean temporary main-chat posts."""
     sent = await _ORIGINAL_SEND_MESSAGE(self, *args, **kwargs)
@@ -120,8 +96,8 @@ async def _send_message_with_policy(self, *args, **kwargs):
 
     permanent = _is_permanent_launcher(kwargs)
 
-    # Mirror the notification to the admin group. The permanent launchers
-    # are intentionally not duplicated into the admin chat.
+    # Mirror temporary notifications to the admin group. Permanent topic
+    # posts remain in their own topic and are not duplicated into admin chat.
     admin_id = _admin_group_id()
     if admin_id and not permanent:
         try:
@@ -140,7 +116,7 @@ async def _send_message_with_policy(self, *args, **kwargs):
             logger.exception("Unexpected admin notification mirror failure.")
 
     # Temporary main-chat notifications are removed automatically.
-    # Permanent Games/Introduction launchers are left alone.
+    # Permanent Games/Introduction/Raffles topic posts are left alone.
     if not permanent and CLEAN_CHAT_SECONDS > 0:
         try:
             asyncio.create_task(
