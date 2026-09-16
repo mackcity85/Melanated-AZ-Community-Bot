@@ -175,7 +175,7 @@ def initialize_community_security_database():
     with community_db_connect() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS community_members (chat_id INTEGER NOT NULL,user_id INTEGER NOT NULL,username TEXT,first_name TEXT,joined_at TEXT,verified_at TEXT,intro_deadline TEXT,intro_posted_at TEXT,intro_text TEXT,intro_message_id INTEGER,last_post_at TEXT,verification_attempts INTEGER DEFAULT 0,verification_message_id INTEGER,verification_challenge TEXT,verification_expires_at TEXT,inactivity_notice_at TEXT,inactivity_notice_message_id INTEGER,status TEXT DEFAULT 'pending_verification',PRIMARY KEY (chat_id,user_id))""")
         columns={row[1] for row in conn.execute("PRAGMA table_info(community_members)").fetchall()}
-        for col, definition in [("intro_text","TEXT"),("intro_message_id","INTEGER"),("inactivity_notice_at","TEXT"),("inactivity_notice_message_id","INTEGER")]:
+        for col, definition in [("intro_text","TEXT"),("intro_message_id","INTEGER"),("inactivity_notice_at","TEXT"),("inactivity_notice_message_id","INTEGER"),("monthly_intro_reminder_at","TEXT")]:
             if col not in columns: conn.execute(f"ALTER TABLE community_members ADD COLUMN {col} {definition}")
         conn.commit()
 
@@ -431,11 +431,33 @@ async def delete_message_job(context):
     except TelegramError:pass
 
 async def send_monthly_intro_reminders(context):
-    return
+    main=configured_main_group_id()
+    if not main:return
+    now=utc_now(); cutoff=now-timedelta(days=30)
+    with community_db_connect() as conn:
+        rows=conn.execute("SELECT * FROM community_members WHERE chat_id=? AND status NOT IN ('left','removed') AND (intro_text IS NULL OR TRIM(intro_text)='') AND (monthly_intro_reminder_at IS NULL OR monthly_intro_reminder_at<=?)",(main,cutoff.isoformat())).fetchall()
+    bot_username=context.application.bot_data.get("bot_username")
+    for row in rows:
+        uid=int(row["user_id"])
+        try:
+            live=await context.bot.get_chat_member(main,uid)
+            if getattr(live,"status","") not in {"member","administrator","creator"}:continue
+            if await is_admin(uid,context):continue
+            first_name=getattr(getattr(live,"user",None),"first_name",None) or row["first_name"] or "there"
+            url=f"https://t.me/{bot_username}?start=intro" if bot_username else None
+            keyboard=InlineKeyboardMarkup([[InlineKeyboardButton("👋🏾 Complete My Intro",url=url)]]) if url else None
+            text=f"👋🏾 <b>Hey {html.escape(first_name)}!</b> 💜\n\nWe’d love to get to know you a little better. Your introduction is still missing, and it’s required for everyone in the Melanated AZ community.\n\nIt only takes a few minutes and helps everyone know who’s part of the community.\n\n🎂 <b>Birthday is optional</b>, but if you add yours, we’ll make sure you get a birthday shoutout! 🎉\n\nWhenever you’re ready, tap below to complete your intro. 👇🏾"
+            await context.bot.send_message(chat_id=uid,text=text,reply_markup=keyboard,parse_mode=ParseMode.HTML)
+            with community_db_connect() as conn:
+                conn.execute("UPDATE community_members SET monthly_intro_reminder_at=? WHERE chat_id=? AND user_id=?",(now.isoformat(),main,uid)); conn.commit()
+        except TelegramError:pass
+        except Exception:logger.exception("Monthly intro reminder failed for %s",uid)
 
 def start_monthly_intro_reminders(application):
-    # Disabled: the Introductions topic has ONE permanent launcher/reminder.
-    logger.info("Monthly public introduction reposts disabled.")
+    if not application.job_queue:return
+    application.job_queue.run_once(send_monthly_intro_reminders,when=10,name="monthly-intro-reminders-initial")
+    application.job_queue.run_repeating(send_monthly_intro_reminders,interval=86400,first=86400,name="monthly-intro-reminders")
+    logger.info("Monthly private intro reminders enabled | first run now | cadence 30 days per member")
 
 async def community_security_monitor(context):
     now=utc_now()
