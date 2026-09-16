@@ -3,7 +3,8 @@
 # Persistent cleanup for bot messages in the main/admin groups.
 #
 # Default: delete temporary bot messages after 3 minutes.
-# Daily community messages and active raffle topic posts are preserved.
+# Daily community messages, raffle posts, and QOTD/After Dark
+# topic posts are preserved.
 # User/member messages are never targeted by this module.
 # Bot ID: 8810138488
 #
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 CLEANUP_SECONDS = int(os.environ.get("CHAT_CLEANUP_SECONDS", "180") or "180")
 BOT_ID = 8810138488
 RAFFLE_TOPIC_ID = 11883
+QOTD_TOPIC_ID = 11999
+PERMANENT_TOPIC_IDS = {RAFFLE_TOPIC_ID, QOTD_TOPIC_ID}
 MESSAGE_STORE = Path(os.environ.get("CHAT_CLEANUP_STORE", "/var/data/bot_cleanup_messages.json"))
 DAILY_MESSAGE_MARKERS = (
     "DAILY COMMUNITY",
@@ -60,24 +63,31 @@ def _is_daily_community_message(text: str) -> bool:
     return any(marker in upper for marker in DAILY_MESSAGE_MARKERS)
 
 
-def _is_raffle_topic_message(message) -> bool:
-    """Raffle posts are permanent until the raffle manager closes/removes them."""
+def _message_thread_id(message) -> int:
+    try:
+        return int(getattr(message, "message_thread_id", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _is_permanent_topic_message(message) -> bool:
+    """Raffle and QOTD/After Dark topic posts are permanent until their own managers remove them."""
     if not message:
         return False
     try:
         return (
             int(message.chat_id) == _main_group_id()
-            and int(getattr(message, "message_thread_id", 0) or 0) == RAFFLE_TOPIC_ID
+            and _message_thread_id(message) in PERMANENT_TOPIC_IDS
         )
     except (TypeError, ValueError):
         return False
 
 
-def _record_is_raffle_topic(record) -> bool:
+def _record_is_permanent_topic(record) -> bool:
     try:
         return (
             int(record.get("chat_id")) == _main_group_id()
-            and int(record.get("thread_id", 0) or 0) == RAFFLE_TOPIC_ID
+            and int(record.get("thread_id", 0) or 0) in PERMANENT_TOPIC_IDS
         )
     except (TypeError, ValueError, AttributeError):
         return False
@@ -108,11 +118,15 @@ def _remember_message(message):
     if not message or message.chat_id not in _cleanup_group_ids():
         return
     text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
-    if _is_daily_community_message(text) or _is_raffle_topic_message(message):
+    if _is_daily_community_message(text) or _is_permanent_topic_message(message):
         return
 
     records = _load_store()
-    record = {"chat_id": int(message.chat_id), "message_id": int(message.message_id)}
+    record = {
+        "chat_id": int(message.chat_id),
+        "message_id": int(message.message_id),
+        "thread_id": _message_thread_id(message),
+    }
     if record not in records:
         records.append(record)
     _save_store(records[-5000:])
@@ -127,7 +141,7 @@ def _forget_message(chat_id, message_id):
 async def _delete_record(context, record):
     chat_id = record.get("chat_id")
     message_id = record.get("message_id")
-    if chat_id is None or message_id is None or _record_is_raffle_topic(record):
+    if chat_id is None or message_id is None or _record_is_permanent_topic(record):
         return
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -149,7 +163,7 @@ def schedule_cleanup(application, message, delay=None):
         return
 
     text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
-    if _is_daily_community_message(text) or _is_raffle_topic_message(message):
+    if _is_daily_community_message(text) or _is_permanent_topic_message(message):
         return
 
     if message.chat_id not in _cleanup_group_ids():
@@ -157,10 +171,15 @@ def schedule_cleanup(application, message, delay=None):
 
     _remember_message(message)
     seconds = CLEANUP_SECONDS if delay is None else delay
+    record = {
+        "chat_id": int(message.chat_id),
+        "message_id": int(message.message_id),
+        "thread_id": _message_thread_id(message),
+    }
     application.job_queue.run_once(
         _delete_after,
         when=seconds,
-        data={"chat_id": message.chat_id, "message_id": message.message_id},
+        data=record,
         name=f"cleanup:{message.chat_id}:{message.message_id}",
     )
 
@@ -177,9 +196,18 @@ async def startup_cleanup(application):
     for record in records:
         chat_id = record.get("chat_id")
         message_id = record.get("message_id")
-        if _record_is_raffle_topic(record):
+        if _record_is_permanent_topic(record):
             remaining.append(record)
             continue
+
+        # Records written by older versions did not contain thread_id.  Do not
+        # blindly delete those records on startup: an old QOTD/After Dark panel
+        # could otherwise be mistaken for a temporary message.  New records
+        # always include thread_id and retain the normal startup cleanup behavior.
+        if "thread_id" not in record:
+            remaining.append(record)
+            continue
+
         if chat_id not in _cleanup_group_ids() or not isinstance(message_id, int):
             continue
         try:
@@ -234,7 +262,7 @@ def install_chat_cleanup(application):
     bot_class.send_message = wrapped_send_message
     bot_class._melanated_chat_cleanup_installed = True
     logger.info(
-        "Chat cleanup installed: temporary bot messages expire after %s seconds; daily community messages and raffle topic posts are preserved; admin-group notification mirroring DISABLED; persistent store=%s.",
+        "Chat cleanup installed: temporary bot messages expire after %s seconds; daily community messages, raffle topic posts, and QOTD/After Dark topic posts are preserved; admin-group notification mirroring DISABLED; persistent store=%s.",
         CLEANUP_SECONDS,
         MESSAGE_STORE,
     )
