@@ -206,8 +206,189 @@ async def post_intro_topic_command(update, context):
         )
 
 
-import builtins as _builtins
-_builtins.post_intro_topic_command = post_intro_topic_command
+# ==========================================================
+# OPTIONAL BIRTHDAY STEP FOR THE MANDATORY INTRO FLOW
+# ==========================================================
+# The introduction remains mandatory. Birthday is optional.
+# This bridge reuses the existing birthday system rather than
+# creating a second birthday database or collection flow.
+#
+# Flow:
+#   Intro reminder -> Add My Birthday -> save birthday ->
+#   return user to the existing mandatory intro flow.
+# ==========================================================
+
+async def _intro_birthday_callback_bridge(update, context):
+    query = update.callback_query
+    user = update.effective_user
+    if not query or not user or not query.data:
+        return
+
+    if query.data != "birthday_intro_add":
+        return
+
+    await query.answer()
+    context.user_data["awaiting_birthday"] = True
+    context.user_data["return_to_intro_after_birthday"] = True
+
+    try:
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=(
+                "🎂 <b>Add Your Birthday</b>\n\n"
+                "We give our members <b>birthday shoutouts</b> in Melanated AZ, "
+                "so if you'd like us to celebrate you, add your birthday! 🎉💜\n\n"
+                "Enter your birthday using <b>MM/DD</b>.\n\n"
+                "Example: <b>08/27</b>"
+            ),
+            parse_mode="HTML",
+        )
+    except Exception:
+        return
+
+
+async def _intro_birthday_text_bridge(update, context):
+    """Run the existing birthday text handler, then return to intro."""
+    from birthday import birthday_text_handler as _original_birthday_text_handler
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    returning_to_intro = bool(
+        context.user_data.get("return_to_intro_after_birthday")
+    )
+
+    handled = await _original_birthday_text_handler(update, context)
+
+    if not returning_to_intro:
+        return handled
+
+    # The existing birthday handler removes awaiting_birthday only after
+    # a successful save. Keep the flag when the input is invalid or saving
+    # fails so the member can try again.
+    if context.user_data.get("awaiting_birthday"):
+        return handled
+
+    context.user_data.pop("return_to_intro_after_birthday", None)
+
+    user = update.effective_user
+    if not user:
+        return handled
+
+    bot_username = context.application.bot_data.get("bot_username")
+    if not bot_username:
+        try:
+            me = await context.bot.get_me()
+            bot_username = me.username
+            if bot_username:
+                context.application.bot_data["bot_username"] = bot_username
+        except Exception:
+            bot_username = None
+
+    keyboard = None
+    if bot_username:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                "👋🏾 Complete My Intro",
+                url=f"https://t.me/{bot_username}?start=intro",
+            )]
+        ])
+
+    try:
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=(
+                "👋🏾 <b>Birthday saved!</b> 🎉💜\n\n"
+                "Your birthday is now on the Melanated AZ birthday list, and we'll give you a "
+                "<b>birthday shoutout</b> when your day comes around. 🎂🥳\n\n"
+                "Your introduction is still <b>required</b>. We need to know who is in our community, "
+                "so let's finish your intro now."
+            ),
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+    except Exception:
+        pass
+
+    return handled
+
+
+def _install_intro_birthday_bridge():
+    """Patch the already-imported birthday module before bot.py imports its handlers."""
+    try:
+        import birthday as _birthday
+        if getattr(_birthday, "_intro_birthday_bridge_installed", False):
+            return
+
+        _original_callback = _birthday.birthday_callback
+        _original_text_handler = _birthday.birthday_text_handler
+
+        async def callback_wrapper(update, context):
+            query = update.callback_query
+            if query and query.data == "birthday_intro_add":
+                return await _intro_birthday_callback_bridge(update, context)
+            return await _original_callback(update, context)
+
+        async def text_wrapper(update, context):
+            returning_to_intro = bool(
+                context.user_data.get("return_to_intro_after_birthday")
+            )
+            handled = await _original_text_handler(update, context)
+            if not returning_to_intro:
+                return handled
+
+            if context.user_data.get("awaiting_birthday"):
+                return handled
+
+            context.user_data.pop("return_to_intro_after_birthday", None)
+
+            user = update.effective_user
+            if not user:
+                return handled
+
+            bot_username = context.application.bot_data.get("bot_username")
+            if not bot_username:
+                try:
+                    me = await context.bot.get_me()
+                    bot_username = me.username
+                    if bot_username:
+                        context.application.bot_data["bot_username"] = bot_username
+                except Exception:
+                    bot_username = None
+
+            keyboard = None
+            if bot_username:
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton(
+                        "👋🏾 Complete My Intro",
+                        url=f"https://t.me/{bot_username}?start=intro",
+                    )]
+                ])
+
+            try:
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=(
+                        "👋🏾 <b>Birthday saved!</b> 🎉💜\n\n"
+                        "Your birthday is now on the Melanated AZ birthday list, and we'll give you a "
+                        "<b>birthday shoutout</b> when your day comes around. 🎂🥳\n\n"
+                        "Your introduction is still <b>required</b>. We need to know who is in our community, "
+                        "so let's finish your intro now."
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=keyboard,
+                )
+            except Exception:
+                pass
+
+            return handled
+
+        _birthday.birthday_callback = callback_wrapper
+        _birthday.birthday_text_handler = text_wrapper
+        _birthday._intro_birthday_bridge_installed = True
+    except Exception:
+        pass
+
+
+_install_intro_birthday_bridge()
 
 
 # ==========================================================
@@ -220,3 +401,7 @@ _builtins.post_intro_topic_command = post_intro_topic_command
 # ==========================================================
 
 import notification_policy  # noqa: E402,F401
+
+
+import builtins as _builtins
+_builtins.post_intro_topic_command = post_intro_topic_command
