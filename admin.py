@@ -424,7 +424,11 @@ def admin_menu_text():
         "Create and manage multiplayer Dirty Minds rooms.\n\n"
 
         "🎁 **HOLIDAY EXCHANGE**\n"
-        "Manage the Holiday Exchange."
+        "Manage the Holiday Exchange.\n\n"
+        "💭 **QUESTIONS / QOTD**\n"
+        "Manage the Question/Poll bank. Daily release: **11:00 AM Arizona time**.\n\n"
+        "🌙 **AFTER DARK**\n"
+        "Separate content bank. Daily release: **10:00 PM Arizona time**."
     )
 
 
@@ -3239,6 +3243,160 @@ async def admin_back(update, context):
 
 
 # ==========================================================
+# QUESTION OF THE DAY / AFTER DARK ADMIN CONTROLS
+# ==========================================================
+
+async def admin_questions(update, context):
+    if not await require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+    try:
+        from question_of_day import queued_count, daily_post_already_done, qotd_enabled
+        count = queued_count()
+        posted = daily_post_already_done()
+        enabled = qotd_enabled()
+    except Exception:
+        count, posted, enabled = 0, False, False
+    await query.edit_message_text(
+        "💭 **QUESTION OF THE DAY**\n\n"
+        "🕚 **Daily:** 11:00 AM Arizona time\n"
+        f"📚 Queued: **{count} day{'s' if count != 1 else ''}**\n"
+        f"📅 Today's post: **{'Posted' if posted else 'Not posted'}**\n"
+        f"⚙️ System: **{'Enabled' if enabled else 'Not configured'}**\n\n"
+        "📍 Destination: topic `11999`",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📚 QOTD Bank Status", callback_data="admin_qotd_status")],
+            [InlineKeyboardButton("▶️ Post Next QOTD Now", callback_data="admin_qotd_post_next")],
+            [InlineKeyboardButton("📌 Recreate QOTD Panel", callback_data="admin_qotd_panel")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+async def admin_qotd_status(update, context):
+    if not await require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+    from question_of_day import queued_count, daily_post_already_done
+    count = queued_count()
+    posted = daily_post_already_done()
+    await query.edit_message_text(
+        "📚 **QOTD BANK STATUS**\n\n"
+        f"Queued items: **{count}**\n"
+        f"Today's QOTD: **{'Posted' if posted else 'Not posted'}**\n\n"
+        "Questions and polls share the QOTD bank.\n"
+        "Empty bank = no scheduled QOTD post.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Back", callback_data="admin_questions")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+async def admin_qotd_post_next(update, context):
+    if not await require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer("Posting next QOTD...")
+    try:
+        from question_of_day import publish_item, get_next_item
+        item = get_next_item()
+        if not item:
+            text = "📚 **QOTD BANK EMPTY**\n\nThere is nothing queued to post."
+        else:
+            posted = await publish_item(context, int(item["id"]))
+            text = "✅ **QOTD POSTED**\n\nThe next queued Question/Poll was posted to topic `11999`." if posted else "❌ **QOTD POST FAILED**\n\nCheck the Render logs."
+    except Exception:
+        text = "❌ **QOTD POST FAILED**\n\nCheck the Render logs."
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("💭 QOTD Controls", callback_data="admin_questions")],
+        [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+    ]), parse_mode="Markdown")
+
+async def admin_qotd_panel(update, context):
+    if not await require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer("Recreating QOTD panel...")
+    try:
+        from question_of_day import ensure_qotd_submission_panel
+        await ensure_qotd_submission_panel(context.application)
+        text = "📌 **QOTD PANEL READY**\n\nThe submission panel was created/re-pinned in topic `11999`."
+    except Exception:
+        text = "❌ **QOTD PANEL FAILED**\n\nCheck the Render logs."
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("💭 QOTD Controls", callback_data="admin_questions")],
+        [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+    ]), parse_mode="Markdown")
+
+async def admin_after_dark(update, context):
+    if not await require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+    await query.edit_message_text(
+        "🌙 **AFTER DARK**\n\n"
+        "After Dark uses its separate content bank and posts into the shared topic.\n\n"
+        "🌙 **Daily:** 10:00 PM Arizona time\n"
+        "📍 **Destination:** topic `11999`",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🌙 Confirm 10:00 PM Schedule", callback_data="admin_after_dark_schedule")],
+            [InlineKeyboardButton("🌙 Post After Dark Now", callback_data="admin_after_dark_now")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+async def admin_after_dark_schedule(update, context):
+    if not await require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer("Schedule confirmed")
+    await query.edit_message_text(
+        "🌙 **AFTER DARK SCHEDULE**\n\n"
+        "Daily at **10:00 PM Arizona time**.\n\n"
+        "Posts to the shared topic `11999`.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🌙 After Dark Controls", callback_data="admin_after_dark")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+async def admin_after_dark_now(update, context):
+    if not await require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer("Posting After Dark...")
+    try:
+        from daily_messages import send_daily_community_message
+        await send_daily_community_message(context)
+        text = "🌙 **AFTER DARK POSTED**\n\nThe current After Dark prompt was posted to topic `11999`."
+    except Exception:
+        text = "❌ **AFTER DARK POST FAILED**\n\nCheck the Render logs."
+    await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌙 After Dark Controls", callback_data="admin_after_dark")],
+        [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+    ]), parse_mode="Markdown")
+
+
+# ==========================================================
 # ADMIN BUTTON ROUTER
 # ==========================================================
 
@@ -3292,6 +3450,38 @@ async def admin_button(
             context,
         )
 
+        return
+
+    # ------------------------------------------------------
+    # QUESTION OF THE DAY / AFTER DARK
+    # ------------------------------------------------------
+
+    if data == "admin_questions":
+        await admin_questions(update, context)
+        return
+
+    if data == "admin_qotd_status":
+        await admin_qotd_status(update, context)
+        return
+
+    if data == "admin_qotd_post_next":
+        await admin_qotd_post_next(update, context)
+        return
+
+    if data == "admin_qotd_panel":
+        await admin_qotd_panel(update, context)
+        return
+
+    if data == "admin_after_dark":
+        await admin_after_dark(update, context)
+        return
+
+    if data == "admin_after_dark_schedule":
+        await admin_after_dark_schedule(update, context)
+        return
+
+    if data == "admin_after_dark_now":
+        await admin_after_dark_now(update, context)
         return
 
     # ------------------------------------------------------

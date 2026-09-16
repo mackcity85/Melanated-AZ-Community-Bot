@@ -7,7 +7,7 @@
 # Environment variables:
 #   QUESTION_OF_DAY_TOPIC_ID   Telegram forum topic/thread ID (required)
 #   QUESTION_OF_DAY_CHAT_ID    Optional; defaults to MAIN_GROUP_ID
-#   QUESTION_OF_DAY_HOUR       Local Phoenix hour, default 7
+#   QUESTION_OF_DAY_HOUR       Local Phoenix hour, default 11
 #   QUESTION_OF_DAY_MINUTE     Local minute, default 0
 #
 # Behavior:
