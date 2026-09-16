@@ -1,0 +1,63 @@
+name: Fix raffle repair None crash
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  fix-raffle-repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Remove invalid None raffle post reset
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("bot.py")
+          text = path.read_text(encoding="utf-8")
+          bad = '        set_raffle_post(raffle_id,None,None)\n'
+          if bad in text:
+              text = text.replace(
+                  '        # Clear the stale Telegram post reference left by the disabled auto-sync manager.\n'
+                  + bad,
+                  '        # Do not write None into the raffle post fields. publish_raffle()\n'
+                  '        # creates the replacement post and saves its real Telegram IDs.\n'
+              )
+              path.write_text(text, encoding="utf-8")
+              print("Fixed bot.py raffle repair")
+          else:
+              print("bot.py already fixed")
+
+          # The legacy compatibility function has the same invalid database call.
+          path = Path("games_reminder.py")
+          text = path.read_text(encoding="utf-8")
+          bad = '        set_raffle_post(raffle_id, None, None)\n'
+          if bad in text:
+              text = text.replace(
+                  bad,
+                  '        # Do not write None into raffle post fields.\n'
+              )
+              path.write_text(text, encoding="utf-8")
+              print("Fixed legacy games_reminder raffle repair")
+          else:
+              print("games_reminder.py already fixed or does not contain legacy call")
+          PY
+
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bot.py games_reminder.py
+          git commit -m "Fix raffle topic repair None crash"
+          git push
