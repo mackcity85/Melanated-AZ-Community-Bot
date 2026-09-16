@@ -1,9 +1,8 @@
-name: Maintain bot fixes
+name: Final safe source fixes
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: write
@@ -12,191 +11,185 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Apply safe fixes
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply final fixes
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
-          # Preserve the existing raffle-repair fixes.
-          for filename, old, new in [
-              ("bot.py",
-               '        set_raffle_post(raffle_id,None,None)\n',
-               '        # Do not write None into raffle post fields. publish_raffle() saves real Telegram IDs.\n'),
-              ("games_reminder.py",
-               '        set_raffle_post(raffle_id, None, None)\n',
-               '        # Do not write None into raffle post fields.\n'),
-          ]:
-              p = Path(filename)
-              text = p.read_text(encoding="utf-8")
-              if old in text:
-                  p.write_text(text.replace(old, new, 1), encoding="utf-8")
-
-          # Add Remove Member controls to the existing member bank.
-          p = Path("member_bank.py")
-          text = p.read_text(encoding="utf-8")
-
-          remove_block = r'''
-
-
-async def admin_member_remove_prompt(update, context, user_id):
-    """Ask for confirmation before removing a member from the main group."""
-    query = update.callback_query
-    if not query:
+          # QOTD submissions: private DM only until the item is actually published.
+          p=Path('question_of_day.py')
+          s=p.read_text(encoding='utf-8')
+          q=re.compile(r'(?ms)^    if action == "qotd_submit_question":\n.*?^        return\n(?=    if action == "qotd_submit_poll":)')
+          qnew='''    if action == "qotd_submit_question":
+        context.user_data["qotd_state"] = "question"
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="📝 <b>Send your question now.</b>\\n\\n🔒 Your submission is private and will not appear in the group until it is posted as the QOTD.\\n\\nKeep it under 3,000 characters.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
         return
-    try:
-        from admin import is_admin
-        if not await is_admin(update.effective_user.id, context):
-            await query.answer("⛔ You are not authorized.", show_alert=True)
-            return
-    except Exception:
-        logger.exception("Unable to verify admin for member removal.")
-        await query.answer("Unable to verify admin access.", show_alert=True)
-        return
-    try:
-        user_id = int(user_id)
-    except (TypeError, ValueError):
-        await query.answer("Invalid member.", show_alert=True)
-        return
-    await query.answer()
-    await query.edit_message_text(
-        "🚫 **REMOVE MEMBER**\n\n"
-        f"Are you sure you want to remove user `{user_id}` from the Melanated AZ main group?\n\n"
-        "This removes them from the group but **does not delete their Member Bank record**.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚫 Yes, Remove", callback_data=f"admin_member_remove_confirm_{user_id}")],
-            [InlineKeyboardButton("❌ Cancel", callback_data=f"admin_member_remove_cancel_{user_id}")],
-        ]),
-        parse_mode="Markdown",
-    )
-
-
-async def admin_member_remove_cancel(update, context, user_id):
-    query = update.callback_query
-    if not query:
-        return
-    await query.answer("Removal cancelled.")
-    await admin_member_view(update, context, user_id)
-
-
-async def admin_member_remove_confirm(update, context, user_id):
-    query = update.callback_query
-    if not query:
-        return
-    try:
-        from admin import is_admin
-        if not await is_admin(update.effective_user.id, context):
-            await query.answer("⛔ You are not authorized.", show_alert=True)
-            return
-    except Exception:
-        logger.exception("Unable to verify admin for member removal confirmation.")
-        await query.answer("Unable to verify admin access.", show_alert=True)
-        return
-    try:
-        user_id = int(user_id)
-    except (TypeError, ValueError):
-        await query.answer("Invalid member.", show_alert=True)
-        return
-    if user_id == getattr(context.bot, "id", None):
-        await query.answer("The bot cannot remove itself.", show_alert=True)
-        return
-    try:
-        member = await context.bot.get_chat_member(int(MAIN_GROUP_ID), user_id)
-        if getattr(member, "status", None) in ("creator", "administrator"):
-            await query.answer("Administrators and the group owner cannot be removed here.", show_alert=True)
-            return
-        await context.bot.ban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id)
-        await context.bot.unban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id, only_if_banned=True)
-    except Exception as exc:
-        logger.exception("Unable to remove member | user_id=%s", user_id)
-        await query.answer("Removal failed.", show_alert=True)
-        await query.edit_message_text(
-            "❌ **REMOVE FAILED**\n\n"
-            f"I could not remove user `{user_id}` from the main group.\n\n"
-            f"Telegram error: `{type(exc).__name__}`",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⬅️ Member Profile", callback_data=f"admin_member_view_{user_id}")],
-                [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],
-            ]),
-            parse_mode="Markdown",
-        )
-        return
-
-    try:
-        conn = _db(COMMUNITY_DB)
-        columns = {r["name"] for r in conn.execute("PRAGMA table_info(community_members)").fetchall()}
-        updates, values = [], []
-        if "status" in columns:
-            updates.append("status=?")
-            values.append("removed_by_admin")
-        if "last_post_at" in columns:
-            updates.append("last_post_at=NULL")
-        if updates:
-            values.extend([int(MAIN_GROUP_ID), user_id])
-            conn.execute(f"UPDATE community_members SET {', '.join(updates)} WHERE chat_id=? AND user_id=?", values)
-            conn.commit()
-        conn.close()
-    except Exception:
-        logger.exception("Telegram removal succeeded but Member Bank status update failed | user_id=%s", user_id)
-
-    await query.answer("Member removed from the main group.")
-    await query.edit_message_text(
-        "🚫 **MEMBER REMOVED**\n\n"
-        f"User `{user_id}` was removed from the Melanated AZ main group.\n\n"
-        "Their Member Bank record was preserved for historical tracking.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],
-            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
-        ]),
-        parse_mode="Markdown",
-    )
 '''
-          if "async def admin_member_remove_prompt(" not in text:
-              text += remove_block
+          s,n=q.subn(qnew,s,count=1)
+          if n!=1: raise SystemExit('QOTD question target not found')
+          q=re.compile(r'(?ms)^    if action == "qotd_submit_poll":\n.*?^        return\n(?=\n\nclass QotdInputFilter)')
+          qnew='''    if action == "qotd_submit_poll":
+        context.user_data["qotd_state"] = "poll_question"
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="📊 <b>Build your poll</b>\\n\\n🔒 Your poll submission is private and will not appear in the group until it is posted as the QOTD.\\n\\nFirst, send the poll question. Then I'll ask for the answer choices.\\n\\nQuestion limit: 300 characters.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
+        return
+'''
+          s,n=q.subn(qnew,s,count=1)
+          if n!=1: raise SystemExit('QOTD poll target not found')
+          q=re.compile(r'(?ms)^    expected_chat = context\.user_data\.get\("qotd_chat_id"\)\n.*?^    text = message\.text\.strip\(\)')
+          s,n=q.subn('''    if message.chat.type != "private":
+        return
+    text = message.text.strip()''',s,count=1)
+          if n!=1: raise SystemExit('QOTD input target not found')
+          q=re.compile(r'(?ms)^async def _finish_submission\(update, context, item_id, saved_text\):\n.*?(?=^async def _delete_message_job)')
+          qnew='''async def _finish_submission(update, context, item_id, saved_text):
+    message = update.effective_message
+    chat_id = message.chat_id if message and message.chat.type == "private" else None
+    for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
+        context.user_data.pop(key, None)
+    if message and message.chat.type == "private":
+        try:
+            await message.delete()
+        except TelegramError:
+            pass
+    if queued_count() == 1 and not daily_post_already_done():
+        posted = await publish_item(context, item_id)
+        if posted:
+            return
+    if chat_id:
+        try:
+            count = queued_count()
+            notice = await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"{saved_text}\\n\\n📚 Added to the Question of the Day bank.\\n<b>{count}</b> day{'s' if count != 1 else ''} currently queued.",
+                parse_mode="HTML",
+            )
+            if context.job_queue:
+                context.job_queue.run_once(_delete_message_job, 15, data=(chat_id, notice.message_id))
+        except TelegramError:
+            logger.exception("Could not send QOTD submission confirmation.")
 
-          # Message Member opens a direct Telegram chat. This avoids requiring
-          # the member to have started the bot and does not change stored data.
-          old_buttons = '''        reply_markup=InlineKeyboardMarkup([\n            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],\n            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],\n        ]),'''
-          new_buttons = '''        reply_markup=InlineKeyboardMarkup([\n            [InlineKeyboardButton("📩 Message Member", url=f"tg://user?id={user_id}")],\n            [InlineKeyboardButton("🚫 Remove Member", callback_data=f"admin_member_remove_{user_id}")],\n            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],\n            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],\n        ]),'''
-          if 'url=f"tg://user?id={user_id}"' not in text:
-              if old_buttons not in text:
-                  raise SystemExit("member profile button marker not found")
-              text = text.replace(old_buttons, new_buttons, 1)
-          p.write_text(text, encoding="utf-8")
 
-          # Wire removal callbacks into the existing admin callback router.
-          p = Path("admin.py")
-          text = p.read_text(encoding="utf-8")
-          old_import = "from member_bank import admin_members, admin_member_view\n"
-          new_import = '''from member_bank import (\n    admin_members,\n    admin_member_view,\n    admin_member_remove_prompt,\n    admin_member_remove_cancel,\n    admin_member_remove_confirm,\n)\n'''
-          if "admin_member_remove_prompt" not in text:
-              if old_import not in text:
-                  raise SystemExit("admin member_bank import marker not found")
-              text = text.replace(old_import, new_import, 1)
+'''
+          s,n=q.subn(qnew,s,count=1)
+          if n!=1: raise SystemExit('QOTD finish target not found')
+          p.write_text(s,encoding='utf-8')
 
-          route_marker = '    if data == "admin_refresh":\n'
-          route_block = '''    if data.startswith("admin_member_remove_confirm_"):\n        await admin_member_remove_confirm(update, context, data[len("admin_member_remove_confirm_"):])\n        return\n\n    if data.startswith("admin_member_remove_cancel_"):\n        await admin_member_remove_cancel(update, context, data[len("admin_member_remove_cancel_"):])\n        return\n\n    if data.startswith("admin_member_remove_"):\n        await admin_member_remove_prompt(update, context, data[len("admin_member_remove_"):])\n        return\n\n'''
-          if 'data.startswith("admin_member_remove_confirm_")' not in text:
-              if route_marker not in text:
-                  raise SystemExit("admin refresh route marker not found")
-              text = text.replace(route_marker, route_block + route_marker, 1)
-          p.write_text(text, encoding="utf-8")
-          print("Safe member controls patch applied")
+          # Onboarding: human verification challenge and intro video are private.
+          p=Path('bot.py')
+          s=p.read_text(encoding='utf-8')
+          old='send_message(chat_id=chat_id,text=f"🤖 <b>QUICK HUMAN CHECK</b>'
+          new='send_message(chat_id=user_id,text=f"🤖 <b>QUICK HUMAN CHECK</b>'
+          if old not in s: raise SystemExit('verification send target not found')
+          s=s.replace(old,new,1)
+          old='send_community_intro_video(event.chat.id,context,name)'
+          if old not in s: raise SystemExit('intro video caller target not found')
+          s=s.replace(old,'send_community_intro_video(user.id,context,name)',1)
+
+          # Private verification callback must look up the member in the main group.
+          pattern=r'(?ms)^    user=update\.effective_user; chat=update\.effective_chat\n    if not user or not chat or user\.id!=target:return\n    row=community_member\(chat\.id,user\.id\).*?^    mark_verified\(chat\.id,user\.id\); await restore_member\(context\.bot,chat\.id,user\.id\); private_opened=await send_private_intro_prompt\(user,context\)'
+          repl='''    user=update.effective_user; chat=update.effective_chat
+    if not user or not chat or user.id!=target:return
+    main=configured_main_group_id()
+    if not main:return
+    row=community_member(main,user.id)
+    if not row or row["status"]!="pending_verification":return
+    expires=parse_iso(row["verification_expires_at"]); challenge=row["verification_challenge"] or ""
+    if not expires or expires<utc_now() or "###" not in challenge: await send_human_challenge(main,user.id,context); return
+    answer,blob=challenge.split("###",1); options=blob.split("|||")
+    if selected<0 or selected>=len(options):return
+    if options[selected]!=answer:
+        attempts=increment_verification_attempt(main,user.id)
+        if attempts>=VERIFICATION_MAX_ATTEMPTS: await remove_unverified_member(context.bot,main,user.id); return
+        await send_human_challenge(main,user.id,context); return
+    mark_verified(main,user.id); await restore_member(context.bot,main,user.id); await notify_admin_group_verification(context,user); private_opened=await send_private_intro_prompt(user,context)'''
+          s,n=re.subn(pattern,repl,s,count=1)
+          if n!=1: raise SystemExit('verification callback target not found')
+
+          # Notify the configured Admin Group after successful verification.
+          if 'async def notify_admin_group_verification' not in s:
+              marker='async def human_verification_callback(update,context):\n'
+              fn='''async def notify_admin_group_verification(context,user):
+    admin_group=configured_admin_group_id()
+    if not admin_group or not user:
+        return
+    username=f"@{html.escape(user.username)}" if getattr(user,"username",None) else "No username"
+    name=html.escape(user.full_name or user.first_name or "Unknown member")
+    timestamp=utc_now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    try:
+        await context.bot.send_message(
+            chat_id=admin_group,
+            text=f"🛡️ <b>MEMBER VERIFIED</b>\\n\\n👤 <b>{name}</b>\\n🔹 Username: {username}\\n🆔 User ID: <code>{user.id}</code>\\n🕒 Verified: <code>{timestamp}</code>\\n\\n👋🏾 The member is now cleared to participate, but their mandatory introduction is still required.",
+            parse_mode=ParseMode.HTML,
+        )
+    except TelegramError:
+        logger.exception("Could not notify Admin Group about verified member %s",user.id)
+
+'''
+              if marker not in s: raise SystemExit('verification marker not found')
+              s=s.replace(marker,fn+marker,1)
+
+          # Never repost an active raffle that already has a stored Telegram message.
+          old='''    raffle_id=int(raffle["id"])
+    try:
+        # Do not write None into the raffle post fields. publish_raffle()
+        # creates the replacement post and saves its real Telegram IDs.
+        if await publish_raffle(raffle_id,context):'''
+          new='''    raffle_id=int(raffle["id"])
+    if raffle["message_id"]:
+        logger.info("Raffle topic repair skipped: active raffle already has Telegram message_id=%s.",raffle["message_id"])
+        try:
+            os.makedirs(os.path.dirname(marker) or ".",exist_ok=True)
+            with open(marker,"w",encoding="utf-8") as fh: fh.write(f"raffle={raffle_id}\\nexisting_message_id={raffle[\"message_id\"]}\\n")
+        except Exception:
+            pass
+        return
+    try:
+        # Only publish when the active raffle has no Telegram post recorded.
+        if await publish_raffle(raffle_id,context):'''
+          if old not in s: raise SystemExit('raffle repair target not found')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
           PY
 
-      - name: Validate Python
-        run: python -m py_compile member_bank.py admin.py bot.py games_reminder.py
+      - name: Validate
+        run: python -m py_compile bot.py question_of_day.py member_bank.py admin.py games_reminder.py
 
-      - name: Commit changes
+      - name: Commit source fixes and remove temporary workflows
         run: |
-          if git diff --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add member_bank.py admin.py bot.py games_reminder.py
-          git commit -m "Add safe Member Bank message and remove controls"
+          git add bot.py question_of_day.py
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No source changes needed."
+          else
+            git commit -m "Fix private onboarding, QOTD submissions, and raffle repost safety [skip ci]"
+            git push
+          fi
+          git rm .github/workflows/fix_raffle_repair.yml .github/workflows/final_security_fixes.yml
+          git commit -m "Remove temporary patch workflows [skip ci]"
           git push
