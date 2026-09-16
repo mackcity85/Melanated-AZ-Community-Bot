@@ -1,13 +1,13 @@
-"""Keep member introductions permanent and preserve them across re-joins.
+"""Keep member introductions permanent and restore saved introductions.
 
-This is loaded by run_bot.py so the validated bot.py does not need to be
-rewritten. It also recovers saved real introductions that have text in the
-community database but no recorded Telegram message ID.
+Introductions are community content and must remain live in the Introductions
+forum topic. This module protects saved intro text from being wiped when a
+member rejoins and performs a one-time rebuild of saved introductions whose
+Telegram posts may have been removed by the old cleanup behavior.
 """
 
 import logging
 import os
-import sqlite3
 
 import bot
 
@@ -15,6 +15,8 @@ logger = logging.getLogger("melanated_az_intro_persistence")
 COMMUNITY_DB = bot.COMMUNITY_DB
 INTRO_TOPIC_ID = int(os.environ.get("INTRO_TOPIC_ID", "11570") or "11570")
 MAIN_GROUP_ID = bot.configured_main_group_id()
+RECOVERY_MARKER = "/var/data/intro_topic_recovery_2026-09-16.done"
+LEGACY_MARKER = "Legacy member — intro status backfilled"
 
 
 def _preserve_saved_intro_on_rejoin():
@@ -51,14 +53,24 @@ def _preserve_saved_intro_on_rejoin():
     bot.save_joining_member = preserved_save_joining_member
 
 
-async def recover_saved_introductions(application):
-    """Repost only real saved intros that have no recorded Telegram post ID.
+def _is_real_saved_intro(text):
+    text = str(text or "").strip()
+    return bool(text) and LEGACY_MARKER not in text
 
-    We intentionally do not repost rows that already have intro_message_id,
-    because Telegram has no get-message API and reposting those blindly could
-    create duplicates when the original post is still live.
+
+async def recover_saved_introductions(application):
+    """One-time rebuild of real saved introductions in the intro topic.
+
+    Older cleanup code could delete introduction posts while leaving their
+    text in community_security.db. Telegram does not provide a bot API for
+    checking whether an arbitrary old message still exists, so this migration
+    intentionally rebuilds every real saved intro once. After that migration,
+    new intros are posted normally and are never scheduled for cleanup.
     """
     if not MAIN_GROUP_ID or not os.path.exists(COMMUNITY_DB):
+        return
+
+    if os.path.exists(RECOVERY_MARKER):
         return
 
     try:
@@ -69,18 +81,20 @@ async def recover_saved_introductions(application):
                     WHERE chat_id=?
                       AND intro_text IS NOT NULL
                       AND TRIM(intro_text) <> ''
-                      AND COALESCE(intro_message_id, 0)=0
-                      AND COALESCE(intro_source, '') <> 'legacy_backfill'""",
+                    ORDER BY COALESCE(intro_posted_at, joined_at), user_id""",
                 (MAIN_GROUP_ID,),
             ).fetchall()
 
         recovered = 0
+        skipped = 0
         for row in rows:
+            intro_text = str(row["intro_text"] or "").strip()
+            if not _is_real_saved_intro(intro_text):
+                skipped += 1
+                continue
+
             try:
                 user_id = int(row["user_id"])
-                intro_text = str(row["intro_text"] or "").strip()
-                if not intro_text:
-                    continue
 
                 class SavedUser:
                     pass
@@ -95,18 +109,36 @@ async def recover_saved_introductions(application):
                     text=bot.intro_topic_text(user, intro_text, updated=False),
                     parse_mode=bot.ParseMode.HTML,
                 )
+
+                # Store the new live Telegram message ID so future recovery
+                # runs do not need to recreate this introduction.
                 bot.save_intro(MAIN_GROUP_ID, user_id, intro_text, message.message_id)
                 recovered += 1
-                logger.info("Recovered saved introduction | user_id=%s | message_id=%s", user_id, message.message_id)
+                logger.info(
+                    "Restored introduction | user_id=%s | message_id=%s | topic=%s",
+                    user_id,
+                    message.message_id,
+                    INTRO_TOPIC_ID,
+                )
             except Exception:
-                logger.exception("Could not recover saved introduction for user_id=%s", row["user_id"])
+                logger.exception("Could not restore introduction for user_id=%s", row["user_id"])
 
-        if recovered:
-            logger.info("INTRO RECOVERY COMPLETE | recovered=%s | topic=%s", recovered, INTRO_TOPIC_ID)
-        else:
-            logger.info("Intro recovery: no saved introductions required recovery.")
+        # Only create the marker after the complete pass. If Render restarts
+        # during recovery, the pass can safely retry rather than losing rows.
+        os.makedirs(os.path.dirname(RECOVERY_MARKER) or ".", exist_ok=True)
+        with open(RECOVERY_MARKER, "w", encoding="utf-8") as marker:
+            marker.write(
+                f"Recovered {recovered} introductions; skipped {skipped} legacy placeholders.\n"
+            )
+
+        logger.info(
+            "INTRO TOPIC RECOVERY COMPLETE | restored=%s | skipped_legacy=%s | topic=%s",
+            recovered,
+            skipped,
+            INTRO_TOPIC_ID,
+        )
     except Exception:
-        logger.exception("Saved introduction recovery failed.")
+        logger.exception("Saved introduction recovery failed; migration marker not created.")
 
 
 def _patch_post_init():
