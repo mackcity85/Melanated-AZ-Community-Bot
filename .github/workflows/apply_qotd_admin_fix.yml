@@ -1,0 +1,257 @@
+name: Apply QOTD Admin Fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch admin.py and bot.py
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          admin = Path("admin.py")
+          text = admin.read_text(encoding="utf-8")
+
+          if "QOTD_ADMIN_FIX_V1" not in text:
+              old = '''            [\n                InlineKeyboardButton(\n                    "🎁 Holiday Exchange",\n                    callback_data="admin_holiday_exchange",\n                ),\n            ],\n            [\n                InlineKeyboardButton(\n                    "🔄 Refresh",\n                    callback_data="admin_refresh",\n                ),\n            ],'''
+              new = '''            [\n                InlineKeyboardButton(\n                    "🎁 Holiday Exchange",\n                    callback_data="admin_holiday_exchange",\n                ),\n            ],\n            [\n                InlineKeyboardButton(\n                    "💭 Questions / QOTD",\n                    callback_data="admin_questions",\n                ),\n                InlineKeyboardButton(\n                    "🌙 After Dark",\n                    callback_data="admin_after_dark",\n                ),\n            ],\n            [\n                InlineKeyboardButton(\n                    "🔄 Refresh",\n                    callback_data="admin_refresh",\n                ),\n            ],'''
+              if old not in text:
+                  raise SystemExit("admin keyboard anchor not found")
+              text = text.replace(old, new, 1)
+
+              old = '''        "🎁 **HOLIDAY EXCHANGE**\\n"\n        "Manage the Holiday Exchange."\n    )'''
+              new = '''        "🎁 **HOLIDAY EXCHANGE**\\n"\n        "Manage the Holiday Exchange.\\n\\n"\n\n        "💭 **QUESTIONS / QOTD**\\n"\n        "Manage the Question of the Day bank and posting tools.\\n\\n"\n\n        "🌙 **AFTER DARK**\\n"\n        "Manage the daily After Dark question and posting tools."\n    )'''
+              if old not in text:
+                  raise SystemExit("admin menu text anchor not found")
+              text = text.replace(old, new, 1)
+
+              marker = '''# ==========================================================\n# ADMIN BUTTON ROUTER\n# ==========================================================\n'''
+              insert = r'''# ==========================================================
+# QOTD / AFTER DARK ADMIN CONTROLS
+# QOTD_ADMIN_FIX_V1
+# ==========================================================
+
+async def _admin_qotd_menu(update, context):
+    query = update.callback_query
+    if not query:
+        return
+    try:
+        await query.answer()
+    except Exception:
+        pass
+    try:
+        from question_of_day import queued_count, daily_post_already_done, qotd_enabled
+        count = queued_count()
+        posted = daily_post_already_done()
+        enabled = qotd_enabled()
+    except Exception:
+        count, posted, enabled = 0, False, False
+    await query.edit_message_text(
+        "💭 **QUESTION OF THE DAY**\n\n"
+        f"📚 Queued: **{count}**\n"
+        f"📅 Today's post: **{'Posted' if posted else 'Not posted'}**\n"
+        f"⚙️ System: **{'Enabled' if enabled else 'Not configured'}**\n\n"
+        "📍 Destination: `-1002697105809` / topic `11999`",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📚 QOTD Bank Status", callback_data="admin_qotd_status")],
+            [InlineKeyboardButton("▶️ Post Next QOTD Now", callback_data="admin_qotd_post_next")],
+            [InlineKeyboardButton("📌 Recreate QOTD Panel", callback_data="admin_qotd_panel")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+
+async def _admin_qotd_status(update, context):
+    query = update.callback_query
+    try:
+        await query.answer()
+    except Exception:
+        pass
+    try:
+        from question_of_day import queued_count, daily_post_already_done
+        count = queued_count()
+        posted = daily_post_already_done()
+    except Exception:
+        count, posted = 0, False
+    await query.edit_message_text(
+        "📚 **QOTD BANK STATUS**\n\n"
+        f"Queued items: **{count}**\n"
+        f"Today's QOTD: **{'Posted' if posted else 'Not posted'}**\n\n"
+        "Questions and polls use the QOTD bank. After Dark remains separate.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Back", callback_data="admin_questions")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+
+async def _admin_qotd_post_next(update, context):
+    query = update.callback_query
+    try:
+        await query.answer("Posting next QOTD...")
+    except Exception:
+        pass
+    try:
+        from question_of_day import publish_item, get_next_item
+        item = get_next_item()
+        if not item:
+            text = "📚 **QOTD BANK EMPTY**\n\nThere is nothing queued to post."
+        else:
+            posted = await publish_item(context, int(item["id"]))
+            text = "✅ **QOTD POSTED**\n\nThe next queued Question/Poll was posted to topic `11999`." if posted else "❌ **QOTD POST FAILED**\n\nCheck the Render logs."
+    except Exception:
+        logger.exception("Admin QOTD post failed.")
+        text = "❌ **QOTD POST FAILED**\n\nCheck the Render logs."
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("💭 QOTD Controls", callback_data="admin_questions")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+
+async def _admin_qotd_panel(update, context):
+    query = update.callback_query
+    try:
+        await query.answer("Recreating QOTD panel...")
+    except Exception:
+        pass
+    try:
+        from question_of_day import ensure_qotd_submission_panel
+        await ensure_qotd_submission_panel(context.application)
+        text = "📌 **QOTD PANEL READY**\n\nThe submission panel was created/re-pinned in topic `11999`."
+    except Exception:
+        logger.exception("Admin QOTD panel recreation failed.")
+        text = "❌ **QOTD PANEL FAILED**\n\nCheck the Render logs."
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("💭 QOTD Controls", callback_data="admin_questions")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+
+async def _admin_after_dark_menu(update, context):
+    query = update.callback_query
+    try:
+        await query.answer()
+    except Exception:
+        pass
+    await query.edit_message_text(
+        "🌙 **AFTER DARK**\n\n"
+        "After Dark uses its own content bank and posts into the shared QOTD topic.\n\n"
+        "🕥 **Daily:** 10:30 AM Arizona time\n"
+        "📍 **Destination:** `-1002697105809` / topic `11999`",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🕥 Confirm 10:30 Schedule", callback_data="admin_after_dark_schedule")],
+            [InlineKeyboardButton("🌙 Post After Dark Now", callback_data="admin_after_dark_now")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+
+async def _admin_after_dark_schedule(update, context):
+    query = update.callback_query
+    try:
+        await query.answer("Schedule confirmed")
+    except Exception:
+        pass
+    await query.edit_message_text(
+        "🕥 **AFTER DARK SCHEDULE**\n\n"
+        "Daily at **10:30 AM Arizona time**.\n\n"
+        "Posts to chat `-1002697105809`, topic `11999`.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🌙 After Dark Controls", callback_data="admin_after_dark")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+
+async def _admin_after_dark_now(update, context):
+    query = update.callback_query
+    try:
+        await query.answer("Posting After Dark...")
+    except Exception:
+        pass
+    try:
+        from daily_messages import send_daily_community_message
+        await send_daily_community_message(context)
+        text = "🌙 **AFTER DARK POSTED**\n\nThe current After Dark prompt was posted to topic `11999`."
+    except Exception:
+        logger.exception("Admin After Dark post failed.")
+        text = "❌ **AFTER DARK POST FAILED**\n\nCheck the Render logs."
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🌙 After Dark Controls", callback_data="admin_after_dark")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
+
+'''
+              if marker not in text:
+                  raise SystemExit("admin router marker not found")
+              text = text.replace(marker, insert + marker, 1)
+
+              old = '''    user = update.effective_user\n    data = query.data or ""\n\n    logger.info('''
+              new = '''    user = update.effective_user\n    data = query.data or ""\n\n    if data == "admin_questions":\n        await _admin_qotd_menu(update, context)\n        return\n    if data == "admin_qotd_status":\n        await _admin_qotd_status(update, context)\n        return\n    if data == "admin_qotd_post_next":\n        await _admin_qotd_post_next(update, context)\n        return\n    if data == "admin_qotd_panel":\n        await _admin_qotd_panel(update, context)\n        return\n    if data == "admin_after_dark":\n        await _admin_after_dark_menu(update, context)\n        return\n    if data == "admin_after_dark_schedule":\n        await _admin_after_dark_schedule(update, context)\n        return\n    if data == "admin_after_dark_now":\n        await _admin_after_dark_now(update, context)\n        return\n\n    logger.info('''
+              if old not in text:
+                  raise SystemExit("admin callback anchor not found")
+              text = text.replace(old, new, 1)
+
+              admin.write_text(text, encoding="utf-8")
+
+          bot = Path("bot.py")
+          b = bot.read_text(encoding="utf-8")
+          if "QOTD_BOT_INTEGRATION_V1" not in b:
+              import_anchor = '''from admin import (\n    admin_menu,\n    admin_button,\n    admin_birthday_text_handler,\n    is_admin,\n)'''
+              import_new = import_anchor + '''\n\n# QOTD_BOT_INTEGRATION_V1\nfrom topic_routing import install_all_topic_routing\nfrom question_of_day import (\n    ensure_qotd_submission_panel,\n    register_question_of_day_handlers,\n    start_question_of_day_scheduler,\n)'''
+              if import_anchor not in b:
+                  raise SystemExit("bot import anchor not found")
+              b = b.replace(import_anchor, import_new, 1)
+
+              build_anchor = '''    application = (\n        Application.builder()\n        .token(BOT_TOKEN)\n        .post_init(post_init)\n        .build()\n    )'''
+              build_new = '''    install_all_topic_routing()\n\n    application = (\n        Application.builder()\n        .token(BOT_TOKEN)\n        .post_init(post_init)\n        .build()\n    )\n\n    register_question_of_day_handlers(application)\n    start_question_of_day_scheduler(application)\n\n    if application.job_queue:\n        application.job_queue.run_once(\n            lambda context: ensure_qotd_submission_panel(context.application),\n            when=2,\n            name="qotd-submission-panel-startup",\n        )'''
+              if build_anchor not in b:
+                  raise SystemExit("bot build anchor not found")
+              b = b.replace(build_anchor, build_new, 1)
+              bot.write_text(b, encoding="utf-8")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.py bot.py
+          if ! git diff --cached --quiet; then
+            git commit -m "Integrate QOTD and After Dark admin controls"
+            git push
+          fi
+
+          rm -f .github/workflows/apply_qotd_admin_fix.yml
+          git add .github/workflows/apply_qotd_admin_fix.yml
+          if ! git diff --cached --quiet; then
+            git commit -m "Remove temporary QOTD patch workflow"
+            git push
+          fi
