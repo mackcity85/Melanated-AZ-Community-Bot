@@ -1,0 +1,41 @@
+name: Final QOTD Admin Keyboard Fix
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add QOTD controls to real admin keyboard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('admin.py')
+          s = p.read_text()
+          if 'callback_data="admin_questions"' not in s.split('# ==========================================================\n# MENU TEXT', 1)[0]:
+              old = '''            [\n                InlineKeyboardButton(\n                    "🎁 Holiday Exchange",\n                    callback_data="admin_holiday_exchange",\n                ),\n            ],\n            [\n                InlineKeyboardButton(\n                    "🔄 Refresh",\n                    callback_data="admin_refresh",\n                ),\n            ],'''
+              new = '''            [\n                InlineKeyboardButton(\n                    "🎁 Holiday Exchange",\n                    callback_data="admin_holiday_exchange",\n                ),\n            ],\n            [\n                InlineKeyboardButton(\n                    "💭 Questions / QOTD",\n                    callback_data="admin_questions",\n                ),\n                InlineKeyboardButton(\n                    "🌙 After Dark",\n                    callback_data="admin_after_dark",\n                ),\n            ],\n            [\n                InlineKeyboardButton(\n                    "🔄 Refresh",\n                    callback_data="admin_refresh",\n                ),\n            ],'''
+              if old not in s:
+                  raise SystemExit('admin keyboard block not found')
+              s = s.replace(old, new, 1)
+              p.write_text(s)
+          PY
+          python -m py_compile admin.py bot.py question_of_day.py run_bot.py
+
+      - name: Commit and remove temporary patch workflows
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/apply_admin_qotd_fix.yml .github/workflows/direct_qotd_admin_fix.yml .github/workflows/apply_direct_qotd_fix_v2.yml .github/workflows/final_qotd_admin_keyboard_fix.yml || true
+          git add admin.py bot.py question_of_day.py run_bot.py
+          git commit -m "Complete direct QOTD admin controls and schedules" || exit 0
+          git push
