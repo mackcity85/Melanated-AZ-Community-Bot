@@ -45,9 +45,15 @@ def install_after_dark_topic_routing():
     # AFTER DARK / AFTER-DARK are selected.
     after_dark_messages = [
         item for item in daily_messages.DAILY_MESSAGES
-        if "AFTER DARK" in item[0].upper() or "AFTER-DARK" in item[0].upper()
+        if isinstance(item, (tuple, list))
+        and len(item) >= 1
+        and isinstance(item[0], str)
+        and ("AFTER DARK" in item[0].upper() or "AFTER-DARK" in item[0].upper())
     ]
 
+    # Only replace the active bank when matching prompts were found.
+    # If the bank is empty or temporarily malformed, leave the original
+    # bank untouched instead of replacing it with an empty list.
     if after_dark_messages:
         daily_messages.DAILY_MESSAGES = after_dark_messages
 
