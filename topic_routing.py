@@ -56,3 +56,12 @@ def install_after_dark_topic_routing():
 def install_all_topic_routing():
     """Install all routing required for the shared QOTD/After Dark topic."""
     install_after_dark_topic_routing()
+
+    # QOTD and After Dark posts are permanent community content. Prevent the
+    # notification cleanup policy from treating topic 11999 as a temporary
+    # bot-notification topic.
+    try:
+        import notification_policy
+        notification_policy.PERMANENT_TOPIC_IDS.add(TARGET_TOPIC_ID)
+    except Exception:
+        pass
