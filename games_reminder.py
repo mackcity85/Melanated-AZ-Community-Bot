@@ -161,7 +161,7 @@ async def repair_active_raffle_topic(context):
 
     raffle_id = int(raffle["id"])
     try:
-        set_raffle_post(raffle_id, None, None)
+        # Do not write None into raffle post fields.
         published = await publish_raffle(raffle_id, context)
         if published:
             RAFFLE_REPAIR_MARKER.parent.mkdir(parents=True, exist_ok=True)

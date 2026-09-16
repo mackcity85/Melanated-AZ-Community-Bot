@@ -534,8 +534,8 @@ async def repair_active_raffle_post(context):
         return
     raffle_id=int(raffle["id"])
     try:
-        # Clear the stale Telegram post reference left by the disabled auto-sync manager.
-        set_raffle_post(raffle_id,None,None)
+        # Do not write None into the raffle post fields. publish_raffle()
+        # creates the replacement post and saves its real Telegram IDs.
         if await publish_raffle(raffle_id,context):
             os.makedirs(os.path.dirname(marker) or ".",exist_ok=True)
             with open(marker,"w",encoding="utf-8") as fh: fh.write(f"raffle={raffle_id}\n")
