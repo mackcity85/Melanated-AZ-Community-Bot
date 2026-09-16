@@ -422,6 +422,8 @@ async def admin_member_view(update, context, user_id):
     await query.edit_message_text(
         text,
         reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📩 Message Member", callback_data=f"admin_member_message_{user_id}")],
+            [InlineKeyboardButton("🚫 Remove Member", callback_data=f"admin_member_remove_{user_id}" )],
             [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],
             [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
         ]),
@@ -435,3 +437,139 @@ try:
     run_legacy_intro_backfill()
 except Exception:
     logger.exception("Unable to run legacy intro backfill at import time.")
+
+
+
+async def _member_message_prompt(update, context, user_id):
+    query = update.callback_query
+    if not query:
+        return
+    from admin import is_admin
+    if not await is_admin(update.effective_user.id, context):
+        await query.answer("⛔ You are not authorized.", show_alert=True)
+        return
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        await query.answer("Invalid member.", show_alert=True)
+        return
+    context.user_data["member_bank_message_target"] = user_id
+    await query.answer()
+    await query.edit_message_text(
+        f"📩 MESSAGE MEMBER\n\nMember ID: {user_id}\n\nType the private message to send.\n\nUse Cancel to return.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data=f"admin_member_message_cancel_{user_id}")]]),
+    )
+
+
+async def _member_message_cancel(update, context, user_id=None):
+    query = update.callback_query
+    if not query:
+        return
+    context.user_data.pop("member_bank_message_target", None)
+    await query.answer("Message cancelled.")
+    if user_id is not None:
+        await admin_member_view(update, context, user_id)
+
+
+async def member_bank_message_handler(update, context):
+    target = context.user_data.get("member_bank_message_target")
+    if not target:
+        return False
+    user = update.effective_user
+    message = update.effective_message
+    if not user or not message:
+        return False
+    from admin import is_admin
+    if not await is_admin(user.id, context):
+        context.user_data.pop("member_bank_message_target", None)
+        return False
+    if not message.text or not message.text.strip():
+        return True
+    try:
+        await context.bot.send_message(
+            chat_id=int(target),
+            text="📩 Message from Melanated AZ Admin\n\n" + message.text.strip(),
+        )
+        context.user_data.pop("member_bank_message_target", None)
+        await message.reply_text("✅ Message sent privately to the member.")
+    except Exception as exc:
+        logger.warning("Member Bank message failed | user_id=%s | error=%s", target, exc)
+        await message.reply_text("❌ I couldn't send that private message. The member may not have started the bot or may have blocked it.")
+    return True
+
+
+async def _member_remove_prompt(update, context, user_id):
+    query = update.callback_query
+    if not query:
+        return
+    from admin import is_admin
+    if not await is_admin(update.effective_user.id, context):
+        await query.answer("⛔ You are not authorized.", show_alert=True)
+        return
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        await query.answer("Invalid member.", show_alert=True)
+        return
+    await query.answer()
+    await query.edit_message_text(
+        f"🚫 REMOVE MEMBER\n\nRemove user {user_id} from the main group?\n\nTheir Member Bank record will be preserved.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚫 Yes, Remove", callback_data=f"admin_member_remove_confirm_{user_id}")],
+            [InlineKeyboardButton("❌ Cancel", callback_data=f"admin_member_remove_cancel_{user_id}")],
+        ]),
+    )
+
+
+async def _member_remove_cancel(update, context, user_id):
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer("Removal cancelled.")
+    await admin_member_view(update, context, user_id)
+
+
+async def _member_remove_confirm(update, context, user_id):
+    query = update.callback_query
+    if not query:
+        return
+    from admin import is_admin
+    if not await is_admin(update.effective_user.id, context):
+        await query.answer("⛔ You are not authorized.", show_alert=True)
+        return
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        await query.answer("Invalid member.", show_alert=True)
+        return
+    try:
+        live = await context.bot.get_chat_member(int(MAIN_GROUP_ID), user_id)
+        if getattr(live, "status", "") in ("administrator", "creator"):
+            await query.answer("Administrators and the group owner cannot be removed here.", show_alert=True)
+            return
+    except Exception:
+        pass
+    try:
+        await context.bot.ban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id)
+        await context.bot.unban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id, only_if_banned=True)
+    except Exception as exc:
+        logger.exception("Member removal failed | user_id=%s", user_id)
+        await query.answer("Removal failed.", show_alert=True)
+        return
+    try:
+        conn = _db(COMMUNITY_DB)
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(community_members)").fetchall()}
+        if "status" in columns:
+            conn.execute("UPDATE community_members SET status=? WHERE chat_id=? AND user_id=?", ("removed_by_admin", int(MAIN_GROUP_ID), user_id))
+            conn.commit()
+        conn.close()
+    except Exception:
+        logger.exception("Removal succeeded but Member Bank status update failed | user_id=%s", user_id)
+    await query.answer("Member removed from the main group.")
+    await query.edit_message_text(
+        f"🚫 MEMBER REMOVED\n\nUser {user_id} was removed from the main group.\n\nTheir Member Bank record was preserved.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],
+            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+        ]),
+    )

@@ -40,7 +40,11 @@ from telegram.ext import ContextTypes
 
 from config import ADMIN_IDS
 
-from member_bank import admin_members, admin_member_view
+from member_bank import (
+    admin_members, admin_member_view,
+    _member_message_prompt, _member_message_cancel,
+    _member_remove_prompt, _member_remove_cancel, _member_remove_confirm,
+)
 
 from raffle import (
     start_raffle,
@@ -3459,6 +3463,22 @@ async def admin_button(
             context,
         )
 
+        return
+
+    if data.startswith("admin_member_message_cancel_"):
+        await _member_message_cancel(update, context, data[len("admin_member_message_cancel_"):])
+        return
+    if data.startswith("admin_member_message_"):
+        await _member_message_prompt(update, context, data[len("admin_member_message_"):])
+        return
+    if data.startswith("admin_member_remove_confirm_"):
+        await _member_remove_confirm(update, context, data[len("admin_member_remove_confirm_"):])
+        return
+    if data.startswith("admin_member_remove_cancel_"):
+        await _member_remove_cancel(update, context, data[len("admin_member_remove_cancel_"):])
+        return
+    if data.startswith("admin_member_remove_"):
+        await _member_remove_prompt(update, context, data[len("admin_member_remove_"):])
         return
 
     if data == "admin_refresh":

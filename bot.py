@@ -461,6 +461,11 @@ def start_community_security_monitor(application):
     if application.job_queue: application.job_queue.run_repeating(community_security_monitor,interval=INACTIVITY_CHECK_HOURS*60*60,first=60,name="community-security-monitor")
 
 async def text_router(update,context):
+    try:
+        from member_bank import member_bank_message_handler
+        if await member_bank_message_handler(update,context):return
+    except Exception:
+        logger.exception("Member bank message handler failed.")
     if await admin_birthday_text_handler(update,context):return
     await birthday_text_handler(update,context)
 
