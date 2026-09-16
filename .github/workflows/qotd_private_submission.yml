@@ -1,0 +1,146 @@
+name: QOTD private submissions
+
+on:
+  push:
+    paths:
+      - '.github/workflows/qotd_private_submission.yml'
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch QOTD private submission flow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('question_of_day.py')
+          s = p.read_text()
+
+          old = '''    if action == "qotd_cancel":
+        for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
+            context.user_data.pop(key, None)
+        try:
+            await query.edit_message_text("💭 Submission cancelled.")
+        except TelegramError:
+            pass
+        return
+
+    if action == "qotd_submit_question":
+        context.user_data["qotd_state"] = "question"
+        context.user_data["qotd_chat_id"] = message.chat_id if message else None
+        context.user_data["qotd_thread_id"] = message.message_thread_id if message else None
+        await query.message.reply_text(
+            "📝 <b>Send your question now.</b>\\n\\nKeep it under 3,000 characters. Your submission message will be removed after it is saved.",
+            parse_mode="HTML",
+            message_thread_id=message.message_thread_id if message else None,
+        )
+        return
+
+    if action == "qotd_submit_poll":
+        context.user_data["qotd_state"] = "poll_question"
+        context.user_data["qotd_chat_id"] = message.chat_id if message else None
+        context.user_data["qotd_thread_id"] = message.message_thread_id if message else None
+        await query.message.reply_text(
+            "📊 <b>Build your poll</b>\\n\\nFirst, send the poll question. After that I'll ask for the answer choices.\\n\\nQuestion limit: 300 characters.",
+            parse_mode="HTML",
+            message_thread_id=message.message_thread_id if message else None,
+        )
+        return
+'''
+
+          new = '''    if action == "qotd_cancel":
+        for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
+            context.user_data.pop(key, None)
+        try:
+            await query.edit_message_text("💭 Submission cancelled.")
+        except TelegramError:
+            pass
+        return
+
+    if action == "qotd_submit_question":
+        context.user_data["qotd_state"] = "question"
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=query.from_user.id,
+                text=(
+                    "📝 <b>Private QOTD Submission</b>\\n\\n"
+                    "Send your question here. Nobody in the group will see it while you are creating it.\\n\\n"
+                    "Keep it under 3,000 characters."
+                ),
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            context.user_data["qotd_state"] = None
+            await query.answer("Open the bot in a private chat and press Start first, then try again.", show_alert=True)
+        return
+
+    if action == "qotd_submit_poll":
+        context.user_data["qotd_state"] = "poll_question"
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=query.from_user.id,
+                text=(
+                    "📊 <b>Private Poll Builder</b>\\n\\n"
+                    "Your poll is being created privately. Nobody in the group will see it until it is posted.\\n\\n"
+                    "First, send the poll question."
+                ),
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            context.user_data["qotd_state"] = None
+            await query.answer("Open the bot in a private chat and press Start first, then try again.", show_alert=True)
+        return
+'''
+
+          if old not in s:
+              raise SystemExit('Expected callback block not found')
+          s = s.replace(old, new, 1)
+
+          old2 = '''    expected_chat = context.user_data.get("qotd_chat_id")
+    expected_thread = context.user_data.get("qotd_thread_id")
+    if expected_chat and message.chat_id != expected_chat:
+        return
+    if expected_thread is not None and message.message_thread_id != expected_thread:
+        return
+'''
+          new2 = '''    # All QOTD creation happens in the member's private bot chat.
+    # Never process or display a draft submitted in the group/topic.
+    if message.chat.type != "private":
+        return
+'''
+          if old2 not in s:
+              raise SystemExit('Expected chat/thread guard not found')
+          s = s.replace(old2, new2, 1)
+
+          old3 = '''    message = update.effective_message
+    chat_id = message.chat_id if message else None
+    thread_id = message.message_thread_id if message else None
+    for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
+'''
+          new3 = '''    message = update.effective_message
+    # Submission messages live only in the private bot chat.
+    chat_id = message.chat_id if message and message.chat.type == "private" else None
+    thread_id = None
+    for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
+'''
+          if old3 not in s:
+              raise SystemExit('Expected finish block not found')
+          s = s.replace(old3, new3, 1)
+
+          p.write_text(s)
+          PY
+          python -m py_compile question_of_day.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add question_of_day.py
+          git diff --cached --quiet || git commit -m 'Keep QOTD questions and polls private until posted'
+          git push
