@@ -12,6 +12,9 @@ import qotd_td_user  # noqa: F401
 import admin_truth_dare_qotd  # noqa: F401
 import intro_persistence  # noqa: F401
 import intro_reminder_fix  # noqa: F401
+import raffle_manual_nav_fix
+
+raffle_manual_nav_fix.install()
 
 if __name__ == "__main__":
     bot.main()
