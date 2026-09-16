@@ -1,4 +1,4 @@
-name: Fix raffle repair None crash
+name: Maintain bot fixes
 
 on:
   push:
@@ -9,120 +9,40 @@ permissions:
   contents: write
 
 jobs:
-  fix-raffle-repair:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply safe member bank controls
+      - name: Apply safe fixes
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          # --------------------------------------------------
-          # member_bank.py: add message/remove workflow
-          # --------------------------------------------------
-          path = Path("member_bank.py")
-          text = path.read_text(encoding="utf-8")
+          # Preserve the existing raffle-repair fixes.
+          for filename, old, new in [
+              ("bot.py",
+               '        set_raffle_post(raffle_id,None,None)\n',
+               '        # Do not write None into raffle post fields. publish_raffle() saves real Telegram IDs.\n'),
+              ("games_reminder.py",
+               '        set_raffle_post(raffle_id, None, None)\n',
+               '        # Do not write None into raffle post fields.\n'),
+          ]:
+              p = Path(filename)
+              text = p.read_text(encoding="utf-8")
+              if old in text:
+                  p.write_text(text.replace(old, new, 1), encoding="utf-8")
 
-          marker = "\n\n# Run automatically when the member-bank module is imported by admin.py.\n"
-          block = r'''
+          # Add Remove Member controls to the existing member bank.
+          p = Path("member_bank.py")
+          text = p.read_text(encoding="utf-8")
 
-
-async def _member_message_prompt(update, context, user_id):
-    """Start an admin-to-member private message relay."""
-    query = update.callback_query
-    if not query:
-        return
-    try:
-        from admin import is_admin
-        if not await is_admin(update.effective_user.id, context):
-            await query.answer("⛔ You are not authorized.", show_alert=True)
-            return
-    except Exception:
-        logger.exception("Unable to verify admin for member message.")
-        await query.answer("Unable to verify admin access.", show_alert=True)
-        return
-
-    try:
-        user_id = int(user_id)
-    except (TypeError, ValueError):
-        await query.answer("Invalid member.", show_alert=True)
-        return
-
-    context.user_data["member_bank_message_target"] = user_id
-    await query.answer()
-    await query.edit_message_text(
-        "📩 **MESSAGE MEMBER**\n\n"
-        f"Member ID: `{user_id}`\n\n"
-        "Type the message you want me to send privately to this member.\n\n"
-        "Use **Cancel** below to return without sending.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("❌ Cancel", callback_data=f"admin_member_message_cancel_{user_id}")],
-        ]),
-        parse_mode="Markdown",
-    )
+          remove_block = r'''
 
 
-async def _member_message_cancel(update, context, user_id=None):
-    query = update.callback_query
-    if not query:
-        return
-    context.user_data.pop("member_bank_message_target", None)
-    await query.answer("Message cancelled.")
-    if user_id is not None:
-        await admin_member_view(update, context, user_id)
-    else:
-        await admin_members(update, context, page=0)
-
-
-async def member_bank_message_handler(update, context):
-    """Send one private text message to the selected member."""
-    target = context.user_data.get("member_bank_message_target")
-    if not target:
-        return False
-
-    user = update.effective_user
-    message = update.effective_message
-    if not user or not message:
-        return False
-
-    try:
-        from admin import is_admin
-        if not await is_admin(user.id, context):
-            context.user_data.pop("member_bank_message_target", None)
-            return False
-    except Exception:
-        logger.exception("Unable to verify admin for member message handler.")
-        return False
-
-    if not message.text or not message.text.strip():
-        return True
-
-    target = int(target)
-    outbound = message.text.strip()
-    try:
-        await context.bot.send_message(
-            chat_id=target,
-            text=(
-                "📩 **Message from Melanated AZ Admin**\n\n"
-                f"{outbound}"
-            ),
-            parse_mode="Markdown",
-        )
-        context.user_data.pop("member_bank_message_target", None)
-        await message.reply_text("✅ Message sent privately to the member.")
-    except Exception as exc:
-        logger.warning("Unable to send member-bank private message | user_id=%s | error=%s", target, exc)
-        await message.reply_text(
-            "❌ I couldn't send that private message. The member may not have started the bot, may have blocked it, or Telegram may not allow the bot to message them."
-        )
-    return True
-
-
-async def _member_remove_prompt(update, context, user_id):
-    """Ask for confirmation before kicking a member from the main group."""
+async def admin_member_remove_prompt(update, context, user_id):
+    """Ask for confirmation before removing a member from the main group."""
     query = update.callback_query
     if not query:
         return
@@ -135,18 +55,16 @@ async def _member_remove_prompt(update, context, user_id):
         logger.exception("Unable to verify admin for member removal.")
         await query.answer("Unable to verify admin access.", show_alert=True)
         return
-
     try:
         user_id = int(user_id)
     except (TypeError, ValueError):
         await query.answer("Invalid member.", show_alert=True)
         return
-
     await query.answer()
     await query.edit_message_text(
         "🚫 **REMOVE MEMBER**\n\n"
         f"Are you sure you want to remove user `{user_id}` from the Melanated AZ main group?\n\n"
-        "This will remove them from the group but will **not delete their Member Bank record**.",
+        "This removes them from the group but **does not delete their Member Bank record**.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🚫 Yes, Remove", callback_data=f"admin_member_remove_confirm_{user_id}")],
             [InlineKeyboardButton("❌ Cancel", callback_data=f"admin_member_remove_cancel_{user_id}")],
@@ -155,7 +73,7 @@ async def _member_remove_prompt(update, context, user_id):
     )
 
 
-async def _member_remove_cancel(update, context, user_id):
+async def admin_member_remove_cancel(update, context, user_id):
     query = update.callback_query
     if not query:
         return
@@ -163,7 +81,7 @@ async def _member_remove_cancel(update, context, user_id):
     await admin_member_view(update, context, user_id)
 
 
-async def _member_remove_confirm(update, context, user_id):
+async def admin_member_remove_confirm(update, context, user_id):
     query = update.callback_query
     if not query:
         return
@@ -176,23 +94,21 @@ async def _member_remove_confirm(update, context, user_id):
         logger.exception("Unable to verify admin for member removal confirmation.")
         await query.answer("Unable to verify admin access.", show_alert=True)
         return
-
     try:
         user_id = int(user_id)
     except (TypeError, ValueError):
         await query.answer("Invalid member.", show_alert=True)
         return
-
     if user_id == getattr(context.bot, "id", None):
         await query.answer("The bot cannot remove itself.", show_alert=True)
         return
-
     try:
+        member = await context.bot.get_chat_member(int(MAIN_GROUP_ID), user_id)
+        if getattr(member, "status", None) in ("creator", "administrator"):
+            await query.answer("Administrators and the group owner cannot be removed here.", show_alert=True)
+            return
         await context.bot.ban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id)
-        try:
-            await context.bot.unban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id, only_if_banned=True)
-        except TypeError:
-            await context.bot.unban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id)
+        await context.bot.unban_chat_member(chat_id=int(MAIN_GROUP_ID), user_id=user_id, only_if_banned=True)
     except Exception as exc:
         logger.exception("Unable to remove member | user_id=%s", user_id)
         await query.answer("Removal failed.", show_alert=True)
@@ -208,12 +124,10 @@ async def _member_remove_confirm(update, context, user_id):
         )
         return
 
-    # Keep the Member Bank record for history; only update its local status.
     try:
         conn = _db(COMMUNITY_DB)
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(community_members)").fetchall()}
-        updates = []
-        values = []
+        updates, values = [], []
         if "status" in columns:
             updates.append("status=?")
             values.append("removed_by_admin")
@@ -221,14 +135,11 @@ async def _member_remove_confirm(update, context, user_id):
             updates.append("last_post_at=NULL")
         if updates:
             values.extend([int(MAIN_GROUP_ID), user_id])
-            conn.execute(
-                f"UPDATE community_members SET {', '.join(updates)} WHERE chat_id=? AND user_id=?",
-                values,
-            )
+            conn.execute(f"UPDATE community_members SET {', '.join(updates)} WHERE chat_id=? AND user_id=?", values)
             conn.commit()
         conn.close()
     except Exception:
-        logger.exception("Member removed from Telegram but local Member Bank status update failed | user_id=%s", user_id)
+        logger.exception("Telegram removal succeeded but Member Bank status update failed | user_id=%s", user_id)
 
     await query.answer("Member removed from the main group.")
     await query.edit_message_text(
@@ -242,58 +153,43 @@ async def _member_remove_confirm(update, context, user_id):
         parse_mode="Markdown",
     )
 '''
-          if "async def _member_message_prompt(" not in text:
-              if marker not in text:
-                  raise SystemExit("member_bank insertion marker not found")
-              text = text.replace(marker, block + marker, 1)
-              path.write_text(text, encoding="utf-8")
+          if "async def admin_member_remove_prompt(" not in text:
+              text += remove_block
 
-          # --------------------------------------------------
-          # admin.py: import and route the new callbacks
-          # --------------------------------------------------
-          path = Path("admin.py")
-          text = path.read_text(encoding="utf-8")
+          # Message Member opens a direct Telegram chat. This avoids requiring
+          # the member to have started the bot and does not change stored data.
+          old_buttons = '''        reply_markup=InlineKeyboardMarkup([\n            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],\n            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],\n        ]),'''
+          new_buttons = '''        reply_markup=InlineKeyboardMarkup([\n            [InlineKeyboardButton("📩 Message Member", url=f"tg://user?id={user_id}")],\n            [InlineKeyboardButton("🚫 Remove Member", callback_data=f"admin_member_remove_{user_id}")],\n            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],\n            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],\n        ]),'''
+          if 'url=f"tg://user?id={user_id}"' not in text:
+              if old_buttons not in text:
+                  raise SystemExit("member profile button marker not found")
+              text = text.replace(old_buttons, new_buttons, 1)
+          p.write_text(text, encoding="utf-8")
+
+          # Wire removal callbacks into the existing admin callback router.
+          p = Path("admin.py")
+          text = p.read_text(encoding="utf-8")
           old_import = "from member_bank import admin_members, admin_member_view\n"
-          new_import = "from member_bank import (\n    admin_members,\n    admin_member_view,\n    _member_message_prompt,\n    _member_message_cancel,\n    _member_remove_prompt,\n    _member_remove_cancel,\n    _member_remove_confirm,\n)\n"
-          if old_import in text and "_member_message_prompt" not in text:
+          new_import = '''from member_bank import (\n    admin_members,\n    admin_member_view,\n    admin_member_remove_prompt,\n    admin_member_remove_cancel,\n    admin_member_remove_confirm,\n)\n'''
+          if "admin_member_remove_prompt" not in text:
+              if old_import not in text:
+                  raise SystemExit("admin member_bank import marker not found")
               text = text.replace(old_import, new_import, 1)
-          elif "_member_message_prompt" not in text:
-              raise SystemExit("member_bank import line not found in admin.py")
 
-          profile_buttons = '''            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],\n            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],'''
-          new_profile_buttons = '''            [\n                InlineKeyboardButton("📩 Message Member", callback_data=f"admin_member_message_{user_id}"),\n            ],\n            [\n                InlineKeyboardButton("🚫 Remove Member", callback_data=f"admin_member_remove_{user_id}"),\n            ],\n            [InlineKeyboardButton("⬅️ Members", callback_data="admin_members")],\n            [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],'''
-          if "callback_data=f\"admin_member_message_{user_id}\"" not in text:
-              if profile_buttons not in text:
-                  raise SystemExit("member profile button marker not found in admin.py")
-              text = text.replace(profile_buttons, new_profile_buttons, 1)
-
-          # Insert member-bank routing immediately before the admin refresh branch.
           route_marker = '    if data == "admin_refresh":\n'
-          route_block = '''    if data.startswith("admin_member_message_cancel_"):\n        await _member_message_cancel(update, context, data[len("admin_member_message_cancel_"):])\n        return\n\n    if data.startswith("admin_member_message_"):\n        await _member_message_prompt(update, context, data[len("admin_member_message_"):])\n        return\n\n    if data.startswith("admin_member_remove_confirm_"):\n        await _member_remove_confirm(update, context, data[len("admin_member_remove_confirm_"):])\n        return\n\n    if data.startswith("admin_member_remove_cancel_"):\n        await _member_remove_cancel(update, context, data[len("admin_member_remove_cancel_"):])\n        return\n\n    if data.startswith("admin_member_remove_"):\n        await _member_remove_prompt(update, context, data[len("admin_member_remove_"):])\n        return\n\n'''
-          if 'data.startswith("admin_member_message_cancel_")' not in text:
+          route_block = '''    if data.startswith("admin_member_remove_confirm_"):\n        await admin_member_remove_confirm(update, context, data[len("admin_member_remove_confirm_"):])\n        return\n\n    if data.startswith("admin_member_remove_cancel_"):\n        await admin_member_remove_cancel(update, context, data[len("admin_member_remove_cancel_"):])\n        return\n\n    if data.startswith("admin_member_remove_"):\n        await admin_member_remove_prompt(update, context, data[len("admin_member_remove_"):])\n        return\n\n'''
+          if 'data.startswith("admin_member_remove_confirm_")' not in text:
               if route_marker not in text:
                   raise SystemExit("admin refresh route marker not found")
               text = text.replace(route_marker, route_block + route_marker, 1)
-          path.write_text(text, encoding="utf-8")
-
-          # --------------------------------------------------
-          # bot.py: allow the existing text router to handle
-          # admin member messages before birthday/raffle text.
-          # --------------------------------------------------
-          path = Path("bot.py")
-          text = path.read_text(encoding="utf-8")
-          old = '''async def text_router(update,context):\n    if await admin_birthday_text_handler(update,context):return\n    await birthday_text_handler(update,context)\n'''
-          new = '''async def text_router(update,context):\n    try:\n        from member_bank import member_bank_message_handler\n        if await member_bank_message_handler(update,context):return\n    except Exception:\n        logger.exception("Member bank message handler failed.")\n    if await admin_birthday_text_handler(update,context):return\n    await birthday_text_handler(update,context)\n'''
-          if "from member_bank import member_bank_message_handler" not in text:
-              if old not in text:
-                  raise SystemExit("bot.py text_router marker not found")
-              text = text.replace(old, new, 1)
-              path.write_text(text, encoding="utf-8")
-
-          print("Member Message + Remove patch complete")
+          p.write_text(text, encoding="utf-8")
+          print("Safe member controls patch applied")
           PY
 
-      - name: Commit fix
+      - name: Validate Python
+        run: python -m py_compile member_bank.py admin.py bot.py games_reminder.py
+
+      - name: Commit changes
         run: |
           if git diff --quiet; then
             echo "No changes to commit."
@@ -301,6 +197,6 @@ async def _member_remove_confirm(update, context, user_id):
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add member_bank.py admin.py bot.py
-          git commit -m "Add member message and removal controls"
+          git add member_bank.py admin.py bot.py games_reminder.py
+          git commit -m "Add safe Member Bank message and remove controls"
           git push
