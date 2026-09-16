@@ -9,8 +9,9 @@
 #   Chat  : -1002697105809
 #   Topic : 11999
 #
-# After Dark:
-#   Daily post time: 10:30 AM Arizona time
+# Schedule:
+#   Question of the Day: 11:00 AM Arizona time
+#   After Dark:          10:00 PM Arizona time
 # ==========================================================
 
 import os
@@ -22,14 +23,22 @@ TARGET_TOPIC_ID = 11999
 # QOTD reads these values at import time.
 os.environ["QUESTION_OF_DAY_CHAT_ID"] = str(TARGET_CHAT_ID)
 os.environ["QUESTION_OF_DAY_TOPIC_ID"] = str(TARGET_TOPIC_ID)
+os.environ["QUESTION_OF_DAY_HOUR"] = "11"
+os.environ["QUESTION_OF_DAY_MINUTE"] = "0"
+
+# After Dark reads these values when daily_messages is imported.
+os.environ["DAILY_MESSAGE_HOUR"] = "22"
+os.environ["DAILY_MESSAGE_MINUTE"] = "0"
 
 
 def install_after_dark_topic_routing():
-    """Route After Dark content to topic 11999 and schedule it for 10:30 AM."""
+    """Route After Dark content to topic 11999 and schedule it for 10 PM."""
     import daily_messages
 
-    daily_messages.DAILY_MESSAGE_HOUR = 10
-    daily_messages.DAILY_MESSAGE_MINUTE = 30
+    # Keep the schedule explicit here as well in case environment values
+    # were changed elsewhere before this function runs.
+    daily_messages.DAILY_MESSAGE_HOUR = 22
+    daily_messages.DAILY_MESSAGE_MINUTE = 0
 
     # The existing content bank contains several categories. For the
     # dedicated After Dark schedule, only prompts explicitly labeled
