@@ -40,6 +40,8 @@ from telegram.ext import ContextTypes
 
 from config import ADMIN_IDS
 
+from member_bank import admin_members, admin_member_view
+
 from raffle import (
     start_raffle,
     raffle_status,
@@ -395,6 +397,12 @@ def admin_main_keyboard():
                 InlineKeyboardButton(
                     "🌙 After Dark",
                     callback_data="admin_after_dark",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "👥 Members",
+                    callback_data="admin_members",
                 ),
             ],
             [
@@ -3945,6 +3953,29 @@ async def admin_button(
             birthday_id,
         )
 
+        return
+
+    # ------------------------------------------------------
+    # MEMBER BANK / INTRO TRACKING
+    # ------------------------------------------------------
+
+    if data == "admin_members":
+        await admin_members(update, context, page=0)
+        return
+
+    if data.startswith("admin_members_page_"):
+        page_text = data[len("admin_members_page_"):]
+        try:
+            page = int(page_text)
+        except (TypeError, ValueError):
+            await query.answer("Invalid page.", show_alert=True)
+            return
+        await admin_members(update, context, page=page)
+        return
+
+    if data.startswith("admin_member_view_"):
+        member_user_id = data[len("admin_member_view_"):]
+        await admin_member_view(update, context, member_user_id)
         return
 
     # ------------------------------------------------------
