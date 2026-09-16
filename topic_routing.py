@@ -15,6 +15,7 @@
 # ==========================================================
 
 import os
+
 from types import MethodType
 
 TARGET_CHAT_ID = -1002697105809
@@ -81,9 +82,46 @@ def install_after_dark_topic_routing():
     daily_messages._after_dark_topic_routing_installed = True
 
 
+def install_qotd_startup_panel():
+    """Wrap the QOTD scheduler so the permanent member panel is checked at startup."""
+    import question_of_day
+
+    if getattr(question_of_day, "_qotd_startup_panel_wrapped", False):
+        return
+
+    original_scheduler = question_of_day.start_question_of_day_scheduler
+
+    def wrapped_scheduler(application):
+        original_scheduler(application)
+
+        if not application.job_queue or not question_of_day.qotd_enabled():
+            return
+
+        async def ensure_panel_job(context):
+            try:
+                await question_of_day.ensure_qotd_submission_panel(context.application)
+            except Exception:
+                # Startup must continue even if Telegram temporarily rejects
+                # the panel operation. The next bot restart can retry it.
+                import logging
+                logging.getLogger("topic_routing").exception(
+                    "QOTD submission panel startup check failed."
+                )
+
+        application.job_queue.run_once(
+            ensure_panel_job,
+            when=1,
+            name="qotd_submission_panel_startup",
+        )
+
+    question_of_day.start_question_of_day_scheduler = wrapped_scheduler
+    question_of_day._qotd_startup_panel_wrapped = True
+
+
 def install_all_topic_routing():
     """Install shared QOTD / After Dark routing."""
     install_after_dark_topic_routing()
+    install_qotd_startup_panel()
 
     try:
         import notification_policy
