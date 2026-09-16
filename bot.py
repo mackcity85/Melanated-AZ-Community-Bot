@@ -287,7 +287,7 @@ async def send_human_challenge(chat_id,user_id,context):
     answer,options=random.choice(HUMAN_CHALLENGES); shuffled=list(options); random.shuffle(shuffled)
     keyboard=InlineKeyboardMarkup([[InlineKeyboardButton(option,callback_data=f"human_verify:{user_id}:{i}")] for i,option in enumerate(shuffled)])
     try:
-        message=await context.bot.send_message(chat_id=user_id,text=f"🤖 <b>QUICK HUMAN CHECK</b>\n\nBefore you join the conversation, prove you're human. 👀\n\n<b>Which one is {answer.split(' ',1)[1].lower()}?</b>\n\nTap the correct answer below.",reply_markup=keyboard,parse_mode=ParseMode.HTML)
+        message=await context.bot.send_message(chat_id=chat_id,text=f"🤖 <b>QUICK HUMAN CHECK</b>\n\nBefore you join the conversation, prove you're human. 👀\n\n<b>Which one is {answer.split(' ',1)[1].lower()}?</b>\n\nTap the correct answer below.",reply_markup=keyboard,parse_mode=ParseMode.HTML)
         set_verification_challenge(chat_id,user_id,answer,shuffled,message.message_id)
     except TelegramError: logger.exception("Could not send human verification to %s",user_id)
 
@@ -326,27 +326,11 @@ async def community_welcome(update,context):
     if new not in {"member","administrator"} or old not in {"left","kicked"}:return
     user=event.new_chat_member.user
     if not user or user.is_bot or await is_admin(user.id,context):return
-    save_joining_member(event.chat.id,user); await restrict_member(context.bot,event.chat.id,user.id); name=user.first_name or "there"; await send_community_intro_video(user.id,context,name)
+    save_joining_member(event.chat.id,user); await restrict_member(context.bot,event.chat.id,user.id); name=user.first_name or "there"; await send_community_intro_video(event.chat.id,context,name)
     try:
         welcome=await context.bot.send_message(chat_id=event.chat.id,text=f"👋🏾 <b>WELCOME TO MELANATED AZ, {name}!</b> 💜🔥\n\n🛡️ <b>FIRST THINGS FIRST...</b>\n\nYou need to complete a quick human verification before you can post.\n\nOnce you're verified, you'll have <b>48 HOURS</b> to introduce yourself to the community.\n\nGood energy. Real people. Real connections. 🖤💜",parse_mode=ParseMode.HTML); context.job_queue.run_once(delete_message_job,VERIFICATION_MESSAGE_TTL_MINUTES*60,data=(event.chat.id,welcome.message_id))
     except TelegramError: pass
     await send_human_challenge(event.chat.id,user.id,context)
-
-async def notify_admin_group_verification(context,user):
-    admin_group=configured_admin_group_id()
-    if not admin_group or not user:
-        return
-    username=f"@{html.escape(user.username)}" if getattr(user,"username",None) else "No username"
-    name=html.escape(user.full_name or user.first_name or "Unknown member")
-    timestamp=utc_now().strftime("%Y-%m-%d %H:%M:%S UTC")
-    try:
-        await context.bot.send_message(
-            chat_id=admin_group,
-            text=f"🛡️ <b>MEMBER VERIFIED</b>\n\n👤 <b>{name}</b>\n🔹 Username: {username}\n🆔 User ID: <code>{user.id}</code>\n🕒 Verified: <code>{timestamp}</code>\n\n👋🏾 The member is now cleared to participate, but their mandatory introduction is still required.",
-            parse_mode=ParseMode.HTML,
-        )
-    except TelegramError:
-        logger.exception("Could not notify Admin Group about verified member %s",user.id)
 
 async def human_verification_callback(update,context):
     query=update.callback_query
@@ -359,19 +343,17 @@ async def human_verification_callback(update,context):
     except ValueError:return
     user=update.effective_user; chat=update.effective_chat
     if not user or not chat or user.id!=target:return
-    main=configured_main_group_id()
-    if not main:return
-    row=community_member(main,user.id)
+    row=community_member(chat.id,user.id)
     if not row or row["status"]!="pending_verification":return
     expires=parse_iso(row["verification_expires_at"]); challenge=row["verification_challenge"] or ""
-    if not expires or expires<utc_now() or "###" not in challenge: await send_human_challenge(main,user.id,context); return
+    if not expires or expires<utc_now() or "###" not in challenge: await send_human_challenge(chat.id,user.id,context); return
     answer,blob=challenge.split("###",1); options=blob.split("|||")
     if selected<0 or selected>=len(options):return
     if options[selected]!=answer:
-        attempts=increment_verification_attempt(main,user.id)
-        if attempts>=VERIFICATION_MAX_ATTEMPTS: await remove_unverified_member(context.bot,main,user.id); return
-        await send_human_challenge(main,user.id,context); return
-    mark_verified(main,user.id); await restore_member(context.bot,main,user.id); await notify_admin_group_verification(context,user); private_opened=await send_private_intro_prompt(user,context)
+        attempts=increment_verification_attempt(chat.id,user.id)
+        if attempts>=VERIFICATION_MAX_ATTEMPTS: await remove_unverified_member(context.bot,chat.id,user.id); return
+        await send_human_challenge(chat.id,user.id,context); return
+    mark_verified(chat.id,user.id); await restore_member(context.bot,chat.id,user.id); private_opened=await send_private_intro_prompt(user,context)
     try: await query.edit_message_text("✅ <b>HUMAN VERIFICATION PASSED!</b> 🎉\n\nYou're cleared to participate. 💜\n\n👋🏾 I've sent your introduction instructions privately.\nYour intro submission will stay private until the finished introduction is posted in the 👋 Introductions topic.",parse_mode=ParseMode.HTML)
     except TelegramError: pass
 
@@ -578,16 +560,9 @@ async def repair_active_raffle_post(context):
         logger.info("Raffle topic repair skipped: no active raffle.")
         return
     raffle_id=int(raffle["id"])
-    if raffle["message_id"]:
-        logger.info("Raffle topic repair skipped: active raffle already has Telegram message_id=%s.",raffle["message_id"])
-        try:
-            os.makedirs(os.path.dirname(marker) or ".",exist_ok=True)
-            with open(marker,"w",encoding="utf-8") as fh: fh.write(f"raffle={raffle_id}\nexisting_message_id={raffle["message_id"]}\n")
-        except Exception:
-            pass
-        return
     try:
-        # Only publish when the active raffle has no Telegram post recorded.
+        # Do not write None into the raffle post fields. publish_raffle()
+        # creates the replacement post and saves its real Telegram IDs.
         if await publish_raffle(raffle_id,context):
             os.makedirs(os.path.dirname(marker) or ".",exist_ok=True)
             with open(marker,"w",encoding="utf-8") as fh: fh.write(f"raffle={raffle_id}\n")
