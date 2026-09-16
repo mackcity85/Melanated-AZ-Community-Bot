@@ -8,6 +8,9 @@
 # Destination:
 #   Chat  : -1002697105809
 #   Topic : 11999
+#
+# After Dark:
+#   Daily post time: 10:30 AM Arizona time
 # ==========================================================
 
 import os
@@ -16,15 +19,28 @@ from types import MethodType
 TARGET_CHAT_ID = -1002697105809
 TARGET_TOPIC_ID = 11999
 
-# Make the QOTD module deterministic even if Render environment values
-# are missing or stale. question_of_day.py reads these at import time.
+# QOTD reads these values at import time.
 os.environ["QUESTION_OF_DAY_CHAT_ID"] = str(TARGET_CHAT_ID)
 os.environ["QUESTION_OF_DAY_TOPIC_ID"] = str(TARGET_TOPIC_ID)
 
 
 def install_after_dark_topic_routing():
-    """Route the existing After Dark daily-message publisher to topic 11999."""
+    """Route After Dark content to topic 11999 and schedule it for 10:30 AM."""
     import daily_messages
+
+    daily_messages.DAILY_MESSAGE_HOUR = 10
+    daily_messages.DAILY_MESSAGE_MINUTE = 30
+
+    # The existing content bank contains several categories. For the
+    # dedicated After Dark schedule, only prompts explicitly labeled
+    # AFTER DARK / AFTER-DARK are selected.
+    after_dark_messages = [
+        item for item in daily_messages.DAILY_MESSAGES
+        if "AFTER DARK" in item[0].upper() or "AFTER-DARK" in item[0].upper()
+    ]
+
+    if after_dark_messages:
+        daily_messages.DAILY_MESSAGES = after_dark_messages
 
     if getattr(daily_messages, "_after_dark_topic_routing_installed", False):
         return
@@ -36,13 +52,10 @@ def install_after_dark_topic_routing():
         original_send = bot.send_message
 
         async def routed_send(self, *args, **kwargs):
-            # The daily_messages module has a dedicated After Dark content bank.
-            # Only its destination is being changed here.
             kwargs["chat_id"] = TARGET_CHAT_ID
             kwargs["message_thread_id"] = TARGET_TOPIC_ID
             return await original_send(*args, **kwargs)
 
-        # Patch only for the duration of this one scheduled publisher call.
         bot.send_message = MethodType(routed_send, bot)
         try:
             return await original(context)
@@ -54,12 +67,9 @@ def install_after_dark_topic_routing():
 
 
 def install_all_topic_routing():
-    """Install all routing required for the shared QOTD/After Dark topic."""
+    """Install shared QOTD / After Dark routing."""
     install_after_dark_topic_routing()
 
-    # QOTD and After Dark posts are permanent community content. Prevent the
-    # notification cleanup policy from treating topic 11999 as a temporary
-    # bot-notification topic.
     try:
         import notification_policy
         notification_policy.PERMANENT_TOPIC_IDS.add(TARGET_TOPIC_ID)
