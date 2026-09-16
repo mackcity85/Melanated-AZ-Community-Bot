@@ -1,0 +1,59 @@
+name: Wire Member Bank
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Wire member bank into admin panel'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch admin panel
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('admin.py')
+          text = path.read_text()
+
+          import_line = 'from member_bank import admin_members, admin_member_view\n'
+          if import_line not in text:
+              marker = 'from config import ADMIN_IDS\n'
+              if marker not in text:
+                  raise SystemExit('admin.py import marker not found')
+              text = text.replace(marker, marker + '\n' + import_line, 1)
+
+          button_marker = '''            [\n                InlineKeyboardButton(\n                    "🔄 Refresh",\n                    callback_data="admin_refresh",\n                ),\n            ],\n'''
+          member_button = '''            [\n                InlineKeyboardButton(\n                    "👥 Members",\n                    callback_data="admin_members",\n                ),\n            ],\n'''
+          if 'callback_data="admin_members"' not in text:
+              if button_marker not in text:
+                  raise SystemExit('admin keyboard refresh marker not found')
+              text = text.replace(button_marker, member_button + button_marker, 1)
+
+          router_marker = '''    # ------------------------------------------------------\n    # UNKNOWN\n    # ------------------------------------------------------\n'''
+          router_block = '''    # ------------------------------------------------------\n    # MEMBER BANK / INTRO TRACKING\n    # ------------------------------------------------------\n\n    if data == "admin_members":\n        await admin_members(update, context, page=0)\n        return\n\n    if data.startswith("admin_members_page_"):\n        page_text = data[len("admin_members_page_"):]\n        try:\n            page = int(page_text)\n        except (TypeError, ValueError):\n            await query.answer("Invalid page.", show_alert=True)\n            return\n        await admin_members(update, context, page=page)\n        return\n\n    if data.startswith("admin_member_view_"):\n        member_user_id = data[len("admin_member_view_"):]\n        await admin_member_view(update, context, member_user_id)\n        return\n\n'''
+          if 'if data == "admin_members":' not in text:
+              if router_marker not in text:
+                  raise SystemExit('admin router marker not found')
+              text = text.replace(router_marker, router_block + router_marker, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.py .github/workflows/patch_member_bank.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "Restore Members admin panel"
+          git push
