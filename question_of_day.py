@@ -491,6 +491,13 @@ async def question_of_day_daily_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def question_of_day_startup_job(context: ContextTypes.DEFAULT_TYPE):
+    # Keep the permanent member submission panel available after restarts.
+    # Existing content in topic 11999 is never deleted or migrated.
+    try:
+        await ensure_qotd_submission_panel(context.application)
+    except Exception:
+        logger.exception("QOTD submission panel startup check failed.")
+
     if not qotd_enabled() or daily_post_already_done():
         return
     now = phoenix_now()
