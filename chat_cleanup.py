@@ -1,14 +1,11 @@
 # ==========================================================
 # Melanated AZ Bot - chat_cleanup.py
-# Persistent cleanup for bot messages in the main/admin groups.
+# Persistent cleanup for temporary bot messages in the main/admin groups.
 #
-# Default: delete temporary bot messages after 3 minutes.
-# Daily community messages, raffle posts, and QOTD/After Dark
-# topic posts are preserved.
+# Temporary bot/service messages are deleted after 3 minutes.
+# Daily community messages, raffle posts, QOTD/After Dark posts,
+# and ALL member introductions are preserved permanently.
 # User/member messages are never targeted by this module.
-# Bot ID: 8810138488
-#
-# IMPORTANT: This module does NOT mirror notifications to the admin group.
 # ==========================================================
 
 import json
@@ -26,7 +23,8 @@ CLEANUP_SECONDS = int(os.environ.get("CHAT_CLEANUP_SECONDS", "180") or "180")
 BOT_ID = 8810138488
 RAFFLE_TOPIC_ID = 11883
 QOTD_TOPIC_ID = 11999
-PERMANENT_TOPIC_IDS = {RAFFLE_TOPIC_ID, QOTD_TOPIC_ID}
+INTRO_TOPIC_ID = 11570
+PERMANENT_TOPIC_IDS = {RAFFLE_TOPIC_ID, QOTD_TOPIC_ID, INTRO_TOPIC_ID}
 MESSAGE_STORE = Path(os.environ.get("CHAT_CLEANUP_STORE", "/var/data/bot_cleanup_messages.json"))
 DAILY_MESSAGE_MARKERS = (
     "DAILY COMMUNITY",
@@ -44,17 +42,7 @@ def _main_group_id():
         return -1002697105809
 
 
-def _admin_group_id():
-    try:
-        value = os.environ.get("ADMIN_GROUP_ID")
-        return int(value) if value else -5241371581
-    except (TypeError, ValueError):
-        return -5241371581
-
-
 def _cleanup_group_ids():
-    # Cleanup is intentionally limited to the main community group.
-    # The admin group is never used as a notification mirror.
     return {_main_group_id()}
 
 
@@ -71,7 +59,7 @@ def _message_thread_id(message) -> int:
 
 
 def _is_permanent_topic_message(message) -> bool:
-    """Raffle and QOTD/After Dark topic posts are permanent until their own managers remove them."""
+    """Permanent topics: raffle, QOTD/After Dark, and introductions."""
     if not message:
         return False
     try:
@@ -120,7 +108,6 @@ def _remember_message(message):
     text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
     if _is_daily_community_message(text) or _is_permanent_topic_message(message):
         return
-
     records = _load_store()
     record = {
         "chat_id": int(message.chat_id),
@@ -154,21 +141,17 @@ async def _delete_after(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
     if not job or not job.data:
         return
-    record = job.data
-    await _delete_record(context, record)
+    await _delete_record(context, job.data)
 
 
 def schedule_cleanup(application, message, delay=None):
     if not application or not message:
         return
-
     text = getattr(message, "text", "") or getattr(message, "caption", "") or ""
     if _is_daily_community_message(text) or _is_permanent_topic_message(message):
         return
-
     if message.chat_id not in _cleanup_group_ids():
         return
-
     _remember_message(message)
     seconds = CLEANUP_SECONDS if delay is None else delay
     record = {
@@ -185,29 +168,24 @@ def schedule_cleanup(application, message, delay=None):
 
 
 async def startup_cleanup(application):
-    """Delete previously recorded temporary bot messages after a Render restart."""
+    """Delete previously recorded temporary bot messages after a restart."""
     records = _load_store()
     if not records:
         logger.info("Bot cleanup startup sweep: no stored bot messages.")
         return
-
     logger.info("Bot cleanup startup sweep: checking %s stored bot messages.", len(records))
     remaining = []
     for record in records:
-        chat_id = record.get("chat_id")
-        message_id = record.get("message_id")
         if _record_is_permanent_topic(record):
             remaining.append(record)
             continue
-
-        # Records written by older versions did not contain thread_id.  Do not
-        # blindly delete those records on startup: an old QOTD/After Dark panel
-        # could otherwise be mistaken for a temporary message.  New records
-        # always include thread_id and retain the normal startup cleanup behavior.
+        # Older records lacked thread_id. Preserve them rather than risking
+        # deletion of an introduction/QOTD/raffle message.
         if "thread_id" not in record:
             remaining.append(record)
             continue
-
+        chat_id = record.get("chat_id")
+        message_id = record.get("message_id")
         if chat_id not in _cleanup_group_ids() or not isinstance(message_id, int):
             continue
         try:
@@ -221,13 +199,11 @@ async def startup_cleanup(application):
 
 async def cleanup_service_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
-    if not message:
+    if not message or message.chat_id != _main_group_id():
         return
-
-    main_id = _main_group_id()
-    if message.chat_id != main_id:
+    # Never delete anything in a permanent community topic.
+    if _is_permanent_topic_message(message):
         return
-
     try:
         await message.delete()
     except TelegramError as exc:
@@ -237,32 +213,18 @@ async def cleanup_service_messages(update: Update, context: ContextTypes.DEFAULT
 def install_chat_cleanup(application):
     """Install persistent 3-minute cleanup for temporary bot text messages."""
     bot_class = application.bot.__class__
-
     if getattr(bot_class, "_melanated_chat_cleanup_installed", False):
         return
-
     original_send_message = bot_class.send_message
 
     async def wrapped_send_message(self, *args, **kwargs):
         chat_id = kwargs.get("chat_id")
         if chat_id is None and args:
             chat_id = args[0]
-        text = kwargs.get("text")
-        if text is None and len(args) > 1:
-            text = args[1]
-        text = str(text or "")
-
         result = await original_send_message(self, *args, **kwargs)
-
         if result and chat_id in _cleanup_group_ids():
             schedule_cleanup(application, result)
-
         return result
 
     bot_class.send_message = wrapped_send_message
     bot_class._melanated_chat_cleanup_installed = True
-    logger.info(
-        "Chat cleanup installed: temporary bot messages expire after %s seconds; daily community messages, raffle topic posts, and QOTD/After Dark topic posts are preserved; admin-group notification mirroring DISABLED; persistent store=%s.",
-        CLEANUP_SECONDS,
-        MESSAGE_STORE,
-    )
