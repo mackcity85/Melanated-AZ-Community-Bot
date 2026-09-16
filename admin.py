@@ -389,6 +389,16 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "💭 Questions / QOTD",
+                    callback_data="admin_questions",
+                ),
+                InlineKeyboardButton(
+                    "🌙 After Dark",
+                    callback_data="admin_after_dark",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "🔄 Refresh",
                     callback_data="admin_refresh",
                 ),
