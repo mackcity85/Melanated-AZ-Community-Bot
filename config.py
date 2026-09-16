@@ -213,9 +213,10 @@ _builtins.post_intro_topic_command = post_intro_topic_command
 # ==========================================================
 # GLOBAL NOTIFICATION POLICY
 # ==========================================================
-# Import for its startup side effect: existing bot sends are
-# centrally mirrored to ADMIN_GROUP_ID and temporary main-chat
-# bot messages are automatically cleaned up.
+# Import for its startup side effect: temporary bot messages
+# are automatically cleaned up according to the notification
+# policy. Admin-group notifications are handled only by features
+# that explicitly send them to the admin group.
 # ==========================================================
 
 import notification_policy  # noqa: E402,F401
