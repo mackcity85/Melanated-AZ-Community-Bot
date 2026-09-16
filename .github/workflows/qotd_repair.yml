@@ -1,0 +1,64 @@
+name: Repair QOTD Startup Panel
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch QOTD startup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("question_of_day.py")
+          text = path.read_text(encoding="utf-8")
+
+          if "await ensure_qotd_submission_panel(context.application)" not in text:
+              pattern = re.compile(
+                  r'async def question_of_day_startup_job\(context: ContextTypes\.DEFAULT_TYPE\):\n'
+                  r'    if not qotd_enabled\(\) or daily_post_already_done\(\):\n'
+                  r'        return\n'
+                  r'    now = phoenix_now\(\)'
+              )
+              replacement = (
+                  'async def question_of_day_startup_job(context: ContextTypes.DEFAULT_TYPE):\n'
+                  '    # Keep the permanent member submission panel available after restarts.\n'
+                  '    # Existing content in topic 11999 is never deleted or migrated.\n'
+                  '    try:\n'
+                  '        await ensure_qotd_submission_panel(context.application)\n'
+                  '    except Exception:\n'
+                  '        logger.exception("QOTD submission panel startup check failed.")\n\n'
+                  '    if not qotd_enabled() or daily_post_already_done():\n'
+                  '        return\n'
+                  '    now = phoenix_now()'
+              )
+              text, count = pattern.subn(replacement, text, count=1)
+              if count != 1:
+                  raise SystemExit("Could not locate QOTD startup function; no changes made.")
+              path.write_text(text, encoding="utf-8")
+              print("QOTD startup panel repaired")
+          else:
+              print("QOTD startup panel already repaired")
+          PY
+
+      - name: Validate Python
+        run: python -m py_compile question_of_day.py member_bank.py admin.py bot.py
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add question_of_day.py
+          git diff --cached --quiet || git commit -m "Repair QOTD startup panel"
+          git push
