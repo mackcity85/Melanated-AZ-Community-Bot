@@ -1,9 +1,8 @@
-"""Keep member introductions permanent and restore saved introductions.
+"""Keep saved member introductions visible in the Introductions topic.
 
-Introductions are community content and must remain live in the Introductions
-forum topic. This module protects saved intro text from being wiped when a
-member rejoins and performs a versioned rebuild of saved introductions whose
-Telegram posts may have been removed by the old cleanup behavior.
+This module never deletes introductions. It preserves saved intro text when a
+member rejoins and performs a versioned recovery pass for saved introductions
+whose old Telegram posts are missing.
 """
 
 import logging
@@ -14,12 +13,15 @@ import bot
 logger = logging.getLogger("melanated_az_intro_persistence")
 COMMUNITY_DB = bot.COMMUNITY_DB
 INTRO_TOPIC_ID = int(os.environ.get("INTRO_TOPIC_ID", "11570") or "11570")
-MAIN_GROUP_ID = bot.configured_main_group_id()
-# Bump the marker so the current Render disk performs the recovery again.
-# Telegram does not expose an API to test arbitrary historical messages, so
-# this recovery intentionally rebuilds every real saved intro once.
-RECOVERY_MARKER = "/var/data/intro_topic_recovery_2026-09-16-v2.done"
 LEGACY_MARKER = "Legacy member — intro status backfilled"
+
+# New recovery version. This deliberately ignores older recovery markers so
+# Render performs a fresh recovery pass after this fix is deployed.
+RECOVERY_MARKER = "/var/data/intro_topic_recovery_2026-09-16-v3.done"
+
+
+def _main_group_id():
+    return bot.configured_main_group_id()
 
 
 def _preserve_saved_intro_on_rejoin():
@@ -28,7 +30,6 @@ def _preserve_saved_intro_on_rejoin():
         return
 
     def preserved_save_joining_member(chat_id, user):
-        """Start verification again without erasing a member's saved intro."""
         existing = bot.community_member(chat_id, user.id)
         if not existing or not existing["intro_text"]:
             return original(chat_id, user)
@@ -62,10 +63,18 @@ def _is_real_saved_intro(text):
 
 
 async def recover_saved_introductions(application):
-    """Rebuild real saved introductions in the intro topic once per version."""
-    if not MAIN_GROUP_ID or not os.path.exists(COMMUNITY_DB):
-        return
+    """Repost every real saved introduction into topic 11570 once for v3.
 
+    Telegram's Bot API cannot retrieve arbitrary historical/deleted messages.
+    Therefore recovery is based on intro_text still stored in the community DB.
+    """
+    main = _main_group_id()
+    if not main:
+        logger.error("INTRO RECOVERY SKIPPED: MAIN_GROUP_ID is not configured.")
+        return
+    if not os.path.exists(COMMUNITY_DB):
+        logger.error("INTRO RECOVERY SKIPPED: community database does not exist: %s", COMMUNITY_DB)
+        return
     if os.path.exists(RECOVERY_MARKER):
         return
 
@@ -78,12 +87,18 @@ async def recover_saved_introductions(application):
                       AND intro_text IS NOT NULL
                       AND TRIM(intro_text) <> ''
                     ORDER BY COALESCE(intro_posted_at, joined_at), user_id""",
-                (MAIN_GROUP_ID,),
+                (main,),
             ).fetchall()
+
+        logger.info(
+            "INTRO RECOVERY v3 START | saved_rows=%s | main=%s | topic=%s",
+            len(rows), main, INTRO_TOPIC_ID,
+        )
 
         recovered = 0
         skipped = 0
         failed = 0
+
         for row in rows:
             intro_text = str(row["intro_text"] or "").strip()
             if not _is_real_saved_intro(intro_text):
@@ -91,8 +106,6 @@ async def recover_saved_introductions(application):
                 continue
 
             try:
-                user_id = int(row["user_id"])
-
                 class SavedUser:
                     pass
 
@@ -101,33 +114,28 @@ async def recover_saved_introductions(application):
                 user.full_name = user.first_name
 
                 message = await application.bot.send_message(
-                    chat_id=MAIN_GROUP_ID,
+                    chat_id=main,
                     message_thread_id=INTRO_TOPIC_ID,
                     text=bot.intro_topic_text(user, intro_text, updated=False),
                     parse_mode=bot.ParseMode.HTML,
                 )
 
-                bot.save_intro(MAIN_GROUP_ID, user_id, intro_text, message.message_id)
+                # Keep the latest live topic message ID with the saved intro.
+                bot.save_intro(main, int(row["user_id"]), intro_text, message.message_id)
                 recovered += 1
                 logger.info(
-                    "Restored introduction | user_id=%s | message_id=%s | topic=%s",
-                    user_id,
-                    message.message_id,
-                    INTRO_TOPIC_ID,
+                    "INTRO RECOVERED | user_id=%s | message_id=%s | topic=%s",
+                    row["user_id"], message.message_id, INTRO_TOPIC_ID,
                 )
             except Exception:
                 failed += 1
-                logger.exception("Could not restore introduction for user_id=%s", row["user_id"])
+                logger.exception("INTRO RECOVERY FAILED | user_id=%s", row["user_id"])
 
-        # Do not mark a failed recovery as complete. A Render restart can retry
-        # any rows that could not be posted.
+        # If any row failed, don't create the marker. A restart will retry it.
         if failed:
             logger.error(
-                "INTRO TOPIC RECOVERY INCOMPLETE | restored=%s | failed=%s | skipped_legacy=%s | topic=%s",
-                recovered,
-                failed,
-                skipped,
-                INTRO_TOPIC_ID,
+                "INTRO RECOVERY v3 INCOMPLETE | recovered=%s | failed=%s | skipped=%s",
+                recovered, failed, skipped,
             )
             return
 
@@ -138,13 +146,11 @@ async def recover_saved_introductions(application):
             )
 
         logger.info(
-            "INTRO TOPIC RECOVERY COMPLETE | restored=%s | skipped_legacy=%s | topic=%s",
-            recovered,
-            skipped,
-            INTRO_TOPIC_ID,
+            "INTRO RECOVERY v3 COMPLETE | recovered=%s | skipped=%s | topic=%s",
+            recovered, skipped, INTRO_TOPIC_ID,
         )
     except Exception:
-        logger.exception("Saved introduction recovery failed; migration marker not created.")
+        logger.exception("INTRO RECOVERY v3 failed; marker was not created.")
 
 
 def _patch_post_init():
