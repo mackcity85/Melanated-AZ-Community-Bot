@@ -287,23 +287,31 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if action == "qotd_submit_question":
         context.user_data["qotd_state"] = "question"
-        context.user_data["qotd_chat_id"] = message.chat_id if message else None
-        context.user_data["qotd_thread_id"] = message.message_thread_id if message else None
-        await query.message.reply_text(
-            "📝 <b>Send your question now.</b>\n\nKeep it under 3,000 characters. Your submission message will be removed after it is saved.",
-            parse_mode="HTML",
-            message_thread_id=message.message_thread_id if message else None,
-        )
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="📝 <b>Send your question now.</b>\n\n🔒 Your submission is private and will not appear in the group until it is posted as the QOTD.\n\nKeep it under 3,000 characters.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
         return
     if action == "qotd_submit_poll":
         context.user_data["qotd_state"] = "poll_question"
-        context.user_data["qotd_chat_id"] = message.chat_id if message else None
-        context.user_data["qotd_thread_id"] = message.message_thread_id if message else None
-        await query.message.reply_text(
-            "📊 <b>Build your poll</b>\n\nFirst, send the poll question. After that I'll ask for the answer choices.\n\nQuestion limit: 300 characters.",
-            parse_mode="HTML",
-            message_thread_id=message.message_thread_id if message else None,
-        )
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="📊 <b>Build your poll</b>\n\n🔒 Your poll submission is private and will not appear in the group until it is posted as the QOTD.\n\nFirst, send the poll question. Then I'll ask for the answer choices.\n\nQuestion limit: 300 characters.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
         return
 
 
@@ -320,11 +328,7 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     if not message or not message.text:
         return
-    expected_chat = context.user_data.get("qotd_chat_id")
-    expected_thread = context.user_data.get("qotd_thread_id")
-    if expected_chat and message.chat_id != expected_chat:
-        return
-    if expected_thread is not None and message.message_thread_id != expected_thread:
+    if message.chat.type != "private":
         return
     text = message.text.strip()
     if state == "question":
@@ -361,11 +365,10 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _finish_submission(update, context, item_id, saved_text):
     message = update.effective_message
-    chat_id = message.chat_id if message else None
-    thread_id = message.message_thread_id if message else None
+    chat_id = message.chat_id if message and message.chat.type == "private" else None
     for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
         context.user_data.pop(key, None)
-    if message:
+    if message and message.chat.type == "private":
         try:
             await message.delete()
         except TelegramError:
@@ -381,7 +384,6 @@ async def _finish_submission(update, context, item_id, saved_text):
                 chat_id=chat_id,
                 text=f"{saved_text}\n\n📚 Added to the Question of the Day bank.\n<b>{count}</b> day{'s' if count != 1 else ''} currently queued.",
                 parse_mode="HTML",
-                message_thread_id=thread_id,
             )
             if context.job_queue:
                 context.job_queue.run_once(_delete_message_job, 15, data=(chat_id, notice.message_id))
