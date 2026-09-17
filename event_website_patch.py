@@ -58,7 +58,7 @@ def _parse_fields(text):
 
 def _format_fields(fields):
     lines = []
-    for key in ("event", "date", "time", "location"):
+    for key in ("event", "date", "time", "location", "price"):
         value = fields.get(key)
         label = event_router.FIELD_LABELS.get(key, key.title())
         lines.append(f"{label}: {html.escape(str(value)) if value else '❌ Missing'}")
