@@ -8,6 +8,7 @@ import media_router
 import dirty_minds_admin_override
 import grand_rising
 
+
 topic_routing.install_all_topic_routing()
 media_router.install(bot)
 
@@ -20,6 +21,60 @@ import raffle_manual_nav_fix
 from games.game_topic_pins import ensure_game_topic_pins
 
 raffle_manual_nav_fix.install()
+
+
+# ==========================================================
+# ADMIN PANEL — CENTRAL CALLBACK ROUTER REPAIR
+# ==========================================================
+# bot.py historically performed an authorization check BEFORE calling
+# admin_button(). That made every admin_* callback silently disappear when
+# the preliminary live ADMIN_GROUP_ID check failed, even though admin.py has
+# its own centralized authorization/error handling. Patch the router here so
+# every admin callback reaches the authoritative admin dispatcher.
+#
+# This intentionally patches the function before build_application() creates
+# the CallbackQueryHandler, so the running application uses this router for
+# the entire admin panel, including dynamic callbacks.
+# ==========================================================
+
+_original_admin_callback_router = bot.admin_callback_router
+
+
+async def _verified_admin_callback_router(update, context):
+    query = update.callback_query
+    user = update.effective_user
+    data = query.data if query else None
+
+    if not query:
+        return
+
+    bot.logger.info(
+        "ADMIN CALLBACK RECEIVED | data=%s | user_id=%s | chat_id=%s",
+        data,
+        user.id if user else None,
+        update.effective_chat.id if update.effective_chat else None,
+    )
+
+    try:
+        # Call admin_button directly. It owns the authoritative admin gate,
+        # and this avoids the old router's silent pre-authentication drop.
+        await bot.admin_button(update, context)
+    except Exception:
+        bot.logger.exception(
+            "ADMIN CALLBACK FAILED | data=%s | user_id=%s",
+            data,
+            user.id if user else None,
+        )
+        try:
+            await query.answer(
+                "⚠️ Admin panel error. Check the Render logs.",
+                show_alert=True,
+            )
+        except Exception:
+            pass
+
+
+bot.admin_callback_router = _verified_admin_callback_router
 
 
 # PTB stores ApplicationBuilder.post_init() on the Application as the
