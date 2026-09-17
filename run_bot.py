@@ -8,8 +8,9 @@ import media_router
 import dirty_minds_admin_override
 import grand_rising
 import html
-from datetime import time
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
+from pathlib import Path
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from raffle import (
@@ -103,8 +104,43 @@ async def _run_games_topic_pin_maintenance(context):
         )
 
 
+RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
+RAFFLE_STATUS_HOUR = 14
+RAFFLE_STATUS_MINUTE = 0
+RAFFLE_STATUS_STATE_FILE = Path("/var/data/daily_raffle_status.json")
+
+
+def _raffle_status_already_posted(today):
+    try:
+        if not RAFFLE_STATUS_STATE_FILE.exists():
+            return False
+        import json
+        with RAFFLE_STATUS_STATE_FILE.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        return isinstance(data, dict) and data.get("posted_date") == today.isoformat()
+    except Exception:
+        bot.logger.exception("Could not read raffle status state.")
+        return False
+
+
+def _save_raffle_status_posted(today, message_id):
+    try:
+        RAFFLE_STATUS_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        import json
+        temp = RAFFLE_STATUS_STATE_FILE.with_suffix(".tmp")
+        with temp.open("w", encoding="utf-8") as handle:
+            json.dump({"posted_date": today.isoformat(), "message_id": int(message_id)}, handle)
+        temp.replace(RAFFLE_STATUS_STATE_FILE)
+    except Exception:
+        bot.logger.exception("Could not save raffle status state.")
+
+
 async def _daily_raffle_status_public(context):
-    """Post the public 2 PM raffle status with counts only, never entry details."""
+    """Post the public 2 PM Arizona raffle status once per Arizona calendar day."""
+    today = datetime.now(RAFFLE_STATUS_TZ).date()
+    if _raffle_status_already_posted(today):
+        bot.logger.info("Daily raffle status already posted | date=%s", today)
+        return
     raffle = get_active_raffle()
     if not raffle:
         bot.logger.info("Daily raffle status skipped: no active raffle.")
@@ -138,18 +174,32 @@ async def _daily_raffle_status_public(context):
             reply_markup=InlineKeyboardMarkup(rows),
             parse_mode=ParseMode.HTML,
         )
+        _save_raffle_status_posted(today, sent.message_id)
         bot.logger.info(
-            "DAILY RAFFLE STATUS POSTED | raffle=%s | chat=%s | topic=%s | message=%s",
-            raffle["id"],
-            -1002697105809,
-            11883,
-            sent.message_id,
+            "DAILY RAFFLE STATUS POSTED | raffle=%s | date=%s | chat=%s | topic=%s | message=%s",
+            raffle["id"], today, -1002697105809, 11883, sent.message_id,
         )
     except Exception:
         bot.logger.exception(
             "Could not post daily raffle status | raffle=%s",
             raffle["id"],
         )
+
+
+
+async def _daily_raffle_status_recovery(context):
+    """Recover today's 2 PM raffle reminder after a restart/missed scheduler run."""
+    now = datetime.now(RAFFLE_STATUS_TZ)
+    scheduled = time(RAFFLE_STATUS_HOUR, RAFFLE_STATUS_MINUTE)
+    if now.time().replace(tzinfo=None) < scheduled:
+        bot.logger.info("Raffle status recovery not needed yet | now=%s", now)
+        return
+    today = now.date()
+    if _raffle_status_already_posted(today):
+        bot.logger.info("Raffle status recovery found today's post already recorded | date=%s", today)
+        return
+    bot.logger.warning("Raffle status missed before startup; posting recovery now | date=%s", today)
+    await _daily_raffle_status_public(context)
 
 
 def _build_application_with_verified_startup_hooks():
@@ -174,13 +224,19 @@ def _build_application_with_verified_startup_hooks():
                     job.schedule_removal()
                 job_queue.run_daily(
                     _daily_raffle_status_public,
-                    time(hour=14, minute=0, tzinfo=ZoneInfo("America/Phoenix")),
+                    time(hour=RAFFLE_STATUS_HOUR, minute=RAFFLE_STATUS_MINUTE, tzinfo=RAFFLE_STATUS_TZ),
                     name="daily-raffle-status",
                 )
+                # Recovery: if Render restarts after 2:00 PM, check shortly after startup
+                # and post today's reminder if it was missed. Persistent state prevents duplicates.
+                job_queue.run_once(
+                    _daily_raffle_status_recovery,
+                    when=10,
+                    name="daily-raffle-status-recovery",
+                )
                 bot.logger.info(
-                    "Daily raffle status scheduler VERIFIED | time=14:00 Arizona | chat=%s topic=%s",
-                    -1002697105809,
-                    11883,
+                    "Daily raffle status scheduler VERIFIED | time=14:00 Arizona | chat=%s topic=%s | recovery=enabled",
+                    -1002697105809, 11883,
                 )
             else:
                 bot.logger.error(
