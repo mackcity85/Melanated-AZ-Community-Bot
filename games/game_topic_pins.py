@@ -34,6 +34,22 @@ def _save_id(path, message_id):
     )
 
 
+def _message_is_gone_error(exc):
+    """Return True only for errors that indicate the stored launcher is gone."""
+    text = str(exc).lower()
+    return any(
+        phrase in text
+        for phrase in (
+            "message to pin not found",
+            "message not found",
+            "message_id_invalid",
+            "message identifier is not valid",
+            "message can't be pinned",
+            "message can’t be pinned",
+        )
+    )
+
+
 async def _verify_pin_permission(bot):
     """Verify the bot can pin messages before trying to maintain the launchers."""
     try:
@@ -73,55 +89,93 @@ async def _pin(bot, message_id, label):
             message_id,
         )
         return True
-    except Exception:
-        logger.exception(
-            "FAILED to pin Games-topic launcher | label=%s chat=%s topic=%s message=%s",
-            label,
-            CHAT_ID,
-            TOPIC_ID,
-            message_id,
-        )
+    except Exception as exc:
+        if _message_is_gone_error(exc):
+            logger.warning(
+                "Games-topic launcher is missing | label=%s chat=%s topic=%s message=%s",
+                label,
+                CHAT_ID,
+                TOPIC_ID,
+                message_id,
+            )
+        else:
+            logger.exception(
+                "FAILED to pin Games-topic launcher without replacing it | label=%s chat=%s topic=%s message=%s",
+                label,
+                CHAT_ID,
+                TOPIC_ID,
+                message_id,
+            )
         return False
 
 
 async def _upsert_pin(bot, path, text, keyboard, label):
+    """Keep the existing launcher; create a new one only when the old one is gone.
+
+    We intentionally do NOT edit/repost an existing launcher on maintenance.
+    This prevents repeated reposts and keeps the original pinned message in place.
+    """
     message_id = _load_id(path)
 
     if message_id:
-        try:
-            msg = await bot.edit_message_text(
-                chat_id=CHAT_ID,
-                message_id=message_id,
-                text=text,
-                reply_markup=keyboard,
-                parse_mode="HTML",
+        # The launcher already exists according to persistent state. Do not
+        # repost it just because maintenance is running. Re-pin it if needed.
+        if await _pin(bot, message_id, label):
+            logger.info(
+                "Games-topic launcher already exists; no repost needed | label=%s chat=%s topic=%s message=%s",
+                label,
+                CHAT_ID,
+                TOPIC_ID,
+                message_id,
             )
-            actual_thread_id = getattr(msg, "message_thread_id", None)
-            if actual_thread_id != TOPIC_ID:
-                logger.warning(
-                    "Stored %s launcher is in the wrong topic | expected=%s actual=%s message=%s; creating a new launcher.",
-                    label,
-                    TOPIC_ID,
-                    actual_thread_id,
-                    msg.message_id,
-                )
-            else:
-                await _pin(bot, msg.message_id, label)
-                logger.info(
-                    "Games-topic launcher maintained | label=%s chat=%s topic=%s message=%s",
-                    label,
-                    CHAT_ID,
-                    TOPIC_ID,
-                    msg.message_id,
-                )
-                return msg
+            return message_id
+
+        # Only replace the launcher when the stored Telegram message is truly
+        # gone. Permission/network/API failures must never create duplicates.
+        try:
+            await bot.get_chat(chat_id=CHAT_ID)
+            await bot.get_chat_member(chat_id=CHAT_ID, user_id=(await bot.get_me()).id)
         except Exception:
             logger.warning(
-                "Existing %s launcher could not be updated; creating a fresh launcher in topic %s.",
+                "Games-topic launcher could not be verified; leaving existing state untouched | label=%s message=%s",
                 label,
-                TOPIC_ID,
-                exc_info=True,
+                message_id,
             )
+            return message_id
+
+        # We cannot safely distinguish every Telegram pin failure from a
+        # deleted message. Try a lightweight edit only to confirm whether the
+        # stored message still exists. If it exists, leave it alone.
+        try:
+            await bot.edit_message_reply_markup(
+                chat_id=CHAT_ID,
+                message_id=message_id,
+                reply_markup=keyboard,
+            )
+            await _pin(bot, message_id, label)
+            logger.info(
+                "Games-topic launcher still exists; kept existing message | label=%s chat=%s topic=%s message=%s",
+                label,
+                CHAT_ID,
+                TOPIC_ID,
+                message_id,
+            )
+            return message_id
+        except Exception as exc:
+            if not _message_is_gone_error(exc):
+                logger.warning(
+                    "Games-topic launcher still could not be confirmed as deleted; NOT reposting | label=%s message=%s error=%s",
+                    label,
+                    message_id,
+                    exc,
+                )
+                return message_id
+
+        logger.info(
+            "Games-topic launcher message is gone; creating replacement | label=%s old_message=%s",
+            label,
+            message_id,
+        )
 
     msg = await bot.send_message(
         chat_id=CHAT_ID,
@@ -152,7 +206,7 @@ async def _upsert_pin(bot, path, text, keyboard, label):
         TOPIC_ID,
         msg.message_id,
     )
-    return msg
+    return msg.message_id
 
 
 async def ensure_game_topic_pins(bot):
