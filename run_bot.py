@@ -4,8 +4,10 @@
 
 import bot
 import topic_routing
+import media_router
 
 topic_routing.install_all_topic_routing()
+media_router.install(bot)
 
 import runtime_fixes  # noqa: F401
 import qotd_td_user  # noqa: F401
