@@ -27,7 +27,6 @@ logger = logging.getLogger("event_private_flow")
 
 EVENT_CHAT_ID = event_router.EVENT_CHAT_ID
 EVENT_TOPIC_ID = event_router.EVENT_TOPIC_ID
-
 PRIVATE_MODE_KEY = "event_private_mode"
 SUBMISSION_KEY = "event_private_submission_id"
 WAITING_KEY = "event_private_waiting_for"
@@ -104,19 +103,15 @@ async def handle_private_start(update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _run_ocr(image_bytes, source):
-    """Run OCR without allowing an OCR failure to kill the submission flow."""
     if not image_bytes:
         logger.warning("Private Event OCR skipped: no image bytes | source=%s", source)
         return ""
-
     try:
         text = event_router._ocr_image(image_bytes) or ""
         text = str(text).strip()
         logger.info(
             "Private Event OCR complete | source=%s | chars=%s | lines=%s",
-            source,
-            len(text),
-            len(text.splitlines()) if text else 0,
+            source, len(text), len(text.splitlines()) if text else 0,
         )
         if not text:
             logger.warning("Private Event OCR returned no text | source=%s", source)
@@ -156,9 +151,6 @@ async def _save_private_media(update, context):
 
         combined_text = "\n".join(v for v in (ocr_text, message.caption or "") if v)
 
-        # OCR is helpful, but NEVER required for the private workflow.
-        # If OCR returns nothing, create the submission with blank fields and
-        # immediately ask the member for the missing information.
         try:
             if hasattr(event_router_fix, "_member_required_parse_fields"):
                 fields = event_router_fix._member_required_parse_fields(combined_text)
@@ -166,9 +158,8 @@ async def _save_private_media(update, context):
                 fields = event_router._parse_fields(combined_text)
         except Exception:
             logger.exception("Private Event field parsing failed; using blank fields")
-            fields = {key: None for key in event_router.FIELD_ORDER}
+            fields = {}
 
-        # Guarantee every currently configured field exists in the saved data.
         for key in event_router.FIELD_ORDER:
             fields.setdefault(key, None)
 
@@ -178,18 +169,11 @@ async def _save_private_media(update, context):
 
         _set_context(context, submission_id)
         context.user_data[PRIVATE_MODE_KEY] = "filling"
-
-        # The source flyer was sent privately, so there is nothing public to
-        # delete here. Move directly into missing-field collection.
         await _send_next_private_field(context, user.id, submission_id)
 
         logger.info(
             "Private Event flyer captured | submission=%s | user=%s | ocr_chars=%s | fields=%s | missing=%s",
-            submission_id,
-            user.id,
-            len(combined_text),
-            fields,
-            _missing(fields),
+            submission_id, user.id, len(combined_text), fields, _missing(fields),
         )
         return True
 
@@ -218,22 +202,13 @@ async def handle_private_video(update, context):
 async def _send_next_private_field(context, user_id, submission_id):
     row = event_router._get_submission(int(submission_id))
     if not row or row["user_id"] != user_id:
-        logger.warning(
-            "Private Event submission lookup failed | submission=%s | user=%s",
-            submission_id,
-            user_id,
-        )
+        logger.warning("Private Event submission lookup failed | submission=%s | user=%s", submission_id, user_id)
         return False
 
     fields = _fields(row)
     missing = _missing(fields)
 
-    logger.info(
-        "Private Event field collection | submission=%s | fields=%s | missing=%s",
-        submission_id,
-        fields,
-        missing,
-    )
+    logger.info("Private Event field collection | submission=%s | fields=%s | missing=%s", submission_id, fields, missing)
 
     if not missing:
         _set_context(context, submission_id)
@@ -252,26 +227,16 @@ async def _send_next_private_field(context, user_id, submission_id):
 
     field = missing[0]
     _set_context(context, submission_id, field)
-
     label = event_router.FIELD_LABELS.get(field, field.title())
 
-    # Give the member exactly one clear private prompt at a time.
-    if field == "event":
-        prompt = "🎉 <b>Event Name</b>\n\nPlease enter the name/title of the Event."
-    elif field == "date":
-        prompt = "📅 <b>Date</b>\n\nPlease enter the Event date."
-    elif field == "time":
-        prompt = "⏰ <b>Time</b>\n\nPlease enter the Event start time (and end time if applicable)."
-    elif field == "location":
-        prompt = "📍 <b>Location</b>\n\nPlease enter the Event venue/location."
-    elif field == "price":
-        prompt = "💵 <b>Price</b>\n\nPlease enter the Event price, or type <b>Free</b>."
-    elif field == "website":
-        # event_website_patch normally replaces this prompt/keyboard, but keep
-        # a safe fallback here in case installation order changes.
-        prompt = "🌐 <b>Website</b>\n\nSend the website/registration link, or type <b>NO WEBSITE</b>."
-    else:
-        prompt = f"Please send the <b>{label}</b>."
+    prompts = {
+        "event": "🎉 <b>Event Name</b>\n\nPlease enter the name/title of the Event.",
+        "date": "📅 <b>Date</b>\n\nPlease enter the Event date.",
+        "time": "⏰ <b>Time</b>\n\nPlease enter the Event start time (and end time if applicable).",
+        "location": "📍 <b>Location</b>\n\nPlease enter the Event venue/location.",
+        "price": "💵 <b>Price</b>\n\nPlease enter the Event price, or type <b>Free</b>.",
+        "website": "🌐 <b>Website</b>\n\nSend the website/registration link, or type <b>NO WEBSITE</b>.",
+    }
 
     await context.bot.send_message(
         chat_id=user_id,
@@ -279,7 +244,7 @@ async def _send_next_private_field(context, user_id, submission_id):
             "🔒 <b>PRIVATE EVENT INFORMATION</b>\n\n"
             + event_router._format_fields(fields)
             + "\n\n"
-            + prompt
+            + prompts.get(field, f"Please send the <b>{label}</b>.")
         ),
         parse_mode="HTML",
     )
@@ -297,9 +262,7 @@ async def handle_private_text(update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "awaiting_flyer":
-        await message.reply_text(
-            "🔒 This Event submission is private. Please send the Event flyer/photo/video here first."
-        )
+        await message.reply_text("🔒 This Event submission is private. Please send the Event flyer/photo/video here first.")
         raise ApplicationHandlerStop
 
     submission_id = context.user_data.get(SUBMISSION_KEY)
@@ -317,19 +280,14 @@ async def handle_private_text(update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(f"Please provide {event_router.FIELD_LABELS.get(field, field)}.")
         raise ApplicationHandlerStop
 
-    # Website is handled by event_website_patch's wrapper when that field is
-    # active. This handler still accepts a simple NO WEBSITE value safely.
     if field == "website":
         if value.lower() in {"none", "no", "n/a", "na", "skip", "no website", "no website / skip"}:
             value = "No website provided"
+        elif re.match(r"^www\.", value, re.IGNORECASE):
+            value = "https://" + value
         elif not re.match(r"^https?://", value, re.IGNORECASE):
-            if re.match(r"^www\.", value, re.IGNORECASE):
-                value = "https://" + value
-            else:
-                await message.reply_text(
-                    "Please send a complete link starting with https:// or http://, or type NO WEBSITE."
-                )
-                raise ApplicationHandlerStop
+            await message.reply_text("Please send a complete link starting with https:// or http://, or type NO WEBSITE.")
+            raise ApplicationHandlerStop
 
     fields = _fields(row)
     fields[field] = value
@@ -366,9 +324,7 @@ async def handle_private_callback(update, context):
         context.user_data[PRIVATE_MODE_KEY] = "filling"
         await query.answer()
         await query.message.reply_text(
-            "✏️ <b>EDIT EVENT</b>\n\n"
-            + event_router._format_fields(_fields(row))
-            + "\n\nPlease enter the <b>Event Name</b>.",
+            "✏️ <b>EDIT EVENT</b>\n\n" + event_router._format_fields(_fields(row)) + "\n\nPlease enter the <b>Event Name</b>.",
             parse_mode="HTML",
         )
         raise ApplicationHandlerStop
@@ -381,9 +337,7 @@ async def handle_private_callback(update, context):
     _clear_context(context)
     await query.answer("Submitted to the admins for approval.")
     await query.message.edit_text(
-        "✅ <b>EVENT SUBMITTED</b>\n\n"
-        "Your Event has been sent to the admins for approval.\n"
-        "Everything you entered was kept private. Nothing was posted in the Events topic.",
+        "✅ <b>EVENT SUBMITTED</b>\n\nYour Event has been sent to the admins for approval.\nEverything you entered was kept private. Nothing was posted in the Events topic.",
         parse_mode="HTML",
     )
     raise ApplicationHandlerStop
@@ -405,15 +359,9 @@ async def _submit_to_admin(context, submission_id, user_id):
 
     try:
         if row["media_type"] == "photo":
-            media_message = await context.bot.send_photo(
-                chat_id=event_router.ADMIN_GROUP_ID,
-                photo=row["file_id"], caption=caption, parse_mode="HTML"
-            )
+            media_message = await context.bot.send_photo(chat_id=event_router.ADMIN_GROUP_ID, photo=row["file_id"], caption=caption, parse_mode="HTML")
         else:
-            media_message = await context.bot.send_video(
-                chat_id=event_router.ADMIN_GROUP_ID,
-                video=row["file_id"], caption=caption, parse_mode="HTML"
-            )
+            media_message = await context.bot.send_video(chat_id=event_router.ADMIN_GROUP_ID, video=row["file_id"], caption=caption, parse_mode="HTML")
 
         details = await context.bot.send_message(
             chat_id=event_router.ADMIN_GROUP_ID,
@@ -426,12 +374,7 @@ async def _submit_to_admin(context, submission_id, user_id):
                 ]
             ]),
         )
-        event_router._update_submission(
-            submission_id,
-            status="pending_admin",
-            admin_message_id=media_message.message_id,
-            admin_details_message_id=details.message_id,
-        )
+        event_router._update_submission(submission_id, status="pending_admin", admin_message_id=media_message.message_id, admin_details_message_id=details.message_id)
         return True, None
     except Exception:
         logger.exception("Could not send private Event submission to admin group")
@@ -439,33 +382,69 @@ async def _submit_to_admin(context, submission_id, user_id):
 
 
 def _remove_public_event_handlers(application):
-    """Remove Event submission handlers registered by event_router; keep admin callbacks."""
     for group, handlers in list(application.handlers.items()):
         kept = []
         for handler in handlers:
             callback = getattr(handler, "callback", None)
             module = getattr(callback, "__module__", "")
             name = getattr(callback, "__name__", "")
-            if module == "event_router" and name in {
-                "handle_event_photo", "handle_event_video", "handle_event_text",
-            }:
+            if module == "event_router" and name in {"handle_event_photo", "handle_event_video", "handle_event_text"}:
                 continue
             kept.append(handler)
         application.handlers[group] = kept
 
 
 async def block_public_event_media(update, context):
+    """If someone posts an Event flyer publicly, remove it and give them the private submission entry point."""
     message = update.effective_message
+    user = update.effective_user
     if not message or message.chat_id != EVENT_CHAT_ID:
         return
     if getattr(message, "message_thread_id", None) != EVENT_TOPIC_ID:
         return
-    if message.photo or message.video:
-        try:
-            await message.delete()
-        except TelegramError:
-            pass
-        raise ApplicationHandlerStop
+    if not message.photo and not message.video:
+        return
+
+    try:
+        await message.delete()
+    except TelegramError:
+        pass
+
+    try:
+        bot = await context.bot.get_me()
+        if bot.username:
+            link = f"https://t.me/{bot.username}?start=event"
+            prompt = await context.bot.send_message(
+                chat_id=EVENT_CHAT_ID,
+                message_thread_id=EVENT_TOPIC_ID,
+                text=(
+                    f"🔒 <b>{user.mention_html()}</b>, Event submissions are private.\n\n"
+                    "Please use the button below to open a private chat with the bot and submit your flyer there."
+                ),
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔒 SUBMIT EVENT PRIVATELY", url=link)]
+                ]),
+            )
+            if context.job_queue:
+                context.job_queue.run_once(
+                    _delete_public_prompt,
+                    when=120,
+                    data={"chat_id": prompt.chat_id, "message_id": prompt.message_id},
+                    name=f"event-private-prompt:{prompt.message_id}",
+                )
+    except Exception:
+        logger.exception("Could not send private Event submission prompt")
+
+    raise ApplicationHandlerStop
+
+
+async def _delete_public_prompt(context):
+    data = context.job.data or {}
+    try:
+        await context.bot.delete_message(chat_id=data.get("chat_id"), message_id=data.get("message_id"))
+    except Exception:
+        pass
 
 
 def install_application(application):
@@ -476,38 +455,22 @@ def install_application(application):
     event_router.install_application(application)
     _remove_public_event_handlers(application)
 
-    application.add_handler(
-        MessageHandler(filters.PHOTO, block_public_event_media), group=-10
-    )
-    application.add_handler(
-        MessageHandler(filters.VIDEO, block_public_event_media), group=-10
-    )
-
+    application.add_handler(MessageHandler(filters.PHOTO, block_public_event_media), group=-10)
+    application.add_handler(MessageHandler(filters.VIDEO, block_public_event_media), group=-10)
     application.add_handler(CommandHandler("event", start_private_event), group=-5)
     application.add_handler(
         MessageHandler(filters.Regex(r"^/start(?:@\w+)?\s+event\s*$"), handle_private_start),
         group=-5,
     )
+    application.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_private_photo), group=-4)
+    application.add_handler(MessageHandler(filters.VIDEO & filters.ChatType.PRIVATE, handle_private_video), group=-4)
     application.add_handler(
-        MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_private_photo), group=-4
-    )
-    application.add_handler(
-        MessageHandler(filters.VIDEO & filters.ChatType.PRIVATE, handle_private_video), group=-4
-    )
-    application.add_handler(
-        CallbackQueryHandler(
-            handle_private_callback,
-            pattern=r"^(?:event_private_start|event_private_(?:edit|confirm)_\d+)$",
-        ),
+        CallbackQueryHandler(handle_private_callback, pattern=r"^(?:event_private_start|event_private_(?:edit|confirm)_\d+)$"),
         group=-4,
     )
     application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE,
-            handle_private_text,
-        ),
+        MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_private_text),
         group=-4,
     )
-
     application._melanated_private_event_flow_installed = True
     logger.info("PRIVATE Event submission flow enabled | topic=%s", EVENT_TOPIC_ID)
