@@ -8,6 +8,8 @@ from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes, MessageHandler, filters
 
+import event_router_fix
+
 logger = logging.getLogger("media_router")
 
 MEDIA_CHAT_ID = -1002697105809
@@ -126,6 +128,9 @@ def install_application(application):
     """Install direct group-0 media handlers on the finished application."""
     if getattr(application, "_melanated_media_router_installed", False):
         return
+
+    # Events must claim their topic before the general media router does.
+    event_router_fix.install_application(application)
 
     application.add_handler(
         MessageHandler(filters.PHOTO, handle_photo),
