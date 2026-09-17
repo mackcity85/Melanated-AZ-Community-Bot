@@ -126,10 +126,10 @@ def _platform_keyboard():
     keys = list(PLATFORMS)
     rows = []
     for i in range(0, len(keys), 2):
-        row = []
-        for key in keys[i:i + 2]:
-            row.append(InlineKeyboardButton(PLATFORMS[key][0], callback_data=f"social_platform:{key}"))
-        rows.append(row)
+        rows.append([
+            InlineKeyboardButton(PLATFORMS[key][0], callback_data=f"social_platform:{key}")
+            for key in keys[i:i + 2]
+        ])
     rows.append([InlineKeyboardButton("⬅️ Cancel", callback_data="social_cancel")])
     return InlineKeyboardMarkup(rows)
 
@@ -138,18 +138,9 @@ def _my_links_keyboard(rows):
     buttons = []
     for row in rows:
         buttons.append([
-            InlineKeyboardButton(
-                f"{PLATFORMS[row['platform']][0]} 🔗",
-                url=row["url"],
-            ),
-            InlineKeyboardButton(
-                "✏️ Edit",
-                callback_data=f"social_platform:{row['platform']}",
-            ),
-            InlineKeyboardButton(
-                "🗑",
-                callback_data=f"social_delete:{row['platform']}",
-            ),
+            InlineKeyboardButton(f"{PLATFORMS[row['platform']][0]} 🔗", url=row["url"]),
+            InlineKeyboardButton("✏️ Edit", callback_data=f"social_platform:{row['platform']}"),
+            InlineKeyboardButton("🗑", callback_data=f"social_delete:{row['platform']}"),
         ])
     buttons.append([InlineKeyboardButton("➕ Add Another", callback_data="social_add")])
     buttons.append([InlineKeyboardButton("⬅️ Back", callback_data="social_close")])
@@ -177,7 +168,8 @@ async def send_social_panel(bot):
         message_id = None
         if os.path.exists(PANEL_STATE):
             try:
-                message_id = int(open(PANEL_STATE, "r", encoding="utf-8").read().strip())
+                with open(PANEL_STATE, "r", encoding="utf-8") as fh:
+                    message_id = int(fh.read().strip())
             except Exception:
                 message_id = None
         if message_id:
@@ -212,7 +204,7 @@ async def send_social_panel(bot):
 
 
 async def socials_command(update, context):
-    if not update.effective_user or update.effective_chat.type != "private":
+    if not update.effective_user or not update.effective_chat or update.effective_chat.type != "private":
         return
     initialize_social_media_database()
     await update.effective_message.reply_text(
@@ -226,7 +218,6 @@ async def social_add_callback(update, context):
     query = update.callback_query
     if not query:
         return ConversationHandler.END
-    await query.answer()
     user = update.effective_user
     try:
         await context.bot.send_message(
@@ -235,21 +226,24 @@ async def social_add_callback(update, context):
             reply_markup=_platform_keyboard(),
             parse_mode="HTML",
         )
-        if update.effective_chat and update.effective_chat.id == CHAT_ID:
-            await query.answer("Check your private chat with the bot.", show_alert=True)
+        await query.answer("Check your private chat with the bot.")
     except TelegramError:
-        username = (await context.bot.get_me()).username
-        await query.answer("Open the bot in private first, then tap Add My Social Links again.", show_alert=True)
         try:
-            await context.bot.send_message(
-                chat_id=CHAT_ID,
-                message_thread_id=TOPIC_ID,
-                text="👋🏾 Tap the button below to open Melanated AZ Bot, then come back and tap <b>➕ Add My Social Links</b> again.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🤖 Open Melanated AZ Bot", url=f"https://t.me/{username}")]]),
-                parse_mode="HTML",
-            )
+            username = (await context.bot.get_me()).username
         except TelegramError:
-            pass
+            username = None
+        await query.answer("Open the bot in private first, then tap Add My Social Links again.", show_alert=True)
+        if username:
+            try:
+                await context.bot.send_message(
+                    chat_id=CHAT_ID,
+                    message_thread_id=TOPIC_ID,
+                    text="👋🏾 Open the bot in private first, then come back and tap <b>➕ Add My Social Links</b> again.",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🤖 Open Melanated AZ Bot", url=f"https://t.me/{username}")]]),
+                    parse_mode="HTML",
+                )
+            except TelegramError:
+                pass
         return ConversationHandler.END
     return ADD_PLATFORM
 
@@ -274,7 +268,7 @@ async def social_platform_callback(update, context):
 
 
 async def social_link_message(update, context):
-    if not update.effective_message or update.effective_chat.type != "private":
+    if not update.effective_message or not update.effective_chat or update.effective_chat.type != "private":
         return ENTER_LINK
     platform = context.user_data.get("social_platform")
     if platform not in PLATFORMS:
@@ -294,8 +288,7 @@ async def social_link_message(update, context):
     context.user_data.pop("social_platform", None)
     rows = _get_user_links(user.id)
     await update.effective_message.reply_text(
-        f"✅ <b>{PLATFORMS[platform][0]} saved.</b>\n\n"
-        "Your link is now available in the Melanated AZ friends directory.",
+        f"✅ <b>{PLATFORMS[platform][0]} saved.</b>\n\nYour link is now available in the Melanated AZ friends directory.",
         parse_mode="HTML",
         reply_markup=_my_links_keyboard(rows),
     )
@@ -407,17 +400,12 @@ async def social_close(update, context):
     return ConversationHandler.END
 
 
-async def social_start_deep_link(update, context):
-    # Optional deep-link entry point for users who open the bot from the topic.
-    await socials_command(update, context)
-
-
 def build_social_conversation():
     return ConversationHandler(
         entry_points=[CallbackQueryHandler(social_add_callback, pattern=r"^social_add$")],
         states={
             ADD_PLATFORM: [CallbackQueryHandler(social_platform_callback, pattern=r"^social_platform:")],
-            ENTER_LINK: [MessageHandler(filters.PRIVATE & filters.TEXT & ~filters.COMMAND, social_link_message)],
+            ENTER_LINK: [MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, social_link_message)],
         },
         fallbacks=[
             CallbackQueryHandler(social_cancel, pattern=r"^social_cancel$"),
@@ -431,14 +419,13 @@ def build_social_conversation():
 
 def register_social_media_handlers(application):
     initialize_social_media_database()
-    # Conversation handler first so the Add button and private link entry are isolated.
     application.add_handler(build_social_conversation(), group=-5)
     application.add_handler(CallbackQueryHandler(social_mine_callback, pattern=r"^social_mine$"), group=-4)
     application.add_handler(CallbackQueryHandler(social_browse_callback, pattern=r"^social_browse$"), group=-4)
     application.add_handler(CallbackQueryHandler(social_member_callback, pattern=r"^social_member:\d+$"), group=-4)
     application.add_handler(CallbackQueryHandler(social_delete_callback, pattern=r"^social_delete:"), group=-4)
     application.add_handler(CallbackQueryHandler(social_close, pattern=r"^social_close$"), group=-4)
-    application.add_handler(CommandHandler("socials", socials_command, filters=filters.PRIVATE), group=-4)
+    application.add_handler(CommandHandler("socials", socials_command, filters=filters.ChatType.PRIVATE), group=-4)
 
 
 async def startup_social_media(app):
