@@ -7,6 +7,7 @@ an explicit admin action from the /admin panel.
 import logging
 
 import admin
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 logger = logging.getLogger("melanated_az_social_admin_patch")
 
