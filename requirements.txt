@@ -2,3 +2,6 @@ python-telegram-bot[job-queue]==21.0
 flask
 python-dotenv
 livekit-api
+rapidocr_onnxruntime
+Pillow
+numpy
