@@ -41,6 +41,8 @@ def _message_is_gone_error(exc):
         phrase in text
         for phrase in (
             "message to pin not found",
+            "message to edit not found",
+            "message to delete not found",
             "message not found",
             "message_id_invalid",
             "message identifier is not valid",
@@ -144,8 +146,8 @@ async def _upsert_pin(bot, path, text, keyboard, label):
             return message_id
 
         # We cannot safely distinguish every Telegram pin failure from a
-        # deleted message. Try a lightweight edit only to confirm whether the
-        # stored message still exists. If it exists, leave it alone.
+        # deleted message. Try a lightweight markup update only to confirm
+        # whether the stored message still exists. If it exists, leave it.
         try:
             await bot.edit_message_reply_markup(
                 chat_id=CHAT_ID,
