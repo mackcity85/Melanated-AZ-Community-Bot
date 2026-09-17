@@ -96,8 +96,25 @@ async def _upsert_pin(bot, path, text, keyboard, label):
                 reply_markup=keyboard,
                 parse_mode="HTML",
             )
-            await _pin(bot, msg.message_id, label)
-            return msg
+            actual_thread_id = getattr(msg, "message_thread_id", None)
+            if actual_thread_id != TOPIC_ID:
+                logger.warning(
+                    "Stored %s launcher is in the wrong topic | expected=%s actual=%s message=%s; creating a new launcher.",
+                    label,
+                    TOPIC_ID,
+                    actual_thread_id,
+                    msg.message_id,
+                )
+            else:
+                await _pin(bot, msg.message_id, label)
+                logger.info(
+                    "Games-topic launcher maintained | label=%s chat=%s topic=%s message=%s",
+                    label,
+                    CHAT_ID,
+                    TOPIC_ID,
+                    msg.message_id,
+                )
+                return msg
         except Exception:
             logger.warning(
                 "Existing %s launcher could not be updated; creating a fresh launcher in topic %s.",
@@ -113,8 +130,28 @@ async def _upsert_pin(bot, path, text, keyboard, label):
         reply_markup=keyboard,
         parse_mode="HTML",
     )
+    actual_thread_id = getattr(msg, "message_thread_id", None)
+    if actual_thread_id != TOPIC_ID:
+        logger.error(
+            "Games-topic launcher was sent to an unexpected topic | label=%s expected=%s actual=%s message=%s",
+            label,
+            TOPIC_ID,
+            actual_thread_id,
+            msg.message_id,
+        )
+        raise RuntimeError(
+            f"{label} launcher sent to unexpected topic {actual_thread_id}; expected {TOPIC_ID}"
+        )
+
     _save_id(path, msg.message_id)
     await _pin(bot, msg.message_id, label)
+    logger.info(
+        "Games-topic launcher created | label=%s chat=%s topic=%s message=%s",
+        label,
+        CHAT_ID,
+        TOPIC_ID,
+        msg.message_id,
+    )
     return msg
 
 
