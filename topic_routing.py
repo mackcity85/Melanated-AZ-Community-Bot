@@ -11,7 +11,8 @@
 #
 # Schedule:
 #   Question of the Day: 11:00 AM Arizona time
-#   After Dark:          10:00 PM Arizona time
+#   Daily Community Message: 10:00 AM Arizona time
+#   After Dark: 10:00 PM Arizona time
 # ==========================================================
 
 import os
@@ -27,22 +28,29 @@ os.environ["QUESTION_OF_DAY_TOPIC_ID"] = str(TARGET_TOPIC_ID)
 os.environ["QUESTION_OF_DAY_HOUR"] = "11"
 os.environ["QUESTION_OF_DAY_MINUTE"] = "0"
 
-# After Dark reads these values when daily_messages is imported.
-os.environ["DAILY_MESSAGE_HOUR"] = "22"
+# Daily Community Messages use their own daytime schedule.
+# Do NOT override DAILY_MESSAGE_HOUR here for After Dark.
+os.environ["DAILY_MESSAGE_HOUR"] = "10"
 os.environ["DAILY_MESSAGE_MINUTE"] = "0"
 
 
 def install_after_dark_topic_routing():
-    """Route After Dark content to topic 11999 and schedule it for 10 PM."""
+    """Route the daily community message bank to topic 11999.
+
+    The shared daily_messages scheduler remains at 10:00 AM Arizona.
+    After Dark content is selected from the same bank, but this routing
+    layer must not change the scheduler's time to 10:00 PM.
+    """
     import daily_messages
 
-    # Keep the schedule explicit here as well in case environment values
-    # were changed elsewhere before this function runs.
-    daily_messages.DAILY_MESSAGE_HOUR = 22
+    # Keep the daytime Daily Community Message schedule independent.
+    # The old implementation forced this to 22:00, which incorrectly
+    # moved the entire daily_messages scheduler to 10 PM.
+    daily_messages.DAILY_MESSAGE_HOUR = 10
     daily_messages.DAILY_MESSAGE_MINUTE = 0
 
     # The existing content bank contains several categories. For the
-    # dedicated After Dark schedule, only prompts explicitly labeled
+    # dedicated After Dark routing, only prompts explicitly labeled
     # AFTER DARK / AFTER-DARK are selected.
     after_dark_messages = [
         item for item in daily_messages.DAILY_MESSAGES
