@@ -20,7 +20,7 @@ GAMES = [_game_dict(g) for g in all_games()]
 DIRTY_MINDS_GAME = {"game_id":"dirty_minds","name":"Dirty Minds","icon":"🎭","category":"Party","description":"A multiplayer guessing game where the clues sound dirty but the answers are clean.","multiplayer":True,"max_players":20,"min_players":2,"uses_rooms":True}
 NES_GAMES = get_nes_games(); SNES_GAMES = get_snes_games(); RETRO_GAMES = get_all_retro_games(); GENRE_GAMES = get_genre_games(); CONSOLE_GAMES = NES_GAMES + SNES_GAMES + RETRO_GAMES + GENRE_GAMES
 GAMES_CHAT_ID = int(os.getenv("MAIN_GROUP_ID", "-1002697105809") or "-1002697105809")
-GAMES_TOPIC_ID = 11999
+GAMES_TOPIC_ID = 8809
 ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID", "0") or "0")
 
 def get_game(game_id):
