@@ -1,9 +1,10 @@
 # Compatibility fix for the Events workflow.
 # This patch is intentionally limited to the Events topic (12214).
-# It keeps Event Name member-supplied and adds cleanup of the temporary
-# verification/reminder/reply messages after an event is approved.
+# It keeps Event Name member-supplied, adds Price verification, and cleans
+# temporary verification/reminder/reply messages after an event is approved.
 
 import logging
+import re
 import sqlite3
 
 from telegram.error import TelegramError
@@ -13,6 +14,16 @@ import event_router
 logger = logging.getLogger("event_router_fix")
 
 CLEANUP_TABLE = "event_cleanup_messages"
+
+# Events now require: Event Name, Date, Time, Location, and Price.
+event_router.FIELD_ORDER = ("event", "date", "time", "location", "price")
+event_router.FIELD_LABELS = {
+    "event": "🎉 Event",
+    "date": "📅 Date",
+    "time": "⏰ Time",
+    "location": "📍 Location",
+    "price": "💵 Price",
+}
 
 
 def _db():
@@ -88,7 +99,6 @@ async def _cleanup_after_approval(context, submission_id):
             )
             deleted += 1
         except TelegramError:
-            # Already deleted or no longer deletable; do not break approval.
             logger.info(
                 "Events cleanup skipped message=%s submission=%s",
                 message_id,
@@ -109,14 +119,52 @@ async def _cleanup_after_approval(context, submission_id):
     )
 
 
+def _extract_price(text):
+    """Extract a flyer price while allowing explicit Free/No Cost wording."""
+    raw = str(text or "")
+
+    # Explicit price labels are preferred.
+    labeled = re.search(
+        r"\b(?:price|cost|admission|entry|ticket(?:s)?|cover)\s*[:\-]\s*(.+?)(?=$|\n|\r)",
+        raw,
+        re.IGNORECASE,
+    )
+    if labeled:
+        value = labeled.group(1).strip(" .|-")
+        if re.search(r"\b(?:free|no\s+cost|complimentary)\b", value, re.IGNORECASE):
+            return "Free"
+        money = re.search(r"\$\s*\d+(?:\.\d{1,2})?|\b\d+(?:\.\d{1,2})?\s*(?:USD|dollars?)\b", value, re.IGNORECASE)
+        if money:
+            return money.group(0).strip()
+        if value:
+            return value
+
+    # Otherwise find a standalone money amount or common free wording.
+    if re.search(r"\b(?:free|no\s+cost|complimentary)\b", raw, re.IGNORECASE):
+        return "Free"
+
+    money = re.search(
+        r"\$\s*\d+(?:\.\d{1,2})?|\b\d+(?:\.\d{1,2})?\s*(?:USD|dollars?)\b",
+        raw,
+        re.IGNORECASE,
+    )
+    if money:
+        return money.group(0).strip()
+
+    return None
+
+
 def _member_required_parse_fields(text):
     fields = event_router._parse_fields_original(text)
+    # Event Name must always be entered by the member.
     fields["event"] = None
+    # Date/Time/Location remain OCR-extracted; Price is extracted when present.
+    fields["price"] = _extract_price(text)
     return fields
 
 
 async def _ask_next_missing(update, context, submission_id, fields):
-    """Events-only replacement that lets us track every bot reminder/reply."""
+    """Events-only replacement that tracks every bot reminder/reply."""
     missing = event_router._missing(fields)
     if not missing:
         sent = await update.effective_message.reply_text(
@@ -233,7 +281,7 @@ async def _process_media(update, context):
             error_message = await context.bot.send_message(
                 chat_id=event_router.EVENT_CHAT_ID,
                 message_thread_id=event_router.EVENT_TOPIC_ID,
-                text="⚠️ I couldn't process that flyer. Please resend it or include the Event, Date, Time, and Location in the caption.",
+                text="⚠️ I couldn't process that flyer. Please resend it or include the Event, Date, Time, Location, and Price in the caption.",
             )
             if 'submission_id' in locals():
                 _track_message(submission_id, error_message)
@@ -267,7 +315,7 @@ async def _tracked_handle_event_member_callback(update, context):
     submission_id = None
     query = update.callback_query
     if query and query.data:
-        match = __import__("re").fullmatch(r"event_(?:edit|confirm)_(\d+)", query.data)
+        match = re.fullmatch(r"event_(?:edit|confirm)_(\d+)", query.data)
         if match:
             submission_id = int(match.group(1))
 
@@ -282,7 +330,7 @@ async def _tracked_handle_event_member_callback(update, context):
 async def _tracked_handle_event_admin_callback(update, context):
     query = update.callback_query
     data = query.data if query else ""
-    match = __import__("re").fullmatch(r"event_admin_approve_(\d+)", data)
+    match = re.fullmatch(r"event_admin_approve_(\d+)", data)
     submission_id = int(match.group(1)) if match else None
 
     await event_router._original_handle_event_admin_callback(update, context)
