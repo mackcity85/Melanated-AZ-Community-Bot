@@ -120,10 +120,11 @@ def dirty_minds_state():
 def dirty_minds_start():
     try:
         room,p=_get_dirty_minds_player()
-        if not room.is_host_key(p["player_key"]):raise ValueError("Only the host can start the game.")
+        if not room.is_host_key(p["player_key"]) and room.state.get("approval_status") != "approved":raise ValueError("Only the host can start the game until an admin approves it.")
         if room.state.get("approval_status")!="approved":raise ValueError("This Dirty Minds game is still waiting for admin approval.")
         if room.started:raise ValueError("This Dirty Minds game has already started.")
         state=start_game(room)
+        room.state["started_by_player"] = str(p.get("user_id") or p.get("id") or "")
         _notify_dirty_minds_started(room)
         return jsonify(success=True,state=state)
     except ValueError as e:return jsonify(success=False,error=str(e)),400
