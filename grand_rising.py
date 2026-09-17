@@ -1,13 +1,13 @@
 """Melanated AZ weekday Grand Rising greetings.
 
-Runs at 6:00 AM America/Phoenix from 2026-09-16 through 2027-12-31.
+Runs at 6:00 AM America/Phoenix from 2026-09-16 through 2036-12-31.
 Each weekday has its own theme while keeping the recurring "Grand Rising"
 opener and community-focused tone.
 """
 
 import json
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -19,7 +19,7 @@ CHAT_ID = -1002697105809
 TOPIC_ID = 11999
 ARIZONA_TZ = ZoneInfo("America/Phoenix")
 START_DATE = date(2026, 9, 16)
-END_DATE = date(2027, 12, 31)
+END_DATE = date(2036, 12, 31)
 GREETING_TIME = time(hour=6, minute=0, tzinfo=ARIZONA_TZ)
 JOB_NAME = "melanated-grand-rising"
 RECOVERY_JOB_NAME = "melanated-grand-rising-recovery"
@@ -102,10 +102,7 @@ def _load_state():
 def _save_state(day: date):
     try:
         STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        STATE_FILE.write_text(
-            json.dumps({"last_posted_date": day.isoformat()}),
-            encoding="utf-8",
-        )
+        STATE_FILE.write_text(json.dumps({"last_posted_date": day.isoformat()}), encoding="utf-8")
     except OSError:
         logger.exception("Could not save Grand Rising state.")
 
@@ -118,25 +115,20 @@ async def send_grand_rising(context: ContextTypes.DEFAULT_TYPE, target_date: dat
     day = target_date or _today()
     if day < START_DATE or day > END_DATE:
         return False
-
     state = _load_state()
     if state.get("last_posted_date") == day.isoformat():
         logger.info("Grand Rising already posted | date=%s", day.isoformat())
         return False
-
-    text = WEEKDAY_GREETINGS[day.weekday()]
     message = await context.bot.send_message(
         chat_id=CHAT_ID,
         message_thread_id=TOPIC_ID,
-        text=text,
+        text=WEEKDAY_GREETINGS[day.weekday()],
         parse_mode="HTML",
     )
     _save_state(day)
     logger.info(
         "Grand Rising posted | date=%s | weekday=%s | message=%s | time=06:00 Arizona",
-        day.isoformat(),
-        day.strftime("%A"),
-        message.message_id,
+        day.isoformat(), day.strftime("%A"), message.message_id,
     )
     return True
 
@@ -148,11 +140,7 @@ async def _daily_job(context: ContextTypes.DEFAULT_TYPE):
 async def _startup_recovery(context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(ARIZONA_TZ)
     today = now.date()
-    if today < START_DATE or today > END_DATE:
-        return
-    # Only recover a missed greeting during the morning window. This prevents
-    # a late Render restart from creating a 10 AM/afternoon greeting.
-    if now.hour != 6:
+    if today < START_DATE or today > END_DATE or now.hour != 6:
         return
     await send_grand_rising(context)
 
@@ -162,24 +150,12 @@ def start(application):
     if not job_queue:
         logger.error("Grand Rising scheduler NOT started: JobQueue unavailable.")
         return
-
     for job_name in (JOB_NAME, RECOVERY_JOB_NAME):
         for job in job_queue.get_jobs_by_name(job_name):
             job.schedule_removal()
-
-    job_queue.run_daily(
-        _daily_job,
-        time=GREETING_TIME,
-        name=JOB_NAME,
-    )
-    job_queue.run_once(
-        _startup_recovery,
-        when=8,
-        name=RECOVERY_JOB_NAME,
-    )
+    job_queue.run_daily(_daily_job, time=GREETING_TIME, name=JOB_NAME)
+    job_queue.run_once(_startup_recovery, when=8, name=RECOVERY_JOB_NAME)
     logger.info(
         "Grand Rising scheduler enabled | schedule=06:00 Arizona | start=%s | end=%s | topic=%s",
-        START_DATE.isoformat(),
-        END_DATE.isoformat(),
-        TOPIC_ID,
+        START_DATE.isoformat(), END_DATE.isoformat(), TOPIC_ID,
     )
