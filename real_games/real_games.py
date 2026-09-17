@@ -8,12 +8,13 @@ from .registry import CATEGORY_ORDER, all_games, get_game as registry_get_game
 from .nes_games import get_nes_games
 from .snes_games import get_snes_games
 from .retro_system_games import get_all_retro_games
+from .genre_games import get_genre_games, get_genre_game
 
 real_games_bp = Blueprint("real_games", __name__, url_prefix="/real-games", template_folder="templates")
 def _game_dict(game): return asdict(game)
 GAMES = [_game_dict(g) for g in all_games()]
 DIRTY_MINDS_GAME = {"game_id":"dirty_minds","name":"Dirty Minds","icon":"🎭","category":"Party","description":"A multiplayer guessing game where the clues sound dirty but the answers are clean.","multiplayer":True,"max_players":20,"min_players":2,"uses_rooms":True}
-NES_GAMES = get_nes_games(); SNES_GAMES = get_snes_games(); RETRO_GAMES = get_all_retro_games(); CONSOLE_GAMES = NES_GAMES + SNES_GAMES + RETRO_GAMES
+NES_GAMES = get_nes_games(); SNES_GAMES = get_snes_games(); RETRO_GAMES = get_all_retro_games(); GENRE_GAMES = get_genre_games(); CONSOLE_GAMES = NES_GAMES + SNES_GAMES + RETRO_GAMES + GENRE_GAMES
 
 def get_game(game_id):
     if not game_id: return None
@@ -25,7 +26,7 @@ def get_game(game_id):
     game=registry_get_game(gid);return _game_dict(game) if game else None
 
 def _home_games(): return GAMES + CONSOLE_GAMES
-def _home_categories(): return CATEGORY_ORDER + ["NES","SNES"] + sorted({g["system_name"] for g in RETRO_GAMES})
+def _home_categories(): return CATEGORY_ORDER + ["NES","SNES","Fighting","Sports"] + sorted({g["system_name"] for g in RETRO_GAMES})
 
 @real_games_bp.route("/")
 def real_games_home(): return render_template("real_games.html",games=_home_games(),categories=_home_categories())
@@ -46,6 +47,7 @@ def play_game(game_id):
     if gid.startswith("nes_"):return render_template("nes_games.html",game=game)
     if gid.startswith("snes_"):return render_template("snes_games.html",game=game)
     if gid.startswith("retro_"):return render_template("retro_system_games.html",game=game)
+    if gid in {g["game_id"] for g in GENRE_GAMES}:return render_template("fighting_sports.html",game=game)
     return render_template("game.html",game=game)
 
 @real_games_bp.route("/create-room",methods=["POST"])
