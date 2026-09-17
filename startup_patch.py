@@ -37,16 +37,6 @@ async def _run_social_media_panel_maintenance(context):
         logger.exception("Social Media panel maintenance FAILED | chat=%s topic=%s", -1002697105809, 9513)
 
 
-async def _run_social_media_recovery(context):
-    """Recover saved social profiles whose topic messages were deleted."""
-    try:
-        from social_media_recovery import recover_social_profiles
-        recovered = await recover_social_profiles(context.bot)
-        logger.info("Social Media profile recovery COMPLETE | recovered=%s | chat=%s topic=%s", recovered, -1002697105809, 9513)
-    except Exception:
-        logger.exception("Social Media profile recovery FAILED | chat=%s topic=%s", -1002697105809, 9513)
-
-
 def _install():
     if getattr(ApplicationBuilder, _MARKER, False):
         return
@@ -61,6 +51,14 @@ def _install():
         async def patched_post_init(app):
             if original_post_init:
                 await original_post_init(app)
+
+            # Install the admin-only manual Social Media repost control after
+            # all normal bot modules (including admin.py) are loaded.
+            try:
+                import social_admin_patch  # noqa: F401
+                logger.info("Social admin manual-repost controls enabled")
+            except Exception:
+                logger.exception("Social admin manual-repost patch failed")
 
             try:
                 if app.job_queue:
@@ -94,28 +92,18 @@ def _install():
             except Exception:
                 logger.exception("Social media friends directory startup failed.")
 
-            # Recover saved social profiles from SQLite if their Telegram topic
-            # messages were deleted. This only recreates missing profiles.
-            try:
-                if app.job_queue:
-                    for job in app.job_queue.get_jobs_by_name("social-media-profile-recovery"):
+            # IMPORTANT: Social member profiles are NOT automatically recovered
+            # or reposted. Reposting is now an explicit admin-panel action.
+            for job_name in (
+                "social-media-profile-recovery",
+                "social-media-profile-recovery-startup",
+            ):
+                try:
+                    for job in app.job_queue.get_jobs_by_name(job_name) if app.job_queue else []:
                         job.schedule_removal()
-                    app.job_queue.run_once(
-                        _run_social_media_recovery,
-                        when=10,
-                        name="social-media-profile-recovery-startup",
-                    )
-                    app.job_queue.run_repeating(
-                        _run_social_media_recovery,
-                        interval=600,
-                        first=600,
-                        name="social-media-profile-recovery",
-                    )
-                    logger.info("Social Media profile recovery scheduled | startup=10s | every=600s | chat=%s topic=%s", -1002697105809, 9513)
-                else:
-                    logger.error("Social Media profile recovery NOT scheduled: JobQueue unavailable.")
-            except Exception:
-                logger.exception("Social Media profile recovery scheduling FAILED.")
+                except Exception:
+                    logger.exception("Unable to remove old social profile recovery job | job=%s", job_name)
+            logger.info("Automatic Social Media profile repost/recovery DISABLED | admin-only repost")
 
             try:
                 import intro_persistence
