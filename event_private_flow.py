@@ -243,15 +243,24 @@ async def _send_next_private_field(context, user_id, submission_id):
         "website": "🌐 <b>Website</b>\n\nSend the website/registration link, or type <b>NO WEBSITE</b>.",
     }
 
+    prompt_text = prompts.get(field, f"Please send the <b>{label}</b>.")
+    prompt_keyboard = None
+    if field == "website":
+        prompt_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🌐 ADD WEBSITE / REGISTRATION LINK", callback_data=f"event_private_add_website_{submission_id}")],
+            [InlineKeyboardButton("🚫 NO WEBSITE / SKIP", callback_data=f"event_private_skip_website_{submission_id}")],
+        ])
+
     await context.bot.send_message(
         chat_id=user_id,
         text=(
             "🔒 <b>PRIVATE EVENT INFORMATION</b>\n\n"
             + event_router._format_fields(fields)
             + "\n\n"
-            + prompts.get(field, f"Please send the <b>{label}</b>.")
+            + prompt_text
         ),
         parse_mode="HTML",
+        reply_markup=prompt_keyboard,
     )
     return True
 
@@ -312,6 +321,33 @@ async def handle_private_callback(update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         _clear_context(context)
         await _send_private_start(context, user.id)
+        raise ApplicationHandlerStop
+
+    website_match = re.fullmatch(r"event_private_(add_website|skip_website)_(\d+)", data)
+    if website_match:
+        submission_id = int(website_match.group(2))
+        row = event_router._get_submission(submission_id)
+        if not row or row["user_id"] != user.id:
+            await query.answer("This Event submission is not yours.", show_alert=True)
+            raise ApplicationHandlerStop
+
+        if website_match.group(1) == "skip_website":
+            fields = _fields(row)
+            fields["website"] = "No website provided"
+            event_router._update_submission(submission_id, fields=fields, status="member_input")
+            await query.answer("No website added.")
+            await _send_next_private_field(context, user.id, submission_id)
+            raise ApplicationHandlerStop
+
+        _set_context(context, submission_id, "website")
+        context.user_data[PRIVATE_MODE_KEY] = "filling"
+        await query.answer()
+        await query.message.reply_text(
+            "🌐 <b>ADD WEBSITE / REGISTRATION LINK</b>\n\n"
+            "Send the complete link starting with https:// or http://.\n"
+            "You can also send a www. link.",
+            parse_mode="HTML",
+        )
         raise ApplicationHandlerStop
 
     match = re.fullmatch(r"event_private_(edit|confirm)_(\d+)", data)
@@ -470,7 +506,7 @@ def install_application(application):
     application.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_private_photo), group=-4)
     application.add_handler(MessageHandler(filters.VIDEO & filters.ChatType.PRIVATE, handle_private_video), group=-4)
     application.add_handler(
-        CallbackQueryHandler(handle_private_callback, pattern=r"^(?:event_private_start|event_private_(?:edit|confirm)_\d+)$"),
+        CallbackQueryHandler(handle_private_callback, pattern=r"^(?:event_private_start|event_private_(?:add_website|skip_website|edit|confirm)_\d+)$"),
         group=-4,
     )
     application.add_handler(
