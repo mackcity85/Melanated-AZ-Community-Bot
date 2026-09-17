@@ -1,7 +1,7 @@
 # Compatibility fix for the Events workflow.
 # This patch is intentionally limited to the Events topic (12214).
-# It keeps Event Name member-supplied, adds Price verification, and cleans
-# temporary verification/reminder/reply messages after an event is approved.
+# It keeps Event Name member-supplied, requires full Price entry, detects
+# flyer URLs, and cleans temporary verification messages after approval.
 
 import logging
 import re
@@ -15,7 +15,6 @@ logger = logging.getLogger("event_router_fix")
 
 CLEANUP_TABLE = "event_cleanup_messages"
 
-# Events now require: Event Name, Date, Time, Location, and Price.
 event_router.FIELD_ORDER = ("event", "date", "time", "location", "price")
 event_router.FIELD_LABELS = {
     "event": "🎉 Event",
@@ -82,10 +81,7 @@ def _clear_tracked_messages(submission_id):
 
 
 async def _cleanup_after_approval(context, submission_id):
-    """Delete only temporary bot/member workflow messages in Events topic.
-
-    The approved flyer/event itself is intentionally NOT deleted.
-    """
+    """Delete only temporary bot/member workflow messages in Events topic."""
     message_ids = _tracked_messages(submission_id)
     if not message_ids:
         return
@@ -120,11 +116,7 @@ async def _cleanup_after_approval(context, submission_id):
 
 
 def _extract_price(text):
-    """Detect whether flyer/OCR text contains pricing.
-
-    This function is intentionally only an OCR detector now. Manual member
-    price entry is never replaced with the first detected dollar amount.
-    """
+    """Detect price only for compatibility; manual Price entry is authoritative."""
     raw = str(text or "")
 
     if re.search(r"\b(?:free|no\s+cost|complimentary)\b", raw, re.IGNORECASE):
@@ -141,16 +133,38 @@ def _extract_price(text):
     return None
 
 
+def _extract_website(text):
+    """Find the first usable website/registration URL in flyer OCR or caption."""
+    raw = str(text or "")
+    match = re.search(r"(?i)\bhttps?://[^\s<>\]\[()]+", raw)
+    if not match:
+        match = re.search(r"(?i)\bwww\.[^\s<>\]\[()]+", raw)
+    if not match:
+        return None
+
+    url = match.group(0).rstrip(".,;:!?)\"'")
+    if url.lower().startswith("www."):
+        url = "https://" + url
+    return url
+
+
 def _member_required_parse_fields(text):
     fields = event_router._parse_fields_original(text)
+
     # Event Name must always be entered by the member.
     fields["event"] = None
 
-    # Price must ALWAYS be entered by the member. Flyers can contain
-    # multiple prices, discounts, promo codes, tables, headings, etc.
-    # Never auto-fill Price from OCR because that would skip the private
-    # Price prompt and reduce a structured pricing table to one amount.
+    # Price must ALWAYS be entered by the member. Never let OCR skip the
+    # private Price prompt or reduce a multi-price table to one amount.
     fields["price"] = None
+
+    # Preserve the website/registration link found on the flyer. This keeps
+    # the behavior that previously extracted a flyer URL even though Price
+    # is now intentionally manual.
+    website = _extract_website(text)
+    if website:
+        fields["website"] = website
+
     return fields
 
 
@@ -272,7 +286,7 @@ async def _process_media(update, context):
                 message_thread_id=event_router.EVENT_TOPIC_ID,
                 text="⚠️ I couldn't process that flyer. Please resend it or include the Event, Date, Time, Location, and Price in the caption.",
             )
-            if 'submission_id' in locals():
+            if "submission_id" in locals():
                 _track_message(submission_id, error_message)
         except Exception:
             pass
