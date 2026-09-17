@@ -132,7 +132,104 @@ def _update_submission(submission_id, *, fields=None, status=None, admin_message
         conn.commit()
 
 
-def _fields(row):
+
+
+def _ensure_published_message_column():
+    """Add the publication tracking column for sortable public event flyers."""
+    with _db() as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(event_submissions)").fetchall()}
+        if "published_message_id" not in columns:
+            conn.execute("ALTER TABLE event_submissions ADD COLUMN published_message_id INTEGER")
+        conn.commit()
+
+
+def _event_sort_key(row):
+    """Return a chronological sort key, with unknown dates safely last."""
+    fields = _fields(row)
+    raw = str(fields.get("date") or "").strip()
+    today = datetime.now().date()
+    patterns = (
+        (r"^(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4})$", "%m/%d/%Y"),
+        (r"^(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2})$", "%m/%d/%y"),
+    )
+    parsed = None
+    for pattern, fmt in patterns:
+        if re.match(pattern, raw):
+            try:
+                parsed = datetime.strptime(raw, fmt).date()
+                break
+            except ValueError:
+                pass
+    if parsed is None:
+        cleaned = re.sub(r"(st|nd|rd|th)", "", raw, flags=re.IGNORECASE)
+        for fmt in ("%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y"):
+            try:
+                parsed = datetime.strptime(cleaned, fmt).date()
+                break
+            except ValueError:
+                pass
+    if parsed is None:
+        # Preserve deterministic ordering for dates the parser cannot interpret.
+        return (2, raw.lower(), int(row["id"]))
+    # Upcoming events first; past events remain below upcoming events.
+    return (0 if parsed >= today else 1, parsed, int(row["id"]))
+
+
+def _approved_rows():
+    with _db() as conn:
+        return conn.execute(
+            "SELECT * FROM event_submissions WHERE status='approved' ORDER BY id ASC"
+        ).fetchall()
+
+
+def _set_published_message_id(submission_id, message_id):
+    with _db() as conn:
+        conn.execute(
+            "UPDATE event_submissions SET published_message_id=?, updated_at=? WHERE id=?",
+            (message_id, _now(), submission_id),
+        )
+        conn.commit()
+
+
+async def _republish_events_in_date_order(context):
+    """Rebuild approved Events-topic flyers in chronological event-date order."""
+    rows = sorted(_approved_rows(), key=_event_sort_key)
+    if not rows:
+        return
+
+    # Delete only publications that this newer version has tracked. This makes
+    # reordering safe and avoids touching unrelated messages in the topic.
+    for row in rows:
+        message_id = row["published_message_id"]
+        if message_id:
+            try:
+                await context.bot.delete_message(chat_id=EVENT_CHAT_ID, message_id=message_id)
+            except TelegramError:
+                logger.info("Could not delete prior published event message %s", message_id)
+
+    for row in rows:
+        fields = _fields(row)
+        caption = "📅 <b>EVENT</b>\\n\\n" + _format_fields(fields)
+        if row["media_type"] == "photo":
+            published = await context.bot.send_photo(
+                chat_id=EVENT_CHAT_ID,
+                message_thread_id=EVENT_TOPIC_ID,
+                photo=row["file_id"],
+                caption=caption,
+                parse_mode="HTML",
+            )
+        else:
+            published = await context.bot.send_video(
+                chat_id=EVENT_CHAT_ID,
+                message_thread_id=EVENT_TOPIC_ID,
+                video=row["file_id"],
+                caption=caption,
+                parse_mode="HTML",
+            )
+        _set_published_message_id(row["id"], published.message_id)
+
+    logger.info("Events topic reordered by event day | count=%s", len(rows))
+\n\ndef _fields(row):
     try:
         data = json.loads(row["fields_json"] or "{}")
         return {key: (str(data.get(key) or "").strip() or None) for key in FIELD_ORDER}
@@ -593,6 +690,7 @@ async def handle_event_admin_callback(update, context):
                 parse_mode="HTML",
             )
         _update_submission(submission_id, status="approved")
+        await _republish_events_in_date_order(context)
         try:
             await query.edit_message_text(
                 "✅ <b>EVENT APPROVED & PUBLISHED</b>\n\n"
