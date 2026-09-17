@@ -1,11 +1,4 @@
-"""Guaranteed startup integration for deployments that launch bot.py directly.
-
-Render is currently starting `python bot.py`, so run_bot.py is not part of the
-startup path. This module is imported from config.py, which bot.py imports
-before it builds the Telegram Application. We patch ApplicationBuilder.build()
-so startup work is attached to the actual Application instance regardless of
-the Render start command.
-"""
+"""Guaranteed startup integration for deployments that launch bot.py directly."""
 
 import logging
 
@@ -18,7 +11,7 @@ _MARKER = "_melanated_az_startup_patch_installed"
 
 
 async def _run_games_topic_pin_maintenance(context):
-    """Create/repair the three permanent Games-topic launcher pins."""
+    """Create/repair the three permanent Games-topic launcher pins once at startup."""
     try:
         from games.game_topic_pins import ensure_game_topic_pins
         await ensure_game_topic_pins(context.bot)
@@ -28,13 +21,23 @@ async def _run_games_topic_pin_maintenance(context):
 
 
 async def _run_social_media_panel_maintenance(context):
-    """Keep the Social Media/Friends launcher in topic 9513 permanently available."""
+    """Keep the single Social Media/Friends add panel available in topic 9513."""
     try:
         from social_media import send_social_panel
         message_id = await send_social_panel(context.bot)
         logger.info("Social Media panel maintenance COMPLETE | chat=%s topic=%s message=%s", -1002697105809, 9513, message_id)
     except Exception:
         logger.exception("Social Media panel maintenance FAILED | chat=%s topic=%s", -1002697105809, 9513)
+
+
+async def _run_social_media_recovery(context):
+    """Recover saved member social profiles only when their stored post is missing."""
+    try:
+        from social_media_recovery import recover_social_profiles
+        recovered = await recover_social_profiles(context.bot)
+        logger.info("Social Media profile recovery COMPLETE | recovered=%s | chat=%s topic=%s", recovered, -1002697105809, 9513)
+    except Exception:
+        logger.exception("Social Media profile recovery FAILED | chat=%s topic=%s", -1002697105809, 9513)
 
 
 def _install():
@@ -52,8 +55,16 @@ def _install():
             if original_post_init:
                 await original_post_init(app)
 
-            # Install the admin-only manual Social Media repost control after
-            # all normal bot modules (including admin.py) are loaded.
+            # Install safe social profile publishing/recovery before the
+            # scheduled recovery job runs. It never duplicates a profile on
+            # transient API/network/permission failures.
+            try:
+                import social_media_recovery_patch  # noqa: F401
+                logger.info("Safe Social Media profile recovery enabled")
+            except Exception:
+                logger.exception("Safe Social Media recovery patch failed")
+
+            # Install admin-only manual social repost controls.
             try:
                 import social_admin_patch  # noqa: F401
                 logger.info("Social admin manual-repost controls enabled")
@@ -65,14 +76,12 @@ def _install():
                     for job in app.job_queue.get_jobs_by_name("games-topic-pins-startup"):
                         job.schedule_removal()
                     app.job_queue.run_once(_run_games_topic_pin_maintenance, when=5, name="games-topic-pins-startup")
-                    logger.info("Games-topic pin maintenance scheduled | delay=5s | chat=%s topic=%s", -1002697105809, 8809)
+                    logger.info("Games-topic pin maintenance scheduled ONCE | delay=5s | chat=%s topic=%s", -1002697105809, 8809)
                 else:
                     logger.error("Games-topic pin maintenance NOT scheduled: JobQueue unavailable.")
             except Exception:
                 logger.exception("Games-topic pin maintenance scheduling FAILED.")
 
-            # Social-media / Friends directory for topic 9513.
-            # This panel is intentionally permanent and is repaired if deleted.
             try:
                 from social_media import startup_social_media
                 await startup_social_media(app)
@@ -92,18 +101,30 @@ def _install():
             except Exception:
                 logger.exception("Social media friends directory startup failed.")
 
-            # IMPORTANT: Social member profiles are NOT automatically recovered
-            # or reposted. Reposting is now an explicit admin-panel action.
-            for job_name in (
-                "social-media-profile-recovery",
-                "social-media-profile-recovery-startup",
-            ):
-                try:
-                    for job in app.job_queue.get_jobs_by_name(job_name) if app.job_queue else []:
-                        job.schedule_removal()
-                except Exception:
-                    logger.exception("Unable to remove old social profile recovery job | job=%s", job_name)
-            logger.info("Automatic Social Media profile repost/recovery DISABLED | admin-only repost")
+            # Recover saved member profiles automatically. The safe publisher
+            # only creates a new post when Telegram explicitly reports that
+            # the stored profile message is gone.
+            try:
+                if app.job_queue:
+                    for job_name in ("social-media-profile-recovery", "social-media-profile-recovery-startup"):
+                        for job in app.job_queue.get_jobs_by_name(job_name):
+                            job.schedule_removal()
+                    app.job_queue.run_once(
+                        _run_social_media_recovery,
+                        when=10,
+                        name="social-media-profile-recovery-startup",
+                    )
+                    app.job_queue.run_repeating(
+                        _run_social_media_recovery,
+                        interval=600,
+                        first=600,
+                        name="social-media-profile-recovery",
+                    )
+                    logger.info("Social Media profile recovery scheduled | startup=10s | every=600s | chat=%s topic=%s", -1002697105809, 9513)
+                else:
+                    logger.error("Social Media profile recovery NOT scheduled: JobQueue unavailable.")
+            except Exception:
+                logger.exception("Social Media profile recovery scheduling FAILED.")
 
             try:
                 import intro_persistence
