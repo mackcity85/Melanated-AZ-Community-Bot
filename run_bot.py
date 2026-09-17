@@ -5,6 +5,7 @@
 import bot
 import topic_routing
 import media_router
+import dirty_minds_admin_override
 
 topic_routing.install_all_topic_routing()
 media_router.install(bot)
@@ -51,6 +52,11 @@ async def _run_games_topic_pin_maintenance(context):
 
 def _build_application_with_verified_startup_hooks():
     application = _original_build_application()
+
+    # Dirty Minds approval/start override runs in handler group -1 so admins
+    # can start an approved room even when the host never presses START.
+    dirty_minds_admin_override.install_application(application)
+
     original_post_init = getattr(application, "_post_init", None)
 
     async def verified_startup(application_instance):
