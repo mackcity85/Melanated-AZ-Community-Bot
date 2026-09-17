@@ -7,6 +7,7 @@ import topic_routing
 import media_router
 import dirty_minds_admin_override
 import grand_rising
+import html
 from datetime import time
 from zoneinfo import ZoneInfo
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -134,8 +135,8 @@ async def _daily_raffle_status_public(context):
 
     text = (
         "🎟️ <b>RAFFLE STATUS</b>\n\n"
-        f"🎁 <b>Prize:</b> {str(raffle.get('prize') or 'Unknown')}\n"
-        f"💵 <b>Entry:</b> {str(raffle.get('price') or 'Unknown')}\n"
+        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
         f"⏳ <b>Pending Entries:</b> {len(pending)}\n\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
