@@ -1,17 +1,13 @@
-# ==========================================================
-# Melanated AZ Bot - Notification / Clean Chat Policy
-# ==========================================================
 import asyncio
 import logging
 import os
 from telegram.ext import ExtBot
 from telegram.error import TelegramError
-
 logger = logging.getLogger("melanatedaz.notification_policy")
 CLEAN_CHAT_SECONDS = int(os.environ.get("CLEAN_CHAT_SECONDS", "180") or "180")
 ADMIN_GROUP_ID_ENV = os.environ.get("ADMIN_GROUP_ID", "") or ""
 MAIN_GROUP_ID_ENV = os.environ.get("MAIN_GROUP_ID", "") or ""
-PERMANENT_TOPIC_IDS = {8809, 11570, 11883, 11999}
+PERMANENT_TOPIC_IDS = {8809, 9513, 10286, 11570, 11883, 11999}
 _PATCHED = False
 _ORIGINAL_SEND_MESSAGE = None
 
