@@ -41,9 +41,6 @@ async def _repost_all_social_profiles(update, context):
             )
             return
 
-        # Force a new Telegram message for each saved profile. This is the
-        # ONLY path that intentionally clears topic_message_id and creates a
-        # fresh copy. Normal member edits continue to update the existing post.
         with _connect() as conn:
             conn.execute("UPDATE social_links SET topic_message_id=NULL")
             conn.commit()
@@ -108,8 +105,58 @@ async def _patched_admin_button(update, context):
     await admin._original_admin_button(update, context)
 
 
+def _install_games_admin_compatibility():
+    """Keep Admin Panel -> Games working even if an older Game Center module is deployed."""
+    try:
+        import games.game_center as game_center
+
+        if getattr(game_center, "games_admin_menu", None):
+            return
+
+        async def games_admin_menu(update, context):
+            query = update.callback_query
+            user = update.effective_user
+
+            if not user:
+                return
+
+            if not await admin.is_admin(user.id, context):
+                if query:
+                    try:
+                        await query.answer("⛔ You are not authorized.", show_alert=True)
+                    except Exception:
+                        pass
+                return
+
+            if query:
+                try:
+                    await query.answer()
+                except Exception:
+                    pass
+
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎮 Open Game Center", callback_data="games_home")],
+                    [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
+                ])
+
+                await query.edit_message_text(
+                    "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
+                    "✅ Admin access confirmed.\n\n"
+                    "Use the Game Center below to view and launch the available games.",
+                    reply_markup=keyboard,
+                    parse_mode="HTML",
+                )
+
+        game_center.games_admin_menu = games_admin_menu
+        logger.info("Games admin compatibility handler installed")
+
+    except Exception:
+        logger.exception("Unable to install Games admin compatibility handler")
+
+
 def install():
     if getattr(admin, "_social_admin_patch_installed", False):
+        _install_games_admin_compatibility()
         return
 
     admin._original_admin_main_keyboard = admin.admin_main_keyboard
@@ -117,7 +164,6 @@ def install():
     admin.admin_main_keyboard = _patched_admin_main_keyboard
     admin.admin_button = _patched_admin_button
 
-    # bot.py imports admin_button directly, so patch that reference too.
     try:
         import bot
         bot.admin_button = _patched_admin_button
@@ -125,6 +171,7 @@ def install():
         logger.exception("Unable to patch bot.admin_button reference")
 
     admin._social_admin_patch_installed = True
+    _install_games_admin_compatibility()
     logger.info("Social admin manual-repost controls installed")
 
 
