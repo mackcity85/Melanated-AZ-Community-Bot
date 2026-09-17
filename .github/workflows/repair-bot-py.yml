@@ -1,0 +1,44 @@
+name: Repair bot.py
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.head_commit.message != 'Restore bot.py and register After Dark scheduler'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore bot.py from known-good parent and add After Dark registration
+        shell: python
+        run: |
+          import subprocess
+          from pathlib import Path
+
+          subprocess.run(["git", "checkout", "cb89af5b50660738111a06df4c8f574424ede099", "--", "bot.py"], check=True)
+          p = Path("bot.py")
+          text = p.read_text(encoding="utf-8")
+
+          old = '''    # Direct QOTD integration belongs to the real bot application.\n    try:\n        from topic_routing import install_all_topic_routing\n        install_all_topic_routing()\n        from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler\n        register_question_of_day_handlers(application)\n        start_question_of_day_scheduler(application)\n    except Exception:\n        logger.exception("Unable to initialize Question of the Day scheduler.")'''
+
+          new = '''    # QOTD and After Dark are separate startup paths.\n    try:\n        from topic_routing import install_all_topic_routing\n        install_all_topic_routing()\n        from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler\n        register_question_of_day_handlers(application)\n        start_question_of_day_scheduler(application)\n    except Exception:\n        logger.exception("Unable to initialize Question of the Day scheduler.")\n\n    try:\n        from topic_routing import start_after_dark_scheduler\n        start_after_dark_scheduler(application)\n        jobs = application.job_queue.get_jobs_by_name("melanated-after-dark-message") if application.job_queue else []\n        if jobs:\n            logger.info("After Dark scheduler REGISTERED | jobs=%s | schedule=23:00 Arizona | chat=-1002697105809 topic=11999", len(jobs))\n        else:\n            logger.error("After Dark scheduler NOT REGISTERED | JobQueue job missing during build_application.")\n    except Exception:\n        logger.exception("Unable to initialize After Dark scheduler.")'''
+
+          if old not in text:
+              raise SystemExit("Expected build_application QOTD block not found in restored parent bot.py")
+          p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+      - name: Commit repaired bot.py
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bot.py
+          git commit -m "Restore bot.py and register After Dark scheduler"
+          git push
