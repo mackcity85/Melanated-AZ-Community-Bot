@@ -234,7 +234,12 @@ async def _send_next_private_field(context, user_id, submission_id):
         "date": "📅 <b>Date</b>\n\nPlease enter the Event date.",
         "time": "⏰ <b>Time</b>\n\nPlease enter the Event start time (and end time if applicable).",
         "location": "📍 <b>Location</b>\n\nPlease enter the Event venue/location.",
-        "price": "💵 <b>Price</b>\n\nPlease enter the Event price, or type <b>Free</b>.",
+        "price": (
+            "💵 <b>Price</b>\n\n"
+            "Please enter the <b>full pricing information</b>. You can paste multiple prices, "
+            "early-bird discounts, promo codes, headings, or a pricing table exactly as provided.\n\n"
+            "If the Event is free, type <b>Free</b>."
+        ),
         "website": "🌐 <b>Website</b>\n\nSend the website/registration link, or type <b>NO WEBSITE</b>.",
     }
 
@@ -296,7 +301,7 @@ async def handle_private_text(update, context: ContextTypes.DEFAULT_TYPE):
     raise ApplicationHandlerStop
 
 
-async def handle_private_callback(update, context):
+async def handle_private_callback(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user = update.effective_user
     if not query or not user or not query.message or query.message.chat.type != "private":
