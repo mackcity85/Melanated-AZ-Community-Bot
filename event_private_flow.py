@@ -7,7 +7,7 @@ import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
-from telegram.ext import ApplicationHandlerStop, CommandHandler, ContextTypes, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import ApplicationHandlerStop, ContextTypes, MessageHandler, CallbackQueryHandler, filters
 
 import event_router
 import event_router_fix
@@ -16,8 +16,6 @@ logger = logging.getLogger("event_private_flow")
 
 EVENT_CHAT_ID = event_router.EVENT_CHAT_ID
 EVENT_TOPIC_ID = event_router.EVENT_TOPIC_ID
-
-PRIVATE_START_PREFIX = "event_"
 
 
 def _private_keyboard(submission_id):
@@ -107,7 +105,7 @@ async def _send_start_link(context, user_id, submission_id):
         raise RuntimeError("Bot username unavailable for Event private deep link")
 
     link = f"https://t.me/{username}?start=event_{submission_id}"
-    return await context.bot.send_message(
+    message = await context.bot.send_message(
         chat_id=EVENT_CHAT_ID,
         message_thread_id=EVENT_TOPIC_ID,
         text=(
@@ -120,6 +118,14 @@ async def _send_start_link(context, user_id, submission_id):
             [InlineKeyboardButton("🔒 OPEN PRIVATE EVENT FORM", url=link)]
         ]),
     )
+
+    # event_router_fix already cleans tracked Events-topic workflow messages
+    # after approval. Track this fallback notice so it is removed too.
+    tracker = getattr(event_router_fix, "_track_message", None)
+    if tracker:
+        tracker(submission_id, message)
+
+    return message
 
 
 async def _process_group_media(update, context):
@@ -380,8 +386,9 @@ def install_application(application):
     if getattr(application, "_melanated_private_event_flow_installed", False):
         return
 
-    # The existing Events compatibility layer is still installed so its
-    # admin approval/publication logic remains the source of truth.
+    # Register these handlers first. The existing Events compatibility layer
+    # is installed immediately afterward and continues to own admin approval
+    # and public publication.
     application.add_handler(
         MessageHandler(filters.PHOTO, handle_group_photo),
         group=0,
