@@ -15,14 +15,17 @@ logger = logging.getLogger("event_router_fix")
 
 CLEANUP_TABLE = "event_cleanup_messages"
 
-event_router.FIELD_ORDER = ("event", "date", "time", "location", "price")
+# Website is retained in saved/formatted fields, but is optional.
+event_router.FIELD_ORDER = ("event", "date", "time", "location", "price", "website")
 event_router.FIELD_LABELS = {
     "event": "🎉 Event",
     "date": "📅 Date",
     "time": "⏰ Time",
     "location": "📍 Location",
     "price": "💵 Price",
+    "website": "🌐 Website",
 }
+_REQUIRED_FIELDS = ("event", "date", "time", "location", "price")
 
 
 def _db():
@@ -81,7 +84,6 @@ def _clear_tracked_messages(submission_id):
 
 
 async def _cleanup_after_approval(context, submission_id):
-    """Delete only temporary bot/member workflow messages in Events topic."""
     message_ids = _tracked_messages(submission_id)
     if not message_ids:
         return
@@ -116,7 +118,6 @@ async def _cleanup_after_approval(context, submission_id):
 
 
 def _extract_price(text):
-    """Detect price only for compatibility; manual Price entry is authoritative."""
     raw = str(text or "")
 
     if re.search(r"\b(?:free|no\s+cost|complimentary)\b", raw, re.IGNORECASE):
@@ -134,18 +135,31 @@ def _extract_price(text):
 
 
 def _extract_website(text):
-    """Find the first usable website/registration URL in flyer OCR or caption."""
+    """Find and normalize the first website/registration URL in flyer OCR/caption."""
     raw = str(text or "")
+
+    # First prefer explicit http(s) URLs.
     match = re.search(r"(?i)\bhttps?://[^\s<>\]\[()]+", raw)
     if not match:
         match = re.search(r"(?i)\bwww\.[^\s<>\]\[()]+", raw)
-    if not match:
-        return None
 
-    url = match.group(0).rstrip(".,;:!?)\"'")
-    if url.lower().startswith("www."):
-        url = "https://" + url
-    return url
+    if match:
+        url = match.group(0).rstrip(".,;:!?)\"'")
+        if url.lower().startswith("www."):
+            url = "https://" + url
+        return url
+
+    # OCR often drops the scheme and/or inserts spaces around punctuation.
+    # Accept common domain-style registration links as a fallback.
+    match = re.search(
+        r"(?i)\b(?:[a-z0-9-]+\.)+(?:com|org|net|co|io|us|me)(?:/[a-z0-9._~:/?#\[\]@!$&'()*+,;=%-]*)?",
+        raw,
+    )
+    if match:
+        url = match.group(0).rstrip(".,;:!?)\"'")
+        return "https://" + url
+
+    return None
 
 
 def _member_required_parse_fields(text):
@@ -158,19 +172,25 @@ def _member_required_parse_fields(text):
     # private Price prompt or reduce a multi-price table to one amount.
     fields["price"] = None
 
-    # Preserve the website/registration link found on the flyer. This keeps
-    # the behavior that previously extracted a flyer URL even though Price
-    # is now intentionally manual.
     website = _extract_website(text)
     if website:
         fields["website"] = website
+    else:
+        fields["website"] = None
 
     return fields
 
 
-async def _ask_next_missing(update, context, submission_id, fields):
-    """Events-only replacement that tracks every bot reminder/reply."""
-    missing = event_router._missing(fields)
+def _missing_required(fields):
+    return [key for key in _REQUIRED_FIELDS if not fields.get(key)]
+
+
+def _ask_next_missing(update, context, submission_id, fields):
+    return _ask_next_missing_async(update, context, submission_id, fields)
+
+
+async def _ask_next_missing_async(update, context, submission_id, fields):
+    missing = _missing_required(fields)
     if not missing:
         sent = await update.effective_message.reply_text(
             "🔎 <b>VERIFY EVENT INFORMATION</b>\n\n"
@@ -234,7 +254,7 @@ async def _process_media(update, context):
         except TelegramError:
             logger.warning("Could not delete pending event flyer message %s", message.message_id)
 
-        missing = event_router._missing(fields)
+        missing = _missing_required(fields)
         if missing:
             missing_lines = "\n".join(f"❌ {event_router.FIELD_LABELS[key]}" for key in missing)
             reminder = await context.bot.send_message(
@@ -306,11 +326,11 @@ async def _fixed_handle_event_video(update, context):
 
 
 async def _tracked_handle_event_text(update, context):
-    """Track the member's temporary reply, then let the existing handler work."""
     submission_id = context.user_data.get("event_submission_id")
     message = update.effective_message
     await event_router._original_handle_event_text(update, context)
     if submission_id and message and message.chat_id == event_router.EVENT_CHAT_ID and getattr(message, "message_thread_id", None) == event_router.EVENT_TOPIC_ID:
+        # Keep member-entered text available for post-approval cleanup.
         _track_message(submission_id, message)
 
 
@@ -357,6 +377,7 @@ def install_application(application):
         event_router._original_handle_event_admin_callback = event_router.handle_event_admin_callback
 
     event_router._parse_fields = _member_required_parse_fields
+    event_router._missing = _missing_required
     event_router._process_media = _process_media
     event_router._ask_next_missing = _ask_next_missing
     event_router.handle_event_photo = _fixed_handle_event_photo
