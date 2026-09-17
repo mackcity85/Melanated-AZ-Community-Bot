@@ -60,8 +60,7 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # The notice is intentionally temporary. The Media topic itself is NOT
-    # cleaned up by this module or by chat_cleanup.py/notification_policy.py.
+    # The notice is temporary. The Media topic itself is NOT cleaned up.
     try:
         source_topic = getattr(message, "message_thread_id", None)
         if source_topic is not None:
@@ -79,7 +78,7 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if context.job_queue:
             context.job_queue.run_once(
                 _delete_notice,
-                when=30,
+                when=60,
                 data={"chat_id": notice.chat_id, "message_id": notice.message_id},
                 name=f"media-move-notice:{notice.message_id}",
             )
