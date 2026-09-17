@@ -1,8 +1,4 @@
-"""Permanent member-facing Truth or Dare panel for the Games topic.
-
-The launcher is maintained by games.game_topic_pins so all Games-topic
-launchers use one startup path and one topic ID.
-"""
+"""Permanent member-facing Truth or Dare panel for the Games topic."""
 import json
 import logging
 from pathlib import Path
@@ -10,8 +6,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 logger = logging.getLogger("melanated_az.truth_dare_pin")
 CHAT_ID = -1002697105809
-TOPIC_ID = 11999
-STATE_FILE = Path("/var/data/truth_dare_games_pin_11999.json")
+TOPIC_ID = 8809
+STATE_FILE = Path("/var/data/truth_dare_games_pin_8809.json")
 
 TEXT = (
     "🔥 <b>TRUTH OR DARE</b> 🔥\n\n"
@@ -45,7 +41,7 @@ def _save_id(message_id):
 
 
 async def ensure_truth_dare_pin(bot):
-    """Create/update the Truth or Dare launcher strictly in Games topic 11999."""
+    """Create/update the Truth or Dare launcher strictly in Games topic 8809."""
     message_id = _load_id()
     if message_id:
         try:
