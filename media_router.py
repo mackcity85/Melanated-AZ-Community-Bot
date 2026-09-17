@@ -6,8 +6,7 @@ import logging
 
 from telegram import Update
 from telegram.error import TelegramError
-from telegram.ext import ContextTypes
-
+from telegram.ext import ContextTypes, MessageHandler, filters
 
 logger = logging.getLogger("media_router")
 
@@ -21,14 +20,23 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message:
         return
 
-    if not message.photo and not message.video:
+    if message.chat_id != MEDIA_CHAT_ID:
         return
 
-    if message.chat_id != MEDIA_CHAT_ID:
+    if not message.photo and not message.video:
         return
 
     if getattr(message, "message_thread_id", None) == MEDIA_TOPIC_ID:
         return
+
+    logger.info(
+        "Media routing received | chat=%s | topic=%s | message=%s | photo=%s | video=%s",
+        message.chat_id,
+        getattr(message, "message_thread_id", None),
+        message.message_id,
+        bool(message.photo),
+        bool(message.video),
+    )
 
     try:
         await context.bot.copy_message(
@@ -37,33 +45,57 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_id=message.message_id,
             message_thread_id=MEDIA_TOPIC_ID,
         )
-
-        try:
-            notice = await context.bot.send_message(
-                chat_id=MEDIA_CHAT_ID,
-                message_thread_id=getattr(message, "message_thread_id", None),
-                text=MOVE_NOTICE,
-            )
-            if context.job_queue:
-                context.job_queue.run_once(
-                    _delete_notice,
-                    when=30,
-                    data={"chat_id": notice.chat_id, "message_id": notice.message_id},
-                )
-        except TelegramError:
-            logger.exception("Could not send media move notice.")
-
-        try:
-            await message.delete()
-        except TelegramError:
-            logger.exception("Could not delete original media message after moving it.")
-
-    except TelegramError:
-        logger.exception(
-            "Could not move media | chat=%s | message=%s | target_topic=%s",
-            MEDIA_CHAT_ID,
+        logger.info(
+            "Media copied successfully | source_message=%s | target_topic=%s",
             message.message_id,
             MEDIA_TOPIC_ID,
+        )
+    except TelegramError:
+        logger.exception(
+            "Could not move media | chat=%s | message=%s | source_topic=%s | target_topic=%s",
+            MEDIA_CHAT_ID,
+            message.message_id,
+            getattr(message, "message_thread_id", None),
+            MEDIA_TOPIC_ID,
+        )
+        return
+
+    # The notice is intentionally temporary. The Media topic itself is NOT
+    # cleaned up by this module or by chat_cleanup.py/notification_policy.py.
+    try:
+        source_topic = getattr(message, "message_thread_id", None)
+        if source_topic is not None:
+            notice = await context.bot.send_message(
+                chat_id=MEDIA_CHAT_ID,
+                message_thread_id=source_topic,
+                text=MOVE_NOTICE,
+            )
+        else:
+            notice = await context.bot.send_message(
+                chat_id=MEDIA_CHAT_ID,
+                text=MOVE_NOTICE,
+            )
+
+        if context.job_queue:
+            context.job_queue.run_once(
+                _delete_notice,
+                when=30,
+                data={"chat_id": notice.chat_id, "message_id": notice.message_id},
+                name=f"media-move-notice:{notice.message_id}",
+            )
+    except TelegramError:
+        logger.exception("Could not send media move notice.")
+
+    try:
+        await message.delete()
+        logger.info(
+            "Original media deleted after successful copy | message=%s",
+            message.message_id,
+        )
+    except TelegramError:
+        logger.exception(
+            "Could not delete original media message after moving it | message=%s",
+            message.message_id,
         )
 
 
@@ -87,30 +119,40 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _move_media(update, context)
 
 
+def install_application(application):
+    """Install direct group-0 media handlers on the finished application.
+
+    These handlers are deliberately registered after bot.py builds the
+    application so no later module can replace the callback. Group 0 gives
+    them priority over the older moderation handlers in bot.py.
+    """
+    if getattr(application, "_melanated_media_router_installed", False):
+        return
+
+    application.add_handler(
+        MessageHandler(filters.PHOTO, handle_photo),
+        group=0,
+    )
+    application.add_handler(
+        MessageHandler(filters.VIDEO, handle_video),
+        group=0,
+    )
+    application._melanated_media_router_installed = True
+
+    logger.info(
+        "Media topic routing enabled | chat=%s | topic=%s | direct_handlers=2",
+        MEDIA_CHAT_ID,
+        MEDIA_TOPIC_ID,
+    )
+
+
 def install(bot_module):
-    """Bind the media callbacks directly onto the handlers created by bot.py."""
+    """Compatibility hook; application-level installation is preferred."""
     original_build_application = bot_module.build_application
 
     def wrapped_build_application(*args, **kwargs):
         application = original_build_application(*args, **kwargs)
-        replaced = 0
-
-        for handlers in application.handlers.values():
-            for handler in handlers:
-                callback_name = getattr(getattr(handler, "callback", None), "__name__", "")
-                if callback_name == "handle_photo":
-                    handler.callback = handle_photo
-                    replaced += 1
-                elif callback_name == "handle_video":
-                    handler.callback = handle_video
-                    replaced += 1
-
-        logger.info(
-            "Media topic routing enabled | chat=%s | topic=%s | handlers_replaced=%s",
-            MEDIA_CHAT_ID,
-            MEDIA_TOPIC_ID,
-            replaced,
-        )
+        install_application(application)
         return application
 
     bot_module.build_application = wrapped_build_application
