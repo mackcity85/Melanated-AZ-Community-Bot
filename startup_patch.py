@@ -17,16 +17,6 @@ async def _run_games_topic_pin_maintenance(context):
         logger.exception("Games-topic pin maintenance FAILED | chat=%s topic=%s", -1002697105809, 8809)
 
 
-async def _run_social_media_panel_startup(context):
-    """Create the Social Media panel once if it is missing; never recur."""
-    try:
-        from social_media import send_social_panel
-        message_id = await send_social_panel(context.bot)
-        logger.info("Social Media panel startup COMPLETE | chat=%s topic=%s message=%s", -1002697105809, 9513, message_id)
-    except Exception:
-        logger.exception("Social Media panel startup FAILED | chat=%s topic=%s", -1002697105809, 9513)
-
-
 async def _run_social_media_profile_recovery(context):
     try:
         from social_media_recovery import recover_social_profiles
@@ -66,17 +56,13 @@ def _install():
             except Exception:
                 logger.exception("Games-topic pin startup scheduling FAILED")
 
-            # Social panel is startup-only. No recurring maintenance and no
-            # recurring re-pin of the same panel.
+            # Social Media panel is initialized exactly once per bot startup.
+            # startup_social_media() already calls send_social_panel(), so do
+            # not schedule a second panel startup job here.
             try:
                 from social_media import startup_social_media
                 await startup_social_media(app)
-                if app.job_queue:
-                    for name in ("social-media-panel-maintenance", "social-media-panel-startup"):
-                        for job in app.job_queue.get_jobs_by_name(name):
-                            job.schedule_removal()
-                    app.job_queue.run_once(_run_social_media_panel_startup, when=2, name="social-media-panel-startup")
-                logger.info("Social Media panel enabled | startup-only | no recurring re-pin")
+                logger.info("Social Media panel initialized once | chat=%s topic=%s | no recurring re-pin", -1002697105809, 9513)
             except Exception:
                 logger.exception("Social media friends directory startup failed")
 
