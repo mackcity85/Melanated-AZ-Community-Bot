@@ -20,9 +20,31 @@ raffle_manual_nav_fix.install()
 
 # PTB stores ApplicationBuilder.post_init() on the Application as the
 # internal _post_init callback. Assigning application.post_init does not
-# replace the callback used by run_polling(), so the previous startup wrapper
-# never executed. Wrap the actual callback before polling starts.
+# replace the callback used by run_polling(), so the startup wrapper below
+# replaces the actual _post_init callback.
 _original_build_application = bot.build_application
+
+
+async def _run_games_topic_pin_maintenance(context):
+    """Run the Games-topic launcher maintenance after PTB JobQueue starts."""
+    bot.logger.info(
+        "Games-topic pin maintenance START | chat=%s topic=%s",
+        -1002697105809,
+        11999,
+    )
+    try:
+        await ensure_game_topic_pins(context.bot)
+        bot.logger.info(
+            "Games-topic pin maintenance COMPLETE | chat=%s topic=%s",
+            -1002697105809,
+            11999,
+        )
+    except Exception:
+        bot.logger.exception(
+            "Games-topic pin maintenance FAILED | chat=%s topic=%s",
+            -1002697105809,
+            11999,
+        )
 
 
 def _build_application_with_verified_startup_hooks():
@@ -33,12 +55,32 @@ def _build_application_with_verified_startup_hooks():
         if original_post_init:
             await original_post_init(application_instance)
 
-        # Keep the three member-facing Games-topic launchers separate:
-        # Game Center, Dirty Minds, and Truth or Dare.
+        # Schedule Games-topic maintenance through the JobQueue instead of
+        # doing Telegram API work inline during post_init. This guarantees the
+        # task runs after PTB's scheduler is fully started and gives us an
+        # explicit startup log if anything fails.
         try:
-            await ensure_game_topic_pins(application_instance.bot)
+            job_queue = application_instance.job_queue
+            if not job_queue:
+                bot.logger.error(
+                    "Games-topic pin maintenance NOT scheduled: JobQueue unavailable."
+                )
+            else:
+                for job in job_queue.get_jobs_by_name("games-topic-pins-startup"):
+                    job.schedule_removal()
+
+                job_queue.run_once(
+                    _run_games_topic_pin_maintenance,
+                    when=5,
+                    name="games-topic-pins-startup",
+                )
+                bot.logger.info(
+                    "Games-topic pin maintenance scheduled | delay=5s | chat=%s topic=%s",
+                    -1002697105809,
+                    11999,
+                )
         except Exception:
-            bot.logger.exception("Games-topic launcher pin startup failed.")
+            bot.logger.exception("Games-topic pin maintenance scheduling FAILED.")
 
         try:
             await intro_persistence.recover_saved_introductions(application_instance)
