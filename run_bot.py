@@ -15,6 +15,7 @@ from telegram.constants import ParseMode
 from raffle import (
     get_active_raffle,
     get_pending_entries,
+    get_approved_entries,
     is_free_raffle,
     format_expiration,
 )
@@ -37,17 +38,6 @@ raffle_manual_nav_fix.install()
 # ==========================================================
 # ADMIN PANEL — CENTRAL CALLBACK ROUTER REPAIR
 # ==========================================================
-# bot.py historically performed an authorization check BEFORE calling
-# admin_button(). That made every admin_* callback silently disappear when
-# the preliminary live ADMIN_GROUP_ID check failed, even though admin.py has
-# its own centralized authorization/error handling. Patch the router here so
-# every admin callback reaches the authoritative admin dispatcher.
-#
-# This intentionally patches the function before build_application() creates
-# the CallbackQueryHandler, so the running application uses this router for
-# the entire admin panel, including dynamic callbacks.
-# ==========================================================
-
 _original_admin_callback_router = bot.admin_callback_router
 
 
@@ -67,8 +57,6 @@ async def _verified_admin_callback_router(update, context):
     )
 
     try:
-        # Call admin_button directly. It owns the authoritative admin gate,
-        # and this avoids the old router's silent pre-authentication drop.
         await bot.admin_button(update, context)
     except Exception:
         bot.logger.exception(
@@ -88,10 +76,6 @@ async def _verified_admin_callback_router(update, context):
 bot.admin_callback_router = _verified_admin_callback_router
 
 
-# PTB stores ApplicationBuilder.post_init() on the Application as the
-# internal _post_init callback. Assigning application.post_init does not
-# replace the callback used by run_polling(), so the startup wrapper below
-# replaces the actual _post_init callback.
 _original_build_application = bot.build_application
 
 
@@ -118,13 +102,14 @@ async def _run_games_topic_pin_maintenance(context):
 
 
 async def _daily_raffle_status_public(context):
-    """Post the public 5 PM raffle status without exposing approved-entry count."""
+    """Post the public 5 PM raffle status with counts only, never entry details."""
     raffle = get_active_raffle()
     if not raffle:
         bot.logger.info("Daily raffle status skipped: no active raffle.")
         return
 
     free = is_free_raffle(raffle.get("price"))
+    approved = get_approved_entries(raffle["id"])
     pending = get_pending_entries(raffle["id"])
     rows = [[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]]
     if not free:
@@ -138,6 +123,7 @@ async def _daily_raffle_status_public(context):
         f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
         f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
+        f"✅ <b>Approved Entries:</b> {len(approved)}\n"
         f"⏳ <b>Pending Entries:</b> {len(pending)}\n\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
@@ -166,17 +152,11 @@ async def _daily_raffle_status_public(context):
 
 def _build_application_with_verified_startup_hooks():
     application = _original_build_application()
-
-    # Dirty Minds approval/start override runs in handler group -1 so admins
-    # can start an approved room even when the host never presses START.
     dirty_minds_admin_override.install_application(application)
 
     original_post_init = getattr(application, "_post_init", None)
 
     async def verified_startup(application_instance):
-        # A Telegram/API failure in the original post_init must not prevent
-        # the independent schedulers from being installed. Keep the original
-        # startup work best-effort, then always continue into scheduler setup.
         if original_post_init:
             try:
                 await original_post_init(application_instance)
@@ -185,13 +165,6 @@ def _build_application_with_verified_startup_hooks():
                     "Original post_init failed; continuing with verified startup hooks."
                 )
 
-        # ==========================================================
-        # DAILY RAFFLE STATUS — 5:00 PM ARIZONA
-        # ==========================================================
-        # The existing raffle scheduler is intentionally overridden here so
-        # the public status/repost runs once every day at 5 PM Arizona time.
-        # Remove any previously registered daily-raffle-status jobs first to
-        # prevent the old noon schedule from producing a duplicate post.
         try:
             job_queue = application_instance.job_queue
             if job_queue:
@@ -214,17 +187,11 @@ def _build_application_with_verified_startup_hooks():
         except Exception:
             bot.logger.exception("Daily raffle status 5 PM scheduler setup failed.")
 
-        # Grand Rising is a separate 6 AM Arizona weekday-themed greeting.
-        # It is independent from the 10 AM Daily Community question and the
-        # 11 PM After Dark schedule.
         try:
             grand_rising.start(application_instance)
         except Exception:
             bot.logger.exception("Grand Rising scheduler startup hook failed.")
 
-        # After Dark is an independent 11 PM Arizona job. Install it even if
-        # another startup task above failed, and log the resulting JobQueue job
-        # so Render startup logs prove that it is actually registered.
         try:
             topic_routing.start_after_dark_scheduler(application_instance)
             jobs = application_instance.job_queue.get_jobs_by_name(
@@ -244,10 +211,6 @@ def _build_application_with_verified_startup_hooks():
         except Exception:
             bot.logger.exception("After Dark scheduler startup hook failed.")
 
-        # Schedule Games-topic maintenance through the JobQueue instead of
-        # doing Telegram API work inline during post_init. This guarantees the
-        # task runs after PTB's scheduler is fully started and gives us an
-        # explicit startup log if anything fails.
         try:
             job_queue = application_instance.job_queue
             if not job_queue:
@@ -257,7 +220,6 @@ def _build_application_with_verified_startup_hooks():
             else:
                 for job in job_queue.get_jobs_by_name("games-topic-pins-startup"):
                     job.schedule_removal()
-
                 job_queue.run_once(
                     _run_games_topic_pin_maintenance,
                     when=5,
@@ -308,8 +270,6 @@ def _build_application_with_verified_startup_hooks():
         except Exception:
             bot.logger.exception("Verified intro reminder startup hook failed.")
 
-    # IMPORTANT: run_polling() executes Application._post_init. Replace that
-    # callback directly instead of assigning the read-only post_init property.
     application._post_init = verified_startup
     return application
 
