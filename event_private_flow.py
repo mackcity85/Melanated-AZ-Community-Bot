@@ -103,6 +103,29 @@ async def handle_private_start(update, context: ContextTypes.DEFAULT_TYPE):
     await start_private_event(update, context)
 
 
+async def _run_ocr(image_bytes, source):
+    """Run OCR without allowing an OCR failure to kill the submission flow."""
+    if not image_bytes:
+        logger.warning("Private Event OCR skipped: no image bytes | source=%s", source)
+        return ""
+
+    try:
+        text = event_router._ocr_image(image_bytes) or ""
+        text = str(text).strip()
+        logger.info(
+            "Private Event OCR complete | source=%s | chars=%s | lines=%s",
+            source,
+            len(text),
+            len(text.splitlines()) if text else 0,
+        )
+        if not text:
+            logger.warning("Private Event OCR returned no text | source=%s", source)
+        return text
+    except Exception:
+        logger.exception("Private Event OCR failed | source=%s", source)
+        return ""
+
+
 async def _save_private_media(update, context):
     message = update.effective_message
     user = update.effective_user
@@ -116,7 +139,7 @@ async def _save_private_media(update, context):
     try:
         if message.photo:
             image_bytes, file_id, media_type = await event_router._download_photo(message)
-            ocr_text = event_router._ocr_image(image_bytes)
+            ocr_text = await _run_ocr(image_bytes, "photo")
         else:
             file_id = message.video.file_id
             media_type = "video"
@@ -126,30 +149,58 @@ async def _save_private_media(update, context):
                 try:
                     thumb_file = await thumbnail.get_file()
                     thumb_bytes = bytes(await thumb_file.download_as_bytearray())
-                    thumb_text = event_router._ocr_image(thumb_bytes)
+                    thumb_text = await _run_ocr(thumb_bytes, "video-thumbnail")
                     ocr_text = "\n".join(v for v in (thumb_text, ocr_text) if v)
                 except Exception:
                     logger.exception("Private Event video thumbnail OCR failed")
 
         combined_text = "\n".join(v for v in (ocr_text, message.caption or "") if v)
-        if hasattr(event_router_fix, "_member_required_parse_fields"):
-            fields = event_router_fix._member_required_parse_fields(combined_text)
-        else:
-            fields = event_router._parse_fields(combined_text)
+
+        # OCR is helpful, but NEVER required for the private workflow.
+        # If OCR returns nothing, create the submission with blank fields and
+        # immediately ask the member for the missing information.
+        try:
+            if hasattr(event_router_fix, "_member_required_parse_fields"):
+                fields = event_router_fix._member_required_parse_fields(combined_text)
+            else:
+                fields = event_router._parse_fields(combined_text)
+        except Exception:
+            logger.exception("Private Event field parsing failed; using blank fields")
+            fields = {key: None for key in event_router.FIELD_ORDER}
+
+        # Guarantee every currently configured field exists in the saved data.
+        for key in event_router.FIELD_ORDER:
+            fields.setdefault(key, None)
 
         submission_id = event_router._save_submission(
             user, message, media_type, file_id, fields, status="member_input"
         )
+
         _set_context(context, submission_id)
         context.user_data[PRIVATE_MODE_KEY] = "filling"
+
+        # The source flyer was sent privately, so there is nothing public to
+        # delete here. Move directly into missing-field collection.
         await _send_next_private_field(context, user.id, submission_id)
-        logger.info("Private Event flyer captured | submission=%s | user=%s", submission_id, user.id)
+
+        logger.info(
+            "Private Event flyer captured | submission=%s | user=%s | ocr_chars=%s | fields=%s | missing=%s",
+            submission_id,
+            user.id,
+            len(combined_text),
+            fields,
+            _missing(fields),
+        )
         return True
+
     except Exception:
         logger.exception("Private Event flyer processing failed")
         await context.bot.send_message(
             chat_id=user.id,
-            text="⚠️ I couldn't process that flyer. Please send the flyer again here.",
+            text=(
+                "⚠️ I couldn't save that flyer. Please send the flyer again here.\n\n"
+                "If OCR cannot read the flyer, I will still ask you for the missing Event information manually."
+            ),
         )
         return True
 
@@ -167,10 +218,23 @@ async def handle_private_video(update, context):
 async def _send_next_private_field(context, user_id, submission_id):
     row = event_router._get_submission(int(submission_id))
     if not row or row["user_id"] != user_id:
+        logger.warning(
+            "Private Event submission lookup failed | submission=%s | user=%s",
+            submission_id,
+            user_id,
+        )
         return False
 
     fields = _fields(row)
     missing = _missing(fields)
+
+    logger.info(
+        "Private Event field collection | submission=%s | fields=%s | missing=%s",
+        submission_id,
+        fields,
+        missing,
+    )
+
     if not missing:
         _set_context(context, submission_id)
         event_router._update_submission(submission_id, status="awaiting_confirmation")
@@ -188,19 +252,41 @@ async def _send_next_private_field(context, user_id, submission_id):
 
     field = missing[0]
     _set_context(context, submission_id, field)
+
+    label = event_router.FIELD_LABELS.get(field, field.title())
+
+    # Give the member exactly one clear private prompt at a time.
+    if field == "event":
+        prompt = "🎉 <b>Event Name</b>\n\nPlease enter the name/title of the Event."
+    elif field == "date":
+        prompt = "📅 <b>Date</b>\n\nPlease enter the Event date."
+    elif field == "time":
+        prompt = "⏰ <b>Time</b>\n\nPlease enter the Event start time (and end time if applicable)."
+    elif field == "location":
+        prompt = "📍 <b>Location</b>\n\nPlease enter the Event venue/location."
+    elif field == "price":
+        prompt = "💵 <b>Price</b>\n\nPlease enter the Event price, or type <b>Free</b>."
+    elif field == "website":
+        # event_website_patch normally replaces this prompt/keyboard, but keep
+        # a safe fallback here in case installation order changes.
+        prompt = "🌐 <b>Website</b>\n\nSend the website/registration link, or type <b>NO WEBSITE</b>."
+    else:
+        prompt = f"Please send the <b>{label}</b>."
+
     await context.bot.send_message(
         chat_id=user_id,
         text=(
             "🔒 <b>PRIVATE EVENT INFORMATION</b>\n\n"
             + event_router._format_fields(fields)
-            + f"\n\nPlease send the <b>{event_router.FIELD_LABELS[field]}</b>."
+            + "\n\n"
+            + prompt
         ),
         parse_mode="HTML",
     )
     return True
 
 
-async def handle_private_text(update, context):
+async def handle_private_text(update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     user = update.effective_user
     if not message or not user or not message.text or message.chat.type != "private":
@@ -211,7 +297,9 @@ async def handle_private_text(update, context):
         return
 
     if mode == "awaiting_flyer":
-        await message.reply_text("🔒 This Event submission is private. Please send the Event flyer/photo/video here first.")
+        await message.reply_text(
+            "🔒 This Event submission is private. Please send the Event flyer/photo/video here first."
+        )
         raise ApplicationHandlerStop
 
     submission_id = context.user_data.get(SUBMISSION_KEY)
@@ -226,8 +314,22 @@ async def handle_private_text(update, context):
 
     value = message.text.strip()
     if not value:
-        await message.reply_text(f"Please provide {event_router.FIELD_LABELS[field]}.")
+        await message.reply_text(f"Please provide {event_router.FIELD_LABELS.get(field, field)}.")
         raise ApplicationHandlerStop
+
+    # Website is handled by event_website_patch's wrapper when that field is
+    # active. This handler still accepts a simple NO WEBSITE value safely.
+    if field == "website":
+        if value.lower() in {"none", "no", "n/a", "na", "skip", "no website", "no website / skip"}:
+            value = "No website provided"
+        elif not re.match(r"^https?://", value, re.IGNORECASE):
+            if re.match(r"^www\.", value, re.IGNORECASE):
+                value = "https://" + value
+            else:
+                await message.reply_text(
+                    "Please send a complete link starting with https:// or http://, or type NO WEBSITE."
+                )
+                raise ApplicationHandlerStop
 
     fields = _fields(row)
     fields[field] = value
@@ -371,11 +473,9 @@ def install_application(application):
     if getattr(application, "_melanated_private_event_flow_installed", False):
         return
 
-    # event_router supplies the existing approval/publish callbacks.
     event_router.install_application(application)
     _remove_public_event_handlers(application)
 
-    # Public Events topic: flyers are deleted and NEVER processed.
     application.add_handler(
         MessageHandler(filters.PHOTO, block_public_event_media), group=-10
     )
@@ -383,7 +483,6 @@ def install_application(application):
         MessageHandler(filters.VIDEO, block_public_event_media), group=-10
     )
 
-    # Private entry points.
     application.add_handler(CommandHandler("event", start_private_event), group=-5)
     application.add_handler(
         MessageHandler(filters.Regex(r"^/start(?:@\w+)?\s+event\s*$"), handle_private_start),
