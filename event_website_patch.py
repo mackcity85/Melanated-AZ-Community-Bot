@@ -5,6 +5,9 @@
 import html
 import re
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackQueryHandler
+
 import event_router
 import event_private_flow
 
@@ -14,6 +17,7 @@ WEBSITE_LABEL = "🌐 Website"
 _original_fields = event_router._fields
 _original_missing = event_router._missing
 _original_parse_fields = event_router._parse_fields
+_original_install_private = event_private_flow.install_application
 
 
 def _fields(row):
@@ -28,26 +32,20 @@ def _fields(row):
 
 
 def _missing(fields):
-    # Event, Date, Time and Location remain required.
     required_missing = [key for key in _original_missing(fields) if key != WEBSITE_FIELD]
     if required_missing:
         return required_missing
-
-    # Website is optional, but the member gets a private prompt and a Skip button.
     if not fields.get(WEBSITE_FIELD):
         return [WEBSITE_FIELD]
-
     return []
 
 
 def _parse_fields(text):
     fields = _original_parse_fields(text)
     text = str(text or "")
-
     match = re.search(r"(?i)\bhttps?://[^\s<>\]\[()]+", text)
     if not match:
         match = re.search(r"(?i)\bwww\.[^\s<>\]\[()]+", text)
-
     if match:
         url = match.group(0).rstrip(".,;:!?)\"")
         if url.lower().startswith("www."):
@@ -55,7 +53,6 @@ def _parse_fields(text):
         fields[WEBSITE_FIELD] = url
     else:
         fields[WEBSITE_FIELD] = None
-
     return fields
 
 
@@ -85,17 +82,11 @@ def _private_keyboard(submission_id, website_missing=False):
     ]
     if website_missing:
         rows.append([
-            InlineKeyboardButton(
-                "🚫 NO WEBSITE / SKIP",
-                callback_data=f"event_private_skip_website_{submission_id}",
-            )
+            InlineKeyboardButton("🚫 NO WEBSITE / SKIP", callback_data=f"event_private_skip_website_{submission_id}")
         ])
     else:
         rows.append([
-            InlineKeyboardButton(
-                "✅ CONFIRM & SUBMIT",
-                callback_data=f"event_private_confirm_{submission_id}",
-            )
+            InlineKeyboardButton("✅ CONFIRM & SUBMIT", callback_data=f"event_private_confirm_{submission_id}")
         ])
     return InlineKeyboardMarkup(rows)
 
@@ -245,9 +236,34 @@ def install():
     event_router._parse_fields = _parse_fields
     event_router._format_fields = _format_fields
 
-    # Save the original handler so the wrapper can fall through for other fields.
     event_private_flow._original_private_text = event_private_flow.handle_private_text
     event_private_flow._private_keyboard = _private_keyboard
     event_private_flow._send_private_form = _wrapped_private_form
     event_private_flow.handle_private_text = _handle_private_text
-    event_private_flow._website_patch_installed = True
+
+    if not getattr(event_private_flow, "_website_install_wrapped", False):
+        async def _install_with_website_handler(application):
+            result = _original_install_private(application)
+            application.add_handler(
+                CallbackQueryHandler(
+                    _skip_website,
+                    pattern=r"^event_private_skip_website_\d+$",
+                ),
+                group=0,
+            )
+            return result
+
+        # install_application is synchronous; keep the wrapper synchronous.
+        def _install_with_website_handler_sync(application):
+            result = _original_install_private(application)
+            application.add_handler(
+                CallbackQueryHandler(
+                    _skip_website,
+                    pattern=r"^event_private_skip_website_\d+$",
+                ),
+                group=0,
+            )
+            return result
+
+        event_private_flow.install_application = _install_with_website_handler_sync
+        event_private_flow._website_install_wrapped = True
