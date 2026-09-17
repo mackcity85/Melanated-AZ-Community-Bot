@@ -7,8 +7,8 @@ from telegram.ext import ApplicationBuilder
 
 logger = logging.getLogger("melanated_az.truth_dare_pin")
 CHAT_ID = -1002697105809
-TOPIC_ID = 8809
-STATE_FILE = Path("/var/data/truth_dare_games_pin.json")
+TOPIC_ID = 11999
+STATE_FILE = Path("/var/data/truth_dare_games_pin_11999.json")
 MARKER = "_melanated_az_truth_dare_pin_installed"
 
 TEXT = (
