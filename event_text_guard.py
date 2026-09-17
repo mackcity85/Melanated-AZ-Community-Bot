@@ -47,9 +47,7 @@ async def handle_event_topic_text(update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    # If the member has no active private form, silently redirect them to the
-    # bot. The flyer itself must be submitted first so a private submission can
-    # be created.
+    # If the member has no active private form, redirect them to the bot.
     try:
         bot = await context.bot.get_me()
         if bot.username:
@@ -76,8 +74,13 @@ def install_application(application):
     if getattr(application, "_melanated_event_text_guard_installed", False):
         return
 
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_topic_text),
-        group=0,
+    handler = MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        handle_event_topic_text,
     )
+
+    # event_private_flow installs the legacy Events text handler in group 0.
+    # Insert this guard at the front so it always wins for the Events topic.
+    handlers = application.handlers.setdefault(0, [])
+    handlers.insert(0, handler)
     application._melanated_event_text_guard_installed = True
