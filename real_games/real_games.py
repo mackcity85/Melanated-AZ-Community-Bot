@@ -44,10 +44,11 @@ def play_game(game_id):
         player=room.get_player_by_key(player_key)
         if not player:return "<h2>Player Not Found</h2>",403
         return render_template("dirty_minds.html",game=game,room_id=room.room_id,player_key=player_key,player_name=player.get("name","Player"))
+    if game.get("genre") == "fighting":return render_template("fighting_sports.html",game=game)
+    if game.get("genre") == "sports":return render_template("sports_games.html",game=game)
     if gid.startswith("nes_"):return render_template("nes_games.html",game=game)
     if gid.startswith("snes_"):return render_template("snes_games.html",game=game)
     if gid.startswith("retro_"):return render_template("retro_system_games.html",game=game)
-    if gid in {g["game_id"] for g in GENRE_GAMES}:return render_template("fighting_sports.html",game=game)
     return render_template("game.html",game=game)
 
 @real_games_bp.route("/create-room",methods=["POST"])
@@ -79,8 +80,7 @@ def _get_dirty_minds_player():
 
 @real_games_bp.route("/api/dirty-minds/state")
 def dirty_minds_state():
-    try:
-        room,p=_get_dirty_minds_player();return jsonify(success=True,state=public_room_state(room,player_key=p["player_key"]))
+    try: room,p=_get_dirty_minds_player();return jsonify(success=True,state=public_room_state(room,player_key=p["player_key"]))
     except ValueError as e:return jsonify(success=False,error=str(e)),400
 @real_games_bp.route("/api/dirty-minds/start",methods=["POST"])
 def dirty_minds_start():
