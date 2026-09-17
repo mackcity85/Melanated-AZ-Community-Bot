@@ -6,6 +6,7 @@ import bot
 import topic_routing
 import media_router
 import dirty_minds_admin_override
+import grand_rising
 
 topic_routing.install_all_topic_routing()
 media_router.install(bot)
@@ -70,6 +71,14 @@ def _build_application_with_verified_startup_hooks():
                 bot.logger.exception(
                     "Original post_init failed; continuing with verified startup hooks."
                 )
+
+        # Grand Rising is a separate 6 AM Arizona weekday-themed greeting.
+        # It is independent from the 10 AM Daily Community question and the
+        # 11 PM After Dark schedule.
+        try:
+            grand_rising.start(application_instance)
+        except Exception:
+            bot.logger.exception("Grand Rising scheduler startup hook failed.")
 
         # After Dark is an independent 11 PM Arizona job. Install it even if
         # another startup task above failed, and log the resulting JobQueue job
