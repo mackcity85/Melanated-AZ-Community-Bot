@@ -152,37 +152,132 @@ async def _daily_raffle_status_public(context):
         )
 
 
-# ==========================================================
-# BUILD APPLICATION
-# ==========================================================
+def _build_application_with_verified_startup_hooks():
+    application = _original_build_application()
+    dirty_minds_admin_override.install_application(application)
 
-def build_application(*args, **kwargs):
-    application = _original_build_application(*args, **kwargs)
+    original_post_init = getattr(application, "_post_init", None)
 
-    job_queue = application.job_queue
-    if job_queue:
-        job_queue.run_daily(
-            _daily_raffle_status_public,
-            time(hour=14, minute=0, tzinfo=ZoneInfo("America/Phoenix")),
-            name="daily-raffle-status",
-        )
-        bot.logger.info(
-            "Daily raffle status scheduler VERIFIED | time=14:00 Arizona | chat=-1002697105809 topic=11883"
-        )
-        job_queue.run_once(
-            _run_games_topic_pin_maintenance,
-            when=5,
-            name="games-topic-pin-maintenance-startup",
-        )
+    async def verified_startup(application_instance):
+        if original_post_init:
+            try:
+                await original_post_init(application_instance)
+            except Exception:
+                bot.logger.exception(
+                    "Original post_init failed; continuing with verified startup hooks."
+                )
 
+        try:
+            job_queue = application_instance.job_queue
+            if job_queue:
+                for job in job_queue.get_jobs_by_name("daily-raffle-status"):
+                    job.schedule_removal()
+                job_queue.run_daily(
+                    _daily_raffle_status_public,
+                    time(hour=14, minute=0, tzinfo=ZoneInfo("America/Phoenix")),
+                    name="daily-raffle-status",
+                )
+                bot.logger.info(
+                    "Daily raffle status scheduler VERIFIED | time=14:00 Arizona | chat=%s topic=%s",
+                    -1002697105809,
+                    11883,
+                )
+            else:
+                bot.logger.error(
+                    "Daily raffle status NOT scheduled: JobQueue unavailable."
+                )
+        except Exception:
+            bot.logger.exception("Daily raffle status 2 PM scheduler setup failed.")
+
+        try:
+            grand_rising.start(application_instance)
+        except Exception:
+            bot.logger.exception("Grand Rising scheduler startup hook failed.")
+
+        try:
+            topic_routing.start_after_dark_scheduler(application_instance)
+            jobs = application_instance.job_queue.get_jobs_by_name(
+                "melanated-after-dark-message"
+            ) if application_instance.job_queue else []
+            if jobs:
+                bot.logger.info(
+                    "After Dark scheduler VERIFIED | jobs=%s | schedule=23:00 Arizona | chat=%s topic=%s",
+                    len(jobs),
+                    -1002697105809,
+                    11999,
+                )
+            else:
+                bot.logger.error(
+                    "After Dark scheduler NOT VERIFIED | JobQueue job missing after startup."
+                )
+        except Exception:
+            bot.logger.exception("After Dark scheduler startup hook failed.")
+
+        try:
+            job_queue = application_instance.job_queue
+            if not job_queue:
+                bot.logger.error(
+                    "Games-topic pin maintenance NOT scheduled: JobQueue unavailable."
+                )
+            else:
+                for job in job_queue.get_jobs_by_name("games-topic-pins-startup"):
+                    job.schedule_removal()
+                job_queue.run_once(
+                    _run_games_topic_pin_maintenance,
+                    when=5,
+                    name="games-topic-pins-startup",
+                )
+                bot.logger.info(
+                    "Games-topic pin maintenance scheduled | delay=5s | chat=%s topic=%s",
+                    -1002697105809,
+                    11999,
+                )
+        except Exception:
+            bot.logger.exception("Games-topic pin maintenance scheduling FAILED.")
+
+        try:
+            await intro_persistence.recover_saved_introductions(application_instance)
+        except Exception:
+            bot.logger.exception("Verified intro recovery startup hook failed.")
+
+        try:
+            job_queue = application_instance.job_queue
+            if not job_queue:
+                bot.logger.error("Verified intro reminders NOT started: JobQueue unavailable.")
+                return
+
+            for job_name in (
+                "monthly-intro-reminders",
+                "monthly-intro-reminders-initial",
+                intro_reminder_fix.JOB_NAME,
+                intro_reminder_fix.INITIAL_JOB_NAME,
+            ):
+                for job in job_queue.get_jobs_by_name(job_name):
+                    job.schedule_removal()
+
+            job_queue.run_once(
+                intro_reminder_fix.send_intro_reminders,
+                when=15,
+                name=intro_reminder_fix.INITIAL_JOB_NAME,
+            )
+            job_queue.run_repeating(
+                intro_reminder_fix.send_intro_reminders,
+                interval=60 * 60,
+                first=60 * 60,
+                name=intro_reminder_fix.JOB_NAME,
+            )
+            bot.logger.info(
+                "Verified intro reminder startup hook enabled | initial=15s | sweep=hourly | per-member=30d"
+            )
+        except Exception:
+            bot.logger.exception("Verified intro reminder startup hook failed.")
+
+    application._post_init = verified_startup
     return application
 
 
-bot.build_application = build_application
+bot.build_application = _build_application_with_verified_startup_hooks
 
 
-# ==========================================================
-# LAUNCH
-# ==========================================================
 if __name__ == "__main__":
-    bot.run_bot()
+    bot.main()
