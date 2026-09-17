@@ -54,13 +54,36 @@ def _build_application_with_verified_startup_hooks():
     original_post_init = getattr(application, "_post_init", None)
 
     async def verified_startup(application_instance):
+        # A Telegram/API failure in the original post_init must not prevent
+        # the independent schedulers from being installed. Keep the original
+        # startup work best-effort, then always continue into scheduler setup.
         if original_post_init:
-            await original_post_init(application_instance)
+            try:
+                await original_post_init(application_instance)
+            except Exception:
+                bot.logger.exception(
+                    "Original post_init failed; continuing with verified startup hooks."
+                )
 
-        # Daily Community runs at 10 AM. After Dark is intentionally a
-        # separate 10 PM job installed by topic_routing.py.
+        # After Dark is an independent 11 PM Arizona job. Install it even if
+        # another startup task above failed, and log the resulting JobQueue job
+        # so Render startup logs prove that it is actually registered.
         try:
             topic_routing.start_after_dark_scheduler(application_instance)
+            jobs = application_instance.job_queue.get_jobs_by_name(
+                "melanated-after-dark-message"
+            ) if application_instance.job_queue else []
+            if jobs:
+                bot.logger.info(
+                    "After Dark scheduler VERIFIED | jobs=%s | schedule=23:00 Arizona | chat=%s topic=%s",
+                    len(jobs),
+                    -1002697105809,
+                    11999,
+                )
+            else:
+                bot.logger.error(
+                    "After Dark scheduler NOT VERIFIED | JobQueue job missing after startup."
+                )
         except Exception:
             bot.logger.exception("After Dark scheduler startup hook failed.")
 
