@@ -13,6 +13,7 @@ import admin_truth_dare_qotd  # noqa: F401
 import intro_persistence
 import intro_reminder_fix
 import raffle_manual_nav_fix
+from games.game_topic_pins import ensure_game_topic_pins
 
 raffle_manual_nav_fix.install()
 
@@ -32,17 +33,18 @@ def _build_application_with_verified_startup_hooks():
         if original_post_init:
             await original_post_init(application_instance)
 
-        # Recover every real saved introduction that still exists in the
-        # community DB. This only adds missing/current intro posts; it never
-        # deletes, cleans, migrates, or overwrites existing topic content.
+        # Keep the three member-facing Games-topic launchers separate:
+        # Game Center, Dirty Minds, and Truth or Dare.
+        try:
+            await ensure_game_topic_pins(application_instance.bot)
+        except Exception:
+            bot.logger.exception("Games-topic launcher pin startup failed.")
+
         try:
             await intro_persistence.recover_saved_introductions(application_instance)
         except Exception:
             bot.logger.exception("Verified intro recovery startup hook failed.")
 
-        # The original bot startup schedules legacy reminder jobs. Remove
-        # those and install one reliable fixed scheduler. Delivery remains
-        # limited to one successful reminder per member every 30 days.
         try:
             job_queue = application_instance.job_queue
             if not job_queue:
