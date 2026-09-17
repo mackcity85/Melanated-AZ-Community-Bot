@@ -4,19 +4,22 @@
 # ==========================================================
 
 import html
+import logging
 import os
 import re
 import sqlite3
 from urllib.parse import urlparse
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandler, MessageHandler, filters
 from telegram.error import TelegramError
+from telegram.ext import CallbackQueryHandler, CommandHandler, ConversationHandler, MessageHandler, filters
 
 CHAT_ID = -1002697105809
 TOPIC_ID = 9513
 DB_PATH = os.environ.get("SOCIAL_MEDIA_DB", "/var/data/social_media.db").strip()
 PANEL_STATE = os.path.join("/var/data" if os.path.isdir("/var/data") else ".", "social_media_panel_9513.txt")
+
+logger = logging.getLogger(__name__)
 
 PLATFORMS = {
     "instagram": ("📸 Instagram", "instagram.com"),
@@ -48,7 +51,7 @@ PLATFORM_ALIASES = {
     "telegram": "https://t.me/",
 }
 
-ADD_PLATFORM, ENTER_LINK = range(2)
+ADD_PLATFORM, ENTER_LINK, ENTER_OTHER_NAME, ENTER_OTHER_LINK = range(4)
 
 
 def _connect():
@@ -71,6 +74,9 @@ def initialize_social_media_database():
                 PRIMARY KEY (user_id, platform)
             )"""
         )
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(social_links)").fetchall()}
+        if "topic_message_id" not in columns:
+            conn.execute("ALTER TABLE social_links ADD COLUMN topic_message_id INTEGER")
         conn.commit()
 
 
@@ -78,17 +84,18 @@ def _normalize(platform, raw):
     value = (raw or "").strip()
     if not value:
         return None
-    if not re.match(r"^https?://", value, re.I):
+    if platform in PLATFORM_ALIASES and not re.match(r"^https?://", value, re.I):
         value = PLATFORM_ALIASES[platform] + value.lstrip("@/")
     parsed = urlparse(value)
     if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
         return None
-    host = parsed.netloc.lower().split(":", 1)[0]
-    expected = PLATFORMS[platform][1]
-    if not (host == expected or host.endswith("." + expected)):
-        return None
     if len(value) > 500:
         return None
+    if platform in PLATFORMS:
+        host = parsed.netloc.lower().split(":", 1)[0]
+        expected = PLATFORMS[platform][1]
+        if not (host == expected or host.endswith("." + expected)):
+            return None
     return value
 
 
@@ -110,7 +117,7 @@ def _save_link(user_id, platform, url, display_name, username):
 def _get_user_links(user_id):
     with _connect() as conn:
         return conn.execute(
-            "SELECT platform,url,display_name,username FROM social_links WHERE user_id=? ORDER BY platform",
+            "SELECT platform,url,display_name,username,topic_message_id FROM social_links WHERE user_id=? ORDER BY platform",
             (user_id,),
         ).fetchall()
 
@@ -118,8 +125,12 @@ def _get_user_links(user_id):
 def _get_members():
     with _connect() as conn:
         return conn.execute(
-            "SELECT DISTINCT user_id, display_name FROM social_links ORDER BY COALESCE(display_name,''), user_id"
+            "SELECT user_id, MAX(display_name) AS display_name FROM social_links GROUP BY user_id ORDER BY COALESCE(display_name,''), user_id"
         ).fetchall()
+
+
+def _platform_label(platform):
+    return PLATFORMS.get(platform, (platform, ""))[0]
 
 
 def _platform_keyboard():
@@ -130,6 +141,7 @@ def _platform_keyboard():
             InlineKeyboardButton(PLATFORMS[key][0], callback_data=f"social_platform:{key}")
             for key in keys[i:i + 2]
         ])
+    rows.append([InlineKeyboardButton("➕ Other", callback_data="social_other")])
     rows.append([InlineKeyboardButton("⬅️ Cancel", callback_data="social_cancel")])
     return InlineKeyboardMarkup(rows)
 
@@ -138,7 +150,7 @@ def _my_links_keyboard(rows):
     buttons = []
     for row in rows:
         buttons.append([
-            InlineKeyboardButton(f"{PLATFORMS[row['platform']][0]} 🔗", url=row["url"]),
+            InlineKeyboardButton(f"{_platform_label(row['platform'])} 🔗", url=row["url"]),
             InlineKeyboardButton("✏️ Edit", callback_data=f"social_platform:{row['platform']}"),
             InlineKeyboardButton("🗑", callback_data=f"social_delete:{row['platform']}"),
         ])
@@ -155,13 +167,75 @@ def _topic_panel_keyboard():
     ])
 
 
+def _topic_profile_keyboard(rows):
+    buttons = []
+    for row in rows:
+        buttons.append([InlineKeyboardButton(_platform_label(row["platform"]), url=row["url"])])
+    buttons.append([InlineKeyboardButton("➕ Add / Update My Links", callback_data="social_add")])
+    return InlineKeyboardMarkup(buttons)
+
+
+def _topic_profile_text(rows):
+    if not rows:
+        return None
+    name = rows[0]["display_name"] or "Melanated AZ Member"
+    lines = [
+        "📱 <b>NEW SOCIAL PROFILE</b>",
+        "",
+        f"👤 <b>{html.escape(name)}</b>",
+        "",
+        "Connect with this Melanated AZ member:",
+    ]
+    for row in rows:
+        lines.append(f"• {_platform_label(row['platform'])}")
+    return "\n".join(lines)
+
+
+async def _publish_member_profile(bot, user_id):
+    rows = _get_user_links(user_id)
+    if not rows:
+        return
+    text = _topic_profile_text(rows)
+    markup = _topic_profile_keyboard(rows)
+    message_id = rows[0]["topic_message_id"]
+
+    if message_id:
+        try:
+            await bot.edit_message_text(
+                chat_id=CHAT_ID,
+                message_id=int(message_id),
+                text=text,
+                reply_markup=markup,
+                parse_mode="HTML",
+            )
+            return
+        except TelegramError:
+            message_id = None
+
+    try:
+        message = await bot.send_message(
+            chat_id=CHAT_ID,
+            message_thread_id=TOPIC_ID,
+            text=text,
+            reply_markup=markup,
+            parse_mode="HTML",
+        )
+        with _connect() as conn:
+            conn.execute(
+                "UPDATE social_links SET topic_message_id=? WHERE user_id=?",
+                (message.message_id, user_id),
+            )
+            conn.commit()
+    except TelegramError:
+        logger.exception("Unable to publish social profile | user_id=%s", user_id)
+
+
 async def send_social_panel(bot):
     initialize_social_media_database()
     text = (
         "📱 <b>MELANATED AZ — CONNECT &amp; ADD FRIENDS</b>\n\n"
         "Want people in the community to find you on social media?\n\n"
-        "Add your social links, then browse other members who have shared theirs. "
-        "Only links you choose to add are displayed.\n\n"
+        "Add your social links and your social profile will be posted in this topic so members can connect with you.\n\n"
         "👇🏾 Choose an option below."
     )
     try:
@@ -172,6 +246,7 @@ async def send_social_panel(bot):
                     message_id = int(fh.read().strip())
             except Exception:
                 message_id = None
+
         if message_id:
             try:
                 await bot.edit_message_text(
@@ -181,9 +256,15 @@ async def send_social_panel(bot):
                     reply_markup=_topic_panel_keyboard(),
                     parse_mode="HTML",
                 )
+                # Re-pin on every startup so the launcher remains pinned even
+                # if someone manually unpinned it.
+                try:
+                    await bot.pin_chat_message(CHAT_ID, message_id, disable_notification=True)
+                except TelegramError:
+                    logger.warning("Unable to re-pin social panel | message=%s", message_id)
                 return message_id
             except TelegramError:
-                pass
+                message_id = None
 
         message = await bot.send_message(
             chat_id=CHAT_ID,
@@ -197,9 +278,10 @@ async def send_social_panel(bot):
         try:
             await bot.pin_chat_message(CHAT_ID, message.message_id, disable_notification=True)
         except TelegramError:
-            pass
+            logger.exception("Unable to pin social panel | message=%s", message.message_id)
         return message.message_id
     except TelegramError:
+        logger.exception("Unable to create social panel")
         return None
 
 
@@ -222,7 +304,7 @@ async def social_add_callback(update, context):
     try:
         await context.bot.send_message(
             chat_id=user.id,
-            text="📱 <b>Add Your Social Links</b>\n\nChoose a platform. I'll ask you for the profile link in a private chat.",
+            text="📱 <b>Add Your Social Links</b>\n\nChoose a platform. I'll ask you for the profile link in a private chat.\n\nIf your platform isn't listed, choose <b>➕ Other</b>.",
             reply_markup=_platform_keyboard(),
             parse_mode="HTML",
         )
@@ -267,6 +349,63 @@ async def social_platform_callback(update, context):
     return ENTER_LINK
 
 
+async def social_other_callback(update, context):
+    query = update.callback_query
+    if not query:
+        return ConversationHandler.END
+    context.user_data.pop("social_platform", None)
+    await query.answer()
+    await query.edit_message_text(
+        "➕ <b>OTHER SOCIAL PLATFORM</b>\n\nSend the name of the social platform you want to add.\n\nExample: Bluesky",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Cancel", callback_data="social_cancel")]]),
+    )
+    return ENTER_OTHER_NAME
+
+
+async def social_other_name_message(update, context):
+    if not update.effective_message or not update.effective_chat or update.effective_chat.type != "private":
+        return ENTER_OTHER_NAME
+    name = (update.effective_message.text or "").strip()
+    if not name or len(name) > 60:
+        await update.effective_message.reply_text("❌ Please send a platform name up to 60 characters.")
+        return ENTER_OTHER_NAME
+    context.user_data["social_other_name"] = name
+    await update.effective_message.reply_text(
+        f"➕ <b>{html.escape(name)}</b>\n\nNow send your full profile link.\n\nExample:\nhttps://example.com/yourprofile",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Cancel", callback_data="social_cancel")]]),
+    )
+    return ENTER_OTHER_LINK
+
+
+async def social_other_link_message(update, context):
+    if not update.effective_message or not update.effective_chat or update.effective_chat.type != "private":
+        return ENTER_OTHER_LINK
+    raw = (update.effective_message.text or "").strip()
+    url = _normalize("other", raw)
+    if not url:
+        await update.effective_message.reply_text("❌ Please send a valid full URL beginning with https:// or http://")
+        return ENTER_OTHER_LINK
+    name = context.user_data.get("social_other_name", "Other")
+    platform = "other:" + re.sub(r"[^a-z0-9_-]+", "_", name.lower()).strip("_")[:40]
+    if platform == "other:":
+        platform = "other:custom"
+    user = update.effective_user
+    display_name = user.full_name or user.first_name or f"User {user.id}"
+    username = user.username or ""
+    _save_link(user.id, platform, url, display_name, username)
+    context.user_data.pop("social_other_name", None)
+    rows = _get_user_links(user.id)
+    await _publish_member_profile(context.bot, user.id)
+    await update.effective_message.reply_text(
+        f"✅ <b>{html.escape(name)} saved.</b>\n\nYour social profile has been posted in the Friends topic.",
+        parse_mode="HTML",
+        reply_markup=_my_links_keyboard(rows),
+    )
+    return ADD_PLATFORM
+
+
 async def social_link_message(update, context):
     if not update.effective_message or not update.effective_chat or update.effective_chat.type != "private":
         return ENTER_LINK
@@ -286,9 +425,10 @@ async def social_link_message(update, context):
     username = user.username or ""
     _save_link(user.id, platform, url, display_name, username)
     context.user_data.pop("social_platform", None)
+    await _publish_member_profile(context.bot, user.id)
     rows = _get_user_links(user.id)
     await update.effective_message.reply_text(
-        f"✅ <b>{PLATFORMS[platform][0]} saved.</b>\n\nYour link is now available in the Melanated AZ friends directory.",
+        f"✅ <b>{PLATFORMS[platform][0]} saved.</b>\n\nYour social profile has been posted in the Friends topic and added to your saved member profile.",
         parse_mode="HTML",
         reply_markup=_my_links_keyboard(rows),
     )
@@ -300,12 +440,14 @@ async def social_delete_callback(update, context):
     if not query:
         return ConversationHandler.END
     platform = query.data.split(":", 1)[1]
+    user_id = update.effective_user.id
     with _connect() as conn:
-        conn.execute("DELETE FROM social_links WHERE user_id=? AND platform=?", (update.effective_user.id, platform))
+        conn.execute("DELETE FROM social_links WHERE user_id=? AND platform=?", (user_id, platform))
         conn.commit()
     await query.answer("Link removed.")
-    rows = _get_user_links(update.effective_user.id)
+    rows = _get_user_links(user_id)
     if rows:
+        await _publish_member_profile(context.bot, user_id)
         await query.edit_message_text("🔗 <b>Your saved social links</b>", parse_mode="HTML", reply_markup=_my_links_keyboard(rows))
     else:
         await query.edit_message_text("You don't have any social links saved yet.", reply_markup=_platform_keyboard())
@@ -366,7 +508,7 @@ async def social_member_callback(update, context):
         await query.edit_message_text("No social links are currently shared by this member.", reply_markup=_topic_panel_keyboard())
         return ConversationHandler.END
     name = rows[0]["display_name"] or f"Member {user_id}"
-    buttons = [[InlineKeyboardButton(PLATFORMS[r["platform"]][0], url=r["url"])] for r in rows]
+    buttons = [[InlineKeyboardButton(_platform_label(r["platform"]), url=r["url"])] for r in rows]
     buttons.append([InlineKeyboardButton("⬅️ Friends Directory", callback_data="social_browse")])
     await query.edit_message_text(
         f"👤 <b>{html.escape(name)}</b>\n\nTap a platform to connect or add them.",
@@ -385,6 +527,7 @@ async def social_cancel(update, context):
         except TelegramError:
             pass
     context.user_data.pop("social_platform", None)
+    context.user_data.pop("social_other_name", None)
     return ConversationHandler.END
 
 
@@ -406,9 +549,12 @@ def build_social_conversation():
         states={
             ADD_PLATFORM: [CallbackQueryHandler(social_platform_callback, pattern=r"^social_platform:")],
             ENTER_LINK: [MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, social_link_message)],
+            ENTER_OTHER_NAME: [MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, social_other_name_message)],
+            ENTER_OTHER_LINK: [MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, social_other_link_message)],
         },
         fallbacks=[
             CallbackQueryHandler(social_cancel, pattern=r"^social_cancel$"),
+            CallbackQueryHandler(social_other_callback, pattern=r"^social_other$"),
             CommandHandler("cancel", social_cancel),
         ],
         per_user=True,
@@ -420,6 +566,7 @@ def build_social_conversation():
 def register_social_media_handlers(application):
     initialize_social_media_database()
     application.add_handler(build_social_conversation(), group=-5)
+    application.add_handler(CallbackQueryHandler(social_other_callback, pattern=r"^social_other$"), group=-4)
     application.add_handler(CallbackQueryHandler(social_mine_callback, pattern=r"^social_mine$"), group=-4)
     application.add_handler(CallbackQueryHandler(social_browse_callback, pattern=r"^social_browse$"), group=-4)
     application.add_handler(CallbackQueryHandler(social_member_callback, pattern=r"^social_member:\d+$"), group=-4)
