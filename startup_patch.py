@@ -25,19 +25,19 @@ async def _run_games_topic_pin_maintenance(context):
         logger.info(
             "Games-topic pin maintenance START | chat=%s topic=%s",
             -1002697105809,
-            11999,
+            8809,
         )
         await ensure_game_topic_pins(context.bot)
         logger.info(
             "Games-topic pin maintenance COMPLETE | chat=%s topic=%s",
             -1002697105809,
-            11999,
+            8809,
         )
     except Exception:
         logger.exception(
             "Games-topic pin maintenance FAILED | chat=%s topic=%s",
             -1002697105809,
-            11999,
+            8809,
         )
 
 
@@ -57,8 +57,6 @@ def _install():
             if original_post_init:
                 await original_post_init(app)
 
-            # Render launches bot.py directly, so schedule the Games launcher
-            # maintenance here rather than relying on run_bot.py.
             try:
                 if not app.job_queue:
                     logger.error(
@@ -76,7 +74,7 @@ def _install():
                     logger.info(
                         "Games-topic pin maintenance scheduled | delay=5s | chat=%s topic=%s",
                         -1002697105809,
-                        11999,
+                        8809,
                     )
             except Exception:
                 logger.exception("Games-topic pin maintenance scheduling FAILED.")
@@ -94,7 +92,6 @@ def _install():
                 if not app.job_queue:
                     logger.error("Guaranteed intro reminders NOT started: JobQueue unavailable.")
                 else:
-                    # Remove any duplicate fixed jobs before scheduling.
                     for job_name in (
                         intro_reminder_fix.JOB_NAME,
                         intro_reminder_fix.INITIAL_JOB_NAME,
@@ -121,8 +118,6 @@ def _install():
                 logger.exception("Guaranteed intro reminder startup failed.")
 
             # Social-media / Friends directory for topic 9513.
-            # Handlers are installed during post_init so this works when Render
-            # launches bot.py directly without requiring bot.py edits.
             try:
                 from social_media import startup_social_media
                 await startup_social_media(app)
@@ -133,6 +128,15 @@ def _install():
                 )
             except Exception:
                 logger.exception("Social media friends directory startup failed.")
+
+            # Keep the saved community member profile synchronized with the
+            # social links database. Existing member/introduction data is not
+            # overwritten; only social_links fields are added/updated.
+            try:
+                from social_profile_sync import sync_social_profiles
+                sync_social_profiles()
+            except Exception:
+                logger.exception("Social member profile sync startup failed.")
 
         application.post_init = patched_post_init
         setattr(application, _MARKER, True)
