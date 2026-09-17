@@ -1,15 +1,10 @@
 # ==========================================================
 # Melanated AZ - Reliable Daily Community Message Scheduler
 # ==========================================================
-# Keeps the normal 10:00 AM Arizona schedule, but also catches
-# a missed post when Render restarts after the scheduled time.
-# Posts to the dedicated QOTD topic and persists the last post
-# date so restarts cannot create duplicate daily posts.
-# ==========================================================
 
 import logging
 import os
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -68,15 +63,16 @@ def _message_for(day):
     return index, DAILY_MESSAGES[index]
 
 
-async def send_daily_community_message_reliable(context):
-    today = _today()
+async def send_daily_community_message_reliable(context, day=None):
+    """Post the configured day's message to QOTD topic 11999 exactly once."""
+    target_day = day or _today()
 
-    if today < DAILY_MESSAGE_START or today > DAILY_MESSAGE_END:
-        logger.info("Daily community message skipped outside configured date range: %s", today)
+    if target_day < DAILY_MESSAGE_START or target_day > DAILY_MESSAGE_END:
+        logger.info("Daily community message skipped outside configured date range: %s", target_day)
         return False
 
-    if _load_last_post_date() == today:
-        logger.info("Daily community message already posted for %s; skipping duplicate.", today)
+    if _load_last_post_date() == target_day:
+        logger.info("Daily community message already posted for %s; skipping duplicate.", target_day)
         return False
 
     chat_id = _main_group_id()
@@ -84,7 +80,7 @@ async def send_daily_community_message_reliable(context):
         logger.error("Daily community message has no MAIN_GROUP_ID.")
         return False
 
-    index, (title, prompt) = _message_for(today)
+    index, (title, prompt) = _message_for(target_day)
     text = (
         f"<b>{title}</b>\n\n"
         f"{prompt}\n\n"
@@ -99,10 +95,10 @@ async def send_daily_community_message_reliable(context):
             text=text,
             parse_mode=ParseMode.HTML,
         )
-        _save_last_post_date(today)
+        _save_last_post_date(target_day)
         logger.info(
             "Daily community message posted | date=%s | index=%s | chat=%s | topic=%s | message=%s",
-            today,
+            target_day,
             index,
             chat_id,
             QOTD_TOPIC_ID,
@@ -111,15 +107,16 @@ async def send_daily_community_message_reliable(context):
         return True
     except TelegramError:
         logger.exception(
-            "Could not send daily community message | chat=%s | topic=%s",
+            "Could not send daily community message | chat=%s | topic=%s | date=%s",
             chat_id,
             QOTD_TOPIC_ID,
+            target_day,
         )
         return False
 
 
 async def _startup_recovery(context):
-    """Catch today's post when the bot starts after the normal 10 AM run."""
+    """Recover the latest missed scheduled day, then leave today's normal run independent."""
     now = datetime.now(ARIZONA_TZ)
     today = now.date()
     scheduled_today = now.replace(
@@ -131,18 +128,35 @@ async def _startup_recovery(context):
 
     if today < DAILY_MESSAGE_START or today > DAILY_MESSAGE_END:
         return
-    if now < scheduled_today:
-        logger.info("Daily message recovery waiting: normal post time has not arrived yet.")
+
+    last_posted = _load_last_post_date()
+
+    # If one or more scheduled days were missed, recover the most recent
+    # missed day. This handles a Render restart before today's 10 AM run
+    # without losing yesterday's message.
+    if last_posted is None:
+        target_day = today - timedelta(days=1) if today > DAILY_MESSAGE_START else today
+    elif last_posted < today - timedelta(days=1):
+        target_day = today - timedelta(days=1)
+    elif last_posted == today:
         return
-    if _load_last_post_date() == today:
+    else:
+        target_day = today - timedelta(days=1)
+
+    if target_day < DAILY_MESSAGE_START:
+        target_day = today
+
+    if target_day == today and now < scheduled_today:
+        logger.info("Daily message recovery waiting for today's 10:00 AM Arizona schedule.")
         return
 
     logger.warning(
-        "Daily message was not recorded as posted today; running startup recovery | now=%s | scheduled=%s",
+        "Daily message recovery running | missed_date=%s | now=%s | scheduled_today=%s",
+        target_day,
         now.isoformat(),
         scheduled_today.isoformat(),
     )
-    await send_daily_community_message_reliable(context)
+    await send_daily_community_message_reliable(context, target_day)
 
 
 def start_daily_community_messages_reliable(application):
@@ -157,17 +171,10 @@ def start_daily_community_messages_reliable(application):
 
     job_queue.run_daily(
         send_daily_community_message_reliable,
-        time(
-            hour=DAILY_MESSAGE_HOUR,
-            minute=DAILY_MESSAGE_MINUTE,
-            tzinfo=ARIZONA_TZ,
-        ),
+        time(hour=DAILY_MESSAGE_HOUR, minute=DAILY_MESSAGE_MINUTE, tzinfo=ARIZONA_TZ),
         name=DAILY_MESSAGE_JOB_NAME,
     )
 
-    # Run shortly after startup. If startup occurs after 10:00 AM and today's
-    # post has not been recorded, this posts it immediately. If startup occurs
-    # before 10:00 AM, it safely does nothing; the normal run_daily job handles it.
     job_queue.run_once(
         _startup_recovery,
         when=8,
