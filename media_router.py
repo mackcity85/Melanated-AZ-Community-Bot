@@ -6,7 +6,7 @@ import logging
 
 from telegram import Update
 from telegram.error import TelegramError
-from telegram.ext import ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationHandlerStop, ContextTypes, MessageHandler, filters
 
 logger = logging.getLogger("media_router")
 
@@ -98,6 +98,10 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message.message_id,
         )
 
+    # Prevent bot.py's older photo/video moderation handler from processing
+    # the same update after this router has successfully handled it.
+    raise ApplicationHandlerStop
+
 
 async def _delete_notice(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
@@ -120,12 +124,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def install_application(application):
-    """Install direct group-0 media handlers on the finished application.
-
-    These handlers are deliberately registered after bot.py builds the
-    application so no later module can replace the callback. Group 0 gives
-    them priority over the older moderation handlers in bot.py.
-    """
+    """Install direct group-0 media handlers on the finished application."""
     if getattr(application, "_melanated_media_router_installed", False):
         return
 
@@ -147,7 +146,7 @@ def install_application(application):
 
 
 def install(bot_module):
-    """Compatibility hook; application-level installation is preferred."""
+    """Install media routing when bot.py builds the application."""
     original_build_application = bot_module.build_application
 
     def wrapped_build_application(*args, **kwargs):
