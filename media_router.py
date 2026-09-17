@@ -9,6 +9,7 @@ from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes, MessageHandler, filters
 
 import event_private_flow
+import event_website_patch
 
 logger = logging.getLogger("media_router")
 
@@ -58,6 +59,7 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             MEDIA_CHAT_ID,
             message.message_id,
             getattr(message, "message_thread_id", None),
+            MEDIA_TOPIC_ID,
         )
         return
 
@@ -98,8 +100,6 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message.message_id,
         )
 
-    # Prevent bot.py's older photo/video moderation handler from processing
-    # the same update after this router has successfully handled it.
     raise ApplicationHandlerStop
 
 
@@ -128,10 +128,11 @@ def install_application(application):
     if getattr(application, "_melanated_media_router_installed", False):
         return
 
-    # Event submissions claim their topic before the general media router.
-    # The private Event module registers its handlers first and then installs
-    # the existing event_router_fix, preserving the current admin/publication
-    # workflow while moving member form entry into DMs.
+    # Patch the Event field model before private handlers are registered.
+    # This adds an optional website/registration hyperlink and a private
+    # NO WEBSITE / SKIP option without exposing member answers in the group.
+    event_website_patch.install()
+
     event_private_flow.install_application(application)
 
     application.add_handler(
