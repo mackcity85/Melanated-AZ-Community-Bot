@@ -106,7 +106,7 @@ async def _run_games_topic_pin_maintenance(context):
 
 RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
 RAFFLE_STATUS_HOUR = 16
-RAFFLE_STATUS_MINUTE = 0
+RAFFLE_STATUS_MINUTE = 30
 RAFFLE_STATUS_STATE_FILE = Path("/var/data/daily_raffle_status.json")
 
 
@@ -244,7 +244,7 @@ def _build_application_with_verified_startup_hooks():
                     name="daily-raffle-status-recovery",
                 )
                 bot.logger.info(
-                    "Daily raffle status scheduler VERIFIED | time=16:00 Arizona | chat=%s topic=%s | recovery=enabled | recovery_interval=5m",
+                    "Daily raffle status scheduler VERIFIED | time=16:30 Arizona | chat=%s topic=%s | recovery=enabled | recovery_interval=5m",
                     -1002697105809, 11883,
                 )
             else:
