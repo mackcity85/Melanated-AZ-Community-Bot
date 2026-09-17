@@ -16,7 +16,7 @@ from telegram.ext import ContextTypes
 logger = logging.getLogger("melanatedaz.grand_rising")
 
 CHAT_ID = -1002697105809
-TOPIC_ID = 11999
+TOPIC_ID = 1
 ARIZONA_TZ = ZoneInfo("America/Phoenix")
 START_DATE = date(2026, 9, 16)
 END_DATE = date(2036, 12, 31)
@@ -113,8 +113,8 @@ async def send_grand_rising(context: ContextTypes.DEFAULT_TYPE, target_date: dat
     )
     _save_state(day)
     logger.info(
-        "Grand Rising posted | date=%s | weekday=%s | message=%s | time=06:00 Arizona",
-        day.isoformat(), day.strftime("%A"), message.message_id,
+        "Grand Rising posted | date=%s | weekday=%s | message=%s | time=06:00 Arizona | topic=%s",
+        day.isoformat(), day.strftime("%A"), message.message_id, TOPIC_ID,
     )
     return True
 
