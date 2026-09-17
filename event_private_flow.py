@@ -99,33 +99,18 @@ async def _send_private_form(context, user_id, submission_id, intro=False):
 
 
 async def _send_start_link(context, user_id, submission_id):
-    bot = await context.bot.get_me()
-    username = bot.username
-    if not username:
-        raise RuntimeError("Bot username unavailable for Event private deep link")
+    """Legacy fallback retained for compatibility, but NEVER posts publicly.
 
-    link = f"https://t.me/{username}?start=event_{submission_id}"
-    message = await context.bot.send_message(
-        chat_id=EVENT_CHAT_ID,
-        message_thread_id=EVENT_TOPIC_ID,
-        text=(
-            "🔒 <b>PRIVATE EVENT SUBMISSION</b>\n\n"
-            "I need you to open a private chat with me to finish your event submission.\n\n"
-            "Tap the button below. Your Event, Date, Time, Location, and Price answers will only be visible to you and the bot."
-        ),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔒 OPEN PRIVATE EVENT FORM", url=link)]
-        ]),
+    Telegram does not allow a bot to initiate a private DM with a user who has
+    never started the bot. To preserve the strict private-submission rule, the
+    bot does not publish a deep-link notice in the Events topic anymore.
+    """
+    logger.warning(
+        "Event private chat unavailable because user has not started the bot | submission=%s | user=%s",
+        submission_id,
+        user_id,
     )
-
-    # event_router_fix already cleans tracked Events-topic workflow messages
-    # after approval. Track this fallback notice so it is removed too.
-    tracker = getattr(event_router_fix, "_track_message", None)
-    if tracker:
-        tracker(submission_id, message)
-
-    return message
+    return None
 
 
 async def _process_group_media(update, context):
@@ -160,11 +145,10 @@ async def _process_group_media(update, context):
                     logger.exception("Event video thumbnail OCR failed")
 
         combined_text = "\n".join(v for v in (ocr_text, message.caption or "") if v)
-        # event_router_fix installs the current Events parsing rules, including
-        # Event Name being member-supplied and Price verification.
         fields = event_router._parse_fields(combined_text)
         submission_id = event_router._save_submission(user, message, media_type, file_id, fields)
 
+        # The original flyer is NEVER left visible in the public Events topic.
         try:
             await message.delete()
         except TelegramError:
@@ -174,10 +158,10 @@ async def _process_group_media(update, context):
             await _send_private_form(context, user.id, submission_id, intro=True)
             logger.info("Private Event form started | submission=%s | user=%s", submission_id, user.id)
         except TelegramError:
-            # First-time users may not have started the bot. Give them a deep
-            # link in the Event topic; the answers still remain private.
-            start_message = await _send_start_link(context, user.id, submission_id)
-            logger.info("Event private deep link sent | submission=%s | message=%s", submission_id, start_message.message_id)
+            # The user has not started the bot, so Telegram will not allow a
+            # private DM. Do not post a deep link or any submission information
+            # in the public Events topic. The submission remains unpublished.
+            await _send_start_link(context, user.id, submission_id)
         except Exception:
             logger.exception("Could not start private Event form | submission=%s", submission_id)
             await _send_start_link(context, user.id, submission_id)
@@ -185,14 +169,8 @@ async def _process_group_media(update, context):
         return True
     except Exception:
         logger.exception("Private Event media processing failed")
-        try:
-            await context.bot.send_message(
-                chat_id=EVENT_CHAT_ID,
-                message_thread_id=EVENT_TOPIC_ID,
-                text="⚠️ I couldn't process that event submission. Please resend the flyer.",
-            )
-        except Exception:
-            pass
+        # Strict privacy: do not expose processing errors/details in the Events
+        # topic. The original submission has already been removed when possible.
         return True
 
 
@@ -386,9 +364,6 @@ def install_application(application):
     if getattr(application, "_melanated_private_event_flow_installed", False):
         return
 
-    # Register these handlers first. The existing Events compatibility layer
-    # is installed immediately afterward and continues to own admin approval
-    # and public publication.
     application.add_handler(
         MessageHandler(filters.PHOTO, handle_group_photo),
         group=0,
