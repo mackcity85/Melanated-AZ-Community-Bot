@@ -1,5 +1,9 @@
 from __future__ import annotations
 import os
+import html
+import json
+import urllib.parse
+import urllib.request
 from dataclasses import asdict
 from flask import Blueprint, jsonify, render_template, request
 from .game_manager import GAME_MANAGER
@@ -15,6 +19,9 @@ def _game_dict(game): return asdict(game)
 GAMES = [_game_dict(g) for g in all_games()]
 DIRTY_MINDS_GAME = {"game_id":"dirty_minds","name":"Dirty Minds","icon":"🎭","category":"Party","description":"A multiplayer guessing game where the clues sound dirty but the answers are clean.","multiplayer":True,"max_players":20,"min_players":2,"uses_rooms":True}
 NES_GAMES = get_nes_games(); SNES_GAMES = get_snes_games(); RETRO_GAMES = get_all_retro_games(); GENRE_GAMES = get_genre_games(); CONSOLE_GAMES = NES_GAMES + SNES_GAMES + RETRO_GAMES + GENRE_GAMES
+GAMES_CHAT_ID = int(os.getenv("MAIN_GROUP_ID", "-1002697105809") or "-1002697105809")
+GAMES_TOPIC_ID = 11999
+ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID", "0") or "0")
 
 def get_game(game_id):
     if not game_id: return None
@@ -27,6 +34,30 @@ def get_game(game_id):
 
 def _home_games(): return GAMES + CONSOLE_GAMES
 def _home_categories(): return CATEGORY_ORDER + ["NES","SNES","Fighting","Sports"] + sorted({g["system_name"] for g in RETRO_GAMES})
+
+def _telegram_send_message(chat_id,text,thread_id=None,reply_markup=None):
+    token=os.getenv("BOT_TOKEN","").strip()
+    if not token:return False
+    payload={"chat_id":chat_id,"text":text,"parse_mode":"HTML"}
+    if thread_id:payload["message_thread_id"]=thread_id
+    if reply_markup:payload["reply_markup"]=json.dumps(reply_markup,separators=(",",":"))
+    data=urllib.parse.urlencode(payload).encode("utf-8")
+    req=urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage",data=data,method="POST")
+    try:
+        with urllib.request.urlopen(req,timeout=8) as response:return response.status==200
+    except Exception:return False
+
+def _notify_dirty_minds_started(room):
+    host=room.get_player(room.host_id) or {}
+    host_name=html.escape(str(host.get("name","Host")))
+    players=[]
+    for p in room.players.values(): players.append(html.escape(str(p.get("name","Player"))))
+    player_text=", ".join(players[:20]) or "None"
+    topic_text=(f"🎭 <b>DIRTY MINDS HAS STARTED!</b>\n\n<b>Host:</b> {host_name}\n<b>Room:</b> {room.room_id}\n<b>Players:</b> {room.player_count()}/20\n\n🎮 The game is now live. Players should use their private game link.")
+    admin_text=(f"🎭 <b>DIRTY MINDS STARTED</b>\n\n<b>Host:</b> {host_name}\n<b>Room:</b> {room.room_id}\n<b>Players:</b> {room.player_count()}/20\n<b>Members:</b> {player_text}")
+    _telegram_send_message(GAMES_CHAT_ID,topic_text,GAMES_TOPIC_ID)
+    if ADMIN_GROUP_ID:_telegram_send_message(ADMIN_GROUP_ID,admin_text)
+    room.state["telegram_start_notified"]=True
 
 @real_games_bp.route("/")
 def real_games_home(): return render_template("real_games.html",games=_home_games(),categories=_home_categories())
@@ -60,7 +91,9 @@ def create_room():
     existing=GAME_MANAGER.find_player_room(user_id,game_id=game_id)
     if existing:
         p=existing.get_player(user_id);return jsonify(success=True,existing=True,room_id=existing.room_id,player_key=p.get("player_key") if p else None,game_url=_build_game_url(existing.room_id,p.get("player_key") if p else ""))
-    room=GAME_MANAGER.create(game_id=game_id,game_name=game["name"],max_players=int(game.get("max_players",20)),min_players=int(game.get("min_players",2)),state=create_dirty_minds_state() if game_id=="dirty_minds" else {})
+    room_state=create_dirty_minds_state() if game_id=="dirty_minds" else {}
+    if game_id=="dirty_minds":room_state["approval_status"]="pending"
+    room=GAME_MANAGER.create(game_id=game_id,game_name=game["name"],max_players=int(game.get("max_players",20)),min_players=int(game.get("min_players",2)),state=room_state)
     player=room.add_player(user_id=user_id,display_name=name);return jsonify(success=True,existing=False,room_id=room.room_id,player_key=player["player_key"],game_url=_build_game_url(room.room_id,player["player_key"]))
 
 @real_games_bp.route("/room/<room_id>")
@@ -82,13 +115,19 @@ def _get_dirty_minds_player():
 def dirty_minds_state():
     try: room,p=_get_dirty_minds_player();return jsonify(success=True,state=public_room_state(room,player_key=p["player_key"]))
     except ValueError as e:return jsonify(success=False,error=str(e)),400
+
 @real_games_bp.route("/api/dirty-minds/start",methods=["POST"])
 def dirty_minds_start():
     try:
         room,p=_get_dirty_minds_player()
         if not room.is_host_key(p["player_key"]):raise ValueError("Only the host can start the game.")
-        return jsonify(success=True,state=start_game(room))
+        if room.state.get("approval_status")!="approved":raise ValueError("This Dirty Minds game is still waiting for admin approval.")
+        if room.started:raise ValueError("This Dirty Minds game has already started.")
+        state=start_game(room)
+        _notify_dirty_minds_started(room)
+        return jsonify(success=True,state=state)
     except ValueError as e:return jsonify(success=False,error=str(e)),400
+
 @real_games_bp.route("/api/dirty-minds/answer",methods=["POST"])
 def dirty_minds_answer():
     try:
