@@ -120,6 +120,20 @@ def _install():
             except Exception:
                 logger.exception("Guaranteed intro reminder startup failed.")
 
+            # Social-media / Friends directory for topic 9513.
+            # Handlers are installed during post_init so this works when Render
+            # launches bot.py directly without requiring bot.py edits.
+            try:
+                from social_media import startup_social_media
+                await startup_social_media(app)
+                logger.info(
+                    "Social media friends directory enabled | chat=%s topic=%s",
+                    -1002697105809,
+                    9513,
+                )
+            except Exception:
+                logger.exception("Social media friends directory startup failed.")
+
         application.post_init = patched_post_init
         setattr(application, _MARKER, True)
         return application
