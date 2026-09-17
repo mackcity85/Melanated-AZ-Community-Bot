@@ -120,26 +120,13 @@ async def _cleanup_after_approval(context, submission_id):
 
 
 def _extract_price(text):
-    """Extract a flyer price while allowing explicit Free/No Cost wording."""
+    """Detect whether flyer/OCR text contains pricing.
+
+    This function is intentionally only an OCR detector now. Manual member
+    price entry is never replaced with the first detected dollar amount.
+    """
     raw = str(text or "")
 
-    # Explicit price labels are preferred.
-    labeled = re.search(
-        r"\b(?:price|cost|admission|entry|ticket(?:s)?|cover)\s*[:\-]\s*(.+?)(?=$|\n|\r)",
-        raw,
-        re.IGNORECASE,
-    )
-    if labeled:
-        value = labeled.group(1).strip(" .|-")
-        if re.search(r"\b(?:free|no\s+cost|complimentary)\b", value, re.IGNORECASE):
-            return "Free"
-        money = re.search(r"\$\s*\d+(?:\.\d{1,2})?|\b\d+(?:\.\d{1,2})?\s*(?:USD|dollars?)\b", value, re.IGNORECASE)
-        if money:
-            return money.group(0).strip()
-        if value:
-            return value
-
-    # Otherwise find a standalone money amount or common free wording.
     if re.search(r"\b(?:free|no\s+cost|complimentary)\b", raw, re.IGNORECASE):
         return "Free"
 
@@ -158,8 +145,12 @@ def _member_required_parse_fields(text):
     fields = event_router._parse_fields_original(text)
     # Event Name must always be entered by the member.
     fields["event"] = None
-    # Date/Time/Location remain OCR-extracted; Price is extracted when present.
-    fields["price"] = _extract_price(text)
+
+    # Price must ALWAYS be entered by the member. Flyers can contain
+    # multiple prices, discounts, promo codes, tables, headings, etc.
+    # Never auto-fill Price from OCR because that would skip the private
+    # Price prompt and reduce a structured pricing table to one amount.
+    fields["price"] = None
     return fields
 
 
@@ -224,8 +215,6 @@ async def _process_media(update, context):
         fields = _member_required_parse_fields(combined_text)
         submission_id = event_router._save_submission(user, message, media_type, file_id, fields)
 
-        # Keep the original flyer behavior unchanged: the unapproved source
-        # message is removed from the topic while it is being processed.
         try:
             await message.delete()
         except TelegramError:
