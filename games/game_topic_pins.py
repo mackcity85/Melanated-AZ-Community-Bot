@@ -9,11 +9,11 @@ from .truth_dare_pin import TEXT as TRUTH_DARE_TEXT, KEYBOARD as TRUTH_DARE_KEYB
 logger = logging.getLogger("melanated_az.game_topic_pins")
 
 CHAT_ID = -1002697105809
-TOPIC_ID = 11999
+TOPIC_ID = 8809
 STATE_DIR = Path("/var/data")
-GAME_CENTER_STATE = STATE_DIR / "game_center_pin_11999.json"
-DIRTY_MINDS_STATE = STATE_DIR / "dirty_minds_pin_11999.json"
-TRUTH_DARE_STATE = STATE_DIR / "truth_dare_games_pin_11999.json"
+GAME_CENTER_STATE = STATE_DIR / "game_center_pin_8809.json"
+DIRTY_MINDS_STATE = STATE_DIR / "dirty_minds_pin_8809.json"
+TRUTH_DARE_STATE = STATE_DIR / "truth_dare_games_pin_8809.json"
 
 
 def _load_id(path):
@@ -156,7 +156,7 @@ async def _upsert_pin(bot, path, text, keyboard, label):
 
 
 async def ensure_game_topic_pins(bot):
-    """Keep three separate member-facing launchers pinned in Games topic 11999."""
+    """Keep three separate member-facing launchers pinned in Games topic 8809."""
     await _verify_pin_permission(bot)
 
     game_center_text = (
