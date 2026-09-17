@@ -5,6 +5,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
+from . import truth_dare_pin  # noqa: F401
 from .games import initialize_game_database, games_callback_router as engine_games_callback_router
 from .console_catalog import CONSOLE_ORDER, CONSOLE_BUTTONS, get_console, get_system
 from real_games.nes_games import get_nes_games
@@ -17,7 +18,6 @@ GAMES_CHAT_ID = -1002697105809
 GAMES_TOPIC_ID = 8809
 GAME_CENTER_PIN_FILE = "/var/data/game_center_pin.txt"
 GAME_CENTER_PIN_TEXT = ("🎮🔥 <b>MELANATED AZ RETRO CONSOLE ARCADE</b> 🔥🎮\n\n🥊 <b>Fighting</b>\n🏆 <b>Sports</b>\n\n🟥 <b>Nintendo</b>\n🔵 <b>Sega</b>\n🟦 <b>PlayStation</b>\n🟩 <b>Xbox</b>\n\nEvery title added here will be an actual playable retro-inspired console game.\n\n👇🏾 <b>Choose a genre or console.</b>")
-
 
 def _load_pinned_game_center_id():
     try:
