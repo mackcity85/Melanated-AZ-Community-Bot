@@ -2,20 +2,22 @@
 # Melanated AZ Bot - Shared Question Topic Routing
 # topic_routing.py
 #
-# Forces QOTD and After Dark daily content into the same forum
-# topic without changing their separate content banks.
+# Routes QOTD, Daily Community, and After Dark content into
+# their configured forum topics while keeping their schedules
+# independent.
 #
 # Destination:
 #   Chat  : -1002697105809
 #   Topic : 11999
 #
 # Schedule:
-#   Question of the Day: 11:00 AM Arizona time
 #   Daily Community Message: 10:00 AM Arizona time
-#   After Dark: 10:00 PM Arizona time
+#   Question of the Day:    11:00 AM Arizona time
+#   After Dark:             10:00 PM Arizona time
 # ==========================================================
 
 import os
+from datetime import time
 
 from types import MethodType
 
@@ -28,52 +30,47 @@ os.environ["QUESTION_OF_DAY_TOPIC_ID"] = str(TARGET_TOPIC_ID)
 os.environ["QUESTION_OF_DAY_HOUR"] = "11"
 os.environ["QUESTION_OF_DAY_MINUTE"] = "0"
 
-# Daily Community Messages use their own daytime schedule.
-# Do NOT override DAILY_MESSAGE_HOUR here for After Dark.
+# Daily Community Messages have their own daytime schedule.
+# After Dark has a separate scheduler below and must not override this.
 os.environ["DAILY_MESSAGE_HOUR"] = "10"
 os.environ["DAILY_MESSAGE_MINUTE"] = "0"
 
 
 def install_after_dark_topic_routing():
-    """Route the daily community message bank to topic 11999.
+    """Route Daily Community and After Dark messages independently.
 
-    The shared daily_messages scheduler remains at 10:00 AM Arizona.
-    After Dark content is selected from the same bank, but this routing
-    layer must not change the scheduler's time to 10:00 PM.
+    Daily Community runs at 10 AM using the complete daily message bank.
+    After Dark runs separately at 10 PM using only prompts labeled
+    AFTER DARK / AFTER-DARK. Both are posted to topic 11999.
     """
     import daily_messages
-
-    # Keep the daytime Daily Community Message schedule independent.
-    # The old implementation forced this to 22:00, which incorrectly
-    # moved the entire daily_messages scheduler to 10 PM.
-    daily_messages.DAILY_MESSAGE_HOUR = 10
-    daily_messages.DAILY_MESSAGE_MINUTE = 0
-
-    # The existing content bank contains several categories. For the
-    # dedicated After Dark routing, only prompts explicitly labeled
-    # AFTER DARK / AFTER-DARK are selected.
-    after_dark_messages = [
-        item for item in daily_messages.DAILY_MESSAGES
-        if isinstance(item, (tuple, list))
-        and len(item) >= 1
-        and isinstance(item[0], str)
-        and ("AFTER DARK" in item[0].upper() or "AFTER-DARK" in item[0].upper())
-    ]
-
-    # Only replace the active bank when matching prompts were found.
-    # If the bank is empty or temporarily malformed, leave the original
-    # bank untouched instead of replacing it with an empty list.
-    if after_dark_messages:
-        daily_messages.DAILY_MESSAGES = after_dark_messages
 
     if getattr(daily_messages, "_after_dark_topic_routing_installed", False):
         return
 
     original = daily_messages.send_daily_community_message
+    full_daily_bank = list(daily_messages.DAILY_MESSAGES)
 
-    async def routed_daily_message(context):
+    after_dark_messages = [
+        item for item in full_daily_bank
+        if isinstance(item, (tuple, list))
+        and len(item) >= 1
+        and isinstance(item[0], str)
+        and (
+            "AFTER DARK" in item[0].upper()
+            or "AFTER-DARK" in item[0].upper()
+        )
+    ]
+
+    if not after_dark_messages:
+        # Do not install a second schedule if the bank has no valid
+        # After Dark prompts.
+        return
+
+    async def routed_send_message(context, message_bank):
         bot = context.bot
         original_send = bot.send_message
+        original_bank = daily_messages.DAILY_MESSAGES
 
         async def routed_send(self, *args, **kwargs):
             kwargs["chat_id"] = TARGET_CHAT_ID
@@ -81,13 +78,65 @@ def install_after_dark_topic_routing():
             return await original_send(*args, **kwargs)
 
         bot.send_message = MethodType(routed_send, bot)
+        daily_messages.DAILY_MESSAGES = message_bank
         try:
             return await original(context)
         finally:
+            daily_messages.DAILY_MESSAGES = original_bank
             bot.send_message = original_send
 
+    async def routed_daily_message(context):
+        """10 AM: full Daily Community Message bank."""
+        return await routed_send_message(context, full_daily_bank)
+
+    async def routed_after_dark_message(context):
+        """10 PM: After Dark-only bank."""
+        return await routed_send_message(context, after_dark_messages)
+
+    # Replace the function used by the existing 10 AM scheduler.
     daily_messages.send_daily_community_message = routed_daily_message
+
+    # The existing scheduler reads these values when it is started.
+    daily_messages.DAILY_MESSAGE_HOUR = 10
+    daily_messages.DAILY_MESSAGE_MINUTE = 0
+
+    # Schedule a completely separate 10 PM After Dark job.
+    # Remove stale copies first so repeated startup/reload cannot create
+    # duplicate After Dark posts.
+    job_queue = getattr(daily_messages, "_APPLICATION_JOB_QUEUE", None)
+    if job_queue is not None:
+        for job in job_queue.get_jobs_by_name("melanated-after-dark-message"):
+            job.schedule_removal()
+
+    daily_messages._after_dark_message_handler = routed_after_dark_message
     daily_messages._after_dark_topic_routing_installed = True
+
+
+def start_after_dark_scheduler(application):
+    """Start the independent 10 PM Arizona After Dark scheduler."""
+    import daily_messages
+
+    if not getattr(application, "job_queue", None):
+        return
+
+    handler = getattr(daily_messages, "_after_dark_message_handler", None)
+    if handler is None:
+        return
+
+    for job in application.job_queue.get_jobs_by_name("melanated-after-dark-message"):
+        job.schedule_removal()
+
+    application.job_queue.run_daily(
+        handler,
+        time(hour=22, minute=0, tzinfo=daily_messages.ARIZONA_TZ),
+        name="melanated-after-dark-message",
+    )
+
+    import logging
+    logging.getLogger("topic_routing").info(
+        "After Dark scheduled | 22:00 Arizona | topic=%s",
+        TARGET_TOPIC_ID,
+    )
 
 
 def install_qotd_startup_panel():
@@ -127,7 +176,7 @@ def install_qotd_startup_panel():
 
 
 def install_all_topic_routing():
-    """Install shared QOTD / After Dark routing."""
+    """Install shared QOTD / Daily Community / After Dark routing."""
     install_after_dark_topic_routing()
     install_qotd_startup_panel()
 
