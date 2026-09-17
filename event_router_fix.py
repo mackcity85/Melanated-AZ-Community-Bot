@@ -1,6 +1,8 @@
 # Compatibility fix for the Events workflow.
 # Patches the initial flyer-processing step so the member correction flow
 # does not attempt to replace Update.effective_message (a read-only property).
+# Event Name is intentionally member-supplied; OCR continues to extract
+# Date, Time, and Location.
 
 import logging
 
@@ -9,6 +11,12 @@ from telegram.error import TelegramError
 import event_router
 
 logger = logging.getLogger("event_router_fix")
+
+
+def _member_required_parse_fields(text):
+    fields = event_router._parse_fields_original(text)
+    fields["event"] = None
+    return fields
 
 
 async def _process_media(update, context):
@@ -38,44 +46,34 @@ async def _process_media(update, context):
                     thumb_file = await thumbnail.get_file()
                     thumb_bytes = bytes(await thumb_file.download_as_bytearray())
                     thumb_text = event_router._ocr_image(thumb_bytes)
-                    ocr_text = "\n".join(
-                        value for value in (thumb_text, ocr_text) if value
-                    )
+                    ocr_text = "\n".join(value for value in (thumb_text, ocr_text) if value)
                 except Exception:
                     logger.exception("Event video thumbnail OCR failed")
 
-        combined_text = "\n".join(
-            value for value in (ocr_text, message.caption or "") if value
-        )
-        fields = event_router._parse_fields(combined_text)
-        submission_id = event_router._save_submission(
-            user, message, media_type, file_id, fields
-        )
+        combined_text = "\n".join(value for value in (ocr_text, message.caption or "") if value)
+        fields = _member_required_parse_fields(combined_text)
+        submission_id = event_router._save_submission(user, message, media_type, file_id, fields)
 
         try:
             await message.delete()
         except TelegramError:
-            logger.warning(
-                "Could not delete pending event flyer message %s",
-                message.message_id,
-            )
+            logger.warning("Could not delete pending event flyer message %s", message.message_id)
 
         missing = event_router._missing(fields)
         if missing:
-            missing_lines = "\n".join(
-                f"❌ {event_router.FIELD_LABELS[key]}"
-                for key in missing
+            missing_lines = "\n".join(f"❌ {event_router.FIELD_LABELS[key]}" for key in missing)
+            event_message = (
+                "⚠️ <b>EVENT INFORMATION MISSING</b>\n\n"
+                + event_router._format_fields(fields)
+                + "\n\n"
+                + missing_lines
+                + "\n\n"
+                + ("Please enter the <b>Event Name</b>. This must be provided by you." if "event" in missing else "Please provide the missing information.")
             )
             await context.bot.send_message(
                 chat_id=event_router.EVENT_CHAT_ID,
                 message_thread_id=event_router.EVENT_TOPIC_ID,
-                text=(
-                    "⚠️ <b>EVENT INFORMATION MISSING</b>\n\n"
-                    + event_router._format_fields(fields)
-                    + "\n\n"
-                    + missing_lines
-                    + "\n\nPlease provide the missing information."
-                ),
+                text=event_message,
                 parse_mode="HTML",
             )
             field = missing[0]
@@ -100,12 +98,7 @@ async def _process_media(update, context):
                 reply_markup=event_router._verification_keyboard(submission_id),
             )
 
-        logger.info(
-            "Event flyer captured | submission=%s | user=%s | missing=%s",
-            submission_id,
-            user.id,
-            missing,
-        )
+        logger.info("Event flyer captured | submission=%s | user=%s | missing=%s", submission_id, user.id, missing)
         return True
     except Exception:
         logger.exception("Event submission processing failed")
@@ -113,10 +106,7 @@ async def _process_media(update, context):
             await context.bot.send_message(
                 chat_id=event_router.EVENT_CHAT_ID,
                 message_thread_id=event_router.EVENT_TOPIC_ID,
-                text=(
-                    "⚠️ I couldn't process that flyer. Please resend it or include "
-                    "the Event, Date, Time, and Location in the caption."
-                ),
+                text="⚠️ I couldn't process that flyer. Please resend it or include the Event, Date, Time, and Location in the caption.",
             )
         except Exception:
             pass
@@ -136,6 +126,8 @@ async def _fixed_handle_event_video(update, context):
 
 
 def install_application(application):
+    if not hasattr(event_router, "_parse_fields_original"):
+        event_router._parse_fields_original = event_router._parse_fields
     event_router._process_media = _process_media
     event_router.handle_event_photo = _fixed_handle_event_photo
     event_router.handle_event_video = _fixed_handle_event_video
