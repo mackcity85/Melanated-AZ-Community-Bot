@@ -188,17 +188,22 @@ async def _daily_raffle_status_public(context):
 
 
 async def _daily_raffle_status_recovery(context):
-    """Recover today's 2 PM raffle reminder after a restart/missed scheduler run."""
+    """Recover a missed 2 PM Arizona raffle reminder while the bot stays online."""
     now = datetime.now(RAFFLE_STATUS_TZ)
     scheduled = time(RAFFLE_STATUS_HOUR, RAFFLE_STATUS_MINUTE)
+
     if now.time().replace(tzinfo=None) < scheduled:
-        bot.logger.info("Raffle status recovery not needed yet | now=%s", now)
         return
+
     today = now.date()
     if _raffle_status_already_posted(today):
-        bot.logger.info("Raffle status recovery found today's post already recorded | date=%s", today)
         return
-    bot.logger.warning("Raffle status missed before startup; posting recovery now | date=%s", today)
+
+    bot.logger.warning(
+        "Raffle status recovery detected a missing post | date=%s | now=%s",
+        today,
+        now,
+    )
     await _daily_raffle_status_public(context)
 
 
@@ -227,15 +232,19 @@ def _build_application_with_verified_startup_hooks():
                     time(hour=RAFFLE_STATUS_HOUR, minute=RAFFLE_STATUS_MINUTE, tzinfo=RAFFLE_STATUS_TZ),
                     name="daily-raffle-status",
                 )
-                # Recovery: if Render restarts after 2:00 PM, check shortly after startup
-                # and post today's reminder if it was missed. Persistent state prevents duplicates.
-                job_queue.run_once(
+                # Recovery runs continuously after 2 PM so a missed reminder is
+                # recovered even when the bot never restarted. Persistent state
+                # prevents duplicate posts on the same Arizona calendar day.
+                for job in job_queue.get_jobs_by_name("daily-raffle-status-recovery"):
+                    job.schedule_removal()
+                job_queue.run_repeating(
                     _daily_raffle_status_recovery,
-                    when=10,
+                    interval=300,
+                    first=10,
                     name="daily-raffle-status-recovery",
                 )
                 bot.logger.info(
-                    "Daily raffle status scheduler VERIFIED | time=14:00 Arizona | chat=%s topic=%s | recovery=enabled",
+                    "Daily raffle status scheduler VERIFIED | time=14:00 Arizona | chat=%s topic=%s | recovery=enabled | recovery_interval=5m",
                     -1002697105809, 11883,
                 )
             else:
