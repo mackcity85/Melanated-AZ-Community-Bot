@@ -129,10 +129,17 @@ async def button_wrapper(update, context):
         await update.callback_query.answer("Cancelled")
         await update.callback_query.edit_message_text("📣 Truth/Dare QOTD posting cancelled.")
         return
-    await admin._original_admin_button(update, context)
+    # Chain to the admin button handler that existed immediately before this
+    # patch was installed. Do NOT use admin._original_admin_button here,
+    # because another patch (social_admin_patch) may already own that slot.
+    await admin._truth_dare_previous_admin_button(update, context)
 
 def install():
-    admin._original_admin_button = admin.admin_button
+    # Preserve the currently installed admin handler instead of overwriting a
+    # shared _original_admin_button reference. This prevents wrapper recursion
+    # when multiple admin patches are installed in sequence.
+    if not hasattr(admin, "_truth_dare_previous_admin_button"):
+        admin._truth_dare_previous_admin_button = admin.admin_button
     admin.admin_button = button_wrapper
     bot.admin_button = button_wrapper
     truth_dare.truth_dare_admin_menu = td_admin_menu
