@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 from .games import initialize_game_database, games_callback_router as engine_games_callback_router
 from .console_catalog import CONSOLE_ORDER, CONSOLE_BUTTONS, get_console, get_system
 from real_games.nes_games import get_nes_games
+from real_games.snes_games import get_snes_games
 
 logger = logging.getLogger("melanated_az_bot.games")
 GAMES_CHAT_ID = -1002697105809
@@ -69,6 +70,7 @@ async def console_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await q.answer(); rows=[]
     for sid,name in console["systems"]:
         if cid=="nintendo" and sid=="nes": rows.append([InlineKeyboardButton("🕹️ NES — PLAYABLE GAMES",callback_data="games_nes")])
+        elif cid=="nintendo" and sid=="snes": rows.append([InlineKeyboardButton("🕹️ SNES — PLAYABLE GAMES",callback_data="games_snes")])
         else: rows.append([InlineKeyboardButton(f"🎮 {name}",callback_data=f"games_system_{cid}_{sid}")])
     rows.append([InlineKeyboardButton("⬅️ Consoles",callback_data="games_home")])
     await q.edit_message_text(f"{console['title']}\n\nChoose a console system.",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
@@ -79,6 +81,13 @@ async def nes_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await q.answer(); games=get_nes_games(); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]
     rows.append([InlineKeyboardButton("⬅️ Nintendo",callback_data="games_console_nintendo")])
     await q.edit_message_text("🟥 <b>NES</b>\n\nOriginal NES-inspired games. No ROMs. Pick a game to play:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
+
+async def snes_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    q=update.callback_query
+    if not q:return
+    await q.answer(); games=get_snes_games(); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]
+    rows.append([InlineKeyboardButton("⬅️ Nintendo",callback_data="games_console_nintendo")])
+    await q.edit_message_text("🟥 <b>SNES</b>\n\nOriginal SNES-inspired games. No ROMs. Pick a game to play:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
 
 async def system_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
@@ -109,6 +118,7 @@ async def game_center_callback_router(update:Update,context:ContextTypes.DEFAULT
     data=q.data or ""
     if data=="games_home": return await games_home_callback(update,context)
     if data=="games_nes": return await nes_callback(update,context)
+    if data=="games_snes": return await snes_callback(update,context)
     if data.startswith("games_console_"): return await console_callback(update,context)
     if data.startswith("games_system_"): return await system_callback(update,context)
     if data.startswith("game_"): return await engine_games_callback_router(update,context)
