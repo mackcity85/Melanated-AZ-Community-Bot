@@ -41,6 +41,26 @@ async def _run_games_topic_pin_maintenance(context):
         )
 
 
+async def _run_social_media_panel_maintenance(context):
+    """Keep the Social Media/Friends launcher in topic 9513 permanently available."""
+    try:
+        from social_media import send_social_panel
+
+        message_id = await send_social_panel(context.bot)
+        logger.info(
+            "Social Media panel maintenance COMPLETE | chat=%s topic=%s message=%s",
+            -1002697105809,
+            9513,
+            message_id,
+        )
+    except Exception:
+        logger.exception(
+            "Social Media panel maintenance FAILED | chat=%s topic=%s",
+            -1002697105809,
+            9513,
+        )
+
+
 def _install():
     if getattr(ApplicationBuilder, _MARKER, False):
         return
@@ -79,6 +99,41 @@ def _install():
             except Exception:
                 logger.exception("Games-topic pin maintenance scheduling FAILED.")
 
+            # Social-media / Friends directory for topic 9513.
+            # This panel is intentionally permanent. It is re-pinned on every
+            # startup and repaired automatically if it is ever deleted.
+            try:
+                from social_media import startup_social_media
+                await startup_social_media(app)
+
+                if not app.job_queue:
+                    logger.error(
+                        "Social Media panel maintenance NOT scheduled: JobQueue unavailable."
+                    )
+                else:
+                    for job in app.job_queue.get_jobs_by_name("social-media-panel-maintenance"):
+                        job.schedule_removal()
+
+                    app.job_queue.run_repeating(
+                        _run_social_media_panel_maintenance,
+                        interval=300,
+                        first=60,
+                        name="social-media-panel-maintenance",
+                    )
+                    logger.info(
+                        "Social Media panel maintenance scheduled | every=300s | chat=%s topic=%s",
+                        -1002697105809,
+                        9513,
+                    )
+
+                logger.info(
+                    "Social media friends directory enabled | chat=%s topic=%s",
+                    -1002697105809,
+                    9513,
+                )
+            except Exception:
+                logger.exception("Social media friends directory startup failed.")
+
             try:
                 import intro_persistence
                 await intro_persistence.recover_saved_introductions(app)
@@ -116,18 +171,6 @@ def _install():
                     )
             except Exception:
                 logger.exception("Guaranteed intro reminder startup failed.")
-
-            # Social-media / Friends directory for topic 9513.
-            try:
-                from social_media import startup_social_media
-                await startup_social_media(app)
-                logger.info(
-                    "Social media friends directory enabled | chat=%s topic=%s",
-                    -1002697105809,
-                    9513,
-                )
-            except Exception:
-                logger.exception("Social media friends directory startup failed.")
 
             # Keep the saved community member profile synchronized with the
             # social links database. Existing member/introduction data is not
