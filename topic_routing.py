@@ -1,48 +1,27 @@
 # ==========================================================
 # Melanated AZ Bot - Shared Question Topic Routing
-# topic_routing.py
-#
-# Routes QOTD, Daily Community, and After Dark content into
-# their configured forum topics while keeping their schedules
-# independent.
-#
-# Destination:
-#   Chat  : -1002697105809
-#   Topic : 11999
-#
-# Schedule:
-#   Daily Community Message: 10:00 AM Arizona time
-#   Question of the Day:    11:00 AM Arizona time
-#   After Dark:             10:00 PM Arizona time
 # ==========================================================
 
 import os
 from datetime import time
-
 from types import MethodType
 
 TARGET_CHAT_ID = -1002697105809
 TARGET_TOPIC_ID = 11999
 
-# QOTD reads these values at import time.
+# QOTD configuration.
 os.environ["QUESTION_OF_DAY_CHAT_ID"] = str(TARGET_CHAT_ID)
 os.environ["QUESTION_OF_DAY_TOPIC_ID"] = str(TARGET_TOPIC_ID)
 os.environ["QUESTION_OF_DAY_HOUR"] = "11"
 os.environ["QUESTION_OF_DAY_MINUTE"] = "0"
 
-# Daily Community Messages have their own daytime schedule.
-# After Dark has a separate scheduler below and must not override this.
+# Daily Community remains independent at 10 AM.
 os.environ["DAILY_MESSAGE_HOUR"] = "10"
 os.environ["DAILY_MESSAGE_MINUTE"] = "0"
 
 
 def install_after_dark_topic_routing():
-    """Route Daily Community and After Dark messages independently.
-
-    Daily Community runs at 10 AM using the complete daily message bank.
-    After Dark runs separately at 10 PM using only prompts labeled
-    AFTER DARK / AFTER-DARK. Both are posted to topic 11999.
-    """
+    """Route Daily Community and After Dark independently."""
     import daily_messages
 
     if getattr(daily_messages, "_after_dark_topic_routing_installed", False):
@@ -63,8 +42,6 @@ def install_after_dark_topic_routing():
     ]
 
     if not after_dark_messages:
-        # Do not install a second schedule if the bank has no valid
-        # After Dark prompts.
         return
 
     async def routed_send_message(context, message_bank):
@@ -86,34 +63,21 @@ def install_after_dark_topic_routing():
             bot.send_message = original_send
 
     async def routed_daily_message(context):
-        """10 AM: full Daily Community Message bank."""
         return await routed_send_message(context, full_daily_bank)
 
     async def routed_after_dark_message(context):
-        """10 PM: After Dark-only bank."""
         return await routed_send_message(context, after_dark_messages)
 
-    # Replace the function used by the existing 10 AM scheduler.
     daily_messages.send_daily_community_message = routed_daily_message
-
-    # The existing scheduler reads these values when it is started.
     daily_messages.DAILY_MESSAGE_HOUR = 10
     daily_messages.DAILY_MESSAGE_MINUTE = 0
-
-    # Schedule a completely separate 10 PM After Dark job.
-    # Remove stale copies first so repeated startup/reload cannot create
-    # duplicate After Dark posts.
-    job_queue = getattr(daily_messages, "_APPLICATION_JOB_QUEUE", None)
-    if job_queue is not None:
-        for job in job_queue.get_jobs_by_name("melanated-after-dark-message"):
-            job.schedule_removal()
 
     daily_messages._after_dark_message_handler = routed_after_dark_message
     daily_messages._after_dark_topic_routing_installed = True
 
 
 def start_after_dark_scheduler(application):
-    """Start the independent 10 PM Arizona After Dark scheduler."""
+    """Start the independent 11 PM Arizona After Dark scheduler."""
     import daily_messages
 
     if not getattr(application, "job_queue", None):
@@ -128,13 +92,13 @@ def start_after_dark_scheduler(application):
 
     application.job_queue.run_daily(
         handler,
-        time(hour=22, minute=0, tzinfo=daily_messages.ARIZONA_TZ),
+        time(hour=23, minute=0, tzinfo=daily_messages.ARIZONA_TZ),
         name="melanated-after-dark-message",
     )
 
     import logging
     logging.getLogger("topic_routing").info(
-        "After Dark scheduled | 22:00 Arizona | topic=%s",
+        "After Dark scheduled | 23:00 Arizona | topic=%s",
         TARGET_TOPIC_ID,
     )
 
@@ -158,8 +122,6 @@ def install_qotd_startup_panel():
             try:
                 await question_of_day.ensure_qotd_submission_panel(context.application)
             except Exception:
-                # Startup must continue even if Telegram temporarily rejects
-                # the panel operation. The next bot restart can retry it.
                 import logging
                 logging.getLogger("topic_routing").exception(
                     "QOTD submission panel startup check failed."
