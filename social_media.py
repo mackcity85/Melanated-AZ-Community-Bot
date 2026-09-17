@@ -162,8 +162,6 @@ def _my_links_keyboard(rows):
 def _topic_panel_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ Add My Social Links", callback_data="social_add")],
-        [InlineKeyboardButton("👥 Browse Friends", callback_data="social_browse")],
-        [InlineKeyboardButton("🔗 My Links", callback_data="social_mine")],
     ])
 
 
@@ -209,8 +207,29 @@ async def _publish_member_profile(bot, user_id):
                 parse_mode="HTML",
             )
             return
-        except TelegramError:
-            message_id = None
+        except TelegramError as exc:
+            text_error = str(exc).lower()
+            if not any(
+                phrase in text_error
+                for phrase in (
+                    "message to edit not found",
+                    "message not found",
+                    "message identifier is not valid",
+                    "message_id_invalid",
+                )
+            ):
+                logger.warning(
+                    "Social profile edit failed; NOT reposting | user_id=%s message=%s error=%s",
+                    user_id,
+                    message_id,
+                    exc,
+                )
+                return
+            logger.info(
+                "Stored social profile message is gone; recreating | user_id=%s old_message=%s",
+                user_id,
+                message_id,
+            )
 
     try:
         message = await bot.send_message(
@@ -231,12 +250,17 @@ async def _publish_member_profile(bot, user_id):
 
 
 async def send_social_panel(bot):
+    """Ensure one persistent Social Media panel exists.
+
+    Existing panel messages are edited only. They are never re-pinned.
+    A pin is attempted only when a brand-new panel message has to be created.
+    """
     initialize_social_media_database()
     text = (
         "📱 <b>MELANATED AZ — CONNECT &amp; ADD FRIENDS</b>\n\n"
         "Want people in the community to find you on social media?\n\n"
         "Add your social links and your social profile will be posted in this topic so members can connect with you.\n\n"
-        "👇🏾 Choose an option below."
+        "👇🏾 Tap below to add your links."
     )
     try:
         message_id = None
@@ -256,15 +280,28 @@ async def send_social_panel(bot):
                     reply_markup=_topic_panel_keyboard(),
                     parse_mode="HTML",
                 )
-                # Re-pin on every startup so the launcher remains pinned even
-                # if someone manually unpinned it.
-                try:
-                    await bot.pin_chat_message(CHAT_ID, message_id, disable_notification=True)
-                except TelegramError:
-                    logger.warning("Unable to re-pin social panel | message=%s", message_id)
                 return message_id
-            except TelegramError:
-                message_id = None
+            except TelegramError as exc:
+                text_error = str(exc).lower()
+                if not any(
+                    phrase in text_error
+                    for phrase in (
+                        "message to edit not found",
+                        "message not found",
+                        "message identifier is not valid",
+                        "message_id_invalid",
+                    )
+                ):
+                    logger.warning(
+                        "Social panel edit failed; NOT creating duplicate | message=%s error=%s",
+                        message_id,
+                        exc,
+                    )
+                    return message_id
+                logger.info(
+                    "Stored Social Media panel is gone; creating replacement | old_message=%s",
+                    message_id,
+                )
 
         message = await bot.send_message(
             chat_id=CHAT_ID,
@@ -278,7 +315,7 @@ async def send_social_panel(bot):
         try:
             await bot.pin_chat_message(CHAT_ID, message.message_id, disable_notification=True)
         except TelegramError:
-            logger.exception("Unable to pin social panel | message=%s", message.message_id)
+            logger.exception("Unable to pin new Social Media panel | message=%s", message.message_id)
         return message.message_id
     except TelegramError:
         logger.exception("Unable to create social panel")
@@ -536,7 +573,7 @@ async def social_close(update, context):
     if query:
         await query.answer()
         await query.edit_message_text(
-            "📱 <b>MELANATED AZ — CONNECT &amp; ADD FRIENDS</b>\n\nChoose an option below.",
+            "📱 <b>MELANATED AZ — CONNECT &amp; ADD FRIENDS</b>\n\nTap below to add your social links.",
             parse_mode="HTML",
             reply_markup=_topic_panel_keyboard(),
         )
