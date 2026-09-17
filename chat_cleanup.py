@@ -3,9 +3,8 @@
 # Persistent cleanup for temporary bot messages in the main/admin groups.
 #
 # Temporary bot/service messages are deleted after 3 minutes.
-# Daily community messages, raffle posts, QOTD/After Dark posts,
-# and ALL member introductions are preserved permanently.
-# User/member messages are never targeted by this module.
+# Permanent community topics are never cleaned up.
+# User/member messages in permanent community topics are never targeted.
 # ==========================================================
 
 import json
@@ -21,10 +20,21 @@ logger = logging.getLogger(__name__)
 
 CLEANUP_SECONDS = int(os.environ.get("CHAT_CLEANUP_SECONDS", "180") or "180")
 BOT_ID = 8810138488
+
+# Main community topics that must NEVER be cleaned up.
 RAFFLE_TOPIC_ID = 11883
 QOTD_TOPIC_ID = 11999
 INTRO_TOPIC_ID = 11570
-PERMANENT_TOPIC_IDS = {RAFFLE_TOPIC_ID, QOTD_TOPIC_ID, INTRO_TOPIC_ID}
+GAMES_TOPIC_ID = 8809
+SOCIAL_MEDIA_TOPIC_ID = 9513
+PERMANENT_TOPIC_IDS = {
+    RAFFLE_TOPIC_ID,
+    QOTD_TOPIC_ID,
+    INTRO_TOPIC_ID,
+    GAMES_TOPIC_ID,
+    SOCIAL_MEDIA_TOPIC_ID,
+}
+
 MESSAGE_STORE = Path(os.environ.get("CHAT_CLEANUP_STORE", "/var/data/bot_cleanup_messages.json"))
 DAILY_MESSAGE_MARKERS = (
     "DAILY COMMUNITY",
@@ -58,27 +68,46 @@ def _message_thread_id(message) -> int:
         return 0
 
 
-def _is_permanent_topic_message(message) -> bool:
-    """Permanent topics: raffle, QOTD/After Dark, and introductions."""
-    if not message:
-        return False
+def _is_permanent_topic_id(chat_id, thread_id) -> bool:
     try:
         return (
-            int(message.chat_id) == _main_group_id()
-            and _message_thread_id(message) in PERMANENT_TOPIC_IDS
+            int(chat_id) == _main_group_id()
+            and int(thread_id or 0) in PERMANENT_TOPIC_IDS
         )
     except (TypeError, ValueError):
         return False
 
 
+def _is_permanent_topic_message(message) -> bool:
+    """Never clean messages in raffle, QOTD, intro, games, or social topics."""
+    if not message:
+        return False
+    return _is_permanent_topic_id(
+        getattr(message, "chat_id", None),
+        _message_thread_id(message),
+    )
+
+
 def _record_is_permanent_topic(record) -> bool:
     try:
-        return (
-            int(record.get("chat_id")) == _main_group_id()
-            and int(record.get("thread_id", 0) or 0) in PERMANENT_TOPIC_IDS
+        return _is_permanent_topic_id(
+            record.get("chat_id"),
+            record.get("thread_id", 0),
         )
     except (TypeError, ValueError, AttributeError):
         return False
+
+
+def _send_targets_permanent_topic(chat_id, kwargs) -> bool:
+    """Check the send request itself before scheduling cleanup.
+
+    This is important because Telegram's returned Message object can vary by
+    API path. We do not rely only on the returned message_thread_id.
+    """
+    if chat_id is None:
+        return False
+    thread_id = kwargs.get("message_thread_id")
+    return _is_permanent_topic_id(chat_id, thread_id)
 
 
 def _load_store():
@@ -121,7 +150,10 @@ def _remember_message(message):
 
 def _forget_message(chat_id, message_id):
     records = _load_store()
-    records = [r for r in records if not (r.get("chat_id") == chat_id and r.get("message_id") == message_id)]
+    records = [
+        r for r in records
+        if not (r.get("chat_id") == chat_id and r.get("message_id") == message_id)
+    ]
     _save_store(records)
 
 
@@ -180,7 +212,7 @@ async def startup_cleanup(application):
             remaining.append(record)
             continue
         # Older records lacked thread_id. Preserve them rather than risking
-        # deletion of an introduction/QOTD/raffle message.
+        # deletion of an introduction/QOTD/raffle/games/social message.
         if "thread_id" not in record:
             remaining.append(record)
             continue
@@ -221,8 +253,14 @@ def install_chat_cleanup(application):
         chat_id = kwargs.get("chat_id")
         if chat_id is None and args:
             chat_id = args[0]
+
+        # Do not even create a cleanup job for permanent community topics.
+        # This protects launchers, game questions/answers, QOTD/After Dark,
+        # raffles, introductions, and the Social Media/Friends panel.
+        permanent_target = _send_targets_permanent_topic(chat_id, kwargs)
+
         result = await original_send_message(self, *args, **kwargs)
-        if result and chat_id in _cleanup_group_ids():
+        if result and chat_id in _cleanup_group_ids() and not permanent_target:
             schedule_cleanup(application, result)
         return result
 
