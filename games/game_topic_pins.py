@@ -1,8 +1,8 @@
 """Separate permanent launcher pins for the Games topic."""
 import logging
-import os
 from pathlib import Path
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from .truth_dare_pin import TEXT as TRUTH_DARE_TEXT, KEYBOARD as TRUTH_DARE_KEYBOARD
 
 logger = logging.getLogger("melanated_az.game_topic_pins")
 CHAT_ID = -1002697105809
@@ -10,6 +10,7 @@ TOPIC_ID = 11999
 STATE_DIR = Path("/var/data")
 GAME_CENTER_STATE = STATE_DIR / "game_center_pin_11999.json"
 DIRTY_MINDS_STATE = STATE_DIR / "dirty_minds_pin_11999.json"
+TRUTH_DARE_STATE = STATE_DIR / "truth_dare_games_pin_11999.json"
 
 
 def _load_id(path):
@@ -62,7 +63,7 @@ async def _upsert_pin(bot, path, text, keyboard):
 
 
 async def ensure_game_topic_pins(bot):
-    """Keep Game Center and Dirty Minds as two separate pinned messages."""
+    """Keep Game Center, Dirty Minds, and Truth or Dare as separate pins in topic 11999."""
     game_center_text = (
         "🎮🔥 <b>MELANATED AZ GAME CENTER</b> 🔥🎮\n\n"
         "🥊 <b>Fighting</b>\n"
@@ -91,3 +92,4 @@ async def ensure_game_topic_pins(bot):
 
     await _upsert_pin(bot, GAME_CENTER_STATE, game_center_text, game_center_keyboard)
     await _upsert_pin(bot, DIRTY_MINDS_STATE, dirty_minds_text, dirty_minds_keyboard)
+    await _upsert_pin(bot, TRUTH_DARE_STATE, TRUTH_DARE_TEXT, TRUTH_DARE_KEYBOARD)
