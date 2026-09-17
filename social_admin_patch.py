@@ -116,6 +116,14 @@ def install():
     admin._original_admin_button = admin.admin_button
     admin.admin_main_keyboard = _patched_admin_main_keyboard
     admin.admin_button = _patched_admin_button
+
+    # bot.py imports admin_button directly, so patch that reference too.
+    try:
+        import bot
+        bot.admin_button = _patched_admin_button
+    except Exception:
+        logger.exception("Unable to patch bot.admin_button reference")
+
     admin._social_admin_patch_installed = True
     logger.info("Social admin manual-repost controls installed")
 
