@@ -55,6 +55,13 @@ def _build_application_with_verified_startup_hooks():
         if original_post_init:
             await original_post_init(application_instance)
 
+        # Daily Community runs at 10 AM. After Dark is intentionally a
+        # separate 10 PM job installed by topic_routing.py.
+        try:
+            topic_routing.start_after_dark_scheduler(application_instance)
+        except Exception:
+            bot.logger.exception("After Dark scheduler startup hook failed.")
+
         # Schedule Games-topic maintenance through the JobQueue instead of
         # doing Telegram API work inline during post_init. This guarantees the
         # task runs after PTB's scheduler is fully started and gives us an
