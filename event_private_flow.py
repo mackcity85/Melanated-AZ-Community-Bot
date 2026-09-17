@@ -1,5 +1,9 @@
 # ==========================================================
-# Melanated AZ Bot - Private Event Submission Flow
+# Melanated AZ Bot - PRIVATE Event Submission Flow
+# ==========================================================
+# Members never fill out Event information in the public Events topic.
+# They open the bot privately, upload the flyer, and complete everything
+# in the bot DM. Only the final admin-approved Event is published publicly.
 # ==========================================================
 
 import logging
@@ -7,7 +11,14 @@ import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
-from telegram.ext import ApplicationHandlerStop, ContextTypes, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import (
+    ApplicationHandlerStop,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 import event_router
 import event_router_fix
@@ -17,12 +28,9 @@ logger = logging.getLogger("event_private_flow")
 EVENT_CHAT_ID = event_router.EVENT_CHAT_ID
 EVENT_TOPIC_ID = event_router.EVENT_TOPIC_ID
 
-
-def _private_keyboard(submission_id):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✏️ EDIT / FILL IN", callback_data=f"event_private_edit_{submission_id}")],
-        [InlineKeyboardButton("✅ CONFIRM & SUBMIT", callback_data=f"event_private_confirm_{submission_id}")],
-    ])
+PRIVATE_MODE_KEY = "event_private_mode"
+SUBMISSION_KEY = "event_private_submission_id"
+WAITING_KEY = "event_private_waiting_for"
 
 
 def _fields(row):
@@ -33,98 +41,77 @@ def _missing(fields):
     return event_router._missing(fields)
 
 
-def _set_context(context, submission_id, field=None):
-    context.user_data["event_private_submission_id"] = int(submission_id)
+def _set_context(context, submission_id=None, field=None):
+    if submission_id is not None:
+        context.user_data[SUBMISSION_KEY] = int(submission_id)
     if field:
-        context.user_data["event_private_waiting_for"] = field
+        context.user_data[WAITING_KEY] = field
     else:
-        context.user_data.pop("event_private_waiting_for", None)
+        context.user_data.pop(WAITING_KEY, None)
 
 
 def _clear_context(context):
-    context.user_data.pop("event_private_submission_id", None)
-    context.user_data.pop("event_private_waiting_for", None)
+    context.user_data.pop(PRIVATE_MODE_KEY, None)
+    context.user_data.pop(SUBMISSION_KEY, None)
+    context.user_data.pop(WAITING_KEY, None)
 
 
-async def _send_private_form(context, user_id, submission_id, intro=False):
-    row = event_router._get_submission(int(submission_id))
-    if not row or row["user_id"] != user_id:
-        return False
-
-    if row["status"] not in {"member_input", "awaiting_confirmation"}:
-        return False
-
-    fields = _fields(row)
-    _set_context(context, submission_id)
-
-    if intro:
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=(
-                "🔒 <b>PRIVATE EVENT SUBMISSION</b>\n\n"
-                "Your event information will be collected here privately. "
-                "Nothing you enter will be posted in the group while you are filling it out.\n\n"
-                "I will send the completed event to the admins for approval."
-            ),
-            parse_mode="HTML",
-        )
-
-    missing = _missing(fields)
-    if missing:
-        field = missing[0]
-        _set_context(context, submission_id, field)
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=(
-                "🔒 <b>EVENT INFORMATION</b>\n\n"
-                + event_router._format_fields(fields)
-                + f"\n\nPlease send the <b>{event_router.FIELD_LABELS[field]}</b>."
-            ),
-            parse_mode="HTML",
-        )
-    else:
-        _set_context(context, submission_id)
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=(
-                "🔎 <b>VERIFY YOUR EVENT</b>\n\n"
-                + event_router._format_fields(fields)
-                + "\n\nEverything is ready. Review it below, then confirm."
-            ),
-            parse_mode="HTML",
-            reply_markup=_private_keyboard(submission_id),
-        )
-
-    return True
+def _private_keyboard(submission_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ EDIT / FILL IN", callback_data=f"event_private_edit_{submission_id}")],
+        [InlineKeyboardButton("✅ CONFIRM & SUBMIT", callback_data=f"event_private_confirm_{submission_id}")],
+    ])
 
 
-async def _send_start_link(context, user_id, submission_id):
-    """Legacy fallback retained for compatibility, but NEVER posts publicly.
-
-    Telegram does not allow a bot to initiate a private DM with a user who has
-    never started the bot. To preserve the strict private-submission rule, the
-    bot does not publish a deep-link notice in the Events topic anymore.
-    """
-    logger.warning(
-        "Event private chat unavailable because user has not started the bot | submission=%s | user=%s",
-        submission_id,
-        user_id,
+async def _send_private_start(context, user_id):
+    context.user_data[PRIVATE_MODE_KEY] = "awaiting_flyer"
+    await context.bot.send_message(
+        chat_id=user_id,
+        text=(
+            "🔒 <b>PRIVATE EVENT SUBMISSION</b>\n\n"
+            "Your Event submission is private from start to finish.\n\n"
+            "📎 <b>Send me the Event flyer/photo/video here.</b>\n\n"
+            "Then I will collect the Event Name, Date, Time, Location, Price, and optional Website here in this private chat.\n\n"
+            "Nothing you enter will be posted in the Events topic while you are filling it out."
+        ),
+        parse_mode="HTML",
     )
-    return None
 
 
-async def _process_group_media(update, context):
+async def start_private_event(update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
-    if not message or message.chat_id != EVENT_CHAT_ID:
+    user = update.effective_user
+    if not message or not user or user.is_bot:
+        return
+    if message.chat.type != "private":
+        try:
+            await message.delete()
+        except TelegramError:
+            pass
+        raise ApplicationHandlerStop
+    _clear_context(context)
+    await _send_private_start(context, user.id)
+    raise ApplicationHandlerStop
+
+
+async def handle_private_start(update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    if not message or not message.text:
+        return
+    if not re.match(r"^/start(?:@\w+)?\s+event\s*$", message.text, re.IGNORECASE):
+        return
+    await start_private_event(update, context)
+
+
+async def _save_private_media(update, context):
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not user or user.is_bot or message.chat.type != "private":
         return False
-    if getattr(message, "message_thread_id", None) != EVENT_TOPIC_ID:
+    if context.user_data.get(PRIVATE_MODE_KEY) != "awaiting_flyer":
         return False
     if not message.photo and not message.video:
         return False
-
-    user = update.effective_user
-    if not user or user.is_bot:
-        return True
 
     try:
         if message.photo:
@@ -142,78 +129,93 @@ async def _process_group_media(update, context):
                     thumb_text = event_router._ocr_image(thumb_bytes)
                     ocr_text = "\n".join(v for v in (thumb_text, ocr_text) if v)
                 except Exception:
-                    logger.exception("Event video thumbnail OCR failed")
+                    logger.exception("Private Event video thumbnail OCR failed")
 
         combined_text = "\n".join(v for v in (ocr_text, message.caption or "") if v)
-        fields = event_router._parse_fields(combined_text)
-        submission_id = event_router._save_submission(user, message, media_type, file_id, fields)
+        if hasattr(event_router_fix, "_member_required_parse_fields"):
+            fields = event_router_fix._member_required_parse_fields(combined_text)
+        else:
+            fields = event_router._parse_fields(combined_text)
 
-        # The original flyer is NEVER left visible in the public Events topic.
-        try:
-            await message.delete()
-        except TelegramError:
-            logger.warning("Could not delete original Event submission message %s", message.message_id)
-
-        try:
-            await _send_private_form(context, user.id, submission_id, intro=True)
-            logger.info("Private Event form started | submission=%s | user=%s", submission_id, user.id)
-        except TelegramError:
-            # The user has not started the bot, so Telegram will not allow a
-            # private DM. Do not post a deep link or any submission information
-            # in the public Events topic. The submission remains unpublished.
-            await _send_start_link(context, user.id, submission_id)
-        except Exception:
-            logger.exception("Could not start private Event form | submission=%s", submission_id)
-            await _send_start_link(context, user.id, submission_id)
-
+        submission_id = event_router._save_submission(
+            user, message, media_type, file_id, fields, status="member_input"
+        )
+        _set_context(context, submission_id)
+        context.user_data[PRIVATE_MODE_KEY] = "filling"
+        await _send_next_private_field(context, user.id, submission_id)
+        logger.info("Private Event flyer captured | submission=%s | user=%s", submission_id, user.id)
         return True
     except Exception:
-        logger.exception("Private Event media processing failed")
-        # Strict privacy: do not expose processing errors/details in the Events
-        # topic. The original submission has already been removed when possible.
+        logger.exception("Private Event flyer processing failed")
+        await context.bot.send_message(
+            chat_id=user.id,
+            text="⚠️ I couldn't process that flyer. Please send the flyer again here.",
+        )
         return True
 
 
-async def handle_group_photo(update, context):
-    if await _process_group_media(update, context):
+async def handle_private_photo(update, context):
+    if await _save_private_media(update, context):
         raise ApplicationHandlerStop
 
 
-async def handle_group_video(update, context):
-    if await _process_group_media(update, context):
+async def handle_private_video(update, context):
+    if await _save_private_media(update, context):
         raise ApplicationHandlerStop
 
 
-async def _start_from_deep_link(update, context):
-    message = update.effective_message
-    if not message or not update.effective_user:
-        return
+async def _send_next_private_field(context, user_id, submission_id):
+    row = event_router._get_submission(int(submission_id))
+    if not row or row["user_id"] != user_id:
+        return False
 
-    text = message.text or ""
-    match = re.match(r"^/start(?:@\w+)?\s+event_(\d+)\s*$", text, re.IGNORECASE)
-    if not match:
-        return
+    fields = _fields(row)
+    missing = _missing(fields)
+    if not missing:
+        _set_context(context, submission_id)
+        event_router._update_submission(submission_id, status="awaiting_confirmation")
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                "🔎 <b>VERIFY YOUR EVENT</b>\n\n"
+                + event_router._format_fields(fields)
+                + "\n\nEverything is ready. Review it and tap <b>CONFIRM &amp; SUBMIT</b>."
+            ),
+            parse_mode="HTML",
+            reply_markup=_private_keyboard(submission_id),
+        )
+        return True
 
-    submission_id = int(match.group(1))
-    row = event_router._get_submission(submission_id)
-    if not row or row["user_id"] != update.effective_user.id:
-        await message.reply_text("⚠️ That Event submission could not be found or does not belong to you.")
-        raise ApplicationHandlerStop
-
-    await _send_private_form(context, update.effective_user.id, submission_id, intro=True)
-    raise ApplicationHandlerStop
+    field = missing[0]
+    _set_context(context, submission_id, field)
+    await context.bot.send_message(
+        chat_id=user_id,
+        text=(
+            "🔒 <b>PRIVATE EVENT INFORMATION</b>\n\n"
+            + event_router._format_fields(fields)
+            + f"\n\nPlease send the <b>{event_router.FIELD_LABELS[field]}</b>."
+        ),
+        parse_mode="HTML",
+    )
+    return True
 
 
 async def handle_private_text(update, context):
     message = update.effective_message
     user = update.effective_user
-    if not message or not user or not message.text:
-        return
-    if message.chat.type != "private":
+    if not message or not user or not message.text or message.chat.type != "private":
         return
 
-    submission_id = context.user_data.get("event_private_submission_id")
-    field = context.user_data.get("event_private_waiting_for")
+    mode = context.user_data.get(PRIVATE_MODE_KEY)
+    if mode not in {"awaiting_flyer", "filling"}:
+        return
+
+    if mode == "awaiting_flyer":
+        await message.reply_text("🔒 This Event submission is private. Please send the Event flyer/photo/video here first.")
+        raise ApplicationHandlerStop
+
+    submission_id = context.user_data.get(SUBMISSION_KEY)
+    field = context.user_data.get(WAITING_KEY)
     if not submission_id or not field:
         return
 
@@ -224,32 +226,64 @@ async def handle_private_text(update, context):
 
     value = message.text.strip()
     if not value:
-        await message.reply_text(f"Please provide a value for {event_router.FIELD_LABELS[field]}.")
+        await message.reply_text(f"Please provide {event_router.FIELD_LABELS[field]}.")
         raise ApplicationHandlerStop
 
     fields = _fields(row)
     fields[field] = value
     event_router._update_submission(submission_id, fields=fields, status="member_input")
+    await _send_next_private_field(context, user.id, int(submission_id))
+    raise ApplicationHandlerStop
 
-    missing = _missing(fields)
-    if missing:
-        _set_context(context, submission_id, missing[0])
-        await message.reply_text(
-            event_router._format_fields(fields)
-            + f"\n\nPlease send the <b>{event_router.FIELD_LABELS[missing[0]]}</b>.",
+
+async def handle_private_callback(update, context):
+    query = update.callback_query
+    user = update.effective_user
+    if not query or not user or not query.message or query.message.chat.type != "private":
+        return
+
+    data = query.data or ""
+    if data == "event_private_start":
+        await query.answer()
+        _clear_context(context)
+        await _send_private_start(context, user.id)
+        raise ApplicationHandlerStop
+
+    match = re.fullmatch(r"event_private_(edit|confirm)_(\d+)", data)
+    if not match:
+        return
+
+    submission_id = int(match.group(2))
+    row = event_router._get_submission(submission_id)
+    if not row or row["user_id"] != user.id:
+        await query.answer("This Event submission is not yours.", show_alert=True)
+        raise ApplicationHandlerStop
+
+    if match.group(1) == "edit":
+        _set_context(context, submission_id, "event")
+        context.user_data[PRIVATE_MODE_KEY] = "filling"
+        await query.answer()
+        await query.message.reply_text(
+            "✏️ <b>EDIT EVENT</b>\n\n"
+            + event_router._format_fields(_fields(row))
+            + "\n\nPlease enter the <b>Event Name</b>.",
             parse_mode="HTML",
         )
-    else:
-        _set_context(context, submission_id)
-        event_router._update_submission(submission_id, status="awaiting_confirmation")
-        await message.reply_text(
-            "🔎 <b>VERIFY YOUR EVENT</b>\n\n"
-            + event_router._format_fields(fields)
-            + "\n\nIf everything is correct, tap <b>CONFIRM & SUBMIT</b>.",
-            parse_mode="HTML",
-            reply_markup=_private_keyboard(submission_id),
-        )
+        raise ApplicationHandlerStop
 
+    ok, error = await _submit_to_admin(context, submission_id, user.id)
+    if not ok:
+        await query.answer(error, show_alert=True)
+        raise ApplicationHandlerStop
+
+    _clear_context(context)
+    await query.answer("Submitted to the admins for approval.")
+    await query.message.edit_text(
+        "✅ <b>EVENT SUBMITTED</b>\n\n"
+        "Your Event has been sent to the admins for approval.\n"
+        "Everything you entered was kept private. Nothing was posted in the Events topic.",
+        parse_mode="HTML",
+    )
     raise ApplicationHandlerStop
 
 
@@ -261,8 +295,7 @@ async def _submit_to_admin(context, submission_id, user_id):
         return False, "This Event submission is no longer available."
 
     fields = _fields(row)
-    missing = _missing(fields)
-    if missing:
+    if _missing(fields):
         return False, "Please complete all Event information first."
 
     submitter = f"@{row['username']}" if row["username"] else (row["first_name"] or str(row["user_id"]))
@@ -272,25 +305,17 @@ async def _submit_to_admin(context, submission_id, user_id):
         if row["media_type"] == "photo":
             media_message = await context.bot.send_photo(
                 chat_id=event_router.ADMIN_GROUP_ID,
-                photo=row["file_id"],
-                caption=caption,
-                parse_mode="HTML",
+                photo=row["file_id"], caption=caption, parse_mode="HTML"
             )
         else:
             media_message = await context.bot.send_video(
                 chat_id=event_router.ADMIN_GROUP_ID,
-                video=row["file_id"],
-                caption=caption,
-                parse_mode="HTML",
+                video=row["file_id"], caption=caption, parse_mode="HTML"
             )
 
         details = await context.bot.send_message(
             chat_id=event_router.ADMIN_GROUP_ID,
-            text=(
-                "🔎 <b>EVENT SUBMISSION</b>\n\n"
-                + event_router._format_fields(fields)
-                + f"\n\nSubmitted by: {submitter}"
-            ),
+            text=("🔎 <b>EVENT SUBMISSION</b>\n\n" + event_router._format_fields(fields) + f"\n\nSubmitted by: {submitter}"),
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([
                 [
@@ -299,7 +324,6 @@ async def _submit_to_admin(context, submission_id, user_id):
                 ]
             ]),
         )
-
         event_router._update_submission(
             submission_id,
             status="pending_admin",
@@ -308,83 +332,83 @@ async def _submit_to_admin(context, submission_id, user_id):
         )
         return True, None
     except Exception:
-        logger.exception("Could not send Event submission to admin group")
+        logger.exception("Could not send private Event submission to admin group")
         return False, "I couldn't send the Event to the admins. Please try again."
 
 
-async def handle_private_callback(update, context):
-    query = update.callback_query
-    user = update.effective_user
-    if not query or not user:
+def _remove_public_event_handlers(application):
+    """Remove Event submission handlers registered by event_router; keep admin callbacks."""
+    for group, handlers in list(application.handlers.items()):
+        kept = []
+        for handler in handlers:
+            callback = getattr(handler, "callback", None)
+            module = getattr(callback, "__module__", "")
+            name = getattr(callback, "__name__", "")
+            if module == "event_router" and name in {
+                "handle_event_photo", "handle_event_video", "handle_event_text",
+            }:
+                continue
+            kept.append(handler)
+        application.handlers[group] = kept
+
+
+async def block_public_event_media(update, context):
+    message = update.effective_message
+    if not message or message.chat_id != EVENT_CHAT_ID:
         return
-
-    match = re.fullmatch(r"event_private_(edit|confirm)_(\d+)", query.data or "")
-    if not match:
+    if getattr(message, "message_thread_id", None) != EVENT_TOPIC_ID:
         return
-
-    submission_id = int(match.group(2))
-    row = event_router._get_submission(submission_id)
-    if not row or row["user_id"] != user.id:
-        await query.answer("This Event submission is not yours.", show_alert=True)
+    if message.photo or message.video:
+        try:
+            await message.delete()
+        except TelegramError:
+            pass
         raise ApplicationHandlerStop
-
-    action = match.group(1)
-
-    if action == "edit":
-        fields = _fields(row)
-        _set_context(context, submission_id, "event")
-        await query.answer()
-        await query.message.reply_text(
-            "✏️ <b>EDIT EVENT</b>\n\n"
-            + event_router._format_fields(fields)
-            + "\n\nPlease enter the <b>Event Name</b>.",
-            parse_mode="HTML",
-        )
-        raise ApplicationHandlerStop
-
-    ok, error = await _submit_to_admin(context, submission_id, user.id)
-    if not ok:
-        await query.answer(error, show_alert=True)
-        raise ApplicationHandlerStop
-
-    event_router._update_submission(submission_id, status="pending_admin")
-    _clear_context(context)
-    await query.answer("Submitted to the admins for approval.")
-    await query.message.edit_text(
-        "✅ <b>EVENT SUBMITTED</b>\n\n"
-        "Your event has been sent to the admins for approval.\n"
-        "You will not see the admin review, and your form responses were kept private.",
-        parse_mode="HTML",
-    )
-    raise ApplicationHandlerStop
 
 
 def install_application(application):
-    """Install private Event handlers before the existing Events handlers."""
+    """Enable private Event submissions and leave only admin approval public."""
     if getattr(application, "_melanated_private_event_flow_installed", False):
         return
 
+    # event_router supplies the existing approval/publish callbacks.
+    event_router.install_application(application)
+    _remove_public_event_handlers(application)
+
+    # Public Events topic: flyers are deleted and NEVER processed.
     application.add_handler(
-        MessageHandler(filters.PHOTO, handle_group_photo),
-        group=0,
+        MessageHandler(filters.PHOTO, block_public_event_media), group=-10
     )
     application.add_handler(
-        MessageHandler(filters.VIDEO, handle_group_video),
-        group=0,
-    )
-    application.add_handler(
-        MessageHandler(filters.Regex(r"^/start(?:@\w+)?\s+event_\d+\s*$"), _start_from_deep_link),
-        group=0,
-    )
-    application.add_handler(
-        CallbackQueryHandler(handle_private_callback, pattern=r"^event_private_(?:edit|confirm)_\d+$"),
-        group=0,
-    )
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_private_text),
-        group=0,
+        MessageHandler(filters.VIDEO, block_public_event_media), group=-10
     )
 
-    event_router_fix.install_application(application)
+    # Private entry points.
+    application.add_handler(CommandHandler("event", start_private_event), group=-5)
+    application.add_handler(
+        MessageHandler(filters.Regex(r"^/start(?:@\w+)?\s+event\s*$"), handle_private_start),
+        group=-5,
+    )
+    application.add_handler(
+        MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handle_private_photo), group=-4
+    )
+    application.add_handler(
+        MessageHandler(filters.VIDEO & filters.ChatType.PRIVATE, handle_private_video), group=-4
+    )
+    application.add_handler(
+        CallbackQueryHandler(
+            handle_private_callback,
+            pattern=r"^(?:event_private_start|event_private_(?:edit|confirm)_\d+)$",
+        ),
+        group=-4,
+    )
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE,
+            handle_private_text,
+        ),
+        group=-4,
+    )
+
     application._melanated_private_event_flow_installed = True
-    logger.info("Private Event submission flow enabled | topic=%s", EVENT_TOPIC_ID)
+    logger.info("PRIVATE Event submission flow enabled | topic=%s", EVENT_TOPIC_ID)
