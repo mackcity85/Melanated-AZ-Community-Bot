@@ -21,21 +21,16 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message:
         return
 
-    # Only photos and videos are handled here.
     if not message.photo and not message.video:
         return
 
-    # Only route media from the Melanated AZ community.
     if message.chat_id != MEDIA_CHAT_ID:
         return
 
-    # Already in the Media topic.
     if getattr(message, "message_thread_id", None) == MEDIA_TOPIC_ID:
         return
 
     try:
-        # Copy first so the original is preserved until Telegram confirms
-        # the Media-topic copy succeeded.
         await context.bot.copy_message(
             chat_id=MEDIA_CHAT_ID,
             from_chat_id=MEDIA_CHAT_ID,
@@ -43,8 +38,6 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_thread_id=MEDIA_TOPIC_ID,
         )
 
-        # Tell the member where their media went, in the topic where they
-        # originally posted it.
         try:
             notice = await context.bot.send_message(
                 chat_id=MEDIA_CHAT_ID,
@@ -60,7 +53,6 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except TelegramError:
             logger.exception("Could not send media move notice.")
 
-        # Remove the original only after the copy succeeded.
         try:
             await message.delete()
         except TelegramError:
@@ -96,11 +88,29 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def install(bot_module):
-    """Replace the existing photo/video handlers before bot.build_application()."""
-    bot_module.handle_photo = handle_photo
-    bot_module.handle_video = handle_video
-    logger.info(
-        "Media topic routing enabled | chat=%s | topic=%s",
-        MEDIA_CHAT_ID,
-        MEDIA_TOPIC_ID,
-    )
+    """Bind the media callbacks directly onto the handlers created by bot.py."""
+    original_build_application = bot_module.build_application
+
+    def wrapped_build_application(*args, **kwargs):
+        application = original_build_application(*args, **kwargs)
+        replaced = 0
+
+        for handlers in application.handlers.values():
+            for handler in handlers:
+                callback_name = getattr(getattr(handler, "callback", None), "__name__", "")
+                if callback_name == "handle_photo":
+                    handler.callback = handle_photo
+                    replaced += 1
+                elif callback_name == "handle_video":
+                    handler.callback = handle_video
+                    replaced += 1
+
+        logger.info(
+            "Media topic routing enabled | chat=%s | topic=%s | handlers_replaced=%s",
+            MEDIA_CHAT_ID,
+            MEDIA_TOPIC_ID,
+            replaced,
+        )
+        return application
+
+    bot_module.build_application = wrapped_build_application
