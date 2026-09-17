@@ -1,8 +1,8 @@
 """Melanated AZ weekday Grand Rising greetings.
 
 Runs at 6:00 AM America/Phoenix from 2026-09-16 through 2036-12-31.
-Each weekday has its own theme while keeping the recurring "Grand Rising"
-opener and community-focused tone.
+Each weekday has its own urban, playful, kinky/open-minded theme while keeping
+"Grand Rising, Melanated Kings & Queens" as the recurring community opener.
 """
 
 import json
@@ -27,67 +27,53 @@ STATE_FILE = Path("/var/data/grand_rising_state.json")
 
 WEEKDAY_GREETINGS = {
     0: (
-        "👑 <b>Grand Rising, Melanated AZ! 🖤</b>\n\n"
-        "🌅 <b>Mindset Monday</b>\n"
-        "New week, new energy, same beautiful community. Start the week with intention, "
-        "protect your peace, and make room for good conversations.\n\n"
-        "🖤 Check in, meet somebody new, support somebody else, and leave a little positive energy behind.\n\n"
-        "What is one thing you want to make happen this week?\n\n"
-        "— King 👑"
+        "👑 <b>Grand Rising, Melanated Kings &amp; Queens! 🖤</b>\n\n"
+        "😈 <b>Munchie Monday</b>\n"
+        "Start the week with a little appetite for something different. Sometimes you gotta feed "
+        "your mind before you feed your cravings. Be curious. Be open. Explore what makes you tick.\n\n"
+        "🖤 New week. New energy. New things to discover."
     ),
     1: (
-        "👑 <b>Grand Rising, Melanated AZ! 🖤</b>\n\n"
-        "😏 <b>Tease Tuesday</b>\n"
-        "Bring a little playful energy into the room today. A good smile, a good conversation, "
-        "and a little harmless teasing can go a long way.\n\n"
-        "🔥 Talk to somebody you have not talked to before and let the vibe develop naturally.\n\n"
-        "What kind of personality always gets your attention?\n\n"
-        "— King 👑"
+        "👑 <b>Grand Rising, Melanated Kings &amp; Queens! 🖤</b>\n\n"
+        "😏 <b>Talk That Kink Tuesday</b>\n"
+        "Everybody ain't into the same thing—and that's what makes the conversation interesting. "
+        "Vanilla, kinky, curious, freaky, or somewhere in between... don't yuck somebody else's yum.\n\n"
+        "🔥 Keep an open mind, respect the boundaries, and let grown folks enjoy their flavor."
     ),
     2: (
-        "👑 <b>Grand Rising, Melanated AZ! 🖤</b>\n\n"
-        "🌿 <b>Wellness Wednesday</b>\n"
-        "Take care of yourself today—mind, body, energy, and boundaries. We build community by "
-        "showing up for ourselves and for each other.\n\n"
-        "🖤 Drink some water, take a breath, check on somebody, and keep the energy respectful.\n\n"
-        "What is one thing you are doing for yourself today?\n\n"
-        "— King 👑"
+        "👑 <b>Grand Rising, Melanated Kings &amp; Queens! 🖤</b>\n\n"
+        "🔥 <b>Wicked Wednesday</b>\n"
+        "That innocent look don't always tell the whole story. 👀 Everybody's got a little freak "
+        "hiding somewhere. Maybe it's time to stop pretending yours doesn't exist.\n\n"
+        "😈 Be curious. Be playful. Let that wild side breathe."
     ),
     3: (
-        "👑 <b>Grand Rising, Melanated AZ! 🖤</b>\n\n"
-        "🔥 <b>Thirsty Thursday</b>\n"
-        "The weekend is getting close, so bring your personality with you. Flirt, laugh, meet people, "
-        "and have some fun—but keep communication clear and respect everybody's boundaries.\n\n"
-        "👀 Who in this community has a vibe you would like to get to know better?\n\n"
-        "— King 👑"
+        "👑 <b>Grand Rising, Melanated Kings &amp; Queens! 🖤</b>\n\n"
+        "💦 <b>Thirst Trap Thursday</b>\n"
+        "Sometimes it's not what you say... it's the look, the energy, the confidence, the way you "
+        "carry yourself. A little attention can turn into a whole lot of temptation.\n\n"
+        "👀 Keep 'em guessing. Keep 'em interested. Keep it respectful."
     ),
     4: (
-        "👑 <b>Grand Rising, Melanated AZ! 🖤</b>\n\n"
-        "💋 <b>Flirty Friday</b>\n"
-        "Friday is for good energy, good looks, good laughs, and conversations that make you smile.\n\n"
-        "🔥 Shoot your shot respectfully, compliment somebody, and remember that confidence and consent "
-        "can exist in the same conversation.\n\n"
-        "What is your favorite kind of Friday-night vibe?\n\n"
-        "— King 👑"
+        "👑 <b>Grand Rising, Melanated Kings &amp; Queens! 🖤</b>\n\n"
+        "😈 <b>Freaky Friday</b>\n"
+        "The weekend is here. Time to loosen up, leave the judgment at the door, and let your "
+        "adventurous side out to play. You don't have to explain your flavor to everybody.\n\n"
+        "🔥 Know your boundaries, know your worth, and enjoy your freak."
     ),
     5: (
-        "👑 <b>Grand Rising, Melanated AZ! 🖤</b>\n\n"
-        "✨ <b>Sensual Saturday</b>\n"
-        "Slow down and enjoy the day. Dress how you feel, move how you want, and spend time around "
-        "people who make you feel comfortable being yourself.\n\n"
-        "🖤 Make a connection, start a conversation, or simply enjoy your own energy.\n\n"
-        "What would make today a perfect Saturday for you?\n\n"
-        "— King 👑"
+        "👑 <b>Grand Rising, Melanated Kings &amp; Queens! 🖤</b>\n\n"
+        "💋 <b>Satin &amp; Spankings Saturday</b>\n"
+        "Soft energy or a little more edge? Sweet talk or playful trouble? Everybody's version of "
+        "kinky looks a little different.\n\n"
+        "🔥 The fun is in discovering what makes the chemistry hit different."
     ),
     6: (
-        "👑 <b>Grand Rising, Melanated AZ! 🖤</b>\n\n"
-        "❤️ <b>Self-Love Sunday</b>\n"
-        "Before you pour into anybody else, pour something into yourself. Rest, reset, laugh, connect, "
-        "and appreciate how far you have come.\n\n"
-        "🖤 This community is about meeting people, building friendships, creating connections, and "
-        "making Arizona feel a little more like home.\n\n"
-        "What are you grateful for today?\n\n"
-        "— King 👑"
+        "👑 <b>Grand Rising, Melanated Kings &amp; Queens! 🖤</b>\n\n"
+        "🖤 <b>Submission &amp; Sins Sunday</b>\n"
+        "Sometimes giving up control takes more confidence than holding onto it. Sometimes being "
+        "in charge is exactly what someone needs. And sometimes you're still figuring out where you fit.\n\n"
+        "😈 No boxes. No judgment. Just grown folks discovering themselves."
     ),
 }
 
