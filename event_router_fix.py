@@ -29,8 +29,20 @@ async def _process_media(update, context):
             image_bytes, file_id, media_type = await event_router._download_photo(message)
             ocr_text = event_router._ocr_image(image_bytes)
         else:
-            _, file_id, media_type = await event_router._download_video(message)
+            file_id = message.video.file_id
+            media_type = "video"
             ocr_text = message.caption or ""
+            thumbnail = getattr(message.video, "thumbnail", None)
+            if thumbnail:
+                try:
+                    thumb_file = await thumbnail.get_file()
+                    thumb_bytes = bytes(await thumb_file.download_as_bytearray())
+                    thumb_text = event_router._ocr_image(thumb_bytes)
+                    ocr_text = "\n".join(
+                        value for value in (thumb_text, ocr_text) if value
+                    )
+                except Exception:
+                    logger.exception("Event video thumbnail OCR failed")
 
         combined_text = "\n".join(
             value for value in (ocr_text, message.caption or "") if value
@@ -48,10 +60,11 @@ async def _process_media(update, context):
                 message.message_id,
             )
 
-        if event_router._missing(fields):
+        missing = event_router._missing(fields)
+        if missing:
             missing_lines = "\n".join(
                 f"❌ {event_router.FIELD_LABELS[key]}"
-                for key in event_router._missing(fields)
+                for key in missing
             )
             await context.bot.send_message(
                 chat_id=event_router.EVENT_CHAT_ID,
@@ -65,15 +78,13 @@ async def _process_media(update, context):
                 ),
                 parse_mode="HTML",
             )
-            field = event_router._missing(fields)[0]
+            field = missing[0]
             context.user_data["event_submission_id"] = submission_id
             context.user_data["event_waiting_for"] = field
             await context.bot.send_message(
                 chat_id=event_router.EVENT_CHAT_ID,
                 message_thread_id=event_router.EVENT_TOPIC_ID,
-                text=(
-                    f"Please enter <b>{event_router.FIELD_LABELS[field]}</b> below."
-                ),
+                text=f"Please enter <b>{event_router.FIELD_LABELS[field]}</b> below.",
                 parse_mode="HTML",
             )
         else:
@@ -93,7 +104,7 @@ async def _process_media(update, context):
             "Event flyer captured | submission=%s | user=%s | missing=%s",
             submission_id,
             user.id,
-            event_router._missing(fields),
+            missing,
         )
         return True
     except Exception:
