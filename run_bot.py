@@ -102,7 +102,7 @@ async def _run_games_topic_pin_maintenance(context):
 
 
 async def _daily_raffle_status_public(context):
-    """Post the public 5 PM raffle status with counts only, never entry details."""
+    """Post the public 2 PM raffle status with counts only, never entry details."""
     raffle = get_active_raffle()
     if not raffle:
         bot.logger.info("Daily raffle status skipped: no active raffle.")
@@ -172,11 +172,11 @@ def _build_application_with_verified_startup_hooks():
                     job.schedule_removal()
                 job_queue.run_daily(
                     _daily_raffle_status_public,
-                    time(hour=17, minute=0, tzinfo=ZoneInfo("America/Phoenix")),
+                    time(hour=14, minute=0, tzinfo=ZoneInfo("America/Phoenix")),
                     name="daily-raffle-status",
                 )
                 bot.logger.info(
-                    "Daily raffle status scheduler VERIFIED | time=17:00 Arizona | chat=%s topic=%s",
+                    "Daily raffle status scheduler VERIFIED | time=14:00 Arizona | chat=%s topic=%s",
                     -1002697105809,
                     11883,
                 )
@@ -185,7 +185,7 @@ def _build_application_with_verified_startup_hooks():
                     "Daily raffle status NOT scheduled: JobQueue unavailable."
                 )
         except Exception:
-            bot.logger.exception("Daily raffle status 5 PM scheduler setup failed.")
+            bot.logger.exception("Daily raffle status 2 PM scheduler setup failed.")
 
         try:
             grand_rising.start(application_instance)
