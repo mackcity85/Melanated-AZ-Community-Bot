@@ -3,8 +3,8 @@
 Render is currently starting `python bot.py`, so run_bot.py is not part of the
 startup path. This module is imported from config.py, which bot.py imports
 before it builds the Telegram Application. We patch ApplicationBuilder.build()
-so the intro recovery/reminder startup work is attached to the actual
-Application instance regardless of the Render start command.
+so startup work is attached to the actual Application instance regardless of
+the Render start command.
 """
 
 import logging
@@ -15,6 +15,30 @@ logger = logging.getLogger("melanated_az_startup_patch")
 
 _ORIGINAL_BUILD = ApplicationBuilder.build
 _MARKER = "_melanated_az_startup_patch_installed"
+
+
+async def _run_games_topic_pin_maintenance(context):
+    """Create/repair the three permanent Games-topic launcher pins."""
+    try:
+        from games.game_topic_pins import ensure_game_topic_pins
+
+        logger.info(
+            "Games-topic pin maintenance START | chat=%s topic=%s",
+            -1002697105809,
+            11999,
+        )
+        await ensure_game_topic_pins(context.bot)
+        logger.info(
+            "Games-topic pin maintenance COMPLETE | chat=%s topic=%s",
+            -1002697105809,
+            11999,
+        )
+    except Exception:
+        logger.exception(
+            "Games-topic pin maintenance FAILED | chat=%s topic=%s",
+            -1002697105809,
+            11999,
+        )
 
 
 def _install():
@@ -32,6 +56,30 @@ def _install():
         async def patched_post_init(app):
             if original_post_init:
                 await original_post_init(app)
+
+            # Render launches bot.py directly, so schedule the Games launcher
+            # maintenance here rather than relying on run_bot.py.
+            try:
+                if not app.job_queue:
+                    logger.error(
+                        "Games-topic pin maintenance NOT scheduled: JobQueue unavailable."
+                    )
+                else:
+                    for job in app.job_queue.get_jobs_by_name("games-topic-pins-startup"):
+                        job.schedule_removal()
+
+                    app.job_queue.run_once(
+                        _run_games_topic_pin_maintenance,
+                        when=5,
+                        name="games-topic-pins-startup",
+                    )
+                    logger.info(
+                        "Games-topic pin maintenance scheduled | delay=5s | chat=%s topic=%s",
+                        -1002697105809,
+                        11999,
+                    )
+            except Exception:
+                logger.exception("Games-topic pin maintenance scheduling FAILED.")
 
             try:
                 import intro_persistence
