@@ -9,7 +9,14 @@ import dirty_minds_admin_override
 import grand_rising
 from datetime import time
 from zoneinfo import ZoneInfo
-from raffle import send_daily_raffle_status
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.constants import ParseMode
+from raffle import (
+    get_active_raffle,
+    get_pending_entries,
+    is_free_raffle,
+    format_expiration,
+)
 
 
 topic_routing.install_all_topic_routing()
@@ -109,6 +116,53 @@ async def _run_games_topic_pin_maintenance(context):
         )
 
 
+async def _daily_raffle_status_public(context):
+    """Post the public 5 PM raffle status without exposing approved-entry count."""
+    raffle = get_active_raffle()
+    if not raffle:
+        bot.logger.info("Daily raffle status skipped: no active raffle.")
+        return
+
+    free = is_free_raffle(raffle.get("price"))
+    pending = get_pending_entries(raffle["id"])
+    rows = [[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]]
+    if not free:
+        rows.extend([
+            [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle['id']}")],
+            [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle['id']}")],
+        ])
+
+    text = (
+        "🎟️ <b>RAFFLE STATUS</b>\n\n"
+        f"🎁 <b>Prize:</b> {str(raffle.get('prize') or 'Unknown')}\n"
+        f"💵 <b>Entry:</b> {str(raffle.get('price') or 'Unknown')}\n"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
+        f"⏳ <b>Pending Entries:</b> {len(pending)}\n\n"
+        "👇 <b>Tap ENTER RAFFLE to join!</b>"
+    )
+
+    try:
+        sent = await context.bot.send_message(
+            chat_id=-1002697105809,
+            message_thread_id=11883,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(rows),
+            parse_mode=ParseMode.HTML,
+        )
+        bot.logger.info(
+            "DAILY RAFFLE STATUS POSTED | raffle=%s | chat=%s | topic=%s | message=%s",
+            raffle["id"],
+            -1002697105809,
+            11883,
+            sent.message_id,
+        )
+    except Exception:
+        bot.logger.exception(
+            "Could not post daily raffle status | raffle=%s",
+            raffle["id"],
+        )
+
+
 def _build_application_with_verified_startup_hooks():
     application = _original_build_application()
 
@@ -143,7 +197,7 @@ def _build_application_with_verified_startup_hooks():
                 for job in job_queue.get_jobs_by_name("daily-raffle-status"):
                     job.schedule_removal()
                 job_queue.run_daily(
-                    send_daily_raffle_status,
+                    _daily_raffle_status_public,
                     time(hour=17, minute=0, tzinfo=ZoneInfo("America/Phoenix")),
                     name="daily-raffle-status",
                 )
