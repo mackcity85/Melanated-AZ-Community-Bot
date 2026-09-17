@@ -7,26 +7,33 @@ from .dirty_minds import create_dirty_minds_state, finish_game, next_round, publ
 from .registry import CATEGORY_ORDER, all_games, get_game as registry_get_game
 from .nes_games import get_nes_games
 from .snes_games import get_snes_games
+from .retro_system_games import get_all_retro_games
 
 real_games_bp = Blueprint("real_games", __name__, url_prefix="/real-games", template_folder="templates")
 def _game_dict(game): return asdict(game)
 GAMES = [_game_dict(g) for g in all_games()]
 DIRTY_MINDS_GAME = {"game_id":"dirty_minds","name":"Dirty Minds","icon":"🎭","category":"Party","description":"A multiplayer guessing game where the clues sound dirty but the answers are clean.","multiplayer":True,"max_players":20,"min_players":2,"uses_rooms":True}
-NES_GAMES = get_nes_games(); SNES_GAMES = get_snes_games()
+NES_GAMES = get_nes_games(); SNES_GAMES = get_snes_games(); RETRO_GAMES = get_all_retro_games(); CONSOLE_GAMES = NES_GAMES + SNES_GAMES + RETRO_GAMES
+
 def get_game(game_id):
     if not game_id: return None
     gid=str(game_id).strip().lower()
     if gid.startswith("rg_"): gid=gid[3:]
     if gid=="dirty_minds": return DIRTY_MINDS_GAME
-    for game in NES_GAMES+SNES_GAMES:
+    for game in CONSOLE_GAMES:
         if game["game_id"]==gid:return game
     game=registry_get_game(gid);return _game_dict(game) if game else None
+
+def _home_games(): return GAMES + CONSOLE_GAMES
+def _home_categories(): return CATEGORY_ORDER + ["NES","SNES"] + sorted({g["system_name"] for g in RETRO_GAMES})
+
 @real_games_bp.route("/")
-def real_games_home(): return render_template("real_games.html",games=GAMES+NES_GAMES+SNES_GAMES,categories=CATEGORY_ORDER+["NES","SNES"])
+def real_games_home(): return render_template("real_games.html",games=_home_games(),categories=_home_categories())
+
 @real_games_bp.route("/play/<game_id>")
 def play_game(game_id):
     game=get_game(game_id)
-    if not game:return render_template("real_games.html",games=GAMES+NES_GAMES+SNES_GAMES,categories=CATEGORY_ORDER+["NES","SNES"]),404
+    if not game:return render_template("real_games.html",games=_home_games(),categories=_home_categories()),404
     gid=game_id.lower()
     if gid=="dirty_minds":
         room_id=request.args.get("room","").strip().upper();player_key=request.args.get("player_key","").strip()
@@ -38,7 +45,9 @@ def play_game(game_id):
         return render_template("dirty_minds.html",game=game,room_id=room.room_id,player_key=player_key,player_name=player.get("name","Player"))
     if gid.startswith("nes_"):return render_template("nes_games.html",game=game)
     if gid.startswith("snes_"):return render_template("snes_games.html",game=game)
+    if gid.startswith("retro_"):return render_template("retro_system_games.html",game=game)
     return render_template("game.html",game=game)
+
 @real_games_bp.route("/create-room",methods=["POST"])
 def create_room():
     data=request.get_json(silent=True) or {};game_id=str(data.get("game_id","")).strip().lower();user_id=str(data.get("user_id","")).strip();name=str(data.get("name","Player")).strip();game=get_game(game_id)
@@ -50,11 +59,13 @@ def create_room():
         p=existing.get_player(user_id);return jsonify(success=True,existing=True,room_id=existing.room_id,player_key=p.get("player_key") if p else None,game_url=_build_game_url(existing.room_id,p.get("player_key") if p else ""))
     room=GAME_MANAGER.create(game_id=game_id,game_name=game["name"],max_players=int(game.get("max_players",20)),min_players=int(game.get("min_players",2)),state=create_dirty_minds_state() if game_id=="dirty_minds" else {})
     player=room.add_player(user_id=user_id,display_name=name);return jsonify(success=True,existing=False,room_id=room.room_id,player_key=player["player_key"],game_url=_build_game_url(room.room_id,player["player_key"]))
+
 @real_games_bp.route("/room/<room_id>")
 def room_info(room_id):
     room=GAME_MANAGER.get(room_id)
     if not room:return jsonify(success=False,error="Room not found."),404
     key=request.args.get("player_key","").strip();return jsonify(success=True,room=public_room_state(room,player_key=key) if room.game_id=="dirty_minds" else room.public_data())
+
 def _get_dirty_minds_player():
     room_id=request.args.get("room","").strip().upper();key=request.args.get("player_key","").strip();data=request.get_json(silent=True) or {};room_id=room_id or str(data.get("room_id","")).strip().upper();key=key or str(data.get("player_key","")).strip()
     if not room_id or not key:raise ValueError("Room ID and player key are required.")
@@ -63,6 +74,7 @@ def _get_dirty_minds_player():
     player=room.get_player_by_key(key)
     if not player:raise ValueError("Player is not in this room.")
     return room,player
+
 @real_games_bp.route("/api/dirty-minds/state")
 def dirty_minds_state():
     try:
@@ -113,8 +125,10 @@ def dirty_minds_livekit_token():
         return jsonify(success=True,url=url,token=token,room=f"dirty-minds-{room.room_id}")
     except ValueError as e:return jsonify(success=False,error=str(e)),400
     except Exception:return jsonify(success=False,error="Unable to create the LiveKit connection token."),500
+
 def _build_game_url(room_id,player_key):
     base=os.getenv("PUBLIC_BASE_URL","").strip().rstrip("/") or "https://melanatedaz.onrender.com";return f"{base}/real-games/play/dirty_minds?room={room_id}&player_key={player_key}"
+
 @real_games_bp.route("/api/status")
 def real_games_status():
-    GAME_MANAGER.cleanup();games=GAMES+NES_GAMES+SNES_GAMES;return jsonify(success=True,service="Melanated AZ Real Games",games=len(games),game_ids=[g["game_id"] for g in games],categories=CATEGORY_ORDER+["NES","SNES"],active_rooms=GAME_MANAGER.count(),dirty_minds_rooms=GAME_MANAGER.count("dirty_minds"))
+    GAME_MANAGER.cleanup();games=GAMES+CONSOLE_GAMES;return jsonify(success=True,service="Melanated AZ Real Games",games=len(games),game_ids=[g["game_id"] for g in games],categories=_home_categories(),active_rooms=GAME_MANAGER.count(),dirty_minds_rooms=GAME_MANAGER.count("dirty_minds"))
