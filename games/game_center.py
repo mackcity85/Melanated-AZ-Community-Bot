@@ -9,6 +9,7 @@ from .games import initialize_game_database, games_callback_router as engine_gam
 from .console_catalog import CONSOLE_ORDER, CONSOLE_BUTTONS, get_console, get_system
 from real_games.nes_games import get_nes_games
 from real_games.snes_games import get_snes_games
+from real_games.retro_system_games import get_retro_games
 
 logger = logging.getLogger("melanated_az_bot.games")
 GAMES_CHAT_ID = -1002697105809
@@ -16,15 +17,18 @@ GAMES_TOPIC_ID = 8809
 GAME_CENTER_PIN_FILE = "/var/data/game_center_pin.txt"
 GAME_CENTER_PIN_TEXT = ("🎮🔥 <b>MELANATED AZ RETRO CONSOLE ARCADE</b> 🔥🎮\n\n🟥 <b>Nintendo</b>\n🔵 <b>Sega</b>\n🟦 <b>PlayStation</b>\n🟩 <b>Xbox</b>\n\nEvery title added here will be an actual playable retro-inspired console game.\n\n👇🏾 <b>Choose your console.</b>")
 
+
 def _load_pinned_game_center_id():
     try:
-        with open(GAME_CENTER_PIN_FILE,"r",encoding="utf-8") as f: return int(f.read().strip())
-    except (FileNotFoundError,ValueError,OSError): return None
+        with open(GAME_CENTER_PIN_FILE, "r", encoding="utf-8") as f: return int(f.read().strip())
+    except (FileNotFoundError, ValueError, OSError): return None
+
 
 def _save_pinned_game_center_id(message_id):
     try:
-        with open(GAME_CENTER_PIN_FILE,"w",encoding="utf-8") as f: f.write(str(message_id))
+        with open(GAME_CENTER_PIN_FILE, "w", encoding="utf-8") as f: f.write(str(message_id))
     except OSError: logger.exception("Could not save Game Center launcher ID.")
+
 
 def console_home_keyboard():
     rows=[]
@@ -34,7 +38,9 @@ def console_home_keyboard():
         rows.append(row)
     return InlineKeyboardMarkup(rows)
 
+
 def pinned_game_center_keyboard(): return InlineKeyboardMarkup([[InlineKeyboardButton("🎮 OPEN GAME CENTER",callback_data="games_home")]])
+
 
 async def ensure_pinned_game_center(bot):
     mid=_load_pinned_game_center_id()
@@ -51,16 +57,19 @@ async def ensure_pinned_game_center(bot):
     except Exception: pass
     return msg
 
+
 async def games_command(update:Update,context:ContextTypes.DEFAULT_TYPE):
     message=update.effective_message
     if not message:return
     initialize_game_database()
     await message.reply_text("🎮 <b>MELANATED AZ RETRO CONSOLE ARCADE</b>\n\nChoose a console family below.\n\nOnly actual playable retro-inspired games will appear in the library.",reply_markup=console_home_keyboard(),parse_mode=ParseMode.HTML)
 
+
 async def games_home_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
     if not q:return
-    await q.answer(); await q.edit_message_text("🎮 <b>MELANATED AZ RETRO CONSOLE ARCADE</b>\n\nChoose a console family.\n\nEvery game added to this center must be genuinely playable.",reply_markup=console_home_keyboard(),parse_mode=ParseMode.HTML)
+    await q.answer(); await q.edit_message_text("🎮 <b>MELANATED AZ RETRO CONSOLE ARCADE</b>\n\nChoose a console family.\n\nEvery game added to this center is genuinely playable.",reply_markup=console_home_keyboard(),parse_mode=ParseMode.HTML)
+
 
 async def console_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
@@ -69,25 +78,31 @@ async def console_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if not console: await q.answer("Console not found.",show_alert=True); return
     await q.answer(); rows=[]
     for sid,name in console["systems"]:
-        if cid=="nintendo" and sid=="nes": rows.append([InlineKeyboardButton("🕹️ NES — PLAYABLE GAMES",callback_data="games_nes")])
-        elif cid=="nintendo" and sid=="snes": rows.append([InlineKeyboardButton("🕹️ SNES — PLAYABLE GAMES",callback_data="games_snes")])
+        games=get_retro_games(sid) if sid not in ("nes","snes") else (get_nes_games() if sid=="nes" else get_snes_games())
+        if games: rows.append([InlineKeyboardButton(f"🕹️ {name} — {len(games)} PLAYABLE",callback_data=f"games_system_{cid}_{sid}")])
         else: rows.append([InlineKeyboardButton(f"🎮 {name}",callback_data=f"games_system_{cid}_{sid}")])
     rows.append([InlineKeyboardButton("⬅️ Consoles",callback_data="games_home")])
     await q.edit_message_text(f"{console['title']}\n\nChoose a console system.",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
 
-async def nes_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    q=update.callback_query
-    if not q:return
-    await q.answer(); games=get_nes_games(); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]
-    rows.append([InlineKeyboardButton("⬅️ Nintendo",callback_data="games_console_nintendo")])
-    await q.edit_message_text("🟥 <b>NES</b>\n\nOriginal NES-inspired games. No ROMs. Pick a game to play:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
 
-async def snes_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
+def _system_games(sid):
+    if sid=="nes": return get_nes_games()
+    if sid=="snes": return get_snes_games()
+    return get_retro_games(sid)
+
+
+async def nes_callback(update:Update,context:ContextTypes.DEFAULT_TYPE): return await _playable_system_callback(update,context,"nes","NES","games_console_nintendo")
+async def snes_callback(update:Update,context:ContextTypes.DEFAULT_TYPE): return await _playable_system_callback(update,context,"snes","SNES","games_console_nintendo")
+
+
+async def _playable_system_callback(update,context,sid,name,back):
     q=update.callback_query
     if not q:return
-    await q.answer(); games=get_snes_games(); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]
-    rows.append([InlineKeyboardButton("⬅️ Nintendo",callback_data="games_console_nintendo")])
-    await q.edit_message_text("🟥 <b>SNES</b>\n\nOriginal SNES-inspired games. No ROMs. Pick a game to play:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
+    await q.answer(); games=_system_games(sid)
+    rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]
+    rows.append([InlineKeyboardButton("⬅️ Back",callback_data=back)])
+    await q.edit_message_text(f"🎮 <b>{name}</b>\n\nOriginal console-inspired games. No ROMs. Pick a game to play:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
+
 
 async def system_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
@@ -96,7 +111,17 @@ async def system_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if len(parts)!=2: await q.answer("System not found.",show_alert=True); return
     cid,sid=parts; system=get_system(cid,sid)
     if not system: await q.answer("System not found.",show_alert=True); return
-    await q.answer(); await q.edit_message_text(f"🎮 <b>{system['name']}</b>\n\nNo playable titles are installed in this system yet.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Console",callback_data=f"games_console_{cid}")],[InlineKeyboardButton("🎮 All Consoles",callback_data="games_home")]]),parse_mode=ParseMode.HTML)
+    games=_system_games(sid)
+    await q.answer()
+    if games:
+        rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]
+        rows += [[InlineKeyboardButton("⬅️ Back to Console",callback_data=f"games_console_{cid}")],[InlineKeyboardButton("🎮 All Consoles",callback_data="games_home")]]
+        text=f"🎮 <b>{system['name']}</b>\n\n{len(games)} playable games are installed. Pick one to play:"
+    else:
+        rows=[[InlineKeyboardButton("⬅️ Back to Console",callback_data=f"games_console_{cid}")],[InlineKeyboardButton("🎮 All Consoles",callback_data="games_home")]]
+        text=f"🎮 <b>{system['name']}</b>\n\nNo playable titles are installed in this system yet."
+    await q.edit_message_text(text,reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
+
 
 async def games_admin_menu(update:Update,context:ContextTypes.DEFAULT_TYPE):
     user=update.effective_user;q=update.callback_query
@@ -112,6 +137,7 @@ async def games_admin_menu(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if q:
         await q.answer(); await q.edit_message_text("🎮 <b>RETRO CONSOLE GAME CENTER</b>\n\n🟥 Nintendo\n🔵 Sega\n🟦 PlayStation\n🟩 Xbox\n\nPlayable titles are added one system at a time.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎮 Open Game Center",callback_data="games_home")],[InlineKeyboardButton("⬅️ Back to Admin Panel",callback_data="admin_back")]]),parse_mode=ParseMode.HTML)
 
+
 async def game_center_callback_router(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
     if not q:return
@@ -123,6 +149,7 @@ async def game_center_callback_router(update:Update,context:ContextTypes.DEFAULT
     if data.startswith("games_system_"): return await system_callback(update,context)
     if data.startswith("game_"): return await engine_games_callback_router(update,context)
     await q.answer("That Game Center option is no longer available.",show_alert=True)
+
 
 games_callback=game_center_callback_router
 games_home_keyboard=console_home_keyboard
