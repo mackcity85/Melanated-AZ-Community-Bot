@@ -63,8 +63,6 @@ def _event_button():
 
 def _patched_admin_main_keyboard(*args, **kwargs):
     keyboard = _previous_admin_main_keyboard(*args, **kwargs)
-    # Do not mutate the original list in place in case another patch keeps a
-    # reference to it. Add one dedicated row to the returned markup.
     rows = [list(row) for row in (keyboard.inline_keyboard or [])]
     if not any(
         button.callback_data == "admin_events"
@@ -199,12 +197,11 @@ async def admin_events_review(update, context, submission_id):
         f"🎉 **Event:** {fields.get('event') or 'Missing'}\n"
         f"📅 **Date:** {fields.get('date') or 'Missing'}\n"
         f"⏰ **Time:** {fields.get('time') or 'Missing'}\n"
-        f"📍 **Location:** {fields.get('location') or 'Missing'}\n\n"
+        f"📍 **Location:** {fields.get('location') or 'Missing'}\n"
+        f"💵 **Price:** {fields.get('price') or 'Missing'}\n\n"
         "Use the buttons below to approve or deny."
     )
 
-    # Send the actual stored flyer to the admin chat again, with the same
-    # authoritative approval callbacks used by the main Events workflow.
     try:
         if row["media_type"] == "photo":
             await context.bot.send_photo(
