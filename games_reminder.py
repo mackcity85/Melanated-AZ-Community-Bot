@@ -18,7 +18,7 @@
 import json
 import logging
 import os
-from datetime import time
+from datetime import datetime, time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -27,7 +27,7 @@ from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
 from games.game_center import GAMES_CHAT_ID, GAMES_TOPIC_ID
-from daily_messages import start_daily_community_messages
+from daily_messages import DAILY_MESSAGES, DAILY_MESSAGE_END, DAILY_MESSAGE_START
 from chat_cleanup import install_chat_cleanup, startup_cleanup
 from raffle_database import get_active_raffle, set_raffle_post
 from raffle import publish_raffle
@@ -38,10 +38,16 @@ ARIZONA_TZ = ZoneInfo("America/Phoenix")
 WEEKLY_REMINDER_HOUR = int(os.environ.get("GAMES_REMINDER_HOUR", "19") or "19")
 WEEKLY_REMINDER_MINUTE = int(os.environ.get("GAMES_REMINDER_MINUTE", "0") or "0")
 STATE_FILE = Path(os.environ.get("GAMES_REMINDER_STATE_FILE", "/var/data/games_reminder.json"))
+DAILY_MESSAGE_STATE_FILE = Path(os.environ.get("DAILY_MESSAGE_STATE_FILE", "/var/data/daily_community_message.json"))
 LAUNCHER_STATE_FILE = Path("/var/data/games_topic_launcher.json")
 RAFFLE_REPAIR_MARKER = Path("/var/data/raffle_topic_11883_repair_v2.done")
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "https://melanatedaz.onrender.com").strip().rstrip("/")
 REMINDER_WEEKDAY = 4  # Friday
+DAILY_MESSAGE_HOUR = int(os.environ.get("DAILY_MESSAGE_HOUR", "10") or "10")
+DAILY_MESSAGE_MINUTE = int(os.environ.get("DAILY_MESSAGE_MINUTE", "0") or "0")
+DAILY_MESSAGE_JOB_NAME = "melanated-daily-community-message"
+DAILY_MESSAGE_RECOVERY_JOB_NAME = "melanated-daily-community-message-recovery"
+DAILY_MESSAGE_TOPIC_ID = int(os.environ.get("DAILY_MESSAGE_TOPIC_ID", "11999") or "11999")
 
 
 def _main_group_id():
@@ -194,6 +200,142 @@ async def disable_daily_raffle_status(context):
         logger.info("Automatic raffle status disabled: removed %s daily-raffle-status job(s).", removed)
 
 
+def _load_daily_message_state():
+    try:
+        if DAILY_MESSAGE_STATE_FILE.exists():
+            with DAILY_MESSAGE_STATE_FILE.open("r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        logger.exception("Could not read daily community message state.")
+    return {}
+
+
+def _save_daily_message_state(today, message_id):
+    try:
+        DAILY_MESSAGE_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temp = DAILY_MESSAGE_STATE_FILE.with_suffix(".tmp")
+        with temp.open("w", encoding="utf-8") as handle:
+            json.dump({"posted_date": today.isoformat(), "message_id": int(message_id)}, handle, indent=2)
+        temp.replace(DAILY_MESSAGE_STATE_FILE)
+    except Exception:
+        logger.exception("Could not save daily community message state.")
+
+
+def _daily_message_already_posted(today):
+    return _load_daily_message_state().get("posted_date") == today.isoformat()
+
+
+async def send_reliable_daily_community_message(context):
+    """Post the daily message to QOTD topic 11999, once per Arizona calendar day."""
+    today = datetime.now(ARIZONA_TZ).date()
+
+    if today < DAILY_MESSAGE_START or today > DAILY_MESSAGE_END:
+        logger.info("Daily community message skipped outside configured date range: %s", today)
+        return
+
+    if _daily_message_already_posted(today):
+        logger.info("Daily community message already posted | date=%s", today)
+        return
+
+    chat_id = _main_group_id()
+    if not chat_id:
+        logger.error("Daily community message has no destination chat ID.")
+        return
+
+    index = (today - DAILY_MESSAGE_START).days % len(DAILY_MESSAGES)
+    title, prompt = DAILY_MESSAGES[index]
+    text = (
+        f"<b>{title}</b>\n\n"
+        f"{prompt}\n\n"
+        "😈 Keep it grown, keep it respectful, and remember: PASS is always allowed.\n"
+        "👇 Drop your answer and see who matches your energy."
+    )
+
+    try:
+        message = await context.bot.send_message(
+            chat_id=chat_id,
+            message_thread_id=DAILY_MESSAGE_TOPIC_ID,
+            text=text,
+            parse_mode=ParseMode.HTML,
+        )
+        _save_daily_message_state(today, message.message_id)
+        logger.info(
+            "Daily community message posted | date=%s | index=%s | chat=%s | topic=%s | message=%s",
+            today,
+            index,
+            chat_id,
+            DAILY_MESSAGE_TOPIC_ID,
+            message.message_id,
+        )
+    except TelegramError:
+        logger.exception(
+            "Could not send daily community message | chat=%s | topic=%s",
+            chat_id,
+            DAILY_MESSAGE_TOPIC_ID,
+        )
+
+
+async def recover_missed_daily_community_message(context):
+    """Recover today's post if the bot started after the normal 10:00 AM run."""
+    now = datetime.now(ARIZONA_TZ)
+    today = now.date()
+    scheduled = time(DAILY_MESSAGE_HOUR, DAILY_MESSAGE_MINUTE)
+
+    if today < DAILY_MESSAGE_START or today > DAILY_MESSAGE_END:
+        return
+
+    if now.time().replace(tzinfo=None) < scheduled:
+        logger.info("Daily message recovery not needed yet | now=%s | scheduled=%s", now, scheduled)
+        return
+
+    if _daily_message_already_posted(today):
+        logger.info("Daily message recovery found today's post already recorded | date=%s", today)
+        return
+
+    logger.warning(
+        "Daily message missed before startup; posting recovery now | date=%s | scheduled=%s",
+        today,
+        scheduled,
+    )
+    await send_reliable_daily_community_message(context)
+
+
+def start_reliable_daily_community_messages(application):
+    job_queue = getattr(application, "job_queue", None)
+    if not job_queue:
+        logger.warning("Reliable daily community messages unavailable: JobQueue not installed.")
+        return
+
+    for name in (DAILY_MESSAGE_JOB_NAME, DAILY_MESSAGE_RECOVERY_JOB_NAME):
+        for job in job_queue.get_jobs_by_name(name):
+            job.schedule_removal()
+
+    job_queue.run_daily(
+        send_reliable_daily_community_message,
+        time(hour=DAILY_MESSAGE_HOUR, minute=DAILY_MESSAGE_MINUTE, tzinfo=ARIZONA_TZ),
+        name=DAILY_MESSAGE_JOB_NAME,
+    )
+
+    # On startup, check a few seconds later. If the bot starts after 10:00 AM,
+    # today's missed message is posted immediately. If it starts before 10:00,
+    # the normal daily job handles it. Persistent state prevents duplicates.
+    job_queue.run_once(
+        recover_missed_daily_community_message,
+        when=3,
+        name=DAILY_MESSAGE_RECOVERY_JOB_NAME,
+    )
+
+    logger.info(
+        "Reliable daily community messages scheduled | %02d:%02d Arizona | chat=%s | topic=%s | recovery=enabled | through=%s",
+        DAILY_MESSAGE_HOUR,
+        DAILY_MESSAGE_MINUTE,
+        _main_group_id(),
+        DAILY_MESSAGE_TOPIC_ID,
+        DAILY_MESSAGE_END.isoformat(),
+    )
+
+
 def start_weekly_game_center_reminder(application):
     """Keep cleanup/daily community services; disable all automatic Games posts."""
     if not getattr(application, "job_queue", None):
@@ -208,7 +350,7 @@ def start_weekly_game_center_reminder(application):
         name="persistent-bot-message-cleanup",
     )
 
-    start_daily_community_messages(application)
+    start_reliable_daily_community_messages(application)
 
     # Explicitly remove any legacy Games jobs that may have been registered
     # by an earlier version during the same process lifetime.
@@ -223,5 +365,5 @@ def start_weekly_game_center_reminder(application):
             job.schedule_removal()
 
     logger.info(
-        "Automatic Games posts DISABLED | no Games launcher | no weekly Games reminder | no automatic Games pin | daily community messages remain enabled | persistent cleanup enabled"
+        "Automatic Games posts DISABLED | no Games launcher | no weekly Games reminder | no automatic Games pin | reliable daily community messages enabled | persistent cleanup enabled"
     )
