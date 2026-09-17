@@ -18,7 +18,7 @@ from real_games.dirty_minds import create_dirty_minds_state
 
 logger = logging.getLogger("melanated_az_bot.games")
 GAMES_CHAT_ID = -1002697105809
-GAMES_TOPIC_ID = 11999
+GAMES_TOPIC_ID = 8809
 ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID", "0") or "0")
 GAME_CENTER_PIN_FILE = "/var/data/game_center_pin.txt"
 GAME_CENTER_PIN_TEXT = ("🎮🔥 <b>MELANATED AZ GAME CENTER</b> 🔥🎮\n\n🥊 <b>Fighting</b>\n🏆 <b>Sports</b>\n🎭 <b>Dirty Minds</b>\n\n🟥 <b>Nintendo</b>\n🔵 <b>Sega</b>\n🟦 <b>PlayStation</b>\n🟩 <b>Xbox</b>\n\n👇🏾 <b>Choose a game or start Dirty Minds.</b>")
@@ -187,47 +187,16 @@ async def snes_callback(update,context): return await _playable_system_callback(
 async def _playable_system_callback(update,context,sid,name,back):
     q=update.callback_query
     if not q:return
-    await q.answer(); games=_system_games(sid); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]; genre_games=[g for g in get_genre_games() if g["system_id"]==sid]; rows += [[InlineKeyboardButton(f"{g['icon']} {g['name']} — {g['genre'].capitalize()}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in genre_games]; rows.append([InlineKeyboardButton("⬅️ Back",callback_data=back)]); await q.edit_message_text(f"🎮 <b>{name}</b>\n\nOriginal console-inspired games. No ROMs. Pick a game to play:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
-async def system_callback(update,context):
-    q=update.callback_query
-    if not q:return
-    payload=(q.data or "").removeprefix("games_system_"); parts=payload.split("_",1)
-    if len(parts)!=2: await q.answer("System not found.",show_alert=True); return
-    cid,sid=parts; system=get_system(cid,sid)
-    if not system: await q.answer("System not found.",show_alert=True); return
-    games=_system_games(sid); genre_games=[g for g in get_genre_games() if g["system_id"]==sid]; await q.answer(); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]+[[InlineKeyboardButton(f"{g['icon']} {g['name']} — {g['genre'].capitalize()}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in genre_games]; rows += [[InlineKeyboardButton("⬅️ Back to Console",callback_data=f"games_console_{cid}")],[InlineKeyboardButton("🎮 All Consoles",callback_data="games_home")]]; await q.edit_message_text(f"🎮 <b>{system['name']}</b>\n\n{len(games)+len(genre_games)} playable games are installed. Pick one to play:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
+    await q.answer(); games=_system_games(sid); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]; genre_games=[g for g in get_genre_games() if g["system_id"]==sid]; rows += [[InlineKeyboardButton(f"{g['icon']} {g['name']} — {g['genre'].capitalize()}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in genre_games]; rows.append([InlineKeyboardButton("⬅️ Back",callback_data=back)]); await q.edit_message_text(f"🕹️ <b>{name}</b>\n\nChoose a playable game:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
 
-async def games_admin_menu(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    user=update.effective_user;q=update.callback_query
-    if not user:return
-    try:
-        from admin import is_admin; authorized=await is_admin(user.id,context)
-    except Exception:
-        if q: await q.answer("⚠️ Unable to verify admin access.",show_alert=True)
-        return
-    if not authorized:
-        if q: await q.answer("⛔ You are not authorized.",show_alert=True)
-        return
-    if q:
-        await q.answer(); await q.edit_message_text("🎮 <b>RETRO CONSOLE GAME CENTER</b>\n\n🥊 Fighting\n🏆 Sports\n🟥 Nintendo\n🔵 Sega\n🟦 PlayStation\n🟩 Xbox\n\nFighting and sports use dedicated gameplay.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎮 Open Game Center",callback_data="games_home")],[InlineKeyboardButton("⬅️ Back to Admin Panel",callback_data="admin_back")]]),parse_mode=ParseMode.HTML)
-
-def _games_admin_dummy(): return None
-
-async def game_center_callback_router(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    q=update.callback_query
-    if not q:return
-    data=q.data or ""
-    if data=="games_home": return await games_home_callback(update,context)
-    if data=="games_dirty_minds_start": return await dirty_minds_start_request(update,context)
-    if data.startswith("games_dirty_minds_join_"): return await dirty_minds_join(update,context)
-    if data.startswith("games_dirty_minds_approve_") or data.startswith("games_dirty_minds_deny_"): return await dirty_minds_admin_decision(update,context)
-    if data=="games_nes": return await nes_callback(update,context)
-    if data=="games_snes": return await snes_callback(update,context)
-    if data.startswith("games_genre_"): return await genre_callback(update,context)
-    if data.startswith("games_console_"): return await console_callback(update,context)
-    if data.startswith("games_system_"): return await system_callback(update,context)
-    if data.startswith("game_"): return await engine_games_callback_router(update,context)
-    await q.answer("That Game Center option is no longer available.",show_alert=True)
-
-games_callback=game_center_callback_router
-games_home_keyboard=console_home_keyboard
+def game_center_callback_router(update,context):
+    data=update.callback_query.data if update.callback_query else ""
+    if data=="games_home": return games_home_callback(update,context)
+    if data.startswith("games_genre_"): return genre_callback(update,context)
+    if data.startswith("games_console_"): return console_callback(update,context)
+    if data.startswith("games_system_nintendo_nes"): return nes_callback(update,context)
+    if data.startswith("games_system_nintendo_snes"): return snes_callback(update,context)
+    if data=="games_dirty_minds_start": return dirty_minds_start_request(update,context)
+    if data.startswith("games_dirty_minds_join_"): return dirty_minds_join(update,context)
+    if data.startswith("games_dirty_minds_approve_") or data.startswith("games_dirty_minds_deny_"): return dirty_minds_admin_decision(update,context)
+    return engine_games_callback_router(update,context)
