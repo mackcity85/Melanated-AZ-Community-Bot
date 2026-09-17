@@ -9,6 +9,7 @@ from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes, MessageHandler, filters
 
 import event_private_flow
+import event_text_guard
 import event_website_patch
 
 logger = logging.getLogger("media_router")
@@ -63,7 +64,6 @@ async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # The notice is temporary. The Media topic itself is NOT cleaned up.
     try:
         source_topic = getattr(message, "message_thread_id", None)
         if source_topic is not None:
@@ -133,7 +133,11 @@ def install_application(application):
     # NO WEBSITE / SKIP option without exposing member answers in the group.
     event_website_patch.install()
 
+    # Install the private Event workflow first. The text guard is then inserted
+    # ahead of the legacy Events text handler so public Event answers can never
+    # be processed in the Events topic.
     event_private_flow.install_application(application)
+    event_text_guard.install_application(application)
 
     application.add_handler(
         MessageHandler(filters.PHOTO, handle_photo),
