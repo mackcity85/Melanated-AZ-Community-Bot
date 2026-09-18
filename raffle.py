@@ -467,7 +467,7 @@ async def enter_raffle(update, context, raffle_id):
             return
         await query.answer("🎟️ Free entry approved!", show_alert=True)
         # Refresh the public raffle status immediately after a successful entry.
-        await post_raffle_status_to_main_chat(context)
+        await post_raffle_status_to_main_chat(context, announce_new_entry=True)
         entry_message = await query.message.reply_text(
             f"🎟️ <b>ENTRY APPROVED</b>\n\n🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n💵 Entry Price: <b>{html.escape(str(raffle['price']))}</b>\n🆔 Entry: <code>{entry_id}</code>\n\n✅ <b>FREE ENTRY — no payment required.</b>",
             parse_mode=ParseMode.HTML,
@@ -678,7 +678,7 @@ async def manual_raffle_entry(update, context, member_user_id):
     return True
 
 
-async def post_raffle_status_to_main_chat(context):
+async def post_raffle_status_to_main_chat(context, announce_new_entry=False):
     """Post the same public raffle status used by the admin repost button."""
     raffle = get_active_raffle()
     if not raffle:
@@ -703,7 +703,8 @@ async def post_raffle_status_to_main_chat(context):
         f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
         f"👥 <b>Total Entries:</b> {len(approved)}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
-        "👇 <b>Tap ENTER RAFFLE to join!</b>"
+        + ("🔥 <b>Someone just joined the raffle!</b>\n\n" if announce_new_entry else "")
+        + "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
 
     target_chat = int(MAIN_GROUP_ID or RAFFLE_CHAT_ID)
