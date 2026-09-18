@@ -83,18 +83,49 @@ async def _repost_all_social_profiles(update, context):
             pass
 
 
+def _ensure_raffle_repost_button(rows):
+    """Guarantee the raffle repost control in the final admin keyboard."""
+    if not any(
+        getattr(button, "callback_data", None) == "admin_repost_raffle"
+        for row in rows
+        for button in row
+    ):
+        rows.insert(
+            min(2, len(rows)),
+            [
+                admin.InlineKeyboardButton(
+                    "🔄 Repost Raffle Status",
+                    callback_data="admin_repost_raffle",
+                )
+            ],
+        )
+    return rows
+
+
 def _patched_admin_main_keyboard():
     keyboard = admin._original_admin_main_keyboard()
-    rows = list(keyboard.inline_keyboard)
-    rows.insert(
-        -1,
-        [
-            admin.InlineKeyboardButton(
-                "📱 Repost Social Profiles",
-                callback_data="admin_social_repost",
-            )
-        ],
-    )
+    rows = [list(row) for row in keyboard.inline_keyboard]
+
+    # This patch may be the last keyboard patch installed at startup.
+    # Enforce the raffle control here as well as in the Events patch so
+    # later patches cannot accidentally remove it.
+    _ensure_raffle_repost_button(rows)
+
+    if not any(
+        getattr(button, "callback_data", None) == "admin_social_repost"
+        for row in rows
+        for button in row
+    ):
+        rows.insert(
+            -1,
+            [
+                admin.InlineKeyboardButton(
+                    "📱 Repost Social Profiles",
+                    callback_data="admin_social_repost",
+                )
+            ],
+        )
+
     return admin.InlineKeyboardMarkup(rows)
 
 
