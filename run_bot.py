@@ -106,16 +106,41 @@ async def _run_games_topic_pin_maintenance(context):
 
 
 RAFFLE_MAIN_REPOST_HOUR = 18
-RAFFLE_MAIN_REPOST_MINUTE = 6
+RAFFLE_MAIN_REPOST_MINUTE = 10
 RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
 
-async def _daily_raffle_main_chat_repost(context):
-    """Repost the current raffle status to the main chat at 6:06 PM Arizona."""
+async def _raffle_main_chat_repost_checker(context):
+    """Check every 30 seconds and post once at the configured Arizona time."""
+    now = datetime.now(RAFFLE_STATUS_TZ)
+    if now.hour != RAFFLE_MAIN_REPOST_HOUR or now.minute != RAFFLE_MAIN_REPOST_MINUTE:
+        return
+
+    last_post_date = context.application.bot_data.get("raffle_main_repost_date")
+    if last_post_date == now.date().isoformat():
+        return
+
+    bot.logger.info(
+        "Raffle main-chat repost trigger matched | local_time=%s | configured=%02d:%02d Arizona | chat=%s",
+        now.strftime("%Y-%m-%d %H:%M:%S"),
+        RAFFLE_MAIN_REPOST_HOUR,
+        RAFFLE_MAIN_REPOST_MINUTE,
+        -1002697105809,
+    )
+
     posted = await post_raffle_status_to_main_chat(context)
     if posted:
+        context.application.bot_data["raffle_main_repost_date"] = now.date().isoformat()
         bot.logger.info(
-            "Scheduled raffle main-chat repost COMPLETE | time=18:00 Arizona | chat=%s",
+            "Scheduled raffle main-chat repost COMPLETE | time=%02d:%02d Arizona | chat=%s",
+            RAFFLE_MAIN_REPOST_HOUR,
+            RAFFLE_MAIN_REPOST_MINUTE,
             -1002697105809,
+        )
+    else:
+        bot.logger.warning(
+            "Scheduled raffle main-chat repost did not post | time=%02d:%02d Arizona | reason=no active raffle or send failure",
+            RAFFLE_MAIN_REPOST_HOUR,
+            RAFFLE_MAIN_REPOST_MINUTE,
         )
 
 
@@ -137,15 +162,18 @@ def _build_application_with_verified_startup_hooks():
         try:
             job_queue = application_instance.job_queue
             if job_queue:
-                for job in job_queue.get_jobs_by_name("daily-raffle-main-chat-repost"):
+                for job in job_queue.get_jobs_by_name("raffle-main-chat-repost-checker"):
                     job.schedule_removal()
-                job_queue.run_daily(
-                    _daily_raffle_main_chat_repost,
-                    time(hour=RAFFLE_MAIN_REPOST_HOUR, minute=RAFFLE_MAIN_REPOST_MINUTE, tzinfo=RAFFLE_STATUS_TZ),
-                    name="daily-raffle-main-chat-repost",
+                job_queue.run_repeating(
+                    _raffle_main_chat_repost_checker,
+                    interval=30,
+                    first=5,
+                    name="raffle-main-chat-repost-checker",
                 )
                 bot.logger.info(
-                    "Raffle scheduler VERIFIED | 18:06 Arizona main-chat repost | chat=%s",
+                    "Raffle scheduler VERIFIED | checker=every 30s | target=%02d:%02d Arizona | chat=%s",
+                    RAFFLE_MAIN_REPOST_HOUR,
+                    RAFFLE_MAIN_REPOST_MINUTE,
                     -1002697105809,
                 )
             else:
