@@ -41,8 +41,14 @@ from raffle_database import get_database_stats, check_database_integrity, get_ac
 from truth_dare import truth, dare, truth_dare_menu, truth_dare_callback
 from games.game_center import games_command, game_center_callback_router, initialize_game_database, ensure_pinned_game_center
 from games_reminder import start_weekly_game_center_reminder
+from daily_message_scheduler import start_daily_community_messages_reliable
+from grand_rising import start as start_grand_rising
 from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
+from event_ocr import (
+    handle_event_photo, handle_event_video, handle_event_text,
+    handle_event_member_callback, handle_event_admin_callback, _init_db,
+)
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger("melanated_az_bot")
@@ -610,6 +616,17 @@ def build_application():
     application.add_handler(ChatMemberHandler(community_chat_member_diagnostic,ChatMemberHandler.CHAT_MEMBER),group=0)
     application.add_handler(ChatMemberHandler(community_welcome,ChatMemberHandler.CHAT_MEMBER),group=1)
     application.add_handler(ChatMemberHandler(community_exit,ChatMemberHandler.CHAT_MEMBER),group=2)
+    # Independent Event OCR pipeline: handle Event topic before generic media moderation.
+    try:
+        _init_db()
+        application.add_handler(CallbackQueryHandler(handle_event_member_callback, pattern=r"^event_ocr_(edit|confirm)_\d+$"), group=-2)
+        application.add_handler(CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_ocr_admin_(approve|deny)_\d+$"), group=-2)
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text), group=-2)
+        application.add_handler(MessageHandler(filters.PHOTO, handle_event_photo), group=4)
+        application.add_handler(MessageHandler(filters.VIDEO, handle_event_video), group=4)
+        logger.info("Independent Event OCR handlers REGISTERED | chat=-1002697105809 topic=12214")
+    except Exception:
+        logger.exception("Unable to initialize independent Event OCR handlers.")
     application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)
     application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
     application.add_handler(MessageHandler(filters.ANIMATION,handle_animation),group=5)
@@ -645,6 +662,9 @@ def main():
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
     start_weekly_game_center_reminder(application)
+    start_daily_community_messages_reliable(application)
+    start_grand_rising(application)
+    logger.info("Core daily schedulers started | daily=10:00 Arizona | grand-rising=06:00 Arizona")
     # Daily raffle status is intentionally disabled: the raffle should be one post, not recurring status messages.
     logger.info("Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883.")
     start_raffle_cleanup_recovery(application)
