@@ -37,6 +37,7 @@ from raffle import (
     draw_raffle,
     raffle_callback,
     publish_raffle,
+    post_raffle_status_to_main_chat,
 )
 from raffle_database import get_database_stats, check_database_integrity, get_active_raffle, set_raffle_post
 from truth_dare import truth, dare, truth_dare_menu, truth_dare_callback
