@@ -128,8 +128,9 @@ def install_qotd_startup_panel():
 def install_all_topic_routing():
     """Install shared QOTD / Daily Community / After Dark routing."""
     install_after_dark_topic_routing()
-    install_qotd_startup_panel()
 
+    # QOTD owns its own startup panel check. Do not monkey-patch its scheduler
+    # here; hidden wrappers were causing duplicate/competing startup paths.
     try:
         import notification_policy
         notification_policy.PERMANENT_TOPIC_IDS.add(TARGET_TOPIC_ID)
