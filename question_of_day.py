@@ -73,7 +73,7 @@ def initialize_question_of_day_database():
             """
             CREATE TABLE IF NOT EXISTS qotd_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                item_type TEXT NOT NULL CHECK(item_type IN ('question','poll')),
+                item_type TEXT NOT NULL CHECK(item_type IN ('question','voice','poll')),
                 prompt TEXT NOT NULL,
                 options_json TEXT,
                 submitted_by INTEGER,
@@ -194,7 +194,8 @@ def claim_item(item_id):
 def qotd_menu_markup():
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("📝 Submit a Question", callback_data="qotd_submit_question")],
+            [InlineKeyboardButton("📝 Type a Question", callback_data="qotd_submit_question")],
+            [InlineKeyboardButton("🎙️ Record a Question", callback_data="qotd_submit_voice")],
             [InlineKeyboardButton("📊 Build a Poll", callback_data="qotd_submit_poll")],
             [InlineKeyboardButton("📚 Bank Status", callback_data="qotd_status")],
             [InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")],
@@ -326,6 +327,21 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
 
+    if action == "qotd_submit_voice":
+        context.user_data["qotd_state"] = "voice"
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="🎙️ <b>Record your Question of the Day</b>\n\n🔒 Send me a voice recording here. Your recording stays in this private chat and will not appear in the group until it is posted as the QOTD.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
+        return
+
     if action == "qotd_submit_question":
         context.user_data["qotd_state"] = "question"
         context.user_data["qotd_chat_id"] = None
@@ -374,6 +390,14 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if message.chat.type != "private":
         return
     text = message.text.strip()
+
+    if state == "voice":
+        if not message.voice:
+            await message.reply_text("❌ Please send a voice recording.")
+            raise ApplicationHandlerStop
+        item_id = add_item("voice", message.voice.file_id, None, update.effective_user)
+        await _finish_submission(update, context, item_id, "🎙️ Voice question saved!")
+        raise ApplicationHandlerStop
 
     if state == "question":
         if not 1 <= len(text) <= QOTD_MAX_QUESTION:
@@ -466,6 +490,14 @@ async def publish_item(context, item_id=None):
                 text=text,
                 parse_mode="HTML",
             )
+        elif item["item_type"] == "voice":
+            sent = await context.bot.send_voice(
+                chat_id=chat_id,
+                message_thread_id=thread_id,
+                voice=item["prompt"],
+                caption="🎙️ <b>QUESTION OF THE DAY</b>",
+                parse_mode="HTML",
+            )
         else:
             options = json.loads(item["options_json"] or "[]")
             poll_question = "📊 Question of the Day\n" + item["prompt"]
@@ -543,7 +575,7 @@ def register_question_of_day_handlers(application):
     application.add_handler(
         CallbackQueryHandler(
             qotd_callback,
-            pattern=r"^qotd_(submit_question|submit_poll|status|cancel)$",
+            pattern=r"^qotd_(submit_question|submit_voice|submit_poll|status|cancel)$",
         ),
         group=0,
     )
