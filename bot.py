@@ -11,7 +11,6 @@ import html
 import threading
 import sqlite3
 import random
-from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta, timezone
 
 from flask import Flask
