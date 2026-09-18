@@ -364,9 +364,32 @@ async def _tracked_handle_event_admin_callback(update, context):
             await _cleanup_after_approval(context, submission_id)
 
 
+def _remove_event_handlers(application):
+    """Remove previously-installed Event handlers so patched callbacks are used."""
+    target_names = {
+        "handle_event_photo", "handle_event_video", "handle_event_text",
+        "handle_event_member_callback", "handle_event_admin_callback",
+        "_fixed_handle_event_photo", "_fixed_handle_event_video",
+        "_tracked_handle_event_text", "_tracked_handle_event_member_callback",
+        "_tracked_handle_event_admin_callback",
+    }
+    for group, handlers in list(application.handlers.items()):
+        kept = []
+        for handler in handlers:
+            callback = getattr(handler, "callback", None)
+            module = getattr(callback, "__module__", "")
+            name = getattr(callback, "__name__", "")
+            if module == "event_router" and name in target_names:
+                continue
+            kept.append(handler)
+        application.handlers[group] = kept
+    application._melanated_event_router_installed = False
+
+
 def install_application(application):
     _init_cleanup_db()
 
+    # Capture originals once so this compatibility layer never chains itself.
     if not hasattr(event_router, "_parse_fields_original"):
         event_router._parse_fields_original = event_router._parse_fields
     if not hasattr(event_router, "_original_handle_event_text"):
@@ -385,4 +408,13 @@ def install_application(application):
     event_router.handle_event_text = _tracked_handle_event_text
     event_router.handle_event_member_callback = _tracked_handle_event_member_callback
     event_router.handle_event_admin_callback = _tracked_handle_event_admin_callback
+
+    # Replace any earlier Event handlers so Telegram invokes the fixed OCR
+    # callbacks rather than stale callback objects.
+    _remove_event_handlers(application)
     event_router.install_application(application)
+
+    logger.info(
+        "Event OCR compatibility layer installed | priority=-20 | "
+        "photo/video protected from general spoiler moderation"
+    )
