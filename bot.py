@@ -12,7 +12,6 @@ import threading
 import sqlite3
 import random
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 from flask import Flask
 
@@ -37,7 +36,6 @@ from raffle import (
     draw_raffle,
     raffle_callback,
     publish_raffle,
-    post_raffle_status_to_main_chat,
 )
 from raffle_database import get_database_stats, check_database_integrity, get_active_raffle, set_raffle_post
 from truth_dare import truth, dare, truth_dare_menu, truth_dare_callback
@@ -192,40 +190,8 @@ def community_member(chat_id,user_id):
     with community_db_connect() as conn: return conn.execute("SELECT * FROM community_members WHERE chat_id=? AND user_id=?",(chat_id,user_id)).fetchone()
 
 def save_joining_member(chat_id,user):
-    """Track a joining member without destroying a previously saved introduction."""
-    existing = community_member(chat_id, user.id)
-    if existing and existing["intro_text"]:
-        now = iso_now()
-        with community_db_connect() as conn:
-            conn.execute(
-                """UPDATE community_members SET username=?, first_name=?, joined_at=?,
-                   verified_at=NULL, intro_deadline=NULL, last_post_at=NULL,
-                   verification_attempts=0, verification_message_id=NULL,
-                   verification_challenge=NULL, verification_expires_at=NULL,
-                   inactivity_notice_at=NULL, inactivity_notice_message_id=NULL,
-                   status='pending_verification'
-                   WHERE chat_id=? AND user_id=?""",
-                (user.username, user.first_name, now, chat_id, user.id),
-            )
-            conn.commit()
-        logger.info("Preserved saved introduction for returning user_id=%s", user.id)
-        return
     with community_db_connect() as conn:
-        conn.execute(
-            """INSERT INTO community_members
-               (chat_id,user_id,username,first_name,joined_at,status)
-               VALUES (?,?,?,?,?,'pending_verification')
-               ON CONFLICT(chat_id,user_id) DO UPDATE SET
-                 username=excluded.username, first_name=excluded.first_name,
-                 joined_at=excluded.joined_at, verified_at=NULL,
-                 intro_deadline=NULL, intro_text=NULL, intro_message_id=NULL,
-                 last_post_at=NULL, verification_attempts=0,
-                 verification_message_id=NULL, verification_challenge=NULL,
-                 verification_expires_at=NULL, inactivity_notice_at=NULL,
-                 inactivity_notice_message_id=NULL, status='pending_verification'""",
-            (chat_id, user.id, user.username, user.first_name, iso_now()),
-        )
-        conn.commit()
+        conn.execute("""INSERT INTO community_members (chat_id,user_id,username,first_name,joined_at,status) VALUES (?,?,?,?,?,'pending_verification') ON CONFLICT(chat_id,user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name,joined_at=excluded.joined_at,verified_at=NULL,intro_deadline=NULL,intro_posted_at=NULL,intro_text=NULL,intro_message_id=NULL,last_post_at=NULL,verification_attempts=0,verification_message_id=NULL,verification_challenge=NULL,verification_expires_at=NULL,inactivity_notice_at=NULL,inactivity_notice_message_id=NULL,status='pending_verification'""",(chat_id,user.id,user.username,user.first_name,iso_now())); conn.commit()
 
 def set_verification_challenge(chat_id,user_id,answer,options,message_id):
     expires=utc_now()+timedelta(minutes=VERIFICATION_MESSAGE_TTL_MINUTES)
