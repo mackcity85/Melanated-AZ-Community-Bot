@@ -270,8 +270,8 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
 # Telegram forum topic where active raffles are published.
 RAFFLE_TOPIC_ID = 11883
 RAFFLE_ENTRY_MESSAGE_DELETE_SECONDS = 60 * 60
-RAFFLE_STATUS_HOUR = 12
-RAFFLE_STATUS_MINUTE = 0
+RAFFLE_STATUS_HOUR = 16
+RAFFLE_STATUS_MINUTE = 30
 RAFFLE_STATUS_TIMEZONE = ZoneInfo("America/Phoenix")
 
 
@@ -279,7 +279,7 @@ async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
     raffle = get_active_raffle()
     if not raffle:
         logger.info("Daily raffle status skipped: no active raffle.")
-        return
+        return False
     free = is_free_raffle(raffle.get("price"))
     approved = get_approved_entries(raffle["id"])
     rows = [[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]]
@@ -302,8 +302,10 @@ async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
             text=text, reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML,
         )
         logger.info("DAILY RAFFLE STATUS POSTED | raffle=%s | chat=%s | topic=%s | message=%s", raffle["id"], RAFFLE_CHAT_ID, RAFFLE_TOPIC_ID, sent.message_id)
+        return True
     except TelegramError:
         logger.exception("Could not post daily raffle status | raffle=%s", raffle["id"])
+        return False
 
 
 def start_daily_raffle_status(application):
