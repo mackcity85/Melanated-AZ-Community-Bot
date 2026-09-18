@@ -335,7 +335,7 @@ def admin_main_keyboard():
                     callback_data="admin_manual_entry",
                 ),
                 InlineKeyboardButton(
-                    "🔄 Repost Raffle Status",
+                    "📢 Repost Raffle Stats",
                     callback_data="admin_repost_raffle",
                 ),
             ],
