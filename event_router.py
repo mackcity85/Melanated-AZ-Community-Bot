@@ -728,18 +728,20 @@ def install_application(application):
         return
     _init_db()
 
-    # Event handlers run before the general media router so event flyers are
-    # held for verification instead of being moved to the Media topic.
-    application.add_handler(MessageHandler(filters.PHOTO, handle_event_photo), group=-2)
-    application.add_handler(MessageHandler(filters.VIDEO, handle_event_video), group=-2)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text), group=-2)
+    # Event handlers MUST run before the general media/spoiler moderation.
+    # Lower handler groups have higher priority in python-telegram-bot.
+    # The callbacks themselves verify the Events topic before doing any work.
+    EVENT_HANDLER_GROUP = -20
+    application.add_handler(MessageHandler(filters.PHOTO, handle_event_photo), group=EVENT_HANDLER_GROUP)
+    application.add_handler(MessageHandler(filters.VIDEO, handle_event_video), group=EVENT_HANDLER_GROUP)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text), group=EVENT_HANDLER_GROUP)
     application.add_handler(
         CallbackQueryHandler(handle_event_member_callback, pattern=r"^event_(?:edit|confirm)_\d+$"),
-        group=-2,
+        group=EVENT_HANDLER_GROUP,
     )
     application.add_handler(
         CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_admin_(?:approve|deny)_\d+$"),
-        group=-2,
+        group=EVENT_HANDLER_GROUP,
     )
     application._melanated_event_router_installed = True
     logger.info(
