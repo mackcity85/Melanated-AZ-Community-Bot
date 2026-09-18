@@ -106,11 +106,11 @@ async def _run_games_topic_pin_maintenance(context):
 
 
 RAFFLE_MAIN_REPOST_HOUR = 18
-RAFFLE_MAIN_REPOST_MINUTE = 0
+RAFFLE_MAIN_REPOST_MINUTE = 6
 RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
 
 async def _daily_raffle_main_chat_repost(context):
-    """Repost the current raffle status to the main chat at 6:00 PM Arizona."""
+    """Repost the current raffle status to the main chat at 6:06 PM Arizona."""
     posted = await post_raffle_status_to_main_chat(context)
     if posted:
         bot.logger.info(
@@ -145,7 +145,7 @@ def _build_application_with_verified_startup_hooks():
                     name="daily-raffle-main-chat-repost",
                 )
                 bot.logger.info(
-                    "Raffle scheduler VERIFIED | 18:00 Arizona main-chat repost | chat=%s",
+                    "Raffle scheduler VERIFIED | 18:06 Arizona main-chat repost | chat=%s",
                     -1002697105809,
                 )
             else:
