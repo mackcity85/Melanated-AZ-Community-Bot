@@ -211,14 +211,34 @@ async def ensure_qotd_submission_panel(application):
     existing_id = get_meta("qotd_submission_panel_message_id")
     if existing_id:
         try:
+            await application.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=int(existing_id),
+                text=(
+                    "💭 <b>QUESTION OF THE DAY</b>\\n\\n"
+                    "Have a question for the community? Want to build a poll?\\n\\n"
+                    "Use the buttons below to submit content to the QOTD bank. "
+                    "One item is posted each day at <b>11:00 AM Arizona time</b>.\\n\\n"
+                    "📚 Your submission is saved for a future day unless today's QOTD has not been posted yet."
+                ),
+                reply_markup=qotd_menu_markup(),
+                parse_mode="HTML",
+            )
             await application.bot.pin_chat_message(
                 chat_id=chat_id,
                 message_id=int(existing_id),
                 disable_notification=True,
             )
+            logger.info(
+                "QOTD submission panel refreshed and pinned | chat=%s topic=%s message=%s",
+                chat_id, thread_id, existing_id,
+            )
             return
         except TelegramError:
-            pass
+            logger.warning(
+                "Stored QOTD panel %s could not be refreshed; creating a replacement.",
+                existing_id,
+            )
     try:
         panel = await application.bot.send_message(
             chat_id=chat_id,
