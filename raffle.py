@@ -293,6 +293,7 @@ async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
         f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
         f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
         f"👥 <b>Total Entries:</b> {len(approved)}\n"
+        f"🔢 <b>Entry Numbers:</b> {html.escape(entry_numbers)}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
@@ -696,11 +697,14 @@ async def repost_raffle(update, context):
             await temporary_reply(message, context, "⚠️ There is no active raffle to repost.")
         return False
 
-    # Public status shows only the number of approved entries.
-    # Pending submissions are intentionally excluded because they are not
-    # official raffle entries until an admin approves them.
+    # Public status includes the same raffle stats admins see:
+    # approved entry count and the approved entry numbers. Pending
+    # submissions are excluded until an admin approves them.
     approved = get_approved_entries(int(raffle["id"]))
     free = is_free_raffle(raffle.get("price"))
+    entry_numbers = ", ".join(
+        f"#{entry['id']}" for entry in approved
+    ) or "None yet"
 
     rows = [
         [InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]
