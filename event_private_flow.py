@@ -460,11 +460,11 @@ async def block_public_event_media(update, context):
                 message_thread_id=EVENT_TOPIC_ID,
                 text=(
                     f"🔒 <b>{user.mention_html()}</b>, Event submissions are private.\n\n"
-                    "Please use the button below to open a private chat with the bot and submit your flyer there."
+                    "Please use the button below to post your Event flyer with the Melanated AZ Bot and submit it privately."
                 ),
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔒 SUBMIT EVENT PRIVATELY", url=link)]
+                    [InlineKeyboardButton("📸 POST EVENT FLYER WITH MELANATED AZ BOT", url=link)]
                 ]),
             )
             if context.job_queue:
