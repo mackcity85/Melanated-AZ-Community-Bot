@@ -189,6 +189,40 @@ async def _playable_system_callback(update,context,sid,name,back):
     if not q:return
     await q.answer(); games=_system_games(sid); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]; genre_games=[g for g in get_genre_games() if g["system_id"]==sid]; rows += [[InlineKeyboardButton(f"{g['icon']} {g['name']} — {g['genre'].capitalize()}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in genre_games]; rows.append([InlineKeyboardButton("⬅️ Back",callback_data=back)]); await q.edit_message_text(f"🕹️ <b>{name}</b>\n\nChoose a playable game:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
 
+
+async def games_admin_menu(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    """Admin Panel -> Games compatibility menu."""
+    query=update.callback_query
+    user=update.effective_user
+    if not user or not await _is_games_admin(user.id,context):
+        if query:
+            try:
+                await query.answer("⛔ Admin access required.",show_alert=True)
+            except Exception:
+                pass
+        return
+    if not query:
+        return
+    await query.answer()
+    await query.edit_message_text(
+        "🎮 <b>MELANATED AZ GAME CENTER</b>\n\n"
+        "✅ Admin access confirmed.\n\n"
+        "Use the Game Center below to view and launch the available games.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎮 Open Game Center",callback_data="games_home")],
+            [InlineKeyboardButton("⬅️ Back to Admin Panel",callback_data="admin_back")],
+        ]),
+        parse_mode=ParseMode.HTML,
+    )
+
+async def _is_games_admin(user_id,context):
+    try:
+        from admin import is_admin
+        return await is_admin(user_id,context)
+    except Exception:
+        logger.exception("Unable to verify Games admin access.")
+        return False
+
 async def game_center_callback_router(update:Update,context:ContextTypes.DEFAULT_TYPE):
     """Single async entry point for all Game Center callback buttons."""
     query=update.callback_query
