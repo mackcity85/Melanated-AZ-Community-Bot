@@ -31,6 +31,7 @@ QOTD_MAX_QUESTION = 3000
 QOTD_MAX_OPTION = 100
 QOTD_MIN_OPTIONS = 2
 QOTD_MAX_OPTIONS = 10
+QOTD_PANEL_LOCK_TTL_SECONDS = 120
 
 
 def _int_env(name, default=0):
@@ -241,28 +242,85 @@ async def ensure_qotd_submission_panel(application):
             return
         except TelegramError:
             logger.warning(
-                "Stored QOTD panel %s could not be refreshed; creating a replacement.",
+                "Stored QOTD panel %s could not be refreshed; clearing stale panel ID and creating a replacement.",
                 existing_id,
             )
+            with db_connect() as conn:
+                conn.execute("DELETE FROM qotd_meta WHERE key=?", ("qotd_submission_panel_message_id",))
+                conn.commit()
     # Multiple Render workers/restarts can enter this startup path at the same time.
     # Claim panel creation atomically in SQLite so only one process can create the
     # permanent panel when no canonical panel ID exists yet.
     creation_claimed = False
+    now_ts = int(datetime.now().timestamp())
     with db_connect() as conn:
-        cur = conn.execute(
-            "INSERT OR IGNORE INTO qotd_meta(key,value) VALUES(?,?)",
-            ("qotd_submission_panel_creation_lock", str(int(datetime.now().timestamp()))),
-        )
+        # The old implementation never released this lock after a successful
+        # creation, which permanently blocked replacement after a stale panel
+        # was deleted. Treat the lock as a short-lived startup guard.
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT value FROM qotd_meta WHERE key=?",
+            ("qotd_submission_panel_creation_lock",),
+        ).fetchone()
+        if row:
+            try:
+                lock_ts = int(row[0])
+            except (TypeError, ValueError):
+                lock_ts = 0
+            if now_ts - lock_ts >= QOTD_PANEL_LOCK_TTL_SECONDS:
+                conn.execute(
+                    "DELETE FROM qotd_meta WHERE key=?",
+                    ("qotd_submission_panel_creation_lock",),
+                )
+                row = None
+        if not row:
+            conn.execute(
+                "INSERT OR REPLACE INTO qotd_meta(key,value) VALUES(?,?)",
+                ("qotd_submission_panel_creation_lock", str(now_ts)),
+            )
+            creation_claimed = True
         conn.commit()
-        creation_claimed = cur.rowcount == 1
 
     if not creation_claimed:
         logger.info(
-            "QOTD submission panel creation skipped: another process already owns the creation lock."
+            "QOTD submission panel creation skipped: another process owns the active creation lock."
         )
         return
 
     try:
+        # Re-check the canonical panel ID after taking the lock. Another
+        # startup process may have created it just before this process claimed
+        # the lock.
+        canonical_id = get_meta("qotd_submission_panel_message_id")
+        if canonical_id:
+            try:
+                await application.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=int(canonical_id),
+                    text=(
+                        "💭 <b>QUESTION OF THE DAY</b>\n\n"
+                        "Have a question for the community? Want to build a poll?\n\n"
+                        "Use the buttons below to submit content to the QOTD bank. "
+                        "One item is posted each day at <b>11:00 AM Arizona time</b>.\n\n"
+                        "📚 Your submission is saved for a future day unless today's QOTD has not been posted yet."
+                    ),
+                    reply_markup=qotd_menu_markup(),
+                    parse_mode="HTML",
+                )
+                await application.bot.pin_chat_message(
+                    chat_id=chat_id,
+                    message_id=int(canonical_id),
+                    disable_notification=True,
+                )
+                logger.info(
+                    "QOTD submission panel refreshed after creation-lock recheck | chat=%s topic=%s message=%s",
+                    chat_id, thread_id, canonical_id,
+                )
+                return
+            except TelegramError:
+                with db_connect() as conn:
+                    conn.execute("DELETE FROM qotd_meta WHERE key=?", ("qotd_submission_panel_message_id",))
+                    conn.commit()
         panel = await application.bot.send_message(
             chat_id=chat_id,
             message_thread_id=thread_id,
@@ -295,17 +353,19 @@ async def ensure_qotd_submission_panel(application):
                 chat_id, thread_id, panel.message_id,
             )
     except TelegramError:
-        # Release the claim if creation failed so a later startup can retry.
+        logger.exception(
+            "Could not create the QOTD submission panel | chat=%s topic=%s",
+            chat_id, thread_id,
+        )
+    finally:
+        # Always release the short-lived creation guard, including after a
+        # successful replacement. This prevents a permanent stale lock.
         with db_connect() as conn:
             conn.execute(
                 "DELETE FROM qotd_meta WHERE key=?",
                 ("qotd_submission_panel_creation_lock",),
             )
             conn.commit()
-        logger.exception(
-            "Could not create the QOTD submission panel | chat=%s topic=%s",
-            chat_id, thread_id,
-        )
 
 
 async def qotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
