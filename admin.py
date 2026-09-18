@@ -3407,8 +3407,11 @@ async def admin_after_dark_now(update, context):
         return
     await query.answer("Posting After Dark...")
     try:
-        from daily_messages import send_daily_community_message
-        await send_daily_community_message(context)
+        import daily_messages
+        handler = getattr(daily_messages, "_after_dark_message_handler", None)
+        if handler is None:
+            raise RuntimeError("After Dark routing handler is not configured.")
+        await handler(context)
         text = "🌙 **AFTER DARK POSTED**\n\nThe current After Dark prompt was posted to topic `11999`."
     except Exception:
         text = "❌ **AFTER DARK POST FAILED**\n\nCheck the Render logs."
