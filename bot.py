@@ -572,13 +572,6 @@ async def repair_active_raffle_post(context):
     except Exception:
         logger.exception("One-time raffle topic repair failed.")
 
-# Install Event/OCR routing before build_application() is called so its handlers can run before general media moderation.
-try:
-    import media_router
-    media_router.install(globals())
-except Exception:
-    logger.exception("Unable to initialize Event/OCR media router.")
-
 def build_application():
     if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
     application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
