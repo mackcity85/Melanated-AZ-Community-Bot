@@ -576,6 +576,18 @@ def build_application():
     if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
     application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
+    # Events topic must be installed before the general media spoiler handler.
+    # The Events workflow downloads the flyer and runs OCR first, then deletes
+    # the original only after extracting/collecting the event information.
+    # Keep the compatibility/cleanup patch active as well.
+    try:
+        import event_router
+        import event_router_fix
+        event_router_fix.install_application(application)
+        logger.info("Event flyer router installed before general media moderation | topic=12214")
+    except Exception:
+        logger.exception("Event flyer router could not be installed")
+
     # QOTD and After Dark are separate startup paths.
     try:
         from topic_routing import install_all_topic_routing
