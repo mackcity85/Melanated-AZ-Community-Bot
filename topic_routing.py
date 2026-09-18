@@ -4,7 +4,6 @@
 
 import os
 from datetime import time
-from types import MethodType
 
 TARGET_CHAT_ID = -1002697105809
 TARGET_TOPIC_ID = 11999
@@ -21,15 +20,13 @@ os.environ["DAILY_MESSAGE_MINUTE"] = "0"
 
 
 def install_after_dark_topic_routing():
-    """Route Daily Community and After Dark independently."""
+    """Configure Daily Community and After Dark to use the shared topic directly."""
     import daily_messages
 
     if getattr(daily_messages, "_after_dark_topic_routing_installed", False):
         return
 
-    original = daily_messages.send_daily_community_message
     full_daily_bank = list(daily_messages.DAILY_MESSAGES)
-
     after_dark_messages = [
         item for item in full_daily_bank
         if isinstance(item, (tuple, list))
@@ -44,35 +41,25 @@ def install_after_dark_topic_routing():
     if not after_dark_messages:
         return
 
-    async def routed_send_message(context, message_bank):
-        bot = context.bot
-        original_send = bot.send_message
-        original_bank = daily_messages.DAILY_MESSAGES
-
-        async def routed_send(self, *args, **kwargs):
-            kwargs["chat_id"] = TARGET_CHAT_ID
-            kwargs["message_thread_id"] = TARGET_TOPIC_ID
-            return await original_send(*args, **kwargs)
-
-        bot.send_message = MethodType(routed_send, bot)
-        daily_messages.DAILY_MESSAGES = message_bank
-        try:
-            return await original(context)
-        finally:
-            daily_messages.DAILY_MESSAGES = original_bank
-            bot.send_message = original_send
-
-    async def routed_daily_message(context):
-        return await routed_send_message(context, full_daily_bank)
-
-    async def routed_after_dark_message(context):
-        return await routed_send_message(context, after_dark_messages)
-
-    daily_messages.send_daily_community_message = routed_daily_message
+    daily_messages.DAILY_MESSAGE_CHAT_ID = TARGET_CHAT_ID
+    daily_messages.DAILY_MESSAGE_TOPIC_ID = TARGET_TOPIC_ID
     daily_messages.DAILY_MESSAGE_HOUR = 10
     daily_messages.DAILY_MESSAGE_MINUTE = 0
 
+    async def routed_daily_message(context):
+        return await daily_messages.send_daily_community_message(
+            context,
+            message_bank=full_daily_bank,
+        )
+
+    async def routed_after_dark_message(context):
+        return await daily_messages.send_daily_community_message(
+            context,
+            message_bank=after_dark_messages,
+        )
+
     daily_messages._after_dark_message_handler = routed_after_dark_message
+    daily_messages.send_daily_community_message = routed_daily_message
     daily_messages._after_dark_topic_routing_installed = True
 
 
