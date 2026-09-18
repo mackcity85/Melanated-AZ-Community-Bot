@@ -126,7 +126,9 @@ async def _daily_job(context: ContextTypes.DEFAULT_TYPE):
 async def _startup_recovery(context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(ARIZONA_TZ)
     today = now.date()
-    if today < START_DATE or today > END_DATE or now.hour != 6:
+    if today < START_DATE or today > END_DATE:
+        return
+    if (now.hour, now.minute) < (6, 0):
         return
     await send_grand_rising(context)
 
