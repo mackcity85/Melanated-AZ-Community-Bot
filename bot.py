@@ -47,7 +47,8 @@ from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
 from event_ocr import (
     handle_event_photo, handle_event_video, handle_event_text,
-    handle_event_member_callback, handle_event_admin_callback, _init_db,
+    handle_event_member_callback, handle_event_admin_callback,
+    handle_event_start, _init_db,
 )
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
@@ -619,6 +620,7 @@ def build_application():
     # Independent Event OCR pipeline: handle Event topic before generic media moderation.
     try:
         _init_db()
+        application.add_handler(CommandHandler("start", handle_event_start), group=-2)
         application.add_handler(CallbackQueryHandler(handle_event_member_callback, pattern=r"^event_ocr_(edit|confirm)_\d+$"), group=-2)
         application.add_handler(CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_ocr_admin_(approve|deny)_\d+$"), group=-2)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text), group=-2)
