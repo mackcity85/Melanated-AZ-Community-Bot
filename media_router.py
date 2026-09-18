@@ -15,8 +15,8 @@ import event_website_patch
 logger = logging.getLogger("media_router")
 
 MEDIA_CHAT_ID = -1002697105809
-MEDIA_TOPIC_ID = 10286
-MOVE_NOTICE = "📸 Your photo/video was moved to the Media topic."
+MEDIA_TOPIC_ID = 11999
+MOVE_NOTICE = "📸 Your photo/video was moved to the NSFW topic."
 
 
 async def _move_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
