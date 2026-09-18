@@ -676,35 +676,15 @@ async def manual_raffle_entry(update, context, member_user_id):
     return True
 
 
-async def repost_raffle(update, context):
-    """
-    Repost a privacy-safe raffle status into the MAIN CHAT.
-    Public status contains entry counts only; no member identity data.
-    """
-    query, message, user = update.callback_query, update.effective_message, update.effective_user
-    if not user or not await is_raffle_admin_access(update, context):
-        if query:
-            await safe_answer(query, "⛔ Admins only.", True)
-        elif message:
-            await temporary_reply(message, context, "⛔ Admins only.")
-        return False
-
+async def post_raffle_status_to_main_chat(context):
+    """Post the same public raffle status used by the admin repost button."""
     raffle = get_active_raffle()
     if not raffle:
-        if query:
-            await safe_answer(query, "There is no active raffle.", True)
-        elif message:
-            await temporary_reply(message, context, "⚠️ There is no active raffle to repost.")
+        logger.info("Scheduled raffle status repost skipped: no active raffle.")
         return False
 
-    # Public status includes the same raffle stats admins see:
-    # approved entry count and the approved entry numbers. Pending
-    # submissions are excluded until an admin approves them.
     approved = get_approved_entries(int(raffle["id"]))
     free = is_free_raffle(raffle.get("price"))
-    entry_numbers = ", ".join(
-        f"#{entry['id']}" for entry in approved
-    ) or "None yet"
 
     rows = [
         [InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]
@@ -716,11 +696,11 @@ async def repost_raffle(update, context):
         ])
 
     text = (
-        "🎟️ <b>RAFFLE STATUS</b>\n\n"
-        f"🎁 <b>Raffle Item:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
-        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
-        f"👥 <b>Total Entries:</b> {len(approved)}\n"
-        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
+        "🎟️ <b>RAFFLE STATUS</b>\\n\\n"
+        f"🎁 <b>Raffle Item:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\\n"
+        f"👥 <b>Total Entries:</b> {len(approved)}\\n"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\\n\\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
 
@@ -736,16 +716,51 @@ async def repost_raffle(update, context):
             "RAFFLE STATUS REPOSTED | raffle=%s | destination=MAIN_CHAT:%s | message=%s | total_entries=%s",
             raffle["id"], target_chat, sent.message_id, len(approved)
         )
+        return True
     except TelegramError:
-        logger.exception("Could not repost raffle status to main chat | raffle=%s | chat=%s", raffle["id"], target_chat)
+        logger.exception(
+            "Could not repost raffle status to main chat | raffle=%s | chat=%s",
+            raffle["id"], target_chat
+        )
+        return False
+
+
+async def repost_raffle(update, context):
+    """Repost the public raffle status into the MAIN CHAT from the admin panel."""
+    query, message, user = update.callback_query, update.effective_message, update.effective_user
+    if not user or not await is_raffle_admin_access(update, context):
         if query:
-            await safe_answer(query, "⚠️ Could not post the raffle status to the main chat.", True)
+            await safe_answer(query, "⛔ Admins only.", True)
+        elif message:
+            await temporary_reply(message, context, "⛔ Admins only.")
+        return False
+
+    posted = await post_raffle_status_to_main_chat(context)
+    if not posted:
+        if query:
+            raffle = get_active_raffle()
+            await safe_answer(
+                query,
+                "There is no active raffle." if not raffle else "⚠️ Could not post the raffle status to the main chat.",
+                True,
+            )
+        elif message:
+            raffle = get_active_raffle()
+            await temporary_reply(
+                message,
+                context,
+                "⚠️ There is no active raffle to repost." if not raffle
+                else "⚠️ Could not post the raffle status to the main chat.",
+            )
         return False
 
     if query:
         await safe_answer(query, "✅ Raffle status reposted to the main chat.")
     if message and not query:
-        await temporary_reply(message, context, "✅ <b>RAFFLE STATUS REPOSTED</b>", parse_mode=ParseMode.HTML)
+        await temporary_reply(
+            message, context, "✅ <b>RAFFLE STATUS REPOSTED</b>",
+            parse_mode=ParseMode.HTML
+        )
     return True
 
 async def raffle_callback(update, context):
