@@ -41,7 +41,6 @@ from raffle_database import get_database_stats, check_database_integrity, get_ac
 from truth_dare import truth, dare, truth_dare_menu, truth_dare_callback
 from games.game_center import games_command, game_center_callback_router, initialize_game_database, ensure_pinned_game_center
 from games_reminder import start_weekly_game_center_reminder
-from grand_rising import start as start_grand_rising
 from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
 
@@ -646,7 +645,6 @@ def main():
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
     start_weekly_game_center_reminder(application)
-    start_grand_rising(application)
     # Daily raffle status is intentionally disabled: the raffle should be one post, not recurring status messages.
     logger.info("Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883.")
     start_raffle_cleanup_recovery(application)
