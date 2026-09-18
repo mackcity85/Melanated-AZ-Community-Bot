@@ -80,7 +80,8 @@ jobs:
           event_imports = (
               "from event_ocr import (\n"
               "    handle_event_photo, handle_event_video, handle_event_text,\n"
-              "    handle_event_member_callback, handle_event_admin_callback, _init_db,\n"
+              "    handle_event_member_callback, handle_event_admin_callback,\n"
+              "    handle_event_start, _init_db,\n"
               ")\n"
           )
           if "from event_ocr import (" not in text:
