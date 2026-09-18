@@ -43,9 +43,6 @@ from games.game_center import games_command, game_center_callback_router, initia
 from games_reminder import start_weekly_game_center_reminder
 from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
-import event_private_flow
-import event_text_guard
-import event_website_patch
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger("melanated_az_bot")
@@ -621,15 +618,6 @@ def build_application():
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,private_intro_text_handler),group=0)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_raffle_setup),group=0)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,text_router),group=10)
-    # Event/OCR workflow is installed directly here so it runs before the
-    # general media-spoiler handlers. No separate media-router wrapper is used.
-    try:
-        event_website_patch.install()
-        event_private_flow.install_application(application)
-        event_text_guard.install_application(application)
-        logger.info("Event/OCR routing installed directly in bot.py | chat=-1002697105809 | topic=12214")
-    except Exception:
-        logger.exception("Unable to initialize Event/OCR routing.")
     application.add_error_handler(error_handler)
     return application
 
