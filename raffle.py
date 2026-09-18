@@ -6,7 +6,6 @@
 import logging
 import random
 import os
-import re
 import html
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
@@ -35,37 +34,6 @@ from raffle_database import (
 )
 
 logger = logging.getLogger("melanated_az_raffle")
-
-
-def format_public_raffle_item_name(value):
-    """Return a short, community-friendly name for public raffle posts."""
-    raw = re.sub(r"\s+", " ", str(value or "")).strip()
-    if not raw:
-        return "Raffle Item"
-
-    lowered = raw.lower()
-    adult_terms = (
-        "clitor", "nipple", "vaginal", "pussy", "bdsm", "sex toy",
-        "sexual", "chastity", "stimulator", "adult toy", "electro",
-    )
-    if "clamp" in lowered and any(term in lowered for term in adult_terms):
-        if "shock" in lowered or "electro" in lowered:
-            return "Electric Shock Clamps — Adult Sensory Toy"
-        return "Adult Sensory Clamps"
-
-    cleaned = re.split(
-        r"\s*(?:\||;|\b(?:for women|for men|advanced|adjustable|sensory play|"
-        r"bedroom toy|kinky|multiple modes|4 shock modes)\b)",
-        raw,
-        maxsplit=1,
-        flags=re.IGNORECASE,
-    )[0].strip(" -,:;|")
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-
-    if len(cleaned) > 80:
-        cleaned = cleaned[:77].rsplit(" ", 1)[0].rstrip(" -,:;") + "..."
-
-    return cleaned or "Raffle Item"
 
 
 def format_expiration(value):
@@ -728,11 +696,11 @@ async def post_raffle_status_to_main_chat(context):
         ])
 
     text = (
-        "🎟️ <b>RAFFLE STATUS</b>\\n\\n"
-        f"🎁 <b>Raffle Item:</b> {html.escape(format_public_raffle_item_name(raffle.get('prize')))}\\n"
-        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\\n"
-        f"👥 <b>Total Entries:</b> {len(approved)}\\n"
-        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\\n\\n"
+        "🎟️ <b>RAFFLE STATUS</b>\n\n"
+        f"🎁 <b>Raffle Item:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
+        f"👥 <b>Total Entries:</b> {len(approved)}\n"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
 
