@@ -128,6 +128,35 @@ async def send_private_media_warning(update, context):
     except TelegramError:
         logger.info("Could not send private media warning to %s.", user.id)
 
+MEDIA_TOPIC_ID = 10286
+EVENT_TOPIC_ID = 12214
+MAIN_GROUP_ID = -1002697105809
+
+async def handle_media_move(update, context):
+    """Move new group photos/videos into the dedicated Media topic."""
+    message = update.effective_message
+    if not message or message.chat_id != MAIN_GROUP_ID:
+        return
+    thread_id = getattr(message, "message_thread_id", None)
+    if thread_id in {MEDIA_TOPIC_ID, EVENT_TOPIC_ID}:
+        return
+    if not (message.photo or message.video):
+        return
+    try:
+        await context.bot.copy_message(
+            chat_id=MAIN_GROUP_ID,
+            from_chat_id=MAIN_GROUP_ID,
+            message_id=message.message_id,
+            message_thread_id=MEDIA_TOPIC_ID,
+        )
+        await message.delete()
+        logger.info("Media moved to Media topic | source_message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
+        raise ApplicationHandlerStop
+    except ApplicationHandlerStop:
+        raise
+    except TelegramError:
+        logger.exception("Failed to move media | message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
+
 async def handle_photo(update, context):
     message = update.effective_message
     if not message or message.has_media_spoiler:
@@ -629,8 +658,7 @@ def build_application():
         logger.info("Independent Event OCR handlers REGISTERED | chat=-1002697105809 topic=12214")
     except Exception:
         logger.exception("Unable to initialize independent Event OCR handlers.")
-    application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)
-    application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
+    # General media routing: Events are handled by the independent OCR pipeline in group 4; all other group photos/videos are moved to Media topic 10286 before spoiler moderation.\n    application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media_move), group=5)\n    application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)\n    application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
     application.add_handler(MessageHandler(filters.ANIMATION,handle_animation),group=5)
     application.add_handler(MessageHandler(filters.Document.IMAGE,handle_image_document),group=5)
     application.add_handler(CallbackQueryHandler(private_intro_view_callback,pattern=r"^intro_view_"),group=0)
