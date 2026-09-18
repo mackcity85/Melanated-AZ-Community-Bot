@@ -12,7 +12,6 @@ import threading
 import sqlite3
 import random
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 from flask import Flask
 
@@ -37,7 +36,6 @@ from raffle import (
     draw_raffle,
     raffle_callback,
     publish_raffle,
-    post_raffle_status_to_main_chat,
 )
 from raffle_database import get_database_stats, check_database_integrity, get_active_raffle, set_raffle_post
 from truth_dare import truth, dare, truth_dare_menu, truth_dare_callback
@@ -192,41 +190,8 @@ def community_member(chat_id,user_id):
     with community_db_connect() as conn: return conn.execute("SELECT * FROM community_members WHERE chat_id=? AND user_id=?",(chat_id,user_id)).fetchone()
 
 def save_joining_member(chat_id,user):
-    """Track a joining member without destroying a previously saved introduction."""
-    existing = community_member(chat_id, user.id)
-    if existing and existing["intro_text"]:
-        now = iso_now()
-        with community_db_connect() as conn:
-            conn.execute(
-                """UPDATE community_members SET username=?, first_name=?, joined_at=?,
-                   verified_at=NULL, intro_deadline=NULL, last_post_at=NULL,
-                   verification_attempts=0, verification_message_id=NULL,
-                   verification_challenge=NULL, verification_expires_at=NULL,
-                   inactivity_notice_at=NULL, inactivity_notice_message_id=NULL,
-                   status='pending_verification'
-                   WHERE chat_id=? AND user_id=?""",
-                (user.username, user.first_name, now, chat_id, user.id),
-            )
-            conn.commit()
-        logger.info("Preserved saved introduction for returning user_id=%s", user.id)
-        return
     with community_db_connect() as conn:
-        conn.execute(
-            """INSERT INTO community_members
-               (chat_id,user_id,username,first_name,joined_at,status)
-               VALUES (?,?,?,?,?,'pending_verification')
-               ON CONFLICT(chat_id,user_id) DO UPDATE SET
-                 username=excluded.username, first_name=excluded.first_name,
-                 joined_at=excluded.joined_at, verified_at=NULL,
-                 intro_deadline=NULL, intro_text=NULL, intro_message_id=NULL,
-                 last_post_at=NULL, verification_attempts=0,
-                 verification_message_id=NULL, verification_challenge=NULL,
-                 verification_expires_at=NULL, inactivity_notice_at=NULL,
-                 inactivity_notice_message_id=NULL, status='pending_verification'""",
-            (chat_id, user.id, user.username, user.first_name, iso_now()),
-        )
-        conn.commit()
-
+        conn.execute("""INSERT INTO community_members (chat_id,user_id,username,first_name,joined_at,status) VALUES (?,?,?,?,?,'pending_verification') ON CONFLICT(chat_id,user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name,joined_at=excluded.joined_at,verified_at=NULL,intro_deadline=NULL,intro_posted_at=NULL,intro_text=NULL,intro_message_id=NULL,last_post_at=NULL,verification_attempts=0,verification_message_id=NULL,verification_challenge=NULL,verification_expires_at=NULL,inactivity_notice_at=NULL,inactivity_notice_message_id=NULL,status='pending_verification'""",(chat_id,user.id,user.username,user.first_name,iso_now())); conn.commit()
 
 def set_verification_challenge(chat_id,user_id,answer,options,message_id):
     expires=utc_now()+timedelta(minutes=VERIFICATION_MESSAGE_TTL_MINUTES)
@@ -608,19 +573,29 @@ async def repair_active_raffle_post(context):
         logger.exception("One-time raffle topic repair failed.")
 
 def build_application():
-    if not BOT_TOKEN:
-        raise RuntimeError("BOT_TOKEN is not configured.")
-    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
+    application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
-    # Handlers are wired once here. Scheduling is wired once from post_init().
+    # QOTD and After Dark are separate startup paths.
     try:
-        from topic_routing import install_after_dark_topic_routing
-        install_after_dark_topic_routing()
-        from question_of_day import register_question_of_day_handlers
+        from topic_routing import install_all_topic_routing
+        install_all_topic_routing()
+        from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler
         register_question_of_day_handlers(application)
+        start_question_of_day_scheduler(application)
     except Exception:
-        logger.exception("Unable to initialize Question of the Day handlers.")
+        logger.exception("Unable to initialize Question of the Day scheduler.")
 
+    try:
+        from topic_routing import start_after_dark_scheduler
+        start_after_dark_scheduler(application)
+        jobs = application.job_queue.get_jobs_by_name("melanated-after-dark-message") if application.job_queue else []
+        if jobs:
+            logger.info("After Dark scheduler REGISTERED | jobs=%s | schedule=23:00 Arizona | chat=-1002697105809 topic=11999", len(jobs))
+        else:
+            logger.error("After Dark scheduler NOT REGISTERED | JobQueue job missing during build_application.")
+    except Exception:
+        logger.exception("Unable to initialize After Dark scheduler.")
     for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command)]: application.add_handler(CommandHandler(command,callback))
     application.add_handler(CallbackQueryHandler(raffle_callback_router,pattern=r"^(raffle_|approve_|deny_|enter_|pay_|payment_|paid_|draw_|reroll_|bonus_|remove_)"))
     application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^admin_"))
@@ -646,159 +621,17 @@ def build_application():
     application.add_error_handler(error_handler)
     return application
 
-def _remove_jobs(application, *names):
-    if not application.job_queue:
-        return
-    for name in names:
-        for job in application.job_queue.get_jobs_by_name(name):
-            job.schedule_removal()
-
-
-async def _raffle_main_chat_repost_checker(context):
-    now = datetime.now(ZoneInfo("America/Phoenix"))
-    if (now.hour * 60 + now.minute) < (18 * 60 + 20):
-        return
-    today = now.date().isoformat()
-    if context.application.bot_data.get("raffle_main_repost_date") == today:
-        return
-    try:
-        posted = await post_raffle_status_to_main_chat(context)
-        if posted:
-            context.application.bot_data["raffle_main_repost_date"] = today
-            logger.info("RAFFLE MAIN REPOST COMPLETE | time=18:20 Arizona")
-        else:
-            logger.warning("RAFFLE MAIN REPOST DID NOT POST | no active raffle or send failure")
-    except Exception:
-        logger.exception("RAFFLE MAIN REPOST FAILED")
-
-
-async def _run_games_topic_pin_maintenance(context):
-    try:
-        from games.game_topic_pins import ensure_game_topic_pins
-        await ensure_game_topic_pins(context.bot)
-        logger.info("Games-topic pin maintenance COMPLETE | chat=-1002697105809 topic=8809")
-    except Exception:
-        logger.exception("Games-topic pin maintenance FAILED")
-
-
-async def register_all_startup_jobs(application):
-    """Single startup owner for every scheduled job and startup maintenance."""
-    if not application.job_queue:
-        logger.error("STARTUP REGISTRY FAILED | JobQueue unavailable")
-        return
-
-    _remove_jobs(
-        application,
-        "question-of-day-daily", "question-of-day-startup-check",
-        "qotd_submission_panel_startup", "melanated-after-dark-message",
-        "melanated-daily-community-message", "community-security-monitor",
-        "monthly-intro-reminders", "monthly-intro-reminders-initial",
-        "monthly-intro-reminders-fixed", "monthly-intro-reminders-fixed-initial",
-        "games-topic-pins-startup", "raffle-entry-cleanup-recovery",
-        "raffle-main-chat-repost-checker", "one-time-raffle-topic-repair",
-    )
-
-    try:
-        from question_of_day import start_question_of_day_scheduler, ensure_qotd_submission_panel
-        start_question_of_day_scheduler(application)
-        async def qotd_panel_job(context):
-            await ensure_qotd_submission_panel(context.application)
-        application.job_queue.run_once(qotd_panel_job, when=1, name="qotd_submission_panel_startup")
-    except Exception:
-        logger.exception("QOTD scheduler registration failed")
-
-    try:
-        from daily_messages import start_daily_community_messages
-        start_daily_community_messages(application)
-    except Exception:
-        logger.exception("Daily Community scheduler registration failed")
-
-    try:
-        from topic_routing import start_after_dark_scheduler
-        start_after_dark_scheduler(application)
-    except Exception:
-        logger.exception("After Dark scheduler registration failed")
-
-    application.job_queue.run_repeating(
-        community_security_monitor,
-        interval=INACTIVITY_CHECK_HOURS * 60 * 60,
-        first=60,
-        name="community-security-monitor",
-    )
-
-    try:
-        from intro_reminder_fix import send_intro_reminders
-        application.job_queue.run_once(send_intro_reminders, when=15, name="monthly-intro-reminders-fixed-initial")
-        application.job_queue.run_repeating(
-            send_intro_reminders, interval=60 * 60, first=60 * 60,
-            name="monthly-intro-reminders-fixed",
-        )
-    except Exception:
-        logger.exception("Reliable intro reminder scheduler registration failed")
-
-    application.job_queue.run_once(_run_games_topic_pin_maintenance, when=5, name="games-topic-pins-startup")
-    start_weekly_game_center_reminder(application)
-    start_raffle_cleanup_recovery(application)
-
-    application.job_queue.run_repeating(
-        _raffle_main_chat_repost_checker, interval=30, first=5,
-        name="raffle-main-chat-repost-checker",
-    )
-    logger.info("RAFFLE MAIN REPOST SCHEDULER REGISTERED | checker=30s | target=18:20 Arizona")
-
-    application.job_queue.run_once(repair_active_raffle_post, when=10, name="one-time-raffle-topic-repair")
-
-    try:
-        from social_admin_patch import install as install_social_admin
-        install_social_admin()
-    except Exception:
-        logger.exception("Social admin controls startup failed")
-
-    try:
-        from social_media import startup_social_media
-        await startup_social_media(application)
-        logger.info("Social Media panel initialized once | chat=-1002697105809 topic=9513")
-    except Exception:
-        logger.exception("Social media directory startup failed")
-
-    try:
-        from social_profile_sync import sync_social_profiles
-        sync_social_profiles()
-    except Exception:
-        logger.exception("Social member profile sync startup failed")
-
-    try:
-        from intro_persistence import recover_saved_introductions
-        await recover_saved_introductions(application)
-    except Exception:
-        logger.exception("Saved introduction recovery startup failed")
-
-    logger.info("STARTUP REGISTRY COMPLETE | single scheduler owner=bot.py")
-
-
 async def post_init(application):
     try:
-        me = await application.bot.get_me()
-        application.bot_data["bot_username"] = me.username
-    except Exception:
-        logger.exception("Could not retrieve bot information.")
-
-    main = configured_main_group_id()
+        me=await application.bot.get_me(); application.bot_data["bot_username"]=me.username
+    except Exception:logger.exception("Could not retrieve bot information.")
+    main=configured_main_group_id()
     if main:
         try:
-            member = await application.bot.get_chat_member(main, application.bot.id)
-            logger.info(
-                "Community bot membership: status=%s | can_restrict_members=%s | can_delete_messages=%s",
-                member.status,
-                getattr(member, "can_restrict_members", None),
-                getattr(member, "can_delete_messages", None),
-            )
-        except TelegramError:
-            logger.exception("Could not inspect bot membership.")
-
-    application.bot_data["public_base_url"] = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
-    await register_all_startup_jobs(application)
-
+            member=await application.bot.get_chat_member(main,application.bot.id)
+            logger.info("Community bot membership: status=%s | can_restrict_members=%s | can_delete_messages=%s",member.status,getattr(member,"can_restrict_members",None),getattr(member,"can_delete_messages",None))
+        except TelegramError:logger.exception("Could not inspect bot membership.")
+    application.bot_data["public_base_url"]=os.environ.get("PUBLIC_BASE_URL","").strip().rstrip("/")
 
 async def error_handler(update,context):
     if isinstance(context.error,BadRequest):logger.warning("Telegram BadRequest: %s",context.error); return
@@ -809,7 +642,16 @@ def main():
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
     application=build_application()
-    logger.info("Main application built | scheduler ownership delegated to post_init startup registry")
+    start_community_security_monitor(application)
+    start_monthly_intro_reminders(application)
+    start_weekly_game_center_reminder(application)
+    # Daily raffle status is intentionally disabled: the raffle should be one post, not recurring status messages.
+    logger.info("Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883.")
+    start_raffle_cleanup_recovery(application)
+    # One-time repair of the existing active raffle. This does NOT create a raffle and does NOT repeat.
+    if application.job_queue:
+        application.job_queue.run_once(repair_active_raffle_post,when=10,name="one-time-raffle-topic-repair")
+    logger.info("Raffle topic configured: chat=%s topic=11883 | one-time repair enabled",RAFFLE_CHAT_ID)
     allowed_updates=list(Update.ALL_TYPES)
     if "chat_member" not in allowed_updates:allowed_updates.append("chat_member")
     application.run_polling(allowed_updates=allowed_updates,drop_pending_updates=False,close_loop=False)
