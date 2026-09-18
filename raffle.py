@@ -789,19 +789,79 @@ async def raffle_callback(update, context):
 
 
 async def raffle_status(update, context):
+    """Admin action: post the current raffle status into the public Raffles/Giveaway topic."""
     query, message, user = update.callback_query, update.effective_message, update.effective_user
     if not user or not await is_raffle_admin_access(update, context):
-        if query: await query.answer("⛔ Admins only.", show_alert=True)
+        if query:
+            await query.answer("⛔ Admins only.", show_alert=True)
         return
+
     raffle = get_active_raffle()
     if not raffle:
         text = "🎟️ <b>RAFFLE STATUS</b>\n\nThere is currently no active raffle."
-    else:
-        approved, pending = get_approved_entries(raffle["id"]), get_pending_entries(raffle["id"])
-        text = ("🎟️ <b>RAFFLE STATUS</b>\n\n" f"🆔 ID: <code>{raffle['id']}</code>\n" f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n" f"💵 Entry: <b>{html.escape(str(raffle['price']))}</b>\n" f"⏰ Ends: <b>{format_expiration(raffle['expires_at'])}</b>\n\n" f"✅ Approved Entries: <b>{len(approved)}</b>\n⏳ Pending Entries: <b>{len(pending)}</b>")
-    if query: await query.answer()
-    target = query.message if query else message
-    if target: await target.reply_text(text, parse_mode=ParseMode.HTML)
+        if query:
+            await query.answer("No active raffle.", show_alert=True)
+        target = query.message if query else message
+        if target:
+            await target.reply_text(text, parse_mode=ParseMode.HTML)
+        return
+
+    approved = get_approved_entries(raffle["id"])
+    pending = get_pending_entries(raffle["id"])
+    free = is_free_raffle(raffle.get("price"))
+
+    entry_numbers = ", ".join(
+        f"#{entry['id']}" for entry in approved
+    ) or "None yet"
+
+    rows = [[
+        InlineKeyboardButton(
+            "🎟️ ENTER RAFFLE",
+            callback_data=f"enter_{raffle['id']}",
+        )
+    ]]
+    if not free:
+        rows.extend([
+            [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle['id']}")],
+            [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle['id']}")],
+        ])
+
+    text = (
+        "🎟️ <b>RAFFLE STATUS</b>\n\n"
+        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
+        f"✅ <b>Approved Entries:</b> {len(approved)}\n"
+        f"🔢 <b>Entry Numbers:</b> {html.escape(entry_numbers)}\n"
+        f"⏳ <b>Pending Payments:</b> {len(pending)}\n\n"
+        "👇 <b>Tap ENTER RAFFLE to join!</b>"
+    )
+
+    try:
+        sent = await context.bot.send_message(
+            chat_id=int(RAFFLE_CHAT_ID),
+            message_thread_id=RAFFLE_TOPIC_ID,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(rows),
+            parse_mode=ParseMode.HTML,
+        )
+        if query:
+            await query.answer("✅ Raffle status posted.")
+        if query and query.message:
+            await query.message.reply_text(
+                f"✅ <b>Raffle status posted.</b>\n\n"
+                f"Approved entries: <b>{len(approved)}</b>\n"
+                f"Entry numbers: <b>{html.escape(entry_numbers)}</b>",
+                parse_mode=ParseMode.HTML,
+            )
+        logger.info(
+            "ADMIN RAFFLE STATUS POSTED | raffle=%s | approved=%s | pending=%s | topic=%s | message=%s",
+            raffle["id"], len(approved), len(pending), RAFFLE_TOPIC_ID, sent.message_id,
+        )
+    except TelegramError:
+        logger.exception("Could not post admin-requested raffle status | raffle=%s", raffle["id"])
+        if query:
+            await query.answer("❌ Could not post raffle status. Check Render logs.", show_alert=True)
 
 
 async def raffle_entries(update, context):
