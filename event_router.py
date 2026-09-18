@@ -134,12 +134,28 @@ def _update_submission(submission_id, *, fields=None, status=None, admin_message
 
 
 
+def _fields(row):
+    try:
+        data = json.loads(row["fields_json"] or "{}")
+        return {
+            key: (str(data.get(key) or "").strip() or None)
+            for key in FIELD_ORDER
+        }
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {key: None for key in FIELD_ORDER}
+
+
 def _ensure_published_message_column():
     """Add the publication tracking column for sortable public event flyers."""
     with _db() as conn:
-        columns = {row[1] for row in conn.execute("PRAGMA table_info(event_submissions)").fetchall()}
+        columns = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(event_submissions)").fetchall()
+        }
         if "published_message_id" not in columns:
-            conn.execute("ALTER TABLE event_submissions ADD COLUMN published_message_id INTEGER")
+            conn.execute(
+                "ALTER TABLE event_submissions ADD COLUMN published_message_id INTEGER"
+            )
         conn.commit()
 
 
@@ -169,9 +185,7 @@ def _event_sort_key(row):
             except ValueError:
                 pass
     if parsed is None:
-        # Preserve deterministic ordering for dates the parser cannot interpret.
         return (2, raw.lower(), int(row["id"]))
-    # Upcoming events first; past events remain below upcoming events.
     return (0 if parsed >= today else 1, parsed, int(row["id"]))
 
 
@@ -197,13 +211,14 @@ async def _republish_events_in_date_order(context):
     if not rows:
         return
 
-    # Delete only publications that this newer version has tracked. This makes
-    # reordering safe and avoids touching unrelated messages in the topic.
     for row in rows:
         message_id = row["published_message_id"]
         if message_id:
             try:
-                await context.bot.delete_message(chat_id=EVENT_CHAT_ID, message_id=message_id)
+                await context.bot.delete_message(
+                    chat_id=EVENT_CHAT_ID,
+                    message_id=message_id,
+                )
             except TelegramError:
                 logger.info("Could not delete prior published event message %s", message_id)
 
@@ -229,13 +244,6 @@ async def _republish_events_in_date_order(context):
         _set_published_message_id(row["id"], published.message_id)
 
     logger.info("Events topic reordered by event day | count=%s", len(rows))
-\n\ndef _fields(row):
-    try:
-        data = json.loads(row["fields_json"] or "{}")
-        return {key: (str(data.get(key) or "").strip() or None) for key in FIELD_ORDER}
-    except Exception:
-        return {key: None for key in FIELD_ORDER}
-
 
 def _missing(fields):
     return [key for key in FIELD_ORDER if not fields.get(key)]
