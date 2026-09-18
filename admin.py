@@ -315,7 +315,7 @@ def admin_main_keyboard():
                     callback_data="admin_start_raffle",
                 ),
                 InlineKeyboardButton(
-                    "📊 Raffle Status",
+                    "📊 Post Raffle Status",
                     callback_data="admin_status",
                 ),
             ],
