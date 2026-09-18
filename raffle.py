@@ -466,6 +466,8 @@ async def enter_raffle(update, context, raffle_id):
             await query.answer("Free entry could not be approved.", show_alert=True)
             return
         await query.answer("🎟️ Free entry approved!", show_alert=True)
+        # Refresh the public raffle status immediately after a successful entry.
+        await post_raffle_status_to_main_chat(context)
         entry_message = await query.message.reply_text(
             f"🎟️ <b>ENTRY APPROVED</b>\n\n🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n💵 Entry Price: <b>{html.escape(str(raffle['price']))}</b>\n🆔 Entry: <code>{entry_id}</code>\n\n✅ <b>FREE ENTRY — no payment required.</b>",
             parse_mode=ParseMode.HTML,
