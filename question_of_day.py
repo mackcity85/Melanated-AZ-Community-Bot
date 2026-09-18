@@ -244,6 +244,24 @@ async def ensure_qotd_submission_panel(application):
                 "Stored QOTD panel %s could not be refreshed; creating a replacement.",
                 existing_id,
             )
+    # Multiple Render workers/restarts can enter this startup path at the same time.
+    # Claim panel creation atomically in SQLite so only one process can create the
+    # permanent panel when no canonical panel ID exists yet.
+    creation_claimed = False
+    with db_connect() as conn:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO qotd_meta(key,value) VALUES(?,?)",
+            ("qotd_submission_panel_creation_lock", str(int(datetime.now().timestamp()))),
+        )
+        conn.commit()
+        creation_claimed = cur.rowcount == 1
+
+    if not creation_claimed:
+        logger.info(
+            "QOTD submission panel creation skipped: another process already owns the creation lock."
+        )
+        return
+
     try:
         panel = await application.bot.send_message(
             chat_id=chat_id,
@@ -277,6 +295,13 @@ async def ensure_qotd_submission_panel(application):
                 chat_id, thread_id, panel.message_id,
             )
     except TelegramError:
+        # Release the claim if creation failed so a later startup can retry.
+        with db_connect() as conn:
+            conn.execute(
+                "DELETE FROM qotd_meta WHERE key=?",
+                ("qotd_submission_panel_creation_lock",),
+            )
+            conn.commit()
         logger.exception(
             "Could not create the QOTD submission panel | chat=%s topic=%s",
             chat_id, thread_id,
