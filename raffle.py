@@ -22,6 +22,7 @@ from config import (
     CASHAPP_TAG,
     CASHAPP_URL,
     ZELLE_PHONE,
+    MAIN_GROUP_ID,
 )
 
 from raffle_database import (
@@ -674,26 +675,72 @@ async def manual_raffle_entry(update, context, member_user_id):
 
 
 async def repost_raffle(update, context):
+    """
+    Repost a privacy-safe raffle status into the MAIN CHAT.
+    Public status contains entry counts only; no member identity data.
+    """
     query, message, user = update.callback_query, update.effective_message, update.effective_user
-    if not user or not is_raffle_admin(user.id):
-        if query: await safe_answer(query, "⛔ Admins only.", True)
-        elif message: await temporary_reply(message, context, "⛔ Admins only.")
+    if not user or not await is_raffle_admin_access(update, context):
+        if query:
+            await safe_answer(query, "⛔ Admins only.", True)
+        elif message:
+            await temporary_reply(message, context, "⛔ Admins only.")
         return False
+
     raffle = get_active_raffle()
     if not raffle:
-        if query: await safe_answer(query, "There is no active raffle.", True)
-        elif message: await temporary_reply(message, context, "⚠️ There is no active raffle to repost.")
+        if query:
+            await safe_answer(query, "There is no active raffle.", True)
+        elif message:
+            await temporary_reply(message, context, "⚠️ There is no active raffle to repost.")
         return False
-    if query: await safe_answer(query, "🔄 Reposting raffle...")
-    published = await publish_raffle(int(raffle["id"]), context)
-    target = query.message if query else message
-    if published:
-        if target:
-            await temporary_reply(target, context, "✅ <b>RAFFLE REPOSTED</b>\n\n" f"🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n" f"💵 Entry: <b>{html.escape(str(raffle['price']))}</b>", parse_mode=ParseMode.HTML)
-        return True
-    if target: await temporary_reply(target, context, "⚠️ I could not repost the active raffle. Check the bot's permissions in the raffle group.")
-    return False
 
+    approved = get_approved_entries(int(raffle["id"]))
+    pending = get_pending_entries(int(raffle["id"]))
+    free = is_free_raffle(raffle.get("price"))
+
+    rows = [
+        [InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]
+    ]
+    if not free:
+        rows.extend([
+            [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle['id']}")],
+            [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle['id']}")],
+        ])
+
+    text = (
+        "🎟️ <b>RAFFLE STATUS</b>\\n\\n"
+        f"🎁 <b>Raffle Item:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\\n"
+        f"👥 <b>Approved Entries:</b> {len(approved)}\\n"
+        f"⏳ <b>Pending Entries:</b> {len(pending)}\\n"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\\n\\n"
+        "👇 <b>Tap ENTER RAFFLE to join!</b>"
+    )
+
+    target_chat = int(MAIN_GROUP_ID or RAFFLE_CHAT_ID)
+    try:
+        sent = await context.bot.send_message(
+            chat_id=target_chat,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(rows),
+            parse_mode=ParseMode.HTML,
+        )
+        logger.info(
+            "RAFFLE STATUS REPOSTED | raffle=%s | destination=MAIN_CHAT:%s | message=%s | approved=%s | pending=%s",
+            raffle["id"], target_chat, sent.message_id, len(approved), len(pending)
+        )
+    except TelegramError:
+        logger.exception("Could not repost raffle status to main chat | raffle=%s | chat=%s", raffle["id"], target_chat)
+        if query:
+            await safe_answer(query, "⚠️ Could not post the raffle status to the main chat.", True)
+        return False
+
+    if query:
+        await safe_answer(query, "✅ Raffle status reposted to the main chat.")
+    if message and not query:
+        await temporary_reply(message, context, "✅ <b>RAFFLE STATUS REPOSTED</b>", parse_mode=ParseMode.HTML)
+    return True
 
 async def raffle_callback(update, context):
     query = update.callback_query
