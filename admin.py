@@ -450,7 +450,7 @@ def admin_menu_text():
         "💭 **QUESTIONS / QOTD**\n"
         "Manage the Question/Poll bank. Daily release: **11:00 AM Arizona time**.\n\n"
         "🌙 **AFTER DARK**\n"
-        "Separate content bank. Daily release: **10:00 PM Arizona time**."
+        "Separate content bank. Daily release: **11:00 PM Arizona time**."
     )
 
 
@@ -3371,10 +3371,10 @@ async def admin_after_dark(update, context):
     await query.edit_message_text(
         "🌙 **AFTER DARK**\n\n"
         "After Dark uses its separate content bank and posts into the shared topic.\n\n"
-        "🌙 **Daily:** 10:00 PM Arizona time\n"
+        "🌙 **Daily:** 11:00 PM Arizona time\n"
         "📍 **Destination:** topic `11999`",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🌙 Confirm 10:00 PM Schedule", callback_data="admin_after_dark_schedule")],
+            [InlineKeyboardButton("🌙 Confirm 11:00 PM Schedule", callback_data="admin_after_dark_schedule")],
             [InlineKeyboardButton("🌙 Post After Dark Now", callback_data="admin_after_dark_now")],
             [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")],
         ]),
@@ -3390,7 +3390,7 @@ async def admin_after_dark_schedule(update, context):
     await query.answer("Schedule confirmed")
     await query.edit_message_text(
         "🌙 **AFTER DARK SCHEDULE**\n\n"
-        "Daily at **10:00 PM Arizona time**.\n\n"
+        "Daily at **11:00 PM Arizona time**.\n\n"
         "Posts to the shared topic `11999`.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🌙 After Dark Controls", callback_data="admin_after_dark")],
