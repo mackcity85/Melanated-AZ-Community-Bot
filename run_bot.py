@@ -110,7 +110,18 @@ RAFFLE_STATUS_MINUTE = 30
 
 async def _daily_raffle_status_public(context):
     """Run the single shared raffle-status formatter at 4:30 PM Arizona time."""
+    today = datetime.now(RAFFLE_STATUS_TZ).date()
     await send_daily_raffle_status(context)
+    # Mark success only after the shared sender returns without raising.
+    state_file = Path("/var/data/daily_raffle_status.json")
+    try:
+        import json
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        temp = state_file.with_suffix(".tmp")
+        temp.write_text(json.dumps({"posted_date": today.isoformat()}), encoding="utf-8")
+        temp.replace(state_file)
+    except Exception:
+        bot.logger.exception("Could not save raffle status recovery state.")
 
 async def _daily_raffle_status_recovery(context):
     """Recover a missed 4:30 PM raffle status without creating duplicates."""
