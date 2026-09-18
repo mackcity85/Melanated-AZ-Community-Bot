@@ -43,6 +43,7 @@ from games.game_center import games_command, game_center_callback_router, initia
 from games_reminder import start_weekly_game_center_reminder
 from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
+import event_ocr
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger("melanated_az_bot")
@@ -610,6 +611,8 @@ def build_application():
     application.add_handler(ChatMemberHandler(community_chat_member_diagnostic,ChatMemberHandler.CHAT_MEMBER),group=0)
     application.add_handler(ChatMemberHandler(community_welcome,ChatMemberHandler.CHAT_MEMBER),group=1)
     application.add_handler(ChatMemberHandler(community_exit,ChatMemberHandler.CHAT_MEMBER),group=2)
+    # Independent Event OCR must run before general media spoiler moderation.
+    event_ocr.install_application(application)
     application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)
     application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
     application.add_handler(MessageHandler(filters.ANIMATION,handle_animation),group=5)
