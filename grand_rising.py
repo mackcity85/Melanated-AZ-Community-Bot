@@ -16,7 +16,7 @@ from telegram.ext import ContextTypes
 logger = logging.getLogger("melanatedaz.grand_rising")
 
 CHAT_ID = -1002697105809
-TOPIC_ID = 1
+TOPIC_ID = None  # Grand Rising belongs in the main chat, not a forum topic.
 ARIZONA_TZ = ZoneInfo("America/Phoenix")
 START_DATE = date(2026, 9, 16)
 END_DATE = date(2036, 12, 31)
@@ -107,14 +107,13 @@ async def send_grand_rising(context: ContextTypes.DEFAULT_TYPE, target_date: dat
         return False
     message = await context.bot.send_message(
         chat_id=CHAT_ID,
-        message_thread_id=TOPIC_ID,
         text=WEEKDAY_GREETINGS[day.weekday()],
         parse_mode="HTML",
     )
     _save_state(day)
     logger.info(
-        "Grand Rising posted | date=%s | weekday=%s | message=%s | time=06:00 Arizona | topic=%s",
-        day.isoformat(), day.strftime("%A"), message.message_id, TOPIC_ID,
+        "Grand Rising posted | date=%s | weekday=%s | message=%s | time=06:00 Arizona | destination=main-chat",
+        day.isoformat(), day.strftime("%A"), message.message_id,
     )
     return True
 
@@ -144,6 +143,6 @@ def start(application):
     job_queue.run_daily(_daily_job, time=GREETING_TIME, name=JOB_NAME)
     job_queue.run_once(_startup_recovery, when=8, name=RECOVERY_JOB_NAME)
     logger.info(
-        "Grand Rising scheduler enabled | schedule=06:00 Arizona | start=%s | end=%s | topic=%s",
-        START_DATE.isoformat(), END_DATE.isoformat(), TOPIC_ID,
+        "Grand Rising scheduler enabled | schedule=06:00 Arizona | start=%s | end=%s | destination=main-chat",
+        START_DATE.isoformat(), END_DATE.isoformat(),
     )
