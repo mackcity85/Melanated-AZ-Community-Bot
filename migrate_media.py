@@ -22,7 +22,7 @@ SESSION = os.environ.get("TELEGRAM_SESSION", "melanated_media_migration")
 
 CHAT_ID = int(os.environ.get("MEDIA_MIGRATION_CHAT_ID", "-1002697105809"))
 SOURCE_TOPIC_ID = int(os.environ.get("MEDIA_SOURCE_TOPIC_ID", "1"))
-TARGET_TOPIC_ID = int(os.environ.get("MEDIA_TARGET_TOPIC_ID", "11999"))
+TARGET_TOPIC_ID = int(os.environ.get("MEDIA_TARGET_TOPIC_ID", "10286"))
 
 # Leave false for the first run. Set to true only after verifying the copies.
 DELETE_ORIGINALS = os.environ.get("MEDIA_DELETE_ORIGINALS", "false").lower() == "true"
