@@ -572,14 +572,110 @@ async def repair_active_raffle_post(context):
     except Exception:
         logger.exception("One-time raffle topic repair failed.")
 
+async def _unified_post_init_hooks(application):
+    """Single post-init owner for the unified launcher."""
+    try:
+        await post_init(application)
+    except Exception:
+        logger.exception("Original post_init failed; continuing with unified startup hooks.")
+
+    try:
+        import intro_persistence
+        await intro_persistence.recover_saved_introductions(application)
+        logger.info("Unified intro recovery complete.")
+    except Exception:
+        logger.exception("Unified intro recovery failed.")
+
+    try:
+        import intro_reminder_fix
+        job_queue = application.job_queue
+        if job_queue:
+            for job_name in (
+                "monthly-intro-reminders",
+                "monthly-intro-reminders-initial",
+                intro_reminder_fix.JOB_NAME,
+                intro_reminder_fix.INITIAL_JOB_NAME,
+            ):
+                for job in job_queue.get_jobs_by_name(job_name):
+                    job.schedule_removal()
+            job_queue.run_once(
+                intro_reminder_fix.send_intro_reminders,
+                when=15,
+                name=intro_reminder_fix.INITIAL_JOB_NAME,
+            )
+            job_queue.run_repeating(
+                intro_reminder_fix.send_intro_reminders,
+                interval=60 * 60,
+                first=60 * 60,
+                name=intro_reminder_fix.JOB_NAME,
+            )
+            logger.info(
+                "Unified intro reminder scheduler enabled | initial=15s | sweep=hourly | per-member=30d"
+            )
+    except Exception:
+        logger.exception("Unified intro reminder startup hook failed.")
+
+RAFFLE_MAIN_REPOST_HOUR = 18
+RAFFLE_MAIN_REPOST_MINUTE = 15
+RAFFLE_MAIN_REPOST_TZ = __import__("zoneinfo").ZoneInfo("America/Phoenix")
+
+async def _raffle_main_chat_repost_checker(context):
+    now = datetime.now(RAFFLE_MAIN_REPOST_TZ)
+    if now.hour != RAFFLE_MAIN_REPOST_HOUR or now.minute != RAFFLE_MAIN_REPOST_MINUTE:
+        return
+    today = now.date().isoformat()
+    if context.application.bot_data.get("raffle_main_repost_date") == today:
+        return
+    logger.info(
+        "RAFFLE MAIN REPOST TRIGGER MATCHED | local_time=%s | configured=%02d:%02d Arizona | chat=%s",
+        now.strftime("%Y-%m-%d %H:%M:%S"),
+        RAFFLE_MAIN_REPOST_HOUR,
+        RAFFLE_MAIN_REPOST_MINUTE,
+        -1002697105809,
+    )
+    try:
+        from raffle import post_raffle_status_to_main_chat
+        posted = await post_raffle_status_to_main_chat(context)
+        if posted:
+            context.application.bot_data["raffle_main_repost_date"] = today
+            logger.info(
+                "RAFFLE MAIN REPOST COMPLETE | time=%02d:%02d Arizona | chat=%s",
+                RAFFLE_MAIN_REPOST_HOUR,
+                RAFFLE_MAIN_REPOST_MINUTE,
+                -1002697105809,
+            )
+        else:
+            logger.warning("RAFFLE MAIN REPOST DID NOT POST | no active raffle or send failure")
+    except Exception:
+        logger.exception("RAFFLE MAIN REPOST FAILED")
+
+async def _run_games_topic_pin_maintenance(context):
+    logger.info(
+        "Games-topic pin maintenance START | chat=%s topic=%s",
+        -1002697105809,
+        8809,
+    )
+    try:
+        from games.game_topic_pins import ensure_game_topic_pins
+        await ensure_game_topic_pins(context.bot)
+        logger.info(
+            "Games-topic pin maintenance COMPLETE | chat=%s topic=%s",
+            -1002697105809,
+            8809,
+        )
+    except Exception:
+        logger.exception(
+            "Games-topic pin maintenance FAILED | chat=%s topic=%s",
+            -1002697105809,
+            8809,
+        )
+
 def build_application():
     if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
-    application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    application=Application.builder().token(BOT_TOKEN).post_init(_unified_post_init_hooks).build()
 
     # QOTD and After Dark are separate startup paths.
     try:
-        from topic_routing import install_all_topic_routing
-        install_all_topic_routing()
         from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler
         register_question_of_day_handlers(application)
         start_question_of_day_scheduler(application)
@@ -638,22 +734,145 @@ async def error_handler(update,context):
     logger.exception("Unhandled bot exception:",exc_info=context.error)
 
 def main():
-    database_startup_check(); game_database_startup_check(); real_games_startup_check()
-    threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
-    initialize_community_security_database(); seed_admin_activity()
-    application=build_application()
+    logger.info("==========================================================")
+    logger.info("Starting Melanated AZ Bot — unified launcher")
+    logger.info("==========================================================")
+
+    # Install all extension modules exactly once, before the application is built.
+    _topic_routing.install_all_topic_routing()
+    _media_router.install(sys.modules[__name__])
+    try:
+        import runtime_fixes  # noqa: F401
+        import qotd_td_user  # noqa: F401
+        import admin_truth_dare_qotd  # noqa: F401
+        import event_admin_panel
+        import raffle_manual_nav_fix
+        event_admin_panel.install()
+        raffle_manual_nav_fix.install()
+    except Exception:
+        logger.exception("Unified extension-module installation failed.")
+
+    # The admin callback wrapper is assigned before build_application()
+    # creates the callback handler, so there is only one admin router.
+    async def _verified_admin_callback_router(update, context):
+        query = update.callback_query
+        user = update.effective_user
+        if not query:
+            return
+        logger.info(
+            "ADMIN CALLBACK RECEIVED | data=%s | user_id=%s | chat_id=%s",
+            query.data,
+            user.id if user else None,
+            update.effective_chat.id if update.effective_chat else None,
+        )
+        try:
+            await admin_button(update, context)
+        except Exception:
+            logger.exception(
+                "ADMIN CALLBACK FAILED | data=%s | user_id=%s",
+                query.data,
+                user.id if user else None,
+            )
+            try:
+                await query.answer(
+                    "⚠️ Admin panel error. Check the Render logs.",
+                    show_alert=True,
+                )
+            except Exception:
+                pass
+
+    globals()["admin_callback_router"] = _verified_admin_callback_router
+
+    database_startup_check()
+    game_database_startup_check()
+    real_games_startup_check()
+
+    threading.Thread(
+        target=run_flask,
+        daemon=True,
+        name="flask-health-server",
+    ).start()
+
+    initialize_community_security_database()
+    seed_admin_activity()
+
+    application = build_application()
+
+    # Dirty Minds approval belongs to this single application instance.
+    try:
+        _dirty_minds_admin_override.install_application(application)
+    except Exception:
+        logger.exception("Dirty Minds admin approval startup hook failed.")
+
+    # Grand Rising belongs to this single application instance.
+    try:
+        import grand_rising
+        grand_rising.start(application)
+    except Exception:
+        logger.exception("Grand Rising scheduler startup hook failed.")
+
+    # One Games-topic pin maintenance job.
+    if application.job_queue:
+        for job in application.job_queue.get_jobs_by_name("games-topic-pins-startup"):
+            job.schedule_removal()
+        application.job_queue.run_once(
+            _run_games_topic_pin_maintenance,
+            when=5,
+            name="games-topic-pins-startup",
+        )
+        logger.info(
+            "Games-topic pin maintenance scheduled | delay=5s | chat=%s topic=%s",
+            -1002697105809,
+            8809,
+        )
+
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
     start_weekly_game_center_reminder(application)
-    # Daily raffle status is intentionally disabled: the raffle should be one post, not recurring status messages.
-    logger.info("Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883.")
+
+    # Daily raffle status scheduler stays OFF: one permanent raffle post.
+    logger.info(
+        "Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883."
+    )
     start_raffle_cleanup_recovery(application)
-    # One-time repair of the existing active raffle. This does NOT create a raffle and does NOT repeat.
+
+    # One automatic main-chat raffle repost checker.
     if application.job_queue:
-        application.job_queue.run_once(repair_active_raffle_post,when=10,name="one-time-raffle-topic-repair")
-    logger.info("Raffle topic configured: chat=%s topic=11883 | one-time repair enabled",RAFFLE_CHAT_ID)
-    allowed_updates=list(Update.ALL_TYPES)
-    if "chat_member" not in allowed_updates:allowed_updates.append("chat_member")
-    application.run_polling(allowed_updates=allowed_updates,drop_pending_updates=False,close_loop=False)
+        for job in application.job_queue.get_jobs_by_name("raffle-main-chat-repost-checker"):
+            job.schedule_removal()
+        application.job_queue.run_repeating(
+            _raffle_main_chat_repost_checker,
+            interval=30,
+            first=5,
+            name="raffle-main-chat-repost-checker",
+        )
+        logger.info(
+            "RAFFLE MAIN REPOST SCHEDULER VERIFIED | checker=30s | target=%02d:%02d Arizona | chat=%s",
+            RAFFLE_MAIN_REPOST_HOUR,
+            RAFFLE_MAIN_REPOST_MINUTE,
+            -1002697105809,
+        )
+
+    # One-time repair of the existing active raffle post in topic 11883.
+    if application.job_queue:
+        application.job_queue.run_once(
+            repair_active_raffle_post,
+            when=10,
+            name="one-time-raffle-topic-repair",
+        )
+
+    logger.info(
+        "Unified startup complete | bot.py is the only application owner | run_bot.py is compatibility-only"
+    )
+
+    allowed_updates = list(Update.ALL_TYPES)
+    if "chat_member" not in allowed_updates:
+        allowed_updates.append("chat_member")
+
+    application.run_polling(
+        allowed_updates=allowed_updates,
+        drop_pending_updates=False,
+        close_loop=False,
+    )
 
 if __name__=="__main__":main()
