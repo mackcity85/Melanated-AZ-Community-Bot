@@ -44,9 +44,6 @@ from games_reminder import start_weekly_game_center_reminder
 from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
 
-# Media/Event routing must be installed before the legacy media handlers.
-import media_router
-
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger("melanated_az_bot")
 
@@ -644,9 +641,6 @@ def main():
     database_startup_check(); game_database_startup_check(); real_games_startup_check()
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
-    # Install media/event routing before build_application() so its handlers
-    # run before the legacy spoiler handler. This keeps Event flyer OCR first.
-    media_router.install(__import__(__name__))
     application=build_application()
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
