@@ -47,6 +47,9 @@ async def safe_publish_member_profile(bot, user_id):
             )
             return
         except TelegramError as exc:
+            if "message is not modified" in str(exc).lower():
+                logger.debug("Social profile already current; no edit needed | user_id=%s message=%s", user_id, message_id)
+                return
             if not _message_is_gone(exc):
                 logger.warning(
                     "Social profile edit failed; NOT reposting | user_id=%s message=%s error=%s",
