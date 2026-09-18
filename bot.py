@@ -2,7 +2,7 @@
 # Melanated AZ Bot
 # bot.py
 # ==========================================================
-# PATCH: Raffle topic repair / single-post behavior
+# ARCHITECTURE: single startup owner / single scheduler path
 # ==========================================================
 
 import logging
