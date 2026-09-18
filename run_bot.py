@@ -105,12 +105,9 @@ async def _run_games_topic_pin_maintenance(context):
         )
 
 
-RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
-RAFFLE_STATUS_HOUR = 16
-RAFFLE_STATUS_MINUTE = 30
-
 RAFFLE_MAIN_REPOST_HOUR = 18
 RAFFLE_MAIN_REPOST_MINUTE = 0
+RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
 
 async def _daily_raffle_main_chat_repost(context):
     """Repost the current raffle status to the main chat at 6:00 PM Arizona."""
@@ -120,51 +117,6 @@ async def _daily_raffle_main_chat_repost(context):
             "Scheduled raffle main-chat repost COMPLETE | time=18:00 Arizona | chat=%s",
             -1002697105809,
         )
-
-async def _daily_raffle_status_public(context):
-    """Run the single shared raffle-status formatter at 4:30 PM Arizona time."""
-    today = datetime.now(RAFFLE_STATUS_TZ).date()
-    posted = await send_daily_raffle_status(context)
-    # Mark success only when the shared sender actually posted a message.
-    if not posted:
-        return
-    state_file = Path("/var/data/daily_raffle_status.json")
-    try:
-        import json
-        state_file.parent.mkdir(parents=True, exist_ok=True)
-        temp = state_file.with_suffix(".tmp")
-        temp.write_text(json.dumps({"posted_date": today.isoformat()}), encoding="utf-8")
-        temp.replace(state_file)
-    except Exception:
-        bot.logger.exception("Could not save raffle status recovery state.")
-
-async def _daily_raffle_status_recovery(context):
-    """Recover a missed 4:30 PM raffle status without creating duplicates."""
-    now = datetime.now(RAFFLE_STATUS_TZ)
-    scheduled = time(RAFFLE_STATUS_HOUR, RAFFLE_STATUS_MINUTE)
-
-    if now.time().replace(tzinfo=None) < scheduled:
-        return
-
-    # The shared raffle status function is intentionally lightweight; recovery
-    # is only invoked once per five-minute interval after the scheduled time.
-    # Do not duplicate the post if today's scheduled run already succeeded.
-    state_file = Path("/var/data/daily_raffle_status.json")
-    try:
-        import json
-        if state_file.exists():
-            data = json.loads(state_file.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and data.get("posted_date") == now.date().isoformat():
-                return
-    except Exception:
-        bot.logger.exception("Could not read raffle status recovery state.")
-
-    bot.logger.warning(
-        "Raffle status recovery detected a missing post | date=%s | now=%s",
-        now.date(),
-        now,
-    )
-    await _daily_raffle_status_public(context)
 
 
 def _build_application_with_verified_startup_hooks():
@@ -185,13 +137,6 @@ def _build_application_with_verified_startup_hooks():
         try:
             job_queue = application_instance.job_queue
             if job_queue:
-                for job in job_queue.get_jobs_by_name("daily-raffle-status"):
-                    job.schedule_removal()
-                job_queue.run_daily(
-                    _daily_raffle_status_public,
-                    time(hour=RAFFLE_STATUS_HOUR, minute=RAFFLE_STATUS_MINUTE, tzinfo=RAFFLE_STATUS_TZ),
-                    name="daily-raffle-status",
-                )
                 for job in job_queue.get_jobs_by_name("daily-raffle-main-chat-repost"):
                     job.schedule_removal()
                 job_queue.run_daily(
@@ -199,27 +144,16 @@ def _build_application_with_verified_startup_hooks():
                     time(hour=RAFFLE_MAIN_REPOST_HOUR, minute=RAFFLE_MAIN_REPOST_MINUTE, tzinfo=RAFFLE_STATUS_TZ),
                     name="daily-raffle-main-chat-repost",
                 )
-                # Recovery runs continuously after 2 PM so a missed reminder is
-                # recovered even when the bot never restarted. Persistent state
-                # prevents duplicate posts on the same Arizona calendar day.
-                for job in job_queue.get_jobs_by_name("daily-raffle-status-recovery"):
-                    job.schedule_removal()
-                job_queue.run_repeating(
-                    _daily_raffle_status_recovery,
-                    interval=300,
-                    first=10,
-                    name="daily-raffle-status-recovery",
-                )
                 bot.logger.info(
-                    "Daily raffle status scheduler VERIFIED | 16:30 topic=%s | 18:00 main-chat repost | chat=%s | recovery=enabled | recovery_interval=5m",
-                    11883, -1002697105809,
+                    "Raffle scheduler VERIFIED | 18:00 Arizona main-chat repost | chat=%s",
+                    -1002697105809,
                 )
             else:
                 bot.logger.error(
                     "Daily raffle status NOT scheduled: JobQueue unavailable."
                 )
         except Exception:
-            bot.logger.exception("Daily raffle status 2 PM scheduler setup failed.")
+            bot.logger.exception("Raffle scheduler setup failed.")
 
         try:
             grand_rising.start(application_instance)
