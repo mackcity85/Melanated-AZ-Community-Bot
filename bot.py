@@ -633,35 +633,6 @@ async def post_init(application):
         except TelegramError:logger.exception("Could not inspect bot membership.")
     application.bot_data["public_base_url"]=os.environ.get("PUBLIC_BASE_URL","").strip().rstrip("/")
 
-    # QOTD panel repair: make the member submission buttons self-healing.
-    # This runs after Telegram is initialized, so the panel is restored/pinned
-    # even if it was deleted, unpinned, or the scheduler startup check was missed.
-    try:
-        from question_of_day import ensure_qotd_submission_panel, qotd_enabled
-        if qotd_enabled():
-            await ensure_qotd_submission_panel(application)
-            if application.job_queue:
-                for job in application.job_queue.get_jobs_by_name("qotd_submission_panel_repair"):
-                    job.schedule_removal()
-
-                async def qotd_panel_repair_job(context):
-                    try:
-                        from question_of_day import ensure_qotd_submission_panel, qotd_enabled
-                        if qotd_enabled():
-                            await ensure_qotd_submission_panel(context.application)
-                    except Exception:
-                        logger.exception("QOTD submission panel repair failed.")
-
-                application.job_queue.run_repeating(
-                    qotd_panel_repair_job,
-                    interval=21600,
-                    first=21600,
-                    name="qotd_submission_panel_repair",
-                )
-            logger.info("QOTD submission panel startup repair completed.")
-    except Exception:
-        logger.exception("QOTD submission panel startup repair failed.")
-
 async def error_handler(update,context):
     if isinstance(context.error,BadRequest):logger.warning("Telegram BadRequest: %s",context.error); return
     logger.exception("Unhandled bot exception:",exc_info=context.error)
