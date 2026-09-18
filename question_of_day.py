@@ -233,18 +233,33 @@ async def ensure_qotd_submission_panel(application):
             reply_markup=qotd_menu_markup(),
             parse_mode="HTML",
         )
-        await application.bot.pin_chat_message(
-            chat_id=chat_id,
-            message_id=panel.message_id,
-            disable_notification=True,
-        )
+
+        # Save the panel ID immediately so a successful message is never lost
+        # just because Telegram rejects the pin request.
         set_meta("qotd_submission_panel_message_id", panel.message_id)
-        logger.info(
-            "QOTD submission panel created and pinned | chat=%s topic=%s message=%s",
-            chat_id, thread_id, panel.message_id,
-        )
+
+        try:
+            await application.bot.pin_chat_message(
+                chat_id=chat_id,
+                message_id=panel.message_id,
+                disable_notification=True,
+            )
+            logger.info(
+                "QOTD submission panel created and pinned | chat=%s topic=%s message=%s",
+                chat_id, thread_id, panel.message_id,
+            )
+        except TelegramError:
+            # The buttons still work even if Telegram does not allow the bot
+            # to pin. Keep the panel in the topic and report the exact issue.
+            logger.exception(
+                "QOTD panel was posted but could not be pinned | chat=%s topic=%s message=%s",
+                chat_id, thread_id, panel.message_id,
+            )
     except TelegramError:
-        logger.exception("Could not create or pin the QOTD submission panel.")
+        logger.exception(
+            "Could not create the QOTD submission panel | chat=%s topic=%s",
+            chat_id, thread_id,
+        )
 
 
 async def qotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
