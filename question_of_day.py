@@ -82,7 +82,8 @@ def initialize_question_of_day_database():
                 status TEXT NOT NULL DEFAULT 'queued',
                 posted_at TEXT,
                 posted_message_id INTEGER,
-                posted_date TEXT
+                posted_date TEXT,
+                voice_file_id TEXT
             )
             """
         )
@@ -94,6 +95,9 @@ def initialize_question_of_day_database():
             )
             """
         )
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(qotd_items)").fetchall()}
+        if "voice_file_id" not in columns:
+            conn.execute("ALTER TABLE qotd_items ADD COLUMN voice_file_id TEXT")
         conn.commit()
 
 
@@ -141,7 +145,7 @@ def get_next_item(item_id=None):
         ).fetchone()
 
 
-def add_item(item_type, prompt, options, user):
+def add_item(item_type, prompt, options, user, voice_file_id=None):
     now = phoenix_now().isoformat()
     options_json = json.dumps(options, ensure_ascii=False) if options else None
     display_name = None
@@ -151,10 +155,10 @@ def add_item(item_type, prompt, options, user):
         cur = conn.execute(
             """
             INSERT INTO qotd_items
-                (item_type,prompt,options_json,submitted_by,submitted_name,created_at,status)
-            VALUES (?,?,?,?,?,?, 'queued')
+                (item_type,prompt,options_json,submitted_by,submitted_name,created_at,status,voice_file_id)
+            VALUES (?,?,?,?,?,?,?, 'queued')
             """,
-            (item_type, prompt, options_json, user.id if user else None, display_name, now),
+            (item_type, prompt, options_json, user.id if user else None, display_name, now, voice_file_id),
         )
         conn.commit()
         return cur.lastrowid
@@ -194,7 +198,8 @@ def claim_item(item_id):
 def qotd_menu_markup():
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("📝 Submit a Question", callback_data="qotd_submit_question")],
+            [InlineKeyboardButton("📝 Type a Question", callback_data="qotd_submit_question")],
+            [InlineKeyboardButton("🎙️ Record a Question", callback_data="qotd_submit_voice")],
             [InlineKeyboardButton("📊 Build a Poll", callback_data="qotd_submit_poll")],
             [InlineKeyboardButton("📚 Bank Status", callback_data="qotd_status")],
             [InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")],
@@ -211,14 +216,34 @@ async def ensure_qotd_submission_panel(application):
     existing_id = get_meta("qotd_submission_panel_message_id")
     if existing_id:
         try:
+            await application.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=int(existing_id),
+                text=(
+                    "💭 <b>QUESTION OF THE DAY</b>\n\n"
+                    "Have a question for the community? Want to build a poll?\n\n"
+                    "Use the buttons below to submit content to the QOTD bank. "
+                    "One item is posted each day at <b>11:00 AM Arizona time</b>.\n\n"
+                    "📚 Your submission is saved for a future day unless today's QOTD has not been posted yet."
+                ),
+                reply_markup=qotd_menu_markup(),
+                parse_mode="HTML",
+            )
             await application.bot.pin_chat_message(
                 chat_id=chat_id,
                 message_id=int(existing_id),
                 disable_notification=True,
             )
+            logger.info(
+                "QOTD submission panel refreshed and pinned | chat=%s topic=%s message=%s",
+                chat_id, thread_id, existing_id,
+            )
             return
         except TelegramError:
-            pass
+            logger.warning(
+                "Stored QOTD panel %s could not be refreshed; creating a replacement.",
+                existing_id,
+            )
     try:
         panel = await application.bot.send_message(
             chat_id=chat_id,
@@ -234,8 +259,6 @@ async def ensure_qotd_submission_panel(application):
             parse_mode="HTML",
         )
 
-        # Save the panel ID immediately so a successful message is never lost
-        # just because Telegram rejects the pin request.
         set_meta("qotd_submission_panel_message_id", panel.message_id)
 
         try:
@@ -249,8 +272,6 @@ async def ensure_qotd_submission_panel(application):
                 chat_id, thread_id, panel.message_id,
             )
         except TelegramError:
-            # The buttons still work even if Telegram does not allow the bot
-            # to pin. Keep the panel in the topic and report the exact issue.
             logger.exception(
                 "QOTD panel was posted but could not be pinned | chat=%s topic=%s message=%s",
                 chat_id, thread_id, panel.message_id,
@@ -273,12 +294,20 @@ async def qotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if thread_id != QUESTION_OF_DAY_TOPIC_ID:
             await update.effective_message.reply_text("💭 Please use /qotd inside the Question of the Day topic.")
             return
-    await update.effective_message.reply_text(
+    sent = await update.effective_message.reply_text(
         "💭 <b>QUESTION OF THE DAY</b>\n\nSubmit something for the community to answer, or build a poll for a future day.",
         reply_markup=qotd_menu_markup(),
         parse_mode="HTML",
         message_thread_id=QUESTION_OF_DAY_TOPIC_ID if update.effective_chat.type in ("group", "supergroup") else None,
     )
+    # Temporary helper messages should not clutter the QOTD topic.
+    if context.job_queue and update.effective_chat.type in ("group", "supergroup"):
+        context.job_queue.run_once(
+            _delete_message_job,
+            30,
+            data=(sent.chat_id, sent.message_id),
+            name=f"qotd-temp-{sent.message_id}",
+        )
 
 
 async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -286,12 +315,13 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not query or not query.data:
         return
     action = query.data
-    message = query.message
     await query.answer()
+
     if action == "qotd_status":
         count = queued_count()
         await query.answer(f"{count} day{'s' if count != 1 else ''} in the bank.", show_alert=True)
         return
+
     if action == "qotd_cancel":
         for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
             context.user_data.pop(key, None)
@@ -300,6 +330,22 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except TelegramError:
             pass
         return
+
+    if action == "qotd_submit_voice":
+        context.user_data["qotd_state"] = "voice"
+        context.user_data["qotd_chat_id"] = None
+        context.user_data["qotd_thread_id"] = None
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="🎙️ <b>Record your Question of the Day</b>\n\n🔒 Send me a voice recording here. Your recording stays in this private chat and will not appear in the group until it is posted as the QOTD.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+            )
+        except TelegramError:
+            await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
+        return
+
     if action == "qotd_submit_question":
         context.user_data["qotd_state"] = "question"
         context.user_data["qotd_chat_id"] = None
@@ -314,6 +360,7 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except TelegramError:
             await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
         return
+
     if action == "qotd_submit_poll":
         context.user_data["qotd_state"] = "poll_question"
         context.user_data["qotd_chat_id"] = None
@@ -332,6 +379,7 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 class QotdInputFilter(filters.MessageFilter):
     name = "QotdInputFilter"
+
     def filter(self, message):
         return bool(message and message.from_user)
 
@@ -346,6 +394,15 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if message.chat.type != "private":
         return
     text = message.text.strip()
+
+    if state == "voice":
+        if not message.voice:
+            await message.reply_text("❌ Please send a voice recording.")
+            raise ApplicationHandlerStop
+        item_id = add_item("question", None, None, update.effective_user, voice_file_id=message.voice.file_id)
+        await _finish_submission(update, context, item_id, "🎙️ Voice question saved!")
+        raise ApplicationHandlerStop
+
     if state == "question":
         if not 1 <= len(text) <= QOTD_MAX_QUESTION:
             await message.reply_text("❌ That question must be between 1 and 3,000 characters.")
@@ -353,6 +410,7 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         item_id = add_item("question", text, None, update.effective_user)
         await _finish_submission(update, context, item_id, "📝 Question saved!")
         raise ApplicationHandlerStop
+
     if state == "poll_question":
         if not 1 <= len(text) <= 300:
             await message.reply_text("❌ Poll questions must be between 1 and 300 characters.")
@@ -364,6 +422,7 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
         )
         raise ApplicationHandlerStop
+
     if state == "poll_options":
         options = [part.strip() for part in text.split("|") if part.strip()]
         if not QOTD_MIN_OPTIONS <= len(options) <= QOTD_MAX_OPTIONS:
@@ -381,17 +440,17 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def _finish_submission(update, context, item_id, saved_text):
     message = update.effective_message
     chat_id = message.chat_id if message and message.chat.type == "private" else None
+
     for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
         context.user_data.pop(key, None)
-    if message and message.chat.type == "private":
-        try:
-            await message.delete()
-        except TelegramError:
-            pass
+
+    # Keep the member's actual submission message in the private chat.
+    # Only the separate confirmation notice below is temporary.
     if queued_count() == 1 and not daily_post_already_done():
         posted = await publish_item(context, item_id)
         if posted:
             return
+
     if chat_id:
         try:
             count = queued_count()
@@ -426,13 +485,29 @@ async def publish_item(context, item_id=None):
     chat_id = qotd_chat_id()
     thread_id = QUESTION_OF_DAY_TOPIC_ID
     try:
-        if item["item_type"] == "question":
+        if item["voice_file_id"]:
+            sent = await context.bot.send_voice(
+                chat_id=chat_id,
+                message_thread_id=thread_id,
+                voice=item["voice_file_id"],
+                caption="🎙️ <b>QUESTION OF THE DAY</b>",
+                parse_mode="HTML",
+            )
+        elif item["item_type"] == "question":
             from html import escape
-            text = "💭 <b>QUESTION OF THE DAY</b>\n\n" + escape(item["prompt"])
+            text = "💭 <b>QUESTION OF THE DAY</b>\n\n" + escape(item["prompt"] or "")
             sent = await context.bot.send_message(
                 chat_id=chat_id,
                 message_thread_id=thread_id,
                 text=text,
+                parse_mode="HTML",
+            )
+        elif item["item_type"] == "voice":
+            sent = await context.bot.send_voice(
+                chat_id=chat_id,
+                message_thread_id=thread_id,
+                voice=item["prompt"],
+                caption="🎙️ <b>QUESTION OF THE DAY</b>",
                 parse_mode="HTML",
             )
         else:
@@ -467,8 +542,6 @@ async def question_of_day_daily_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def question_of_day_startup_job(context: ContextTypes.DEFAULT_TYPE):
-    # Always verify/re-pin the permanent submission panel on startup.
-    # This must happen even when today's QOTD is already posted or the bank is empty.
     if qotd_enabled():
         await ensure_qotd_submission_panel(context.application)
     if not qotd_enabled() or daily_post_already_done():
@@ -514,11 +587,15 @@ def register_question_of_day_handlers(application):
     application.add_handler(
         CallbackQueryHandler(
             qotd_callback,
-            pattern=r"^qotd_(submit_question|submit_poll|status|cancel)$",
+            pattern=r"^qotd_(submit_question|submit_voice|submit_poll|status|cancel)$",
         ),
         group=0,
     )
     application.add_handler(
         MessageHandler(QotdInputFilter() & filters.TEXT & ~filters.COMMAND, qotd_text_handler),
+        group=-1,
+    )
+    application.add_handler(
+        MessageHandler(QotdInputFilter() & filters.VOICE, qotd_text_handler),
         group=-1,
     )
