@@ -695,8 +695,10 @@ async def repost_raffle(update, context):
             await temporary_reply(message, context, "⚠️ There is no active raffle to repost.")
         return False
 
+    # Public status shows only the number of approved entries.
+    # Pending submissions are intentionally excluded because they are not
+    # official raffle entries until an admin approves them.
     approved = get_approved_entries(int(raffle["id"]))
-    pending = get_pending_entries(int(raffle["id"]))
     free = is_free_raffle(raffle.get("price"))
 
     rows = [
@@ -712,8 +714,7 @@ async def repost_raffle(update, context):
         "🎟️ <b>RAFFLE STATUS</b>\\n\\n"
         f"🎁 <b>Raffle Item:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\\n"
         f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\\n"
-        f"👥 <b>Approved Entries:</b> {len(approved)}\\n"
-        f"⏳ <b>Pending Entries:</b> {len(pending)}\\n"
+        f"👥 <b>Total Entries:</b> {len(approved)}\\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\\n\\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
@@ -727,8 +728,8 @@ async def repost_raffle(update, context):
             parse_mode=ParseMode.HTML,
         )
         logger.info(
-            "RAFFLE STATUS REPOSTED | raffle=%s | destination=MAIN_CHAT:%s | message=%s | approved=%s | pending=%s",
-            raffle["id"], target_chat, sent.message_id, len(approved), len(pending)
+            "RAFFLE STATUS REPOSTED | raffle=%s | destination=MAIN_CHAT:%s | message=%s | total_entries=%s",
+            raffle["id"], target_chat, sent.message_id, len(approved)
         )
     except TelegramError:
         logger.exception("Could not repost raffle status to main chat | raffle=%s | chat=%s", raffle["id"], target_chat)
