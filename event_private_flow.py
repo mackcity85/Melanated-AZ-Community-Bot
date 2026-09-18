@@ -493,11 +493,10 @@ def install_application(application):
     if getattr(application, "_melanated_private_event_flow_installed", False):
         return
 
+    # Keep the Event/OCR handlers installed by event_router. They must receive
+    # Event-topic photos/videos BEFORE bot.py's general spoiler moderation.
+    # Do not remove them and do not install a public-media blocker here.
     event_router.install_application(application)
-    _remove_public_event_handlers(application)
-
-    application.add_handler(MessageHandler(filters.PHOTO, block_public_event_media), group=-10)
-    application.add_handler(MessageHandler(filters.VIDEO, block_public_event_media), group=-10)
     application.add_handler(CommandHandler("event", start_private_event), group=-5)
     application.add_handler(
         MessageHandler(filters.Regex(r"^/start(?:@\w+)?\s+event\s*$"), handle_private_start),
