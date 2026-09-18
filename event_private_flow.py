@@ -496,7 +496,11 @@ def install_application(application):
     # Keep the Event/OCR handlers installed by event_router. They must receive
     # Event-topic photos/videos BEFORE bot.py's general spoiler moderation.
     # Do not remove them and do not install a public-media blocker here.
-    event_router.install_application(application)
+    # Apply the OCR compatibility patch BEFORE Event handlers are registered.
+    # This matters because python-telegram-bot stores the callback object on
+    # the handler when it is added.
+    event_router_fix.install_application(application)
+
     application.add_handler(CommandHandler("event", start_private_event), group=-5)
     application.add_handler(
         MessageHandler(filters.Regex(r"^/start(?:@\w+)?\s+event\s*$"), handle_private_start),
