@@ -43,6 +43,7 @@ from games.game_center import games_command, game_center_callback_router, initia
 from games_reminder import start_weekly_game_center_reminder
 from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
+from grand_rising import start as start_grand_rising
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger("melanated_az_bot")
@@ -642,6 +643,8 @@ def main():
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
     application=build_application()
+    # Grand Rising: independent 6:00 AM Arizona scheduler.
+    start_grand_rising(application)
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
     start_weekly_game_center_reminder(application)
