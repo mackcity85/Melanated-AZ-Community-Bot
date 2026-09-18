@@ -573,29 +573,9 @@ async def repair_active_raffle_post(context):
         logger.exception("One-time raffle topic repair failed.")
 
 def build_application():
-    if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
+    if not BOT_TOKEN: raise RuntimeError("BOT_TOKEN is not configured.")
     application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
-    # QOTD and After Dark are separate startup paths.
-    try:
-        from topic_routing import install_all_topic_routing
-        install_all_topic_routing()
-        from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler
-        register_question_of_day_handlers(application)
-        start_question_of_day_scheduler(application)
-    except Exception:
-        logger.exception("Unable to initialize Question of the Day scheduler.")
-
-    try:
-        from topic_routing import start_after_dark_scheduler
-        start_after_dark_scheduler(application)
-        jobs = application.job_queue.get_jobs_by_name("melanated-after-dark-message") if application.job_queue else []
-        if jobs:
-            logger.info("After Dark scheduler REGISTERED | jobs=%s | schedule=23:00 Arizona | chat=-1002697105809 topic=11999", len(jobs))
-        else:
-            logger.error("After Dark scheduler NOT REGISTERED | JobQueue job missing during build_application.")
-    except Exception:
-        logger.exception("Unable to initialize After Dark scheduler.")
     for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command)]: application.add_handler(CommandHandler(command,callback))
     application.add_handler(CallbackQueryHandler(raffle_callback_router,pattern=r"^(raffle_|approve_|deny_|enter_|pay_|payment_|paid_|draw_|reroll_|bonus_|remove_)"))
     application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^admin_"))
