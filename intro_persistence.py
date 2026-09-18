@@ -151,20 +151,3 @@ async def recover_saved_introductions(application):
         )
     except Exception:
         logger.exception("INTRO RECOVERY v3 failed; marker was not created.")
-
-
-def _patch_post_init():
-    original = bot.post_init
-    if getattr(original, "_intro_persistence_wrapped", False):
-        return
-
-    async def wrapped_post_init(application):
-        await original(application)
-        await recover_saved_introductions(application)
-
-    wrapped_post_init._intro_persistence_wrapped = True
-    bot.post_init = wrapped_post_init
-
-
-_preserve_saved_intro_on_rejoin()
-_patch_post_init()
