@@ -44,12 +44,6 @@ from games_reminder import start_weekly_game_center_reminder
 from real_games import real_games_bp, handle_real_game_deep_link
 from real_games.monopoly import monopoly_bp
 
-# Unified launcher integrations. These used to live in run_bot.py.
-import sys
-import topic_routing as _topic_routing
-import media_router as _media_router
-import dirty_minds_admin_override as _dirty_minds_admin_override
-
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger("melanated_az_bot")
 
@@ -580,10 +574,12 @@ async def repair_active_raffle_post(context):
 
 def build_application():
     if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
-    application=Application.builder().token(BOT_TOKEN).post_init(_unified_post_init_hooks).build()
+    application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     # QOTD and After Dark are separate startup paths.
     try:
+        from topic_routing import install_all_topic_routing
+        install_all_topic_routing()
         from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler
         register_question_of_day_handlers(application)
         start_question_of_day_scheduler(application)
