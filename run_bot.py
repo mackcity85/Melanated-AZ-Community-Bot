@@ -111,8 +111,10 @@ RAFFLE_STATUS_MINUTE = 30
 async def _daily_raffle_status_public(context):
     """Run the single shared raffle-status formatter at 4:30 PM Arizona time."""
     today = datetime.now(RAFFLE_STATUS_TZ).date()
-    await send_daily_raffle_status(context)
-    # Mark success only after the shared sender returns without raising.
+    posted = await send_daily_raffle_status(context)
+    # Mark success only when the shared sender actually posted a message.
+    if not posted:
+        return
     state_file = Path("/var/data/daily_raffle_status.json")
     try:
         import json
