@@ -4,7 +4,6 @@
 # ==========================================================
 
 import os
-import startup_patch  # noqa: F401
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 
