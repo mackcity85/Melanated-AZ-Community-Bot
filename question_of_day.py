@@ -325,7 +325,7 @@ async def qotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         message_thread_id=QUESTION_OF_DAY_TOPIC_ID if update.effective_chat.type in ("group", "supergroup") else None,
     )
-    # Temporary helper messages should not clutter the QOTD topic.
+    # /qotd is only a temporary helper panel; remove it shortly after posting.
     if context.job_queue and update.effective_chat.type in ("group", "supergroup"):
         context.job_queue.run_once(
             _delete_message_job,
