@@ -12,7 +12,6 @@ import threading
 import sqlite3
 import random
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 from flask import Flask
 
@@ -573,65 +572,9 @@ async def repair_active_raffle_post(context):
     except Exception:
         logger.exception("One-time raffle topic repair failed.")
 
-# ==========================================================
-# RAFFLE MAIN CHAT REPOST CHECKER
-# Single scheduler owner: bot.py
-# Checks every 30 seconds and fires once during the configured
-# Arizona minute when an active raffle exists.
-# ==========================================================
-RAFFLE_MAIN_REPOST_HOUR = 18
-RAFFLE_MAIN_REPOST_MINUTE = 20
-RAFFLE_MAIN_REPOST_TZ = ZoneInfo("America/Phoenix")
-
-async def _raffle_main_chat_repost_checker(context):
-    now = datetime.now(RAFFLE_MAIN_REPOST_TZ)
-    if now.hour != RAFFLE_MAIN_REPOST_HOUR or now.minute != RAFFLE_MAIN_REPOST_MINUTE:
-        return
-
-    today = now.date().isoformat()
-    if context.application.bot_data.get("raffle_main_repost_date") == today:
-        return
-
-    logger.info(
-        "RAFFLE MAIN REPOST TRIGGER MATCHED | local_time=%s | configured=%02d:%02d Arizona",
-        now.strftime("%Y-%m-%d %H:%M:%S"),
-        RAFFLE_MAIN_REPOST_HOUR,
-        RAFFLE_MAIN_REPOST_MINUTE,
-    )
-
-    try:
-        from raffle import post_raffle_status_to_main_chat
-        posted = await post_raffle_status_to_main_chat(context)
-        if posted:
-            context.application.bot_data["raffle_main_repost_date"] = today
-            logger.info(
-                "RAFFLE MAIN REPOST COMPLETE | time=%02d:%02d Arizona",
-                RAFFLE_MAIN_REPOST_HOUR,
-                RAFFLE_MAIN_REPOST_MINUTE,
-            )
-        else:
-            logger.warning("RAFFLE MAIN REPOST DID NOT POST | no active raffle or send failure")
-    except Exception:
-        logger.exception("RAFFLE MAIN REPOST FAILED")
-
-
 def build_application():
     if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
     application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
-    if application.job_queue:
-        for job in application.job_queue.get_jobs_by_name("raffle-main-chat-repost-checker"):
-            job.schedule_removal()
-        application.job_queue.run_repeating(
-            _raffle_main_chat_repost_checker,
-            interval=30,
-            first=5,
-            name="raffle-main-chat-repost-checker",
-        )
-        logger.info(
-            "RAFFLE MAIN REPOST SCHEDULER REGISTERED | checker=30s | target=%02d:%02d Arizona",
-            RAFFLE_MAIN_REPOST_HOUR,
-            RAFFLE_MAIN_REPOST_MINUTE,
-        )
 
     # QOTD and After Dark are separate startup paths.
     try:
