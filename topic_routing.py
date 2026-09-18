@@ -26,6 +26,7 @@ def install_after_dark_topic_routing():
     if getattr(daily_messages, "_after_dark_topic_routing_installed", False):
         return
 
+    original_send = daily_messages.send_daily_community_message
     full_daily_bank = list(daily_messages.DAILY_MESSAGES)
     after_dark_messages = [
         item for item in full_daily_bank
@@ -47,13 +48,13 @@ def install_after_dark_topic_routing():
     daily_messages.DAILY_MESSAGE_MINUTE = 0
 
     async def routed_daily_message(context):
-        return await daily_messages.send_daily_community_message(
+        return await original_send(
             context,
             message_bank=full_daily_bank,
         )
 
     async def routed_after_dark_message(context):
-        return await daily_messages.send_daily_community_message(
+        return await original_send(
             context,
             message_bank=after_dark_messages,
         )
