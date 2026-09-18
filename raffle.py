@@ -282,7 +282,6 @@ async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
         return
     free = is_free_raffle(raffle.get("price"))
     approved = get_approved_entries(raffle["id"])
-    pending = get_pending_entries(raffle["id"])
     rows = [[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]]
     if not free:
         rows.extend([
@@ -293,8 +292,8 @@ async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
         "🎟️ <b>RAFFLE STATUS</b>\n\n"
         f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
         f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
+        f"👥 <b>Total Entries:</b> {len(approved)}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
-        f"✅ <b>Approved Entries:</b> {len(approved)}\n⏳ <b>Pending Entries:</b> {len(pending)}\n\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
     try:
@@ -711,11 +710,11 @@ async def repost_raffle(update, context):
         ])
 
     text = (
-        "🎟️ <b>RAFFLE STATUS</b>\\n\\n"
-        f"🎁 <b>Raffle Item:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\\n"
-        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\\n"
-        f"👥 <b>Total Entries:</b> {len(approved)}\\n"
-        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\\n\\n"
+        "🎟️ <b>RAFFLE STATUS</b>\n\n"
+        f"🎁 <b>Raffle Item:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
+        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
+        f"👥 <b>Total Entries:</b> {len(approved)}\n"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
         "👇 <b>Tap ENTER RAFFLE to join!</b>"
     )
 
