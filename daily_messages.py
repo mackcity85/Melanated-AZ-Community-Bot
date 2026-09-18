@@ -18,6 +18,8 @@ from games.game_center import GAMES_CHAT_ID
 logger = logging.getLogger("melanatedaz.daily_messages")
 
 ARIZONA_TZ = ZoneInfo("America/Phoenix")
+DAILY_MESSAGE_CHAT_ID = int(os.environ.get("MAIN_GROUP_ID", "-1002697105809") or "-1002697105809")
+DAILY_MESSAGE_TOPIC_ID = int(os.environ.get("DAILY_MESSAGE_TOPIC_ID", "11999") or "11999")
 DAILY_MESSAGE_HOUR = int(os.environ.get("DAILY_MESSAGE_HOUR", "10") or "10")
 DAILY_MESSAGE_MINUTE = int(os.environ.get("DAILY_MESSAGE_MINUTE", "0") or "0")
 DAILY_MESSAGE_START = date(2026, 9, 15)
@@ -259,7 +261,7 @@ def _main_group_id():
         return GAMES_CHAT_ID
 
 
-async def send_daily_community_message(context):
+async def send_daily_community_message(context, message_bank=None):
     today = datetime_today = __import__("datetime").datetime.now(ARIZONA_TZ).date()
 
     if today < DAILY_MESSAGE_START or today > DAILY_MESSAGE_END:
@@ -271,8 +273,12 @@ async def send_daily_community_message(context):
         return
 
     # Deterministic rotation means restarts do not reset the sequence.
-    index = (today - DAILY_MESSAGE_START).days % len(DAILY_MESSAGES)
-    title, prompt = DAILY_MESSAGES[index]
+    bank = message_bank if message_bank else DAILY_MESSAGES
+    if not bank:
+        logger.info("Daily community message skipped: message bank is empty.")
+        return
+    index = (today - DAILY_MESSAGE_START).days % len(bank)
+    title, prompt = bank[index]
 
     text = (
         f"<b>{title}</b>\n\n"
@@ -284,6 +290,7 @@ async def send_daily_community_message(context):
     try:
         await context.bot.send_message(
             chat_id=chat_id,
+            message_thread_id=DAILY_MESSAGE_TOPIC_ID,
             text=text,
             parse_mode=ParseMode.HTML,
         )
