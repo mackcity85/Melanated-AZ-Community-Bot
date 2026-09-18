@@ -642,7 +642,16 @@ def main():
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
     application=build_application()
-    logger.info("Main application built")
+    start_community_security_monitor(application)
+    start_monthly_intro_reminders(application)
+    start_weekly_game_center_reminder(application)
+    # Daily raffle status is intentionally disabled: the raffle should be one post, not recurring status messages.
+    logger.info("Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883.")
+    start_raffle_cleanup_recovery(application)
+    # One-time repair of the existing active raffle. This does NOT create a raffle and does NOT repeat.
+    if application.job_queue:
+        application.job_queue.run_once(repair_active_raffle_post,when=10,name="one-time-raffle-topic-repair")
+    logger.info("Raffle topic configured: chat=%s topic=11883 | one-time repair enabled",RAFFLE_CHAT_ID)
     allowed_updates=list(Update.ALL_TYPES)
     if "chat_member" not in allowed_updates:allowed_updates.append("chat_member")
     application.run_polling(allowed_updates=allowed_updates,drop_pending_updates=False,close_loop=False)
