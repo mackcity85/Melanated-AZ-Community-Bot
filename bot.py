@@ -621,17 +621,62 @@ def build_application():
     application.add_error_handler(error_handler)
     return application
 
+def _remove_jobs(application,*names):
+    if not application.job_queue:return
+    for name in names:
+        for job in application.job_queue.get_jobs_by_name(name): job.schedule_removal()
+
+async def _raffle_main_chat_repost_checker(context):
+    now=datetime.now(ZoneInfo("America/Phoenix"))
+    if now.hour*60+now.minute < 1100:return
+    today=now.date().isoformat()
+    if context.application.bot_data.get("raffle_main_repost_date")==today:return
+    if await post_raffle_status_to_main_chat(context):
+        context.application.bot_data["raffle_main_repost_date"]=today
+        logger.info("RAFFLE MAIN REPOST COMPLETE | time=18:20 Arizona")
+
+async def _run_games_topic_pin_maintenance(context):
+    try:
+        from games.game_topic_pins import ensure_game_topic_pins
+        await ensure_game_topic_pins(context.bot)
+    except Exception: logger.exception("Games-topic pin maintenance FAILED")
+
+async def register_all_startup_jobs(application):
+    if not application.job_queue:
+        logger.error("STARTUP REGISTRY FAILED | JobQueue unavailable"); return
+    _remove_jobs(application,"question-of-day-daily","question-of-day-startup-check","qotd_submission_panel_startup","melanated-after-dark-message","melanated-daily-community-message","community-security-monitor","monthly-intro-reminders","monthly-intro-reminders-initial","games-topic-pins-startup","raffle-entry-cleanup-recovery","raffle-main-chat-repost-checker","one-time-raffle-topic-repair")
+    from question_of_day import start_question_of_day_scheduler,ensure_qotd_submission_panel
+    start_question_of_day_scheduler(application)
+    async def qotd_panel(context): await ensure_qotd_submission_panel(context.application)
+    application.job_queue.run_once(qotd_panel,when=1,name="qotd_submission_panel_startup")
+    from daily_messages import start_daily_community_messages
+    start_daily_community_messages(application)
+    from topic_routing import start_after_dark_scheduler
+    start_after_dark_scheduler(application)
+    application.job_queue.run_repeating(community_security_monitor,interval=INACTIVITY_CHECK_HOURS*60*60,first=60,name="community-security-monitor")
+    application.job_queue.run_once(send_monthly_intro_reminders,when=15,name="monthly-intro-reminders-initial")
+    application.job_queue.run_repeating(send_monthly_intro_reminders,interval=3600,first=3600,name="monthly-intro-reminders")
+    application.job_queue.run_once(_run_games_topic_pin_maintenance,when=5,name="games-topic-pins-startup")
+    start_weekly_game_center_reminder(application)
+    start_raffle_cleanup_recovery(application)
+    application.job_queue.run_repeating(_raffle_main_chat_repost_checker,interval=30,first=5,name="raffle-main-chat-repost-checker")
+    logger.info("RAFFLE MAIN REPOST SCHEDULER REGISTERED | checker=30s | target=18:20 Arizona")
+    application.job_queue.run_once(repair_active_raffle_post,when=10,name="one-time-raffle-topic-repair")
+    logger.info("STARTUP REGISTRY COMPLETE | single scheduler owner=bot.py")
+
 async def post_init(application):
     try:
         me=await application.bot.get_me(); application.bot_data["bot_username"]=me.username
-    except Exception:logger.exception("Could not retrieve bot information.")
+    except Exception: logger.exception("Could not retrieve bot information.")
     main=configured_main_group_id()
     if main:
         try:
             member=await application.bot.get_chat_member(main,application.bot.id)
             logger.info("Community bot membership: status=%s | can_restrict_members=%s | can_delete_messages=%s",member.status,getattr(member,"can_restrict_members",None),getattr(member,"can_delete_messages",None))
-        except TelegramError:logger.exception("Could not inspect bot membership.")
+        except TelegramError: logger.exception("Could not inspect bot membership.")
     application.bot_data["public_base_url"]=os.environ.get("PUBLIC_BASE_URL","").strip().rstrip("/")
+    await register_all_startup_jobs(application)
+
 
 async def error_handler(update,context):
     if isinstance(context.error,BadRequest):logger.warning("Telegram BadRequest: %s",context.error); return
