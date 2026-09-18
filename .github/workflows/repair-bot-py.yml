@@ -9,36 +9,146 @@ permissions:
 
 jobs:
   repair:
-    if: github.event.head_commit.message != 'Restore bot.py and register After Dark scheduler'
+    # This workflow is now an idempotent wiring check. It MUST NOT restore bot.py
+    # from an older commit because that was overwriting current fixes.
+    if: github.event.head_commit.message != 'Repair bot.py startup wiring'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout current main
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Restore bot.py from known-good parent and add After Dark registration
+      - name: Verify and repair bot startup wiring
         shell: python
         run: |
-          import subprocess
           from pathlib import Path
 
-          subprocess.run(["git", "checkout", "cb89af5b50660738111a06df4c8f574424ede099", "--", "bot.py"], check=True)
           p = Path("bot.py")
           text = p.read_text(encoding="utf-8")
 
-          old = '''    # Direct QOTD integration belongs to the real bot application.\n    try:\n        from topic_routing import install_all_topic_routing\n        install_all_topic_routing()\n        from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler\n        register_question_of_day_handlers(application)\n        start_question_of_day_scheduler(application)\n    except Exception:\n        logger.exception("Unable to initialize Question of the Day scheduler.")'''
+          # ------------------------------------------------------------
+          # Core scheduler imports: explicit ownership in bot.py.
+          # ------------------------------------------------------------
+          if "from daily_message_scheduler import start_daily_community_messages_reliable" not in text:
+              anchor = "from games_reminder import start_weekly_game_center_reminder\n"
+              if anchor not in text:
+                  raise SystemExit("Could not find bot.py import anchor for daily scheduler")
+              text = text.replace(
+                  anchor,
+                  anchor
+                  + "from daily_message_scheduler import start_daily_community_messages_reliable\n"
+                  + "from grand_rising import start as start_grand_rising\n",
+                  1,
+              )
+          elif "from grand_rising import start as start_grand_rising" not in text:
+              anchor = "from daily_message_scheduler import start_daily_community_messages_reliable\n"
+              text = text.replace(
+                  anchor,
+                  anchor + "from grand_rising import start as start_grand_rising\n",
+                  1,
+              )
 
-          new = '''    # QOTD and After Dark are separate startup paths.\n    try:\n        from topic_routing import install_all_topic_routing\n        install_all_topic_routing()\n        from question_of_day import register_question_of_day_handlers, start_question_of_day_scheduler\n        register_question_of_day_handlers(application)\n        start_question_of_day_scheduler(application)\n    except Exception:\n        logger.exception("Unable to initialize Question of the Day scheduler.")\n\n    try:\n        from topic_routing import start_after_dark_scheduler\n        start_after_dark_scheduler(application)\n        jobs = application.job_queue.get_jobs_by_name("melanated-after-dark-message") if application.job_queue else []\n        if jobs:\n            logger.info("After Dark scheduler REGISTERED | jobs=%s | schedule=23:00 Arizona | chat=-1002697105809 topic=11999", len(jobs))\n        else:\n            logger.error("After Dark scheduler NOT REGISTERED | JobQueue job missing during build_application.")\n    except Exception:\n        logger.exception("Unable to initialize After Dark scheduler.")'''
+          # ------------------------------------------------------------
+          # Core scheduler startup: one owner, one registration.
+          # ------------------------------------------------------------
+          if "start_daily_community_messages_reliable(application)" not in text:
+              anchor = "    start_weekly_game_center_reminder(application)\n"
+              if anchor not in text:
+                  raise SystemExit("Could not find bot.py main() scheduler anchor")
+              text = text.replace(
+                  anchor,
+                  anchor
+                  + "    start_daily_community_messages_reliable(application)\n"
+                  + "    start_grand_rising(application)\n"
+                  + "    logger.info(\"Core daily schedulers started | daily=10:00 Arizona | grand-rising=06:00 Arizona\")\n",
+                  1,
+              )
+          elif "start_grand_rising(application)" not in text:
+              anchor = "    start_daily_community_messages_reliable(application)\n"
+              text = text.replace(
+                  anchor,
+                  anchor + "    start_grand_rising(application)\n"
+                  + "    logger.info(\"Core daily schedulers started | daily=10:00 Arizona | grand-rising=06:00 Arizona\")\n",
+                  1,
+              )
 
-          if old not in text:
-              raise SystemExit("Expected build_application QOTD block not found in restored parent bot.py")
-          p.write_text(text.replace(old, new, 1), encoding="utf-8")
+          # ------------------------------------------------------------
+          # Independent Event OCR registration.
+          # It is deliberately installed before generic media moderation.
+          # ------------------------------------------------------------
+          event_imports = (
+              "from event_ocr import (\n"
+              "    handle_event_photo, handle_event_video, handle_event_text,\n"
+              "    handle_event_member_callback, handle_event_admin_callback, _init_db,\n"
+              ")\n"
+          )
+          if "from event_ocr import (" not in text:
+              anchor = "from real_games.monopoly import monopoly_bp\n"
+              if anchor not in text:
+                  raise SystemExit("Could not find bot.py import anchor for Event OCR")
+              text = text.replace(anchor, anchor + event_imports, 1)
 
-      - name: Commit repaired bot.py
+          event_registration = '''    # Independent Event OCR pipeline: handle Event topic before generic media moderation.
+    try:
+        _init_db()
+        application.add_handler(
+            CallbackQueryHandler(
+                handle_event_member_callback,
+                pattern=r"^event_ocr_(edit|confirm)_\\d+$",
+            ),
+            group=-2,
+        )
+        application.add_handler(
+            CallbackQueryHandler(
+                handle_event_admin_callback,
+                pattern=r"^event_ocr_admin_(approve|deny)_\\d+$",
+            ),
+            group=-2,
+        )
+        application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text),
+            group=-2,
+        )
+        application.add_handler(
+            MessageHandler(filters.PHOTO, handle_event_photo),
+            group=4,
+        )
+        application.add_handler(
+            MessageHandler(filters.VIDEO, handle_event_video),
+            group=4,
+        )
+        logger.info(
+            "Independent Event OCR handlers REGISTERED | chat=-1002697105809 topic=12214"
+        )
+    except Exception:
+        logger.exception("Unable to initialize independent Event OCR handlers.")
+
+'''
+          if "Independent Event OCR handlers REGISTERED" not in text:
+              anchor = "    application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)\n"
+              if anchor not in text:
+                  raise SystemExit("Could not find bot.py generic media handler anchor")
+              text = text.replace(anchor, event_registration + anchor, 1)
+
+          # ------------------------------------------------------------
+          # Never leave the old hidden Python startup hook in place.
+          # ------------------------------------------------------------
+          sitecustomize = Path("sitecustomize.py")
+          if sitecustomize.exists():
+              sitecustomize.unlink()
+
+          p.write_text(text, encoding="utf-8")
+          print("bot.py startup wiring verified/repaired")
+
+      - name: Commit repaired wiring
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add bot.py
-          git commit -m "Restore bot.py and register After Dark scheduler"
+          git add bot.py sitecustomize.py
+          if git diff --cached --quiet; then
+            echo "No startup wiring changes required."
+            exit 0
+          fi
+          git commit -m "Repair bot.py startup wiring"
           git push
