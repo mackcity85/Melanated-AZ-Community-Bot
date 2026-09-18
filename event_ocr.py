@@ -35,6 +35,7 @@ from telegram.error import TelegramError
 from telegram.ext import (
     ApplicationHandlerStop,
     CallbackQueryHandler,
+    CommandHandler,
     MessageHandler,
     filters,
 )
@@ -676,6 +677,158 @@ async def _send_to_admins(context, submission_id):
 
 
 # ==========================================================
+# PRIVATE EVENT EDIT FLOW
+# ==========================================================
+
+async def _event_bot_username(context):
+    username = context.application.bot_data.get("bot_username")
+    if username:
+        return username
+    try:
+        me = await context.bot.get_me()
+        username = me.username
+        if username:
+            context.application.bot_data["bot_username"] = username
+            return username
+    except Exception:
+        logger.exception("Could not resolve Event bot username")
+    return None
+
+
+async def _send_public_edit_prompt(context, submission_id):
+    username = await _event_bot_username(context)
+    if not username:
+        await context.bot.send_message(
+            chat_id=EVENT_CHAT_ID,
+            message_thread_id=EVENT_TOPIC_ID,
+            text=(
+                "📸 <b>EVENT FLYER RECEIVED</b>\n\n"
+                "The flyer was captured and OCR is complete. "
+                "Please open the Melanated AZ Bot privately to edit/fill in "
+                "the Event information."
+            ),
+            parse_mode="HTML",
+        )
+        return
+
+    url = f"https://t.me/{username}?start=eventocr_{submission_id}"
+    await context.bot.send_message(
+        chat_id=EVENT_CHAT_ID,
+        message_thread_id=EVENT_TOPIC_ID,
+        text=(
+            "📸 <b>EVENT FLYER RECEIVED</b>\n\n"
+            "The flyer was captured and OCR is complete. "
+            "Tap the button below to open the <b>Melanated AZ Bot</b> "
+            "privately and edit/fill in the Event information.\n\n"
+            "Nothing will be posted publicly until you confirm it and an admin approves it."
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("📝 OPEN MELANATED AZ BOT — EDIT FLYER", url=url)]]
+        ),
+    )
+
+
+async def _send_private_event_editor(context, user_id, submission_id):
+    row = _get_submission(submission_id)
+    if not row or int(row["user_id"]) != int(user_id):
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="⚠️ I couldn't find that Event submission. Please resend the flyer in the Events topic.",
+        )
+        return True
+
+    if row["status"] not in {"member_input", "awaiting_confirmation"}:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="⚠️ That Event submission is no longer editable.",
+        )
+        return True
+
+    fields = _fields(row)
+    missing = _missing(fields)
+    context.user_data["event_ocr_submission_id"] = int(submission_id)
+    if missing:
+        context.user_data["event_ocr_waiting_for"] = missing[0]
+    else:
+        context.user_data.pop("event_ocr_waiting_for", None)
+
+    caption = (
+        "📝 <b>EDIT YOUR EVENT FLYER</b>\n\n"
+        + _format_fields(fields)
+        + "\n\nReview the information below. I will ask only for information that is missing."
+    )
+
+    try:
+        if row["media_type"] == "photo":
+            await context.bot.send_photo(
+                chat_id=user_id,
+                photo=row["file_id"],
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=_member_keyboard(submission_id),
+            )
+        else:
+            await context.bot.send_video(
+                chat_id=user_id,
+                video=row["file_id"],
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=_member_keyboard(submission_id),
+            )
+    except TelegramError:
+        logger.exception("Could not send Event flyer to private bot chat | submission=%s", submission_id)
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=caption,
+            parse_mode="HTML",
+            reply_markup=_member_keyboard(submission_id),
+        )
+
+    if missing:
+        prompts = {
+            "event": "🎉 <b>Event Name</b>\n\nPlease enter the name/title of the Event.",
+            "date": "📅 <b>Date</b>\n\nPlease enter the Event date.",
+            "time": "⏰ <b>Time</b>\n\nPlease enter the Event start time (and end time if applicable).",
+            "location": "📍 <b>Location</b>\n\nPlease enter the Event venue/location.",
+            "price": (
+                "💵 <b>Price</b>\n\n"
+                "Please enter the full pricing information. "
+                "You may enter multiple prices, early-bird pricing, promo codes, "
+                "or a pricing table. If it is free, type <b>Free</b>."
+            ),
+        }
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=prompts[missing[0]],
+            parse_mode="HTML",
+        )
+    else:
+        _update_submission(submission_id, status="awaiting_confirmation")
+
+    return True
+
+
+async def handle_event_start(update, context):
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not user or message.chat.type != "private":
+        return
+
+    args = getattr(context, "args", None) or []
+    if not args or not args[0].lower().startswith("eventocr_"):
+        return
+
+    try:
+        submission_id = int(args[0].split("_", 1)[1])
+    except (ValueError, IndexError):
+        return
+
+    await _send_private_event_editor(context, user.id, submission_id)
+    raise ApplicationHandlerStop
+
+
+# ==========================================================
 # MEDIA INTERCEPTION
 # ==========================================================
 
@@ -729,9 +882,8 @@ async def _process_media(update, context):
                 message.message_id,
             )
 
-        await _prompt_next_missing(
+        await _send_public_edit_prompt(
             context,
-            user.id,
             submission_id,
         )
 
@@ -787,7 +939,11 @@ async def handle_event_video(update, context):
 
 async def handle_event_text(update, context):
     message = update.effective_message
-    if not _is_events_topic(message):
+    if not message:
+        return
+
+    is_private = message.chat.type == "private"
+    if not is_private and not _is_events_topic(message):
         return
 
     submission_id = context.user_data.get("event_ocr_submission_id")
@@ -822,11 +978,18 @@ async def handle_event_text(update, context):
     )
 
     context.user_data.pop("event_ocr_waiting_for", None)
-    await _prompt_next_missing(
-        context,
-        user.id,
-        int(submission_id),
-    )
+    if is_private:
+        await _send_private_event_editor(
+            context,
+            user.id,
+            int(submission_id),
+        )
+    else:
+        await _prompt_next_missing(
+            context,
+            user.id,
+            int(submission_id),
+        )
     raise ApplicationHandlerStop
 
 
@@ -867,12 +1030,19 @@ async def handle_event_member_callback(update, context):
         context.user_data["event_ocr_submission_id"] = submission_id
         context.user_data["event_ocr_waiting_for"] = "event"
         await query.answer()
-        await query.message.reply_text(
-            "✏️ <b>EDIT EVENT</b>\n\n"
-            + _format_fields(fields)
-            + "\n\nPlease enter the <b>Event Name</b>.",
-            parse_mode="HTML",
-        )
+        if query.message.chat.type == "private":
+            await query.message.reply_text(
+                "✏️ <b>EDIT EVENT</b>\n\n"
+                + _format_fields(fields)
+                + "\n\nPlease enter the <b>Event Name</b>.",
+                parse_mode="HTML",
+            )
+        else:
+            await query.message.reply_text(
+                "✏️ <b>EDIT EVENT</b>\n\n"
+                "Please use the private Melanated AZ Bot chat to edit the Event.",
+                parse_mode="HTML",
+            )
         return
 
     missing = _missing(fields)
@@ -883,11 +1053,18 @@ async def handle_event_member_callback(update, context):
             "Some required information is still missing.",
             show_alert=True,
         )
-        await _prompt_next_missing(
-            context,
-            user.id,
-            submission_id,
-        )
+        if query.message.chat.type == "private":
+            await _send_private_event_editor(
+                context,
+                user.id,
+                submission_id,
+            )
+        else:
+            await _prompt_next_missing(
+                context,
+                user.id,
+                submission_id,
+            )
         return
 
     await query.answer("Submitting to admins...")
@@ -1178,6 +1355,14 @@ def install_application(application):
     _init_db()
 
     group = -30
+
+    application.add_handler(
+        CommandHandler(
+            "start",
+            handle_event_start,
+        ),
+        group=group,
+    )
 
     application.add_handler(
         MessageHandler(
