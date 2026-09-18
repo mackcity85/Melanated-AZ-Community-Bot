@@ -87,7 +87,12 @@ async def _delete_record(context, record):
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
         _forget_message(chat_id, message_id)
-    except TelegramError as exc:logger.debug("Cleanup could not delete %s/%s: %s", chat_id, message_id, exc)
+    except TelegramError as exc:
+        text_error = str(exc).lower()
+        if any(phrase in text_error for phrase in ("message to delete not found", "message not found", "message identifier is not valid", "message_id_invalid")):
+            _forget_message(chat_id, message_id)
+            return
+        logger.warning("Cleanup delete failed %s/%s: %s", chat_id, message_id, exc)
 
 async def _delete_after(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
@@ -125,8 +130,11 @@ async def startup_cleanup(application):
             await application.bot.delete_message(chat_id=chat_id, message_id=message_id)
             logger.info("Startup cleanup deleted bot message %s/%s.", chat_id, message_id)
         except TelegramError as exc:
+            text_error = str(exc).lower()
+            if any(phrase in text_error for phrase in ("message to delete not found", "message not found", "message identifier is not valid", "message_id_invalid")):
+                continue
             remaining.append(record)
-            logger.debug("Startup cleanup could not delete %s/%s: %s", chat_id, message_id, exc)
+            logger.warning("Startup cleanup delete failed %s/%s: %s", chat_id, message_id, exc)
     _save_store(remaining[-5000:])
 
 async def cleanup_service_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -134,7 +142,11 @@ async def cleanup_service_messages(update: Update, context: ContextTypes.DEFAULT
     if not message or message.chat_id != _main_group_id():return
     if _is_permanent_topic_message(message):return
     try:await message.delete()
-    except TelegramError as exc:logger.debug("Could not delete service message: %s", exc)
+    except TelegramError as exc:
+        text_error = str(exc).lower()
+        if any(phrase in text_error for phrase in ("message to delete not found", "message not found", "message identifier is not valid", "message_id_invalid")):
+            return
+        logger.warning("Could not delete service message: %s", exc)
 
 def install_chat_cleanup(application):
     bot_class = application.bot.__class__
