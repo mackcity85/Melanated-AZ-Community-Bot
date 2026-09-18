@@ -189,14 +189,42 @@ async def _playable_system_callback(update,context,sid,name,back):
     if not q:return
     await q.answer(); games=_system_games(sid); rows=[[InlineKeyboardButton(f"{g['icon']} {g['name']}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in games]; genre_games=[g for g in get_genre_games() if g["system_id"]==sid]; rows += [[InlineKeyboardButton(f"{g['icon']} {g['name']} — {g['genre'].capitalize()}",url=f"https://melanatedaz.onrender.com/real-games/play/{g['game_id']}")] for g in genre_games]; rows.append([InlineKeyboardButton("⬅️ Back",callback_data=back)]); await q.edit_message_text(f"🕹️ <b>{name}</b>\n\nChoose a playable game:",reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
 
-def game_center_callback_router(update,context):
-    data=update.callback_query.data if update.callback_query else ""
-    if data=="games_home": return games_home_callback(update,context)
-    if data.startswith("games_genre_"): return genre_callback(update,context)
-    if data.startswith("games_console_"): return console_callback(update,context)
-    if data.startswith("games_system_nintendo_nes"): return nes_callback(update,context)
-    if data.startswith("games_system_nintendo_snes"): return snes_callback(update,context)
-    if data=="games_dirty_minds_start": return dirty_minds_start_request(update,context)
-    if data.startswith("games_dirty_minds_join_"): return dirty_minds_join(update,context)
-    if data.startswith("games_dirty_minds_approve_") or data.startswith("games_dirty_minds_deny_"): return dirty_minds_admin_decision(update,context)
-    return engine_games_callback_router(update,context)
+async def game_center_callback_router(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    """Single async entry point for all Game Center callback buttons."""
+    query=update.callback_query
+    data=query.data if query else ""
+    if not query:
+        return
+    logger.info("Game Center callback received: %s", data)
+    try:
+        if data=="games_home":
+            await games_home_callback(update,context)
+            return
+        if data.startswith("games_genre_"):
+            await genre_callback(update,context)
+            return
+        if data.startswith("games_console_"):
+            await console_callback(update,context)
+            return
+        if data.startswith("games_system_nintendo_nes"):
+            await nes_callback(update,context)
+            return
+        if data.startswith("games_system_nintendo_snes"):
+            await snes_callback(update,context)
+            return
+        if data=="games_dirty_minds_start":
+            await dirty_minds_start_request(update,context)
+            return
+        if data.startswith("games_dirty_minds_join_"):
+            await dirty_minds_join(update,context)
+            return
+        if data.startswith("games_dirty_minds_approve_") or data.startswith("games_dirty_minds_deny_"):
+            await dirty_minds_admin_decision(update,context)
+            return
+        await engine_games_callback_router(update,context)
+    except Exception:
+        logger.exception("Game Center callback failed: %s", data)
+        try:
+            await query.answer("⚠️ Game Center could not open. Please try again.",show_alert=True)
+        except Exception:
+            pass
