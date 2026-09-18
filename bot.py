@@ -617,11 +617,11 @@ def build_application():
     try:
         from event_ocr import handle_event_photo, handle_event_video, handle_event_text, handle_event_member_callback, handle_event_admin_callback, _init_db as init_event_ocr_db
         init_event_ocr_db()
-        application.add_handler(CallbackQueryHandler(handle_event_member_callback, pattern=r"^event_ocr_(edit|confirm)_\\d+$"), group=-2)
-        application.add_handler(CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_ocr_admin_(approve|deny)_\\d+$"), group=-2)
+        application.add_handler(CallbackQueryHandler(handle_event_member_callback, pattern=r"^event_ocr_(edit|confirm)_\d+$"), group=-2)
+        application.add_handler(CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_ocr_admin_(approve|deny)_\d+$"), group=-2)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text), group=-2)
-        application.add_handler(MessageHandler(filters.PHOTO, handle_event_photo, group=4))
-        application.add_handler(MessageHandler(filters.VIDEO, handle_event_video, group=4))
+        application.add_handler(MessageHandler(filters.PHOTO, handle_event_photo), group=4)
+        application.add_handler(MessageHandler(filters.VIDEO, handle_event_video), group=4)
         logger.info("Independent Event OCR handlers REGISTERED | chat=-1002697105809 topic=12214")
     except Exception:
         logger.exception("Independent Event OCR initialization failed.")
