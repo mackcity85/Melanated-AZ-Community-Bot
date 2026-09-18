@@ -215,10 +215,10 @@ async def ensure_qotd_submission_panel(application):
                 chat_id=chat_id,
                 message_id=int(existing_id),
                 text=(
-                    "💭 <b>QUESTION OF THE DAY</b>\\n\\n"
-                    "Have a question for the community? Want to build a poll?\\n\\n"
+                    "💭 <b>QUESTION OF THE DAY</b>\n\n"
+                    "Have a question for the community? Want to build a poll?\n\n"
                     "Use the buttons below to submit content to the QOTD bank. "
-                    "One item is posted each day at <b>11:00 AM Arizona time</b>.\\n\\n"
+                    "One item is posted each day at <b>11:00 AM Arizona time</b>.\n\n"
                     "📚 Your submission is saved for a future day unless today's QOTD has not been posted yet."
                 ),
                 reply_markup=qotd_menu_markup(),
@@ -254,8 +254,6 @@ async def ensure_qotd_submission_panel(application):
             parse_mode="HTML",
         )
 
-        # Save the panel ID immediately so a successful message is never lost
-        # just because Telegram rejects the pin request.
         set_meta("qotd_submission_panel_message_id", panel.message_id)
 
         try:
@@ -269,8 +267,6 @@ async def ensure_qotd_submission_panel(application):
                 chat_id, thread_id, panel.message_id,
             )
         except TelegramError:
-            # The buttons still work even if Telegram does not allow the bot
-            # to pin. Keep the panel in the topic and report the exact issue.
             logger.exception(
                 "QOTD panel was posted but could not be pinned | chat=%s topic=%s message=%s",
                 chat_id, thread_id, panel.message_id,
@@ -306,12 +302,13 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not query or not query.data:
         return
     action = query.data
-    message = query.message
     await query.answer()
+
     if action == "qotd_status":
         count = queued_count()
         await query.answer(f"{count} day{'s' if count != 1 else ''} in the bank.", show_alert=True)
         return
+
     if action == "qotd_cancel":
         for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
             context.user_data.pop(key, None)
@@ -320,6 +317,7 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except TelegramError:
             pass
         return
+
     if action == "qotd_submit_question":
         context.user_data["qotd_state"] = "question"
         context.user_data["qotd_chat_id"] = None
@@ -334,6 +332,7 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except TelegramError:
             await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
         return
+
     if action == "qotd_submit_poll":
         context.user_data["qotd_state"] = "poll_question"
         context.user_data["qotd_chat_id"] = None
@@ -352,6 +351,7 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 class QotdInputFilter(filters.MessageFilter):
     name = "QotdInputFilter"
+
     def filter(self, message):
         return bool(message and message.from_user)
 
@@ -366,6 +366,7 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if message.chat.type != "private":
         return
     text = message.text.strip()
+
     if state == "question":
         if not 1 <= len(text) <= QOTD_MAX_QUESTION:
             await message.reply_text("❌ That question must be between 1 and 3,000 characters.")
@@ -373,6 +374,7 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         item_id = add_item("question", text, None, update.effective_user)
         await _finish_submission(update, context, item_id, "📝 Question saved!")
         raise ApplicationHandlerStop
+
     if state == "poll_question":
         if not 1 <= len(text) <= 300:
             await message.reply_text("❌ Poll questions must be between 1 and 300 characters.")
@@ -384,6 +386,7 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
         )
         raise ApplicationHandlerStop
+
     if state == "poll_options":
         options = [part.strip() for part in text.split("|") if part.strip()]
         if not QOTD_MIN_OPTIONS <= len(options) <= QOTD_MAX_OPTIONS:
@@ -401,17 +404,17 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def _finish_submission(update, context, item_id, saved_text):
     message = update.effective_message
     chat_id = message.chat_id if message and message.chat.type == "private" else None
+
     for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
         context.user_data.pop(key, None)
-    if message and message.chat.type == "private":
-        try:
-            await message.delete()
-        except TelegramError:
-            pass
+
+    # Keep the member's actual submission message in the private chat.
+    # Only the separate confirmation notice below is temporary.
     if queued_count() == 1 and not daily_post_already_done():
         posted = await publish_item(context, item_id)
         if posted:
             return
+
     if chat_id:
         try:
             count = queued_count()
@@ -487,8 +490,6 @@ async def question_of_day_daily_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def question_of_day_startup_job(context: ContextTypes.DEFAULT_TYPE):
-    # Always verify/re-pin the permanent submission panel on startup.
-    # This must happen even when today's QOTD is already posted or the bank is empty.
     if qotd_enabled():
         await ensure_qotd_submission_panel(context.application)
     if not qotd_enabled() or daily_post_already_done():
