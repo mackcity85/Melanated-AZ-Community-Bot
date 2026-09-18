@@ -289,12 +289,20 @@ async def qotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if thread_id != QUESTION_OF_DAY_TOPIC_ID:
             await update.effective_message.reply_text("💭 Please use /qotd inside the Question of the Day topic.")
             return
-    await update.effective_message.reply_text(
+    sent = await update.effective_message.reply_text(
         "💭 <b>QUESTION OF THE DAY</b>\n\nSubmit something for the community to answer, or build a poll for a future day.",
         reply_markup=qotd_menu_markup(),
         parse_mode="HTML",
         message_thread_id=QUESTION_OF_DAY_TOPIC_ID if update.effective_chat.type in ("group", "supergroup") else None,
     )
+    # Temporary helper messages should not clutter the QOTD topic.
+    if context.job_queue and update.effective_chat.type in ("group", "supergroup"):
+        context.job_queue.run_once(
+            _delete_message_job,
+            30,
+            data=(sent.chat_id, sent.message_id),
+            name=f"qotd-temp-{sent.message_id}",
+        )
 
 
 async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
