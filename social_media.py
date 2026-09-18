@@ -209,6 +209,9 @@ async def _publish_member_profile(bot, user_id):
             return
         except TelegramError as exc:
             text_error = str(exc).lower()
+            if "message is not modified" in text_error:
+                logger.debug("Social profile already current; no edit needed | user_id=%s message=%s", user_id, message_id)
+                return
             if not any(
                 phrase in text_error
                 for phrase in (
@@ -283,6 +286,9 @@ async def send_social_panel(bot):
                 return message_id
             except TelegramError as exc:
                 text_error = str(exc).lower()
+                if "message is not modified" in text_error:
+                    logger.debug("Social panel already current; no edit needed | message=%s", message_id)
+                    return message_id
                 if not any(
                     phrase in text_error
                     for phrase in (
