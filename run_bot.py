@@ -87,121 +87,55 @@ async def _run_games_topic_pin_maintenance(context):
     bot.logger.info(
         "Games-topic pin maintenance START | chat=%s topic=%s",
         -1002697105809,
-        11999,
+        8809,
     )
     try:
         await ensure_game_topic_pins(context.bot)
         bot.logger.info(
             "Games-topic pin maintenance COMPLETE | chat=%s topic=%s",
             -1002697105809,
-            11999,
+            8809,
         )
     except Exception:
         bot.logger.exception(
             "Games-topic pin maintenance FAILED | chat=%s topic=%s",
             -1002697105809,
-            11999,
+            8809,
         )
 
 
 RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
 RAFFLE_STATUS_HOUR = 16
 RAFFLE_STATUS_MINUTE = 30
-RAFFLE_STATUS_STATE_FILE = Path("/var/data/daily_raffle_status.json")
-
-
-def _raffle_status_already_posted(today):
-    try:
-        if not RAFFLE_STATUS_STATE_FILE.exists():
-            return False
-        import json
-        with RAFFLE_STATUS_STATE_FILE.open("r", encoding="utf-8") as handle:
-            data = json.load(handle)
-        return isinstance(data, dict) and data.get("posted_date") == today.isoformat()
-    except Exception:
-        bot.logger.exception("Could not read raffle status state.")
-        return False
-
-
-def _save_raffle_status_posted(today, message_id):
-    try:
-        RAFFLE_STATUS_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        import json
-        temp = RAFFLE_STATUS_STATE_FILE.with_suffix(".tmp")
-        with temp.open("w", encoding="utf-8") as handle:
-            json.dump({"posted_date": today.isoformat(), "message_id": int(message_id)}, handle)
-        temp.replace(RAFFLE_STATUS_STATE_FILE)
-    except Exception:
-        bot.logger.exception("Could not save raffle status state.")
-
 
 async def _daily_raffle_status_public(context):
-    """Post the public 2 PM Arizona raffle status once per Arizona calendar day."""
-    today = datetime.now(RAFFLE_STATUS_TZ).date()
-    if _raffle_status_already_posted(today):
-        bot.logger.info("Daily raffle status already posted | date=%s", today)
-        return
-    raffle = get_active_raffle()
-    if not raffle:
-        bot.logger.info("Daily raffle status skipped: no active raffle.")
-        return
-
-    free = is_free_raffle(raffle.get("price"))
-    approved = get_approved_entries(raffle["id"])
-    pending = get_pending_entries(raffle["id"])
-    rows = [[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]]
-    if not free:
-        rows.extend([
-            [InlineKeyboardButton("💵 PAY WITH CASH APP", callback_data=f"pay_cashapp_{raffle['id']}")],
-            [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle['id']}")],
-        ])
-
-    text = (
-        "🎟️ <b>RAFFLE STATUS</b>\n\n"
-        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Unknown'))}\n"
-        f"💵 <b>Entry:</b> {html.escape(str(raffle.get('price') or 'Unknown'))}\n"
-        f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
-        f"✅ <b>Approved Entries:</b> {len(approved)}\n"
-        f"⏳ <b>Pending Entries:</b> {len(pending)}\n\n"
-        "👇 <b>Tap ENTER RAFFLE to join!</b>"
-    )
-
-    try:
-        sent = await context.bot.send_message(
-            chat_id=-1002697105809,
-            message_thread_id=11883,
-            text=text,
-            reply_markup=InlineKeyboardMarkup(rows),
-            parse_mode=ParseMode.HTML,
-        )
-        _save_raffle_status_posted(today, sent.message_id)
-        bot.logger.info(
-            "DAILY RAFFLE STATUS POSTED | raffle=%s | date=%s | chat=%s | topic=%s | message=%s",
-            raffle["id"], today, -1002697105809, 11883, sent.message_id,
-        )
-    except Exception:
-        bot.logger.exception(
-            "Could not post daily raffle status | raffle=%s",
-            raffle["id"],
-        )
-
-
+    """Run the single shared raffle-status formatter at 4:30 PM Arizona time."""
+    await send_daily_raffle_status(context)
 
 async def _daily_raffle_status_recovery(context):
-    """Recover a missed 2 PM Arizona raffle reminder while the bot stays online."""
+    """Recover a missed 4:30 PM raffle status without creating duplicates."""
     now = datetime.now(RAFFLE_STATUS_TZ)
     scheduled = time(RAFFLE_STATUS_HOUR, RAFFLE_STATUS_MINUTE)
 
     if now.time().replace(tzinfo=None) < scheduled:
         return
 
-    today = now.date()
-    if _raffle_status_already_posted(today):
-        return
+    # The shared raffle status function is intentionally lightweight; recovery
+    # is only invoked once per five-minute interval after the scheduled time.
+    # Do not duplicate the post if today's scheduled run already succeeded.
+    state_file = Path("/var/data/daily_raffle_status.json")
+    try:
+        import json
+        if state_file.exists():
+            data = json.loads(state_file.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and data.get("posted_date") == now.date().isoformat():
+                return
+    except Exception:
+        bot.logger.exception("Could not read raffle status recovery state.")
 
     bot.logger.warning(
         "Raffle status recovery detected a missing post | date=%s | now=%s",
-        today,
+        now.date(),
         now,
     )
     await _daily_raffle_status_public(context)
@@ -295,7 +229,7 @@ def _build_application_with_verified_startup_hooks():
                 bot.logger.info(
                     "Games-topic pin maintenance scheduled | delay=5s | chat=%s topic=%s",
                     -1002697105809,
-                    11999,
+                    8809,
                 )
         except Exception:
             bot.logger.exception("Games-topic pin maintenance scheduling FAILED.")
