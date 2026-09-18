@@ -61,15 +61,52 @@ def _event_button():
     return InlineKeyboardButton("📅 Events", callback_data="admin_events")
 
 
+def _raffle_repost_button():
+    """Return the raffle repost control required in every final admin keyboard."""
+    return InlineKeyboardButton(
+        "🔄 Repost Raffle Status",
+        callback_data="admin_repost_raffle",
+    )
+
+
+def _ensure_raffle_repost_button(rows):
+    """Guarantee the raffle repost control survives every admin-panel patch."""
+    if not any(
+        button.callback_data == "admin_repost_raffle"
+        for row in rows
+        for button in row
+    ):
+        # Keep raffle controls together near the other raffle actions.
+        insert_at = next(
+            (
+                index
+                for index, row in enumerate(rows)
+                if any(
+                    getattr(button, "callback_data", None) == "admin_manual_entry"
+                    for button in row
+                )
+            ),
+            len(rows),
+        )
+        rows.insert(insert_at, [_raffle_repost_button()])
+    return rows
+
+
 def _patched_admin_main_keyboard(*args, **kwargs):
     keyboard = _previous_admin_main_keyboard(*args, **kwargs)
     rows = [list(row) for row in (keyboard.inline_keyboard or [])]
+
+    # This patch is the final keyboard layer in the normal startup order,
+    # so explicitly enforce the raffle repost control here.
+    _ensure_raffle_repost_button(rows)
+
     if not any(
         button.callback_data == "admin_events"
         for row in rows
         for button in row
     ):
         rows.append([_event_button()])
+
     return InlineKeyboardMarkup(rows)
 
 
