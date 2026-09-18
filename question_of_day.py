@@ -73,7 +73,7 @@ def initialize_question_of_day_database():
             """
             CREATE TABLE IF NOT EXISTS qotd_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                item_type TEXT NOT NULL CHECK(item_type IN ('question','voice','poll')),
+                item_type TEXT NOT NULL CHECK(item_type IN ('question','poll')),
                 prompt TEXT NOT NULL,
                 options_json TEXT,
                 submitted_by INTEGER,
@@ -82,7 +82,8 @@ def initialize_question_of_day_database():
                 status TEXT NOT NULL DEFAULT 'queued',
                 posted_at TEXT,
                 posted_message_id INTEGER,
-                posted_date TEXT
+                posted_date TEXT,
+                voice_file_id TEXT
             )
             """
         )
@@ -94,6 +95,9 @@ def initialize_question_of_day_database():
             )
             """
         )
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(qotd_items)").fetchall()}
+        if "voice_file_id" not in columns:
+            conn.execute("ALTER TABLE qotd_items ADD COLUMN voice_file_id TEXT")
         conn.commit()
 
 
@@ -141,7 +145,7 @@ def get_next_item(item_id=None):
         ).fetchone()
 
 
-def add_item(item_type, prompt, options, user):
+def add_item(item_type, prompt, options, user, voice_file_id=None):
     now = phoenix_now().isoformat()
     options_json = json.dumps(options, ensure_ascii=False) if options else None
     display_name = None
@@ -151,10 +155,10 @@ def add_item(item_type, prompt, options, user):
         cur = conn.execute(
             """
             INSERT INTO qotd_items
-                (item_type,prompt,options_json,submitted_by,submitted_name,created_at,status)
-            VALUES (?,?,?,?,?,?, 'queued')
+                (item_type,prompt,options_json,submitted_by,submitted_name,created_at,status,voice_file_id)
+            VALUES (?,?,?,?,?,?,?, 'queued')
             """,
-            (item_type, prompt, options_json, user.id if user else None, display_name, now),
+            (item_type, prompt, options_json, user.id if user else None, display_name, now, voice_file_id),
         )
         conn.commit()
         return cur.lastrowid
@@ -395,7 +399,7 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not message.voice:
             await message.reply_text("❌ Please send a voice recording.")
             raise ApplicationHandlerStop
-        item_id = add_item("voice", message.voice.file_id, None, update.effective_user)
+        item_id = add_item("question", None, None, update.effective_user, voice_file_id=message.voice.file_id)
         await _finish_submission(update, context, item_id, "🎙️ Voice question saved!")
         raise ApplicationHandlerStop
 
@@ -481,9 +485,17 @@ async def publish_item(context, item_id=None):
     chat_id = qotd_chat_id()
     thread_id = QUESTION_OF_DAY_TOPIC_ID
     try:
-        if item["item_type"] == "question":
+        if item["voice_file_id"]:
+            sent = await context.bot.send_voice(
+                chat_id=chat_id,
+                message_thread_id=thread_id,
+                voice=item["voice_file_id"],
+                caption="🎙️ <b>QUESTION OF THE DAY</b>",
+                parse_mode="HTML",
+            )
+        elif item["item_type"] == "question":
             from html import escape
-            text = "💭 <b>QUESTION OF THE DAY</b>\n\n" + escape(item["prompt"])
+            text = "💭 <b>QUESTION OF THE DAY</b>\n\n" + escape(item["prompt"] or "")
             sent = await context.bot.send_message(
                 chat_id=chat_id,
                 message_thread_id=thread_id,
@@ -581,5 +593,9 @@ def register_question_of_day_handlers(application):
     )
     application.add_handler(
         MessageHandler(QotdInputFilter() & filters.TEXT & ~filters.COMMAND, qotd_text_handler),
+        group=-1,
+    )
+    application.add_handler(
+        MessageHandler(QotdInputFilter() & filters.VOICE, qotd_text_handler),
         group=-1,
     )
