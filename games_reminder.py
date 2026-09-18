@@ -350,7 +350,8 @@ def start_weekly_game_center_reminder(application):
         name="persistent-bot-message-cleanup",
     )
 
-    start_reliable_daily_community_messages(application)
+    # Daily community scheduler is owned by bot.py. This module only handles
+    # Games-related compatibility/cleanup work and must not own core daily jobs.
 
     # Explicitly remove any legacy Games jobs that may have been registered
     # by an earlier version during the same process lifetime.
