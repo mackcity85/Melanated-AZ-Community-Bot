@@ -19,6 +19,7 @@ from raffle import (
     get_approved_entries,
     is_free_raffle,
     format_expiration,
+    post_raffle_status_to_main_chat,
 )
 
 
@@ -108,6 +109,18 @@ RAFFLE_STATUS_TZ = ZoneInfo("America/Phoenix")
 RAFFLE_STATUS_HOUR = 16
 RAFFLE_STATUS_MINUTE = 30
 
+RAFFLE_MAIN_REPOST_HOUR = 18
+RAFFLE_MAIN_REPOST_MINUTE = 0
+
+async def _daily_raffle_main_chat_repost(context):
+    """Repost the current raffle status to the main chat at 6:00 PM Arizona."""
+    posted = await post_raffle_status_to_main_chat(context)
+    if posted:
+        bot.logger.info(
+            "Scheduled raffle main-chat repost COMPLETE | time=18:00 Arizona | chat=%s",
+            -1002697105809,
+        )
+
 async def _daily_raffle_status_public(context):
     """Run the single shared raffle-status formatter at 4:30 PM Arizona time."""
     today = datetime.now(RAFFLE_STATUS_TZ).date()
@@ -179,6 +192,13 @@ def _build_application_with_verified_startup_hooks():
                     time(hour=RAFFLE_STATUS_HOUR, minute=RAFFLE_STATUS_MINUTE, tzinfo=RAFFLE_STATUS_TZ),
                     name="daily-raffle-status",
                 )
+                for job in job_queue.get_jobs_by_name("daily-raffle-main-chat-repost"):
+                    job.schedule_removal()
+                job_queue.run_daily(
+                    _daily_raffle_main_chat_repost,
+                    time(hour=RAFFLE_MAIN_REPOST_HOUR, minute=RAFFLE_MAIN_REPOST_MINUTE, tzinfo=RAFFLE_STATUS_TZ),
+                    name="daily-raffle-main-chat-repost",
+                )
                 # Recovery runs continuously after 2 PM so a missed reminder is
                 # recovered even when the bot never restarted. Persistent state
                 # prevents duplicate posts on the same Arizona calendar day.
@@ -191,8 +211,8 @@ def _build_application_with_verified_startup_hooks():
                     name="daily-raffle-status-recovery",
                 )
                 bot.logger.info(
-                    "Daily raffle status scheduler VERIFIED | time=16:30 Arizona | chat=%s topic=%s | recovery=enabled | recovery_interval=5m",
-                    -1002697105809, 11883,
+                    "Daily raffle status scheduler VERIFIED | 16:30 topic=%s | 18:00 main-chat repost | chat=%s | recovery=enabled | recovery_interval=5m",
+                    11883, -1002697105809,
                 )
             else:
                 bot.logger.error(
