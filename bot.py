@@ -685,8 +685,10 @@ def build_application():
         application.add_handler(CallbackQueryHandler(handle_event_member_callback, pattern=r"^event_ocr_(edit|confirm)_\d+$"), group=-2)
         application.add_handler(CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_ocr_admin_(approve|deny)_\d+$"), group=-2)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text), group=-2)
-        application.add_handler(MessageHandler(filters.PHOTO, handle_event_photo), group=4)
-        application.add_handler(MessageHandler(filters.VIDEO, handle_event_video), group=4)
+        # Event OCR must run before community verification/media handlers.
+        # Event topic 12214 is exclusively owned by event_ocr.py.
+        application.add_handler(MessageHandler(filters.PHOTO, handle_event_photo), group=-3)
+        application.add_handler(MessageHandler(filters.VIDEO, handle_event_video), group=-3)
         logger.info("Independent Event OCR handlers REGISTERED | chat=-1002697105809 topic=12214")
     except Exception:
         logger.exception("Unable to initialize independent Event OCR handlers.")
