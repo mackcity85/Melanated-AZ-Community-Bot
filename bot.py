@@ -658,7 +658,10 @@ def build_application():
         logger.info("Independent Event OCR handlers REGISTERED | chat=-1002697105809 topic=12214")
     except Exception:
         logger.exception("Unable to initialize independent Event OCR handlers.")
-    # General media routing: Events are handled by the independent OCR pipeline in group 4; all other group photos/videos are moved to Media topic 10286 before spoiler moderation.\n    application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media_move), group=5)\n    application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)\n    application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
+    # General media routing: Events are handled by the independent OCR pipeline in group 4; all other group photos/videos are moved to Media topic 10286 before spoiler moderation.
+    application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media_move), group=5)
+    application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)
+    application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
     application.add_handler(MessageHandler(filters.ANIMATION,handle_animation),group=5)
     application.add_handler(MessageHandler(filters.Document.IMAGE,handle_image_document),group=5)
     application.add_handler(CallbackQueryHandler(private_intro_view_callback,pattern=r"^intro_view_"),group=0)
