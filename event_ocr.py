@@ -695,10 +695,40 @@ async def _event_bot_username(context):
     return None
 
 
+async def _delete_public_edit_prompt(context):
+    job = context.job
+    data = job.data or {}
+    message_id = data.get("message_id")
+    if not message_id:
+        return
+
+    try:
+        await context.bot.delete_message(
+            chat_id=EVENT_CHAT_ID,
+            message_id=int(message_id),
+        )
+        logger.info("Deleted Event flyer received message | message=%s", message_id)
+    except TelegramError:
+        logger.info("Event flyer received message already gone | message=%s", message_id)
+    except Exception:
+        logger.exception("Could not delete Event flyer received message | message=%s", message_id)
+
+
+async def _schedule_public_edit_prompt_cleanup(context, message):
+    if not message or not getattr(context, "job_queue", None):
+        return
+    context.job_queue.run_once(
+        _delete_public_edit_prompt,
+        when=300,
+        data={"message_id": message.message_id},
+        name=f"event-flyer-received-cleanup:{message.message_id}",
+    )
+
+
 async def _send_public_edit_prompt(context, submission_id):
     username = await _event_bot_username(context)
     if not username:
-        await context.bot.send_message(
+        sent = await context.bot.send_message(
             chat_id=EVENT_CHAT_ID,
             message_thread_id=EVENT_TOPIC_ID,
             text=(
@@ -709,10 +739,11 @@ async def _send_public_edit_prompt(context, submission_id):
             ),
             parse_mode="HTML",
         )
+        await _schedule_public_edit_prompt_cleanup(context, sent)
         return
 
     url = f"https://t.me/{username}?start=eventocr_{submission_id}"
-    await context.bot.send_message(
+    sent = await context.bot.send_message(
         chat_id=EVENT_CHAT_ID,
         message_thread_id=EVENT_TOPIC_ID,
         text=(
@@ -727,6 +758,7 @@ async def _send_public_edit_prompt(context, submission_id):
             [[InlineKeyboardButton("📝 OPEN MELANATED AZ BOT — EDIT FLYER", url=url)]]
         ),
     )
+    await _schedule_public_edit_prompt_cleanup(context, sent)
 
 
 async def _send_private_event_editor(context, user_id, submission_id):
