@@ -18,7 +18,7 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.constants import ParseMode
 from telegram.error import TelegramError, BadRequest
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, ChatMemberHandler, filters
+from telegram.ext import Application, ApplicationHandlerStop, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, ChatMemberHandler, filters
 
 from config import BOT_TOKEN, ADMIN_IDS, RAFFLE_CHAT_ID
 from admin import admin_menu, admin_button, admin_birthday_text_handler, is_admin
