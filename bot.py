@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Flask
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions, InputMediaPhoto, InputMediaVideo
 from telegram.constants import ParseMode
 from telegram.error import TelegramError, BadRequest
 from telegram.ext import Application, ApplicationHandlerStop, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, ChatMemberHandler, filters
@@ -143,16 +143,38 @@ async def handle_media_move(update, context):
     if not (message.photo or message.video):
         return
     try:
-        await context.bot.copy_message(
+        copied = await context.bot.copy_message(
             chat_id=MAIN_GROUP_ID,
             from_chat_id=MAIN_GROUP_ID,
             message_id=message.message_id,
             message_thread_id=MEDIA_TOPIC_ID,
         )
+
+        # Every photo/video copied into the Media topic is always marked
+        # as a Telegram spoiler, regardless of the source message setting.
+        if copied and getattr(copied, "message_id", None):
+            if message.photo:
+                media = InputMediaPhoto(
+                    media=message.photo[-1].file_id,
+                    has_spoiler=True,
+                )
+            else:
+                media = InputMediaVideo(
+                    media=message.video.file_id,
+                    has_spoiler=True,
+                )
+            await context.bot.edit_message_media(
+                chat_id=MAIN_GROUP_ID,
+                message_id=copied.message_id,
+                media=media,
+            )
+
         await message.delete()
-        logger.info("Media moved to Media topic | source_message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
-        # Do not stop processing here. The existing spoiler/moderation handler
-        # must also run for the same photo/video update.
+        logger.info(
+            "Media moved to Media topic with spoiler | source_message=%s | target_topic=%s",
+            message.message_id,
+            MEDIA_TOPIC_ID,
+        )
         return
     except TelegramError:
         logger.exception("Failed to move media | message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
