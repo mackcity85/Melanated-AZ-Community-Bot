@@ -151,9 +151,9 @@ async def handle_media_move(update, context):
         )
         await message.delete()
         logger.info("Media moved to Media topic | source_message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
-        raise ApplicationHandlerStop
-    except ApplicationHandlerStop:
-        raise
+        # Do not stop processing here. The existing spoiler/moderation handler
+        # must also run for the same photo/video update.
+        return
     except TelegramError:
         logger.exception("Failed to move media | message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
 
