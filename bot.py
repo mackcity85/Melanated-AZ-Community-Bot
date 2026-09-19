@@ -181,7 +181,12 @@ async def handle_media_move(update, context):
 
 async def handle_photo(update, context):
     message = update.effective_message
-    if not message or message.has_media_spoiler:
+    if not message:
+        return
+    # Event topic is owned exclusively by the independent OCR pipeline.
+    if getattr(message, "message_thread_id", None) == EVENT_TOPIC_ID:
+        return
+    if message.has_media_spoiler:
         return
     try:
         await message.delete()
@@ -192,7 +197,12 @@ async def handle_photo(update, context):
 
 async def handle_video(update, context):
     message = update.effective_message
-    if not message or message.has_media_spoiler:
+    if not message:
+        return
+    # Event topic is owned exclusively by the independent OCR pipeline.
+    if getattr(message, "message_thread_id", None) == EVENT_TOPIC_ID:
+        return
+    if message.has_media_spoiler:
         return
     try:
         await message.delete()
