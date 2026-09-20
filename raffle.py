@@ -38,10 +38,14 @@ logger = logging.getLogger("melanated_az_raffle")
 
 
 def format_expiration(value):
+    """Display stored UTC-naive raffle timestamps in Arizona time."""
     if not value:
         return "Unknown"
     try:
-        return datetime.fromisoformat(str(value)).strftime("%b %d, %Y at %I:%M %p")
+        parsed = datetime.fromisoformat(str(value))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
+        return parsed.astimezone(ZoneInfo("America/Phoenix")).strftime("%b %d, %Y at %I:%M %p")
     except (TypeError, ValueError):
         return str(value)
 
