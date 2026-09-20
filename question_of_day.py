@@ -427,6 +427,7 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
             )
+            await query.answer("📩 Check your private chat with Melanated AZ Bot and send your recording there.", show_alert=True)
         except TelegramError:
             await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
         return
@@ -442,6 +443,7 @@ async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
             )
+            await query.answer("📩 Check your private chat with Melanated AZ Bot and send your question there.", show_alert=True)
         except TelegramError:
             await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
         return
@@ -544,7 +546,7 @@ async def _finish_submission(update, context, item_id, saved_text):
                 parse_mode="HTML",
             )
             if context.job_queue:
-                context.job_queue.run_once(_delete_message_job, 15, data=(chat_id, notice.message_id))
+                context.job_queue.run_once(_delete_message_job, 60, data=(chat_id, notice.message_id))
         except TelegramError:
             logger.exception("Could not send QOTD submission confirmation.")
 
