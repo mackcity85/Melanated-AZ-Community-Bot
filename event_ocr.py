@@ -29,7 +29,8 @@ import os
 import re
 import asyncio
 import sqlite3
-from datetime import datetime
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import TelegramError
@@ -1677,6 +1678,77 @@ async def _republish_events_in_date_order(context):
         "Independent Events chronological rebuild complete | count=%s",
         len(rows),
     )
+
+
+# ==========================================================
+# EXPIRED EVENT CLEANUP
+# ==========================================================
+
+ARIZONA_TZ = ZoneInfo("America/Phoenix")
+
+
+async def remove_expired_events(context):
+    """Remove approved Event flyers at midnight Arizona time after their event date."""
+    today = datetime.now(ARIZONA_TZ).date()
+    rows = _approved_rows()
+    expired = []
+
+    for row in rows:
+        event_date = _parse_event_date(_fields(row).get("date"))
+        if event_date is None or event_date >= today:
+            continue
+
+        published_id = row["published_message_id"]
+        if published_id:
+            try:
+                await context.bot.delete_message(
+                    chat_id=EVENT_CHAT_ID,
+                    message_id=int(published_id),
+                )
+            except TelegramError:
+                logger.info(
+                    "Expired Event publication already gone | submission=%s | message=%s",
+                    row["id"],
+                    published_id,
+                )
+
+        with _db() as conn:
+            conn.execute(
+                "UPDATE event_submissions SET status='expired', published_message_id=NULL, updated_at=? WHERE id=? AND status='approved'",
+                (_now(), int(row["id"])),
+            )
+            conn.commit()
+        expired.append(int(row["id"]))
+
+    if expired:
+        logger.info(
+            "Expired Event cleanup complete | removed=%s | topic=%s",
+            len(expired),
+            EVENT_TOPIC_ID,
+        )
+    else:
+        logger.info(
+            "Expired Event cleanup complete | removed=0 | topic=%s",
+            EVENT_TOPIC_ID,
+        )
+
+
+def schedule_expired_event_cleanup(application):
+    """Run Event cleanup at midnight Arizona time every day."""
+    job_queue = getattr(application, "job_queue", None)
+    if job_queue is None:
+        logger.warning("Expired Event cleanup skipped: JobQueue unavailable")
+        return
+
+    for job in job_queue.get_jobs_by_name("event-ocr-expired-cleanup"):
+        job.schedule_removal()
+
+    job_queue.run_daily(
+        remove_expired_events,
+        time=time(0, 0, tzinfo=ARIZONA_TZ),
+        name="event-ocr-expired-cleanup",
+    )
+    logger.info("Expired Event cleanup scheduled | time=00:00 Arizona | topic=%s", EVENT_TOPIC_ID)
 
 
 # ==========================================================
