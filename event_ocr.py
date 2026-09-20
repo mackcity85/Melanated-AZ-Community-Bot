@@ -247,8 +247,7 @@ def _ocr_image(image_bytes):
 
         if not result:
             return ""
-        text = "\n".join(
-            str(item[1])
+        text = "\n".join(            str(item[1])
             for item in result
             if isinstance(item, (list, tuple)) and len(item) >= 2 and item[1]
         )
@@ -497,8 +496,7 @@ def _parse_fields(text):
 def _missing(fields):
     return [key for key in REQUIRED_FIELDS if not fields.get(key)]
 
-def _format_fields(fields):
-    lines = []
+def _format_fields(fields):    lines = []
 
     for key in FIELD_ORDER:
         value = fields.get(key)
@@ -747,8 +745,7 @@ async def _send_public_edit_prompt(context, submission_id):
                 "The flyer was captured and OCR is complete. "
                 "Please open the Melanated AZ Bot privately to edit/fill in "
                 "the Event information."
-            ),
-            parse_mode="HTML",
+            ),            parse_mode="HTML",
         )
         await _schedule_public_edit_prompt_cleanup(context, sent)
         return
@@ -808,7 +805,7 @@ async def _send_private_event_editor(context, user_id, submission_id):
                 photo=row["file_id"],
                 caption=caption,
                 parse_mode="HTML",
-                reply_markup=_member_keyboard(submission_id),
+                reply_markup=_member_keyboard(submission_id, website_missing=not fields.get("website")),
             )
         else:
             await context.bot.send_video(
@@ -998,7 +995,6 @@ async def handle_event_text(update, context):
 
     submission_id = context.user_data.get("event_ocr_submission_id")
     field = context.user_data.get("event_ocr_waiting_for")
-
     if not submission_id or not field or not message.text:
         return
 
@@ -1015,7 +1011,7 @@ async def handle_event_text(update, context):
         context.user_data.pop("event_ocr_waiting_for", None)
         return
 
-    value = message.text.strip()    if not value:
+    value = message.text.strip()\n    if not value:
         return
 
     fields = _fields(row)
@@ -1247,8 +1243,7 @@ async def handle_event_admin_callback(update, context):
         )
 
         logger.info(
-            "Independent Event approved | submission=%s",
-            submission_id,
+            "Independent Event approved | submission=%s",            submission_id,
         )
 
     except Exception:
