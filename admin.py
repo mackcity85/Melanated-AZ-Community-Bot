@@ -3467,16 +3467,16 @@ async def admin_approved_events(update, context):
         date=fields.get("date") or "Date missing"
         blocks.append(f"**{name}**\n📅 {date}\n🆔 Submission #{sid}")
         buttons += [
-            [InlineKeyboardButton(f"✏️ Event #{sid} — Event", callback_data=f"event_ocr_admin_edit_event_{sid}")],
+            [InlineKeyboardButton(f"✏️ {name} — Event", callback_data=f"event_ocr_admin_edit_event_{sid}")],
             [
-                InlineKeyboardButton("✏️ Date", callback_data=f"event_ocr_admin_edit_date_{sid}"),
-                InlineKeyboardButton("✏️ Time", callback_data=f"event_ocr_admin_edit_time_{sid}"),
+                InlineKeyboardButton(f"✏️ {name} — Date", callback_data=f"event_ocr_admin_edit_date_{sid}"),
+                InlineKeyboardButton(f"✏️ {name} — Time", callback_data=f"event_ocr_admin_edit_time_{sid}"),
             ],
             [
-                InlineKeyboardButton("✏️ Location", callback_data=f"event_ocr_admin_edit_location_{sid}"),
-                InlineKeyboardButton("✏️ Price", callback_data=f"event_ocr_admin_edit_price_{sid}"),
+                InlineKeyboardButton(f"✏️ {name} — Location", callback_data=f"event_ocr_admin_edit_location_{sid}"),
+                InlineKeyboardButton(f"✏️ {name} — Price", callback_data=f"event_ocr_admin_edit_price_{sid}"),
             ],
-            [InlineKeyboardButton("✏️ Website", callback_data=f"event_ocr_admin_edit_website_{sid}")],
+            [InlineKeyboardButton(f"✏️ {name} — Website", callback_data=f"event_ocr_admin_edit_website_{sid}")],
         ]
 
     buttons += [
