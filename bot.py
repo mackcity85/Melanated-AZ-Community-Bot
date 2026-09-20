@@ -719,6 +719,14 @@ async def post_init(application):
         except TelegramError:logger.exception("Could not inspect bot membership.")
     application.bot_data["public_base_url"]=os.environ.get("PUBLIC_BASE_URL","").strip().rstrip("/")
 
+async def event_ocr_startup_sort_job(context):
+    """Rebuild existing approved Event OCR flyers once after startup."""
+    try:
+        await _republish_events_in_date_order(context)
+        logger.info("Event OCR startup sort complete | topic=12214")
+    except Exception:
+        logger.exception("Event OCR startup sort failed")
+
 async def error_handler(update,context):
     if isinstance(context.error,BadRequest):logger.warning("Telegram BadRequest: %s",context.error); return
     logger.exception("Unhandled bot exception:",exc_info=context.error)
@@ -733,7 +741,7 @@ def main():
     # event_ocr.install_application() is not used by this deployment path.
     if application.job_queue:
         application.job_queue.run_once(
-            lambda context: _republish_events_in_date_order(context),
+            event_ocr_startup_sort_job,
             when=5,
             name="event-ocr-startup-sort",
         )
