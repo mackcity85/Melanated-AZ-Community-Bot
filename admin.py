@@ -56,6 +56,7 @@ from raffle import (
     draw_raffle,
     manual_raffle_entry,
     repost_raffle,
+    admin_edit_raffle_end_date,
 )
 
 from holiday_exchange import holiday_exchange_admin_callback
@@ -337,6 +338,12 @@ def admin_main_keyboard():
                 InlineKeyboardButton(
                     "📢 Repost Raffle Stats",
                     callback_data="admin_repost_raffle",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "📅 Edit Raffle End Date",
+                    callback_data="admin_edit_raffle_end_date",
                 ),
             ],
             [
@@ -3880,6 +3887,10 @@ async def admin_button(
             context,
         )
 
+        return
+
+    if data == "admin_edit_raffle_end_date":
+        await admin_edit_raffle_end_date(update, context)
         return
 
     if data == "admin_completed":
