@@ -49,7 +49,7 @@ from real_games.monopoly import monopoly_bp
 from event_ocr import (
     handle_event_photo, handle_event_video, handle_event_text,
     handle_event_member_callback, handle_event_admin_callback,
-    handle_event_start, _init_db, _republish_events_in_date_order,
+    handle_event_start, _init_db, _republish_events_in_date_order, schedule_expired_event_cleanup,
 )
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
@@ -732,6 +732,16 @@ async def event_ocr_startup_sort_job(context):
     except Exception:
         logger.exception("Event OCR startup sort failed")
 
+async def remove_expired_events_startup_job(context):
+    """Clean up any Events that became expired while the bot was offline."""
+    try:
+        from event_ocr import remove_expired_events
+        await remove_expired_events(context)
+        logger.info("Expired Event startup cleanup complete | topic=12214")
+    except Exception:
+        logger.exception("Expired Event startup cleanup failed")
+
+
 async def error_handler(update,context):
     if isinstance(context.error,BadRequest):logger.warning("Telegram BadRequest: %s",context.error); return
     logger.exception("Unhandled bot exception:",exc_info=context.error)
@@ -751,6 +761,14 @@ def main():
             name="event-ocr-startup-sort",
         )
         logger.info("Event OCR startup sort scheduled | delay=5s | topic=12214")
+    schedule_expired_event_cleanup(application)
+    if application.job_queue:
+        application.job_queue.run_once(
+            remove_expired_events_startup_job,
+            when=8,
+            name="event-ocr-expired-cleanup-startup",
+        )
+        logger.info("Expired Event startup cleanup scheduled | delay=8s | topic=12214")
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
     start_weekly_game_center_reminder(application)
