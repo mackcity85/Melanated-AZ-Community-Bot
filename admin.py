@@ -418,6 +418,12 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "📥 Pending Event Approvals",
+                    callback_data="admin_pending_event_approvals",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "📅 Approved Events",
                     callback_data="admin_approved_events",
                 ),
@@ -3499,6 +3505,100 @@ async def admin_approved_events(update, context):
     )
 
 
+async def admin_pending_event_approvals(update, context):
+    """Show pending Event OCR flyers so an admin can review them manually."""
+    if not await require_admin(update, context):
+        return
+
+    query = update.callback_query
+    if not query:
+        return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    from event_ocr import _db, _fields, _admin_keyboard
+
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM event_submissions "
+            "WHERE status='pending_admin' ORDER BY id ASC"
+        ).fetchall()
+
+    if not rows:
+        await query.edit_message_text(
+            "📥 **PENDING EVENT APPROVALS**\n\n"
+            "There are currently no Event flyers waiting for approval.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Refresh", callback_data="admin_pending_event_approvals")],
+                [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
+            ]),
+            parse_mode="Markdown",
+        )
+        return
+
+    try:
+        await query.edit_message_text(
+            f"📥 **PENDING EVENT APPROVALS — {len(rows)}**\n\n"
+            "Sending the pending flyer(s) below for manual review...",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Refresh", callback_data="admin_pending_event_approvals")],
+                [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
+            ]),
+            parse_mode="Markdown",
+        )
+    except Exception:
+        pass
+
+    for row in rows:
+        sid = int(row["id"])
+        fields = _fields(row)
+        submitter = (
+            f"@{row['username']}"
+            if row["username"]
+            else (row["first_name"] or str(row["user_id"]))
+        )
+        caption = (
+            "📥 <b>PENDING EVENT APPROVAL</b>\n\n"
+            + _format_fields(fields)
+            + f"\n\nSubmitted by: {html.escape(submitter)}\n"
+            + f"Submission #{sid}"
+        )
+
+        try:
+            if row["media_type"] == "photo":
+                await context.bot.send_photo(
+                    chat_id=query.message.chat_id,
+                    photo=row["file_id"],
+                    caption=caption,
+                    parse_mode="HTML",
+                )
+            else:
+                await context.bot.send_video(
+                    chat_id=query.message.chat_id,
+                    video=row["file_id"],
+                    caption=caption,
+                    parse_mode="HTML",
+                )
+
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=(
+                    f"🔎 <b>Review Submission #{sid}</b>\n\n"
+                    "Use the buttons to edit a field, approve, or deny this Event."
+                ),
+                parse_mode="HTML",
+                reply_markup=_admin_keyboard(sid, approved=False),
+            )
+        except TelegramError:
+            logger.exception(
+                "Could not display pending Event flyer | submission=%s",
+                sid,
+            )
+
+
 # ==========================================================
 # ADMIN BUTTON ROUTER
 # ==========================================================
@@ -3569,6 +3669,10 @@ async def admin_button(
             context,
         )
 
+        return
+
+    if data == "admin_pending_event_approvals":
+        await admin_pending_event_approvals(update, context)
         return
 
     if data == "admin_approved_events":
