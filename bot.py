@@ -27,6 +27,7 @@ from raffle import (
     start_raffle,
     handle_raffle_setup,
     raffle_status,
+    handle_raffle_end_date,
     start_daily_raffle_status,
     start_raffle_cleanup_recovery,
     raffle_entries,
@@ -702,6 +703,7 @@ def build_application():
     application.add_handler(MessageHandler(filters.Document.IMAGE,handle_image_document),group=5)
     application.add_handler(CallbackQueryHandler(private_intro_view_callback,pattern=r"^intro_view_"),group=0)
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,private_intro_text_handler),group=0)
+    application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,handle_raffle_end_date),group=0)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_raffle_setup),group=0)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,text_router),group=10)
     application.add_error_handler(error_handler)
