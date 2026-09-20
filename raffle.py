@@ -472,11 +472,17 @@ async def auto_draw_raffle(context):
         winner = random.choice(entries)
         close_raffle(int(raffle["id"]))
         text = (
-            "🎉 <b>RAFFLE WINNER!</b>\\n\\n"
-            f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n\\n"
-            f"🏆 <b>Winner:</b> {display_user(winner)}\\n"
-            f"🆔 <b>Entry:</b> <code>{winner['id']}</code>\\n\\n"
-            "🎉 Congratulations!"
+            "🎉🎉🎉 <b>WE HAVE A WINNER!!!</b> 🎉🎉🎉\\n\\n"
+            f"🏆 <b>CONGRATULATIONS, {display_user(winner)}!</b> 🏆\\n\\n"
+            f"🎁 <b>You just WON {html.escape(str(raffle.get('prize') or 'Raffle'))}!</b> 🔥🔥🔥\\n\\n"
+            f"🎟️ <b>Winning Entry:</b> #{winner['id']}\\n\\n"
+            "💰 <b>YOU DID THAT!!!</b> 🙌🏾🥳\\n"
+            "Thank you for being part of the Melanated AZ community and getting in on the fun!\\n\\n"
+            "🔥 <b>DON'T STOP HERE!</b>\\n"
+            "Another raffle could be coming up next, and <b>YOU COULD BE OUR NEXT WINNER!</b> 👀💰\\n\\n"
+            "🎟️ <b>Keep entering. Keep playing. Keep winning!</b>\\n\\n"
+            f"❤️ Congratulations again, {display_user(winner)}!\\n"
+            "Enjoy your prize — <b>YOU EARNED THAT WIN!</b> 🥳🏆"
         )
     try:
         await context.bot.send_message(
