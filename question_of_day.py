@@ -626,14 +626,15 @@ async def question_of_day_daily_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def question_of_day_startup_job(context: ContextTypes.DEFAULT_TYPE):
+    # Startup must NEVER publish a QOTD. Publishing here caused every bot
+    # restart after the scheduled time to consume another queued entry.
+    # The daily scheduler is the only normal publishing path.
     if qotd_enabled():
         await ensure_qotd_submission_panel(context.application)
-    if not qotd_enabled() or daily_post_already_done():
-        return
-    now = phoenix_now()
-    scheduled = time(QUESTION_OF_DAY_HOUR, QUESTION_OF_DAY_MINUTE, tzinfo=QOTD_TZ)
-    if now.timetz() >= scheduled:
-        await question_of_day_daily_job(context)
+    logger.info(
+        "QOTD startup check complete | panel ensured | no QOTD publish on startup | queued=%s",
+        queued_count(),
+    )
 
 
 def start_question_of_day_scheduler(application):
