@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import html
 import json
+import threading
 import urllib.parse
 import urllib.request
 from dataclasses import asdict
@@ -22,6 +23,7 @@ NES_GAMES = get_nes_games(); SNES_GAMES = get_snes_games(); RETRO_GAMES = get_al
 GAMES_CHAT_ID = int(os.getenv("MAIN_GROUP_ID", "-1002697105809") or "-1002697105809")
 GAMES_TOPIC_ID = 8809
 ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID", "0") or "0")
+ADMIN_GROUP_CLEAN_SECONDS = int(os.getenv("ADMIN_GROUP_CLEAN_SECONDS", "3600") or "3600")
 
 def get_game(game_id):
     if not game_id: return None
@@ -35,6 +37,21 @@ def get_game(game_id):
 def _home_games(): return GAMES + CONSOLE_GAMES
 def _home_categories(): return CATEGORY_ORDER + ["NES","SNES","Fighting","Sports"] + sorted({g["system_name"] for g in RETRO_GAMES})
 
+def _telegram_delete_message(chat_id, message_id):
+    token=os.getenv("BOT_TOKEN","").strip()
+    if not token:return False
+    payload=urllib.parse.urlencode({"chat_id":chat_id,"message_id":message_id}).encode("utf-8")
+    req=urllib.request.Request(f"https://api.telegram.org/bot{token}/deleteMessage",data=payload,method="POST")
+    try:
+        with urllib.request.urlopen(req,timeout=8) as response:return response.status==200
+    except Exception:return False
+
+def _schedule_admin_message_cleanup(chat_id, message_id):
+    if chat_id != ADMIN_GROUP_ID or ADMIN_GROUP_CLEAN_SECONDS <= 0:return
+    timer=threading.Timer(ADMIN_GROUP_CLEAN_SECONDS, _telegram_delete_message, args=(chat_id,message_id))
+    timer.daemon=True
+    timer.start()
+
 def _telegram_send_message(chat_id,text,thread_id=None,reply_markup=None):
     token=os.getenv("BOT_TOKEN","").strip()
     if not token:return False
@@ -44,7 +61,17 @@ def _telegram_send_message(chat_id,text,thread_id=None,reply_markup=None):
     data=urllib.parse.urlencode(payload).encode("utf-8")
     req=urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage",data=data,method="POST")
     try:
-        with urllib.request.urlopen(req,timeout=8) as response:return response.status==200
+        with urllib.request.urlopen(req,timeout=8) as response:
+            if response.status != 200:return False
+            try:
+                result=json.loads(response.read().decode("utf-8"))
+                message=result.get("result") or {}
+                message_id=message.get("message_id")
+                if message_id is not None:
+                    _schedule_admin_message_cleanup(chat_id, int(message_id))
+            except Exception:
+                pass
+            return True
     except Exception:return False
 
 def _notify_dirty_minds_started(room):
