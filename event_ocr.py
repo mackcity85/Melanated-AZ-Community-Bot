@@ -560,26 +560,20 @@ def _member_keyboard(submission_id, website_missing=False):
 
 
 def _admin_keyboard(submission_id):
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "✏️ EDIT ALL FIELDS",
-                    callback_data=f"event_ocr_admin_edit_{submission_id}",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "✅ APPROVE",
-                    callback_data=f"event_ocr_admin_approve_{submission_id}",
-                ),
-                InlineKeyboardButton(
-                    "❌ DENY",
-                    callback_data=f"event_ocr_admin_deny_{submission_id}",
-                ),
-            ],
-        ]
-    )
+    rows = []
+    for key in FIELD_ORDER:
+        rows.append([
+            InlineKeyboardButton(
+                f"✏️ {FIELD_LABELS[key]}",
+                callback_data=f"event_ocr_admin_edit_{key}_{submission_id}",
+            )
+        ])
+    rows.append([
+        InlineKeyboardButton("✅ APPROVE", callback_data=f"event_ocr_admin_approve_{submission_id}"),
+        InlineKeyboardButton("❌ DENY", callback_data=f"event_ocr_admin_deny_{submission_id}"),
+    ])
+    return InlineKeyboardMarkup(rows)
+
 
 
 async def _prompt_next_missing(context, user_id, submission_id):
@@ -1080,28 +1074,16 @@ async def handle_event_text(update, context):
 
         fields = _fields(row)
         fields[admin_field] = value
-        field_index = FIELD_ORDER.index(admin_field)
-
-        if field_index < len(FIELD_ORDER) - 1:
-            _update_submission(int(admin_submission_id), fields=fields)
-            next_field = FIELD_ORDER[field_index + 1]
-            context.user_data["event_ocr_admin_waiting_for"] = next_field
-            await message.reply_text(
-                f"✏️ <b>{FIELD_LABELS[next_field]}</b>\n\n"
-                "Enter the corrected value for this field.",
-                parse_mode="HTML",
-            )
-        else:
-            _update_submission(int(admin_submission_id), fields=fields, status="pending_admin")
-            context.user_data.pop("event_ocr_admin_submission_id", None)
-            context.user_data.pop("event_ocr_admin_waiting_for", None)
-            await _refresh_admin_details(context, int(admin_submission_id))
-            await message.reply_text(
-                "✅ <b>EVENT UPDATED</b>\n\n"
-                + _format_fields(fields)
-                + "\n\nThe Event remains pending admin approval.",
-                parse_mode="HTML",
-            )
+        _update_submission(int(admin_submission_id), fields=fields, status="pending_admin")
+        context.user_data.pop("event_ocr_admin_submission_id", None)
+        context.user_data.pop("event_ocr_admin_waiting_for", None)
+        await _refresh_admin_details(context, int(admin_submission_id))
+        await message.reply_text(
+            "✅ <b>EVENT FIELD UPDATED</b>\n\n"
+            + _format_fields(fields)
+            + "\n\nThe Event remains pending admin approval.",
+            parse_mode="HTML",
+        )
         raise ApplicationHandlerStop
 
     submission_id = context.user_data.get("event_ocr_submission_id")
@@ -1196,7 +1178,9 @@ async def handle_event_member_callback(update, context):
     if not match:
         return
 
-    submission_id = int(match.group(2))
+    action = match.group(1)
+    field_name = match.group(2)
+    submission_id = int(match.group(3) or match.group(2))
     row = _get_submission(submission_id)
 
     if not row or row["user_id"] != user.id:
@@ -1334,7 +1318,7 @@ async def handle_event_admin_callback(update, context):
         return
 
     match = re.fullmatch(
-        r"event_ocr_admin_(edit|approve|deny)_(\d+)",
+        r"event_ocr_admin_(edit|approve|deny)(?:_(event|date|time|location|price|website))?_(\d+)",
         query.data or "",
     )
     if not match:
@@ -1368,9 +1352,21 @@ async def handle_event_admin_callback(update, context):
         return
 
     fields = _fields(row)
-    action = match.group(1)
 
     if action == "edit":
+        if field_name:
+            context.user_data["event_ocr_admin_submission_id"] = submission_id
+            context.user_data["event_ocr_admin_waiting_for"] = field_name
+            await query.answer(f"Editing {FIELD_LABELS[field_name]}...")
+            await query.message.reply_text(
+                f"✏️ <b>{FIELD_LABELS[field_name]}</b>\n\n"
+                "Enter the corrected value for this field.",
+                parse_mode="HTML",
+            )
+            return
+
+        context.user_data["event_ocr_admin_submission_id"] = submission_id
+        context.user_data["event_ocr_admin_waiting_for"] = FIELD_ORDER[0]
         context.user_data["event_ocr_admin_submission_id"] = submission_id
         context.user_data["event_ocr_admin_waiting_for"] = FIELD_ORDER[0]
         username = await _event_bot_username(context)
