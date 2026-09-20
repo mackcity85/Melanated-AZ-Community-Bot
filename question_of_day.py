@@ -529,12 +529,11 @@ async def _finish_submission(update, context, item_id, saved_text):
     for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
         context.user_data.pop(key, None)
 
-    # Keep the member's actual submission message in the private chat.
-    # Only the separate confirmation notice below is temporary.
-    if queued_count() == 1 and not daily_post_already_done():
-        posted = await publish_item(context, item_id)
-        if posted:
-            return
+    # Every submission stays in the persistent QOTD bank.
+    # The daily scheduler is responsible for posting queued items.
+    # Do not auto-publish the first submission; that made the bank appear
+    # empty immediately after a member submitted an entry.
+    logger.info("QOTD submission saved to bank | item_id=%s | queued=%s", item_id, queued_count())
 
     if chat_id:
         try:
