@@ -1375,11 +1375,12 @@ def _sort_key(row):
         return (2, str(fields.get("date") or "").lower(), int(row["id"]))
 
     today = datetime.now().date()
-    return (
-        0 if parsed >= today else 1,
-        parsed,
-        int(row["id"]),
-    )
+    if parsed < today:
+        # Keep past events above upcoming events.
+        return (0, parsed, int(row["id"]))
+    # Upcoming events run furthest-out to nearest, so the next event
+    # is physically reposted at the bottom of the Events topic.
+    return (1, -parsed.toordinal(), int(row["id"]))
 
 
 def _approved_rows():
