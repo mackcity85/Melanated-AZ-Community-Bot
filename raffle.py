@@ -288,10 +288,10 @@ async def admin_edit_raffle_end_date(update, context):
     await context.bot.send_message(
         chat_id=target,
         text=(
-            "📅 <b>Edit Raffle End Date</b>\\n\\n"
-            f"🎁 <b>{html.escape(str(raffle.get('prize') or 'Raffle'))}</b>\\n"
-            f"Current end: <b>{format_expiration(raffle.get('expires_at'))}</b>\\n\\n"
-            "Send the new end date as <code>MM/DD/YYYY</code>.\\n"
+            "📅 <b>Edit Raffle End Date</b>\n\n"
+            f"🎁 <b>{html.escape(str(raffle.get('prize') or 'Raffle'))}</b>\n"
+            f"Current end: <b>{format_expiration(raffle.get('expires_at'))}</b>\n\n"
+            "Send the new end date as <code>MM/DD/YYYY</code>.\n"
             "The raffle will end at <b>7:00 PM Arizona time</b> on that date."
         ),
         parse_mode=ParseMode.HTML,
@@ -342,7 +342,7 @@ async def handle_raffle_end_date(update, context):
             if not await publish_raffle(raffle_id, context):
                 raise RuntimeError("Raffle repost failed after end-date update")
         await message.reply_text(
-            f"✅ Raffle end date updated to <b>{parsed.strftime('%B %d, %Y')}</b>.\\n"
+            f"✅ Raffle end date updated to <b>{parsed.strftime('%B %d, %Y')}</b>.\n"
             f"⏰ Ends: <b>{format_expiration(expires_at.isoformat())}</b>",
             parse_mode=ParseMode.HTML,
         )
@@ -463,25 +463,25 @@ async def auto_draw_raffle(context):
     if not entries:
         close_raffle(int(raffle["id"]))
         text = (
-            "🎟️ <b>RAFFLE CLOSED</b>\\n\\n"
-            f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n\\n"
-            "⏰ The raffle ended with no approved entries.\\n"
+            "🎟️ <b>RAFFLE CLOSED</b>\n\n"
+            f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\n\n"
+            "⏰ The raffle ended with no approved entries.\n"
             "No winner was selected."
         )
     else:
         winner = random.choice(entries)
         close_raffle(int(raffle["id"]))
         text = (
-            "🎉🎉🎉 <b>WE HAVE A WINNER!!!</b> 🎉🎉🎉\\n\\n"
-            f"🏆 <b>CONGRATULATIONS, {display_user(winner)}!</b> 🏆\\n\\n"
-            f"🎁 <b>You just WON {html.escape(str(raffle.get('prize') or 'Raffle'))}!</b> 🔥🔥🔥\\n\\n"
-            f"🎟️ <b>Winning Entry:</b> #{winner['id']}\\n\\n"
-            "💰 <b>YOU DID THAT!!!</b> 🙌🏾🥳\\n"
-            "Thank you for being part of the Melanated AZ community and getting in on the fun!\\n\\n"
-            "🔥 <b>DON'T STOP HERE!</b>\\n"
-            "Another raffle could be coming up next, and <b>YOU COULD BE OUR NEXT WINNER!</b> 👀💰\\n\\n"
-            "🎟️ <b>Keep entering. Keep playing. Keep winning!</b>\\n\\n"
-            f"❤️ Congratulations again, {display_user(winner)}!\\n"
+            "🎉🎉🎉 <b>WE HAVE A WINNER!!!</b> 🎉🎉🎉\n\n"
+            f"🏆 <b>CONGRATULATIONS, {display_user(winner)}!</b> 🏆\n\n"
+            f"🎁 <b>You just WON {html.escape(str(raffle.get('prize') or 'Raffle'))}!</b> 🔥🔥🔥\n\n"
+            f"🎟️ <b>Winning Entry:</b> #{winner['id']}\n\n"
+            "💰 <b>YOU DID THAT!!!</b> 🙌🏾🥳\n"
+            "Thank you for being part of the Melanated AZ community and getting in on the fun!\n\n"
+            "🔥 <b>DON'T STOP HERE!</b>\n"
+            "Another raffle could be coming up next, and <b>YOU COULD BE OUR NEXT WINNER!</b> 👀💰\n\n"
+            "🎟️ <b>Keep entering. Keep playing. Keep winning!</b>\n\n"
+            f"❤️ Congratulations again, {display_user(winner)}!\n"
             "Enjoy your prize — <b>YOU EARNED THAT WIN!</b> 🥳🏆"
         )
     try:
