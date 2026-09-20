@@ -559,7 +559,7 @@ def _member_keyboard(submission_id, website_missing=False):
     return InlineKeyboardMarkup(buttons)
 
 
-def _admin_keyboard(submission_id):
+def _admin_keyboard(submission_id, approved=False):
     rows = []
     for key in FIELD_ORDER:
         rows.append([
@@ -568,10 +568,11 @@ def _admin_keyboard(submission_id):
                 callback_data=f"event_ocr_admin_edit_{key}_{submission_id}",
             )
         ])
-    rows.append([
-        InlineKeyboardButton("✅ APPROVE", callback_data=f"event_ocr_admin_approve_{submission_id}"),
-        InlineKeyboardButton("❌ DENY", callback_data=f"event_ocr_admin_deny_{submission_id}"),
-    ])
+    if not approved:
+        rows.append([
+            InlineKeyboardButton("✅ APPROVE", callback_data=f"event_ocr_admin_approve_{submission_id}"),
+            InlineKeyboardButton("❌ DENY", callback_data=f"event_ocr_admin_deny_{submission_id}"),
+        ])
     return InlineKeyboardMarkup(rows)
 
 
@@ -675,7 +676,7 @@ async def _send_to_admins(context, submission_id):
                 "All required fields are present. Final decision requires admin approval."
             ),
             parse_mode="HTML",
-            reply_markup=_admin_keyboard(submission_id),
+            reply_markup=_admin_keyboard(submission_id, approved=approved),
         )
 
         _update_submission(
@@ -1062,10 +1063,10 @@ async def handle_event_text(update, context):
             return
 
         row = _get_submission(int(admin_submission_id))
-        if not row or row["status"] != "pending_admin":
+        if not row or row["status"] not in {"pending_admin", "approved"}:
             context.user_data.pop("event_ocr_admin_submission_id", None)
             context.user_data.pop("event_ocr_admin_waiting_for", None)
-            await message.reply_text("⚠️ This Event is no longer pending admin approval.")
+            await message.reply_text("⚠️ This Event is no longer editable.")
             raise ApplicationHandlerStop
 
         value = message.text.strip()
@@ -1074,14 +1075,29 @@ async def handle_event_text(update, context):
 
         fields = _fields(row)
         fields[admin_field] = value
-        _update_submission(int(admin_submission_id), fields=fields, status="pending_admin")
+        was_approved = row["status"] == "approved"
+        _update_submission(
+            int(admin_submission_id),
+            fields=fields,
+            status="approved" if was_approved else "pending_admin",
+        )
         context.user_data.pop("event_ocr_admin_submission_id", None)
         context.user_data.pop("event_ocr_admin_waiting_for", None)
-        await _refresh_admin_details(context, int(admin_submission_id))
+
+        if was_approved:
+            await _republish_events_in_date_order(context)
+            await _refresh_admin_details(context, int(admin_submission_id), approved=True)
+        else:
+            await _refresh_admin_details(context, int(admin_submission_id))
+
         await message.reply_text(
             "✅ <b>EVENT FIELD UPDATED</b>\n\n"
             + _format_fields(fields)
-            + "\n\nThe Event remains pending admin approval.",
+            + (
+                "\n\nThe approved Event was updated and republished."
+                if was_approved
+                else "\n\nThe Event remains pending admin approval."
+            ),
             parse_mode="HTML",
         )
         raise ApplicationHandlerStop
@@ -1278,7 +1294,7 @@ async def handle_event_member_callback(update, context):
         pass
 
 
-async def _refresh_admin_details(context, submission_id):
+async def _refresh_admin_details(context, submission_id, approved=False):
     row = _get_submission(submission_id)
     if not row or not row["admin_details_message_id"]:
         return
@@ -1324,85 +1340,73 @@ async def handle_event_admin_callback(update, context):
     if not match:
         return
 
+    action = match.group(1)
+    field_name = match.group(2)
+    submission_id = int(match.group(3))
+
     try:
         from admin import is_admin
 
         if not await is_admin(user.id, context):
-            await query.answer(
-                "⛔ You are not authorized.",
-                show_alert=True,
-            )
+            await query.answer("⛔ You are not authorized.", show_alert=True)
             return
     except Exception:
         logger.exception("Independent Event admin authorization failed")
-        await query.answer(
-            "⛔ Unable to verify admin access.",
-            show_alert=True,
-        )
+        await query.answer("⛔ Unable to verify admin access.", show_alert=True)
         return
 
-    submission_id = int(match.group(2))
     row = _get_submission(submission_id)
 
-    if not row or row["status"] != "pending_admin":
-        await query.answer(
-            "This Event has already been processed.",
-            show_alert=True,
-        )
+    if not row:
+        await query.answer("Event submission not found.", show_alert=True)
         return
 
-    fields = _fields(row)
-
     if action == "edit":
+        if row["status"] not in {"pending_admin", "approved"}:
+            await query.answer("This Event is no longer editable.", show_alert=True)
+            return
+
         if field_name:
             context.user_data["event_ocr_admin_submission_id"] = submission_id
             context.user_data["event_ocr_admin_waiting_for"] = field_name
             await query.answer(f"Editing {FIELD_LABELS[field_name]}...")
-            await query.message.reply_text(
-                f"✏️ <b>{FIELD_LABELS[field_name]}</b>\n\n"
-                "Enter the corrected value for this field.",
-                parse_mode="HTML",
-            )
+            try:
+                await context.bot.send_message(
+                    chat_id=user.id,
+                    text=(
+                        f"✏️ <b>{FIELD_LABELS[field_name]}</b>\n\n"
+                        "Enter the corrected value for this field."
+                    ),
+                    parse_mode="HTML",
+                )
+            except TelegramError:
+                context.user_data.pop("event_ocr_admin_submission_id", None)
+                context.user_data.pop("event_ocr_admin_waiting_for", None)
+                await query.answer(
+                    "I couldn't message you privately. Start the Melanated AZ Bot first, then try again.",
+                    show_alert=True,
+                )
             return
 
-        context.user_data["event_ocr_admin_submission_id"] = submission_id
-        context.user_data["event_ocr_admin_waiting_for"] = FIELD_ORDER[0]
-        context.user_data["event_ocr_admin_submission_id"] = submission_id
-        context.user_data["event_ocr_admin_waiting_for"] = FIELD_ORDER[0]
-        username = await _event_bot_username(context)
-        await query.answer("Opening private Event editor...")
-        if username:
-            await query.message.reply_text(
-                "✏️ <b>ADMIN EVENT EDIT</b>\n\n"
-                "Tap below to open the Melanated AZ Bot privately. "
-                "You will be prompted to correct every field: Event, Date, Time, Location, Price, and Website.",
-                parse_mode="HTML",
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton(
-                        "📝 EDIT ALL FIELDS PRIVATELY",
-                        url=f"https://t.me/{username}?start=eventadmin_{submission_id}",
-                    )]]
-                ),
-            )
-        else:
-            await query.message.reply_text(
-                "The private editor is ready. Open the Melanated AZ Bot and send /start.",
-            )
+        await query.answer("Use the individual field buttons to edit this Event.")
         return
+
+    if row["status"] != "pending_admin":
+        await query.answer("This Event has already been processed.", show_alert=True)
+        return
+
+    fields = _fields(row)
 
     if action == "deny":
         _update_submission(submission_id, status="denied")
         await query.answer("Event denied.")
-
         try:
             await query.edit_message_text(
-                "❌ <b>EVENT DENIED</b>\n\n"
-                + _format_fields(fields),
+                "❌ <b>EVENT DENIED</b>\n\n" + _format_fields(fields),
                 parse_mode="HTML",
             )
         except Exception:
             pass
-
         await _notify_submitter(
             context,
             row,
@@ -1411,44 +1415,29 @@ async def handle_event_admin_callback(update, context):
         return
 
     await query.answer("Publishing Event...")
-
     try:
         _update_submission(submission_id, status="approved")
-
-        # Rebuild all approved Events in date order. This keeps the
-        # Events topic sorted by event day rather than approval order.
         await _republish_events_in_date_order(context)
-
         try:
             await query.edit_message_text(
                 "✅ <b>EVENT APPROVED & PUBLISHED</b>\n\n"
-                + _format_fields(fields),
+                + _format_fields(fields)
+                + "\n\n✏️ Use the buttons below to edit any field after approval.",
                 parse_mode="HTML",
+                reply_markup=_admin_keyboard(submission_id, approved=True),
             )
         except Exception:
             pass
-
         await _notify_submitter(
             context,
             row,
             "✅ Your Event flyer was approved and posted in the Events topic.",
         )
-
-        logger.info(
-            "Independent Event approved | submission=%s",
-            submission_id,
-        )
-
+        logger.info("Independent Event approved | submission=%s", submission_id)
     except Exception:
-        logger.exception(
-            "Independent Event publication failed | submission=%s",
-            submission_id,
-        )
+        logger.exception("Independent Event publication failed | submission=%s", submission_id)
         _update_submission(submission_id, status="pending_admin")
-        await query.answer(
-            "Publishing failed. Check the Render logs.",
-            show_alert=True,
-        )
+        await query.answer("Publishing failed. Check the Render logs.", show_alert=True)
 
 
 async def _notify_submitter(context, row, text):
@@ -1670,7 +1659,7 @@ def install_application(application):
     application.add_handler(
         CallbackQueryHandler(
             handle_event_admin_callback,
-            pattern=r"^event_ocr_admin_(?:approve|deny)_\d+$",
+            pattern=r"^event_ocr_admin_(?:edit(?:_(?:event|date|time|location|price|website))?|approve|deny)_\d+$",
         ),
         group=group,
     )
