@@ -454,6 +454,9 @@ async def intro_callback(update,context):
 
 async def private_intro_text_handler(update,context):
     message=update.effective_message; user=update.effective_user; chat=update.effective_chat
+    if context.user_data.get("awaiting_raffle_end_date"):
+        await handle_raffle_end_date(update,context)
+        return
     if not message or not user or not chat or chat.type!="private" or user.is_bot or not context.user_data.get("awaiting_intro_submission") or context.user_data.get("intro_submission_user_id")!=user.id or not message.text or message.text.startswith("/"):return
     intro_text=message.text.strip()
     if not intro_text or len(intro_text)>INTRO_MAX_CHARS:return
