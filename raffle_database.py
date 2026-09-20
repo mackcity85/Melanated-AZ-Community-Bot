@@ -252,6 +252,18 @@ def get_pending_raffle():
     finally:
         conn.close()
 
+def update_raffle_expires_at(raffle_id, expires_at):
+    conn = get_connection()
+    try:
+        cur = conn.execute("UPDATE raffles SET expires_at=? WHERE id=?", (str(expires_at), int(raffle_id)))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 def approve_raffle(raffle_id):
     conn = get_connection()
     try:
