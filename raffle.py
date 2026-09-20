@@ -359,7 +359,7 @@ async def handle_raffle_end_date(update, context):
 
 # Telegram forum topic where active raffles are published.
 RAFFLE_TOPIC_ID = 11883
-RAFFLE_ENTRY_MESSAGE_DELETE_SECONDS = 60 * 60
+RAFFLE_ENTRY_MESSAGE_DELETE_SECONDS = 3 * 60
 RAFFLE_STATUS_HOUR = 16
 RAFFLE_STATUS_MINUTE = 30
 RAFFLE_STATUS_TIMEZONE = ZoneInfo("America/Phoenix")
