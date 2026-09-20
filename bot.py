@@ -757,6 +757,12 @@ def main():
     # Daily raffle status is intentionally disabled: the raffle should be one post, not recurring status messages.
     logger.info("Daily raffle status scheduler disabled; raffle uses one permanent post in topic 11883.")
     start_raffle_cleanup_recovery(application)
+    try:
+        from raffle import schedule_active_raffle_auto_draws
+        schedule_active_raffle_auto_draws(application)
+        logger.info("Active raffle automatic draw recovery initialized.")
+    except Exception:
+        logger.exception("Unable to initialize automatic raffle draw recovery.")
     # One-time repair of the existing active raffle. This does NOT create a raffle and does NOT repeat.
     if application.job_queue:
         application.job_queue.run_once(repair_active_raffle_post,when=10,name="one-time-raffle-topic-repair")
