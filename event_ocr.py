@@ -1396,13 +1396,12 @@ async def _republish_events_in_date_order(context):
     if not rows:
         return
 
-    # Delete only messages that this independent system previously
-    # published. Nothing else in the Events topic is touched.
-    for row in rows:
-        old_id = row["published_message_id"]
-        if not old_id:
-            continue
+    # Rebuild the public Events topic automatically after each approval.
+    # Only messages previously published by this independent Event OCR
+    # system are deleted; member/admin/OCR messages are never touched.
+    published_ids = [row["published_message_id"] for row in rows if row["published_message_id"]]
 
+    for old_id in published_ids:
         try:
             await context.bot.delete_message(
                 chat_id=EVENT_CHAT_ID,
