@@ -1449,6 +1449,31 @@ async def _republish_events_in_date_order(context):
 
 
 # ==========================================================
+# STARTUP SORT
+# ==========================================================
+async def _startup_sort_events(application):
+    """One-time startup rebuild of existing approved Event OCR flyers."""
+    try:
+        await _republish_events_in_date_order(application)
+        logger.info("Independent Events startup chronological sort complete")
+    except Exception:
+        logger.exception("Independent Events startup chronological sort failed")
+
+
+def _schedule_startup_sort(application):
+    """Schedule the one-time rebuild after the application is running."""
+    job_queue = getattr(application, "job_queue", None)
+    if job_queue is None:
+        logger.warning("Event OCR startup sort skipped: JobQueue unavailable")
+        return
+    job_queue.run_once(
+        _startup_sort_events,
+        when=3,
+        name="event_ocr_startup_sort",
+    )
+
+
+# ==========================================================
 # INSTALLATION
 # ==========================================================
 
