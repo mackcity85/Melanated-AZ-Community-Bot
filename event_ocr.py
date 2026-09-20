@@ -1550,32 +1550,38 @@ def _parse_event_date(raw):
     if not raw:
         return None
 
-    cleaned = re.sub(
-        r"(st|nd|rd|th)",
-        "",
-        raw,
-        flags=re.IGNORECASE,
-    )
+    # Normalize common OCR/editor date noise while preserving the year.
+    cleaned = re.sub(r"(?i)\\b(st|nd|rd|th)\\b", "", raw)
+    cleaned = re.sub(r"\\s+", " ", cleaned).strip()
 
+    # Prefer explicit year-bearing formats. These are the authoritative
+    # sort keys whenever a year is present.
     for fmt in (
-        "%m/%d/%Y",
-        "%m-%d-%Y",
-        "%m/%d/%y",
-        "%m-%d-%y",
-        "%B %d, %Y",
-        "%B %d %Y",
-        "%b %d, %Y",
-        "%b %d %Y",
+        "%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d",
+        "%m/%d/%y", "%m-%d-%y",
+        "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y",
     ):
         try:
             return datetime.strptime(cleaned, fmt).date()
         except ValueError:
             pass
 
-    # Handle OCR strings such as "September 18" by assuming the
-    # current year. This is only a sort key; the displayed value is
-    # never changed.
-    for fmt in ("%B %d", "%b %d"):
+    # OCR may include a leading label such as "Date: 09/20/2026".
+    unlabeled = re.sub(r"(?i)^date\\s*[:\\-]?\\s*", "", cleaned).strip()
+    if unlabeled != cleaned:
+        for fmt in (
+            "%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d",
+            "%m/%d/%y", "%m-%d-%y",
+            "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y",
+        ):
+            try:
+                return datetime.strptime(unlabeled, fmt).date()
+            except ValueError:
+                pass
+
+    # Month/day without a year is retained for compatibility; only then
+    # do we assume the current year for sorting.
+    for fmt in ("%B %d", "%b %d", "%m/%d", "%m-%d"):
         try:
             return datetime.strptime(
                 f"{cleaned} {datetime.now().year}",
