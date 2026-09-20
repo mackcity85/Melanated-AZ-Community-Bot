@@ -1326,6 +1326,36 @@ async def _refresh_admin_details(context, submission_id, approved=False):
 # ADMIN APPROVAL
 # ==========================================================
 
+async def _remove_approved_event(context, submission_id):
+    """Remove an approved Event and its public flyer."""
+    row = _get_submission(submission_id)
+    if not row or row["status"] != "approved":
+        return False
+
+    published_id = row["published_message_id"]
+    if published_id:
+        try:
+            await context.bot.delete_message(
+                chat_id=EVENT_CHAT_ID,
+                message_id=int(published_id),
+            )
+        except TelegramError:
+            logger.info(
+                "Approved Event publication already gone | submission=%s | message=%s",
+                submission_id,
+                published_id,
+            )
+
+    with _db() as conn:
+        conn.execute(
+            "DELETE FROM event_submissions WHERE id=? AND status='approved'",
+            (int(submission_id),),
+        )
+        conn.commit()
+
+    return True
+
+
 async def handle_event_admin_callback(update, context):
     query = update.callback_query
     user = update.effective_user
@@ -1334,7 +1364,7 @@ async def handle_event_admin_callback(update, context):
         return
 
     match = re.fullmatch(
-        r"event_ocr_admin_(edit|approve|deny)(?:_(event|date|time|location|price|website))?_(\d+)",
+        r"event_ocr_admin_(edit|remove|approve|deny)(?:_(event|date|time|location|price|website))?_(\d+)",
         query.data or "",
     )
     if not match:
@@ -1359,6 +1389,63 @@ async def handle_event_admin_callback(update, context):
 
     if not row:
         await query.answer("Event submission not found.", show_alert=True)
+        return
+
+    if action == "remove":
+        if row["status"] != "approved":
+            await query.answer("Only approved Events can be removed here.", show_alert=True)
+            return
+
+        fields = _fields(row)
+        await query.answer()
+        try:
+            await query.edit_message_text(
+                "⚠️ <b>REMOVE APPROVED EVENT?</b>\n\n"
+                + _format_fields(fields)
+                + "\n\nThis will remove the Event from the Events topic and the approved-events list.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("🗑️ YES, REMOVE EVENT", callback_data=f"event_ocr_admin_remove_confirm_{submission_id}"),
+                    ],
+                    [
+                        InlineKeyboardButton("↩️ CANCEL", callback_data=f"event_ocr_admin_remove_cancel_{submission_id}"),
+                    ],
+                ]),
+            )
+        except Exception:
+            pass
+        return
+
+    if action == "remove_confirm":
+        if row["status"] != "approved":
+            await query.answer("This Event is no longer available.", show_alert=True)
+            return
+        fields = _fields(row)
+        if await _remove_approved_event(context, submission_id):
+            await query.answer("Event removed.")
+            try:
+                await query.edit_message_text(
+                    "🗑️ <b>EVENT REMOVED</b>\n\n" + _format_fields(fields),
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+        else:
+            await query.answer("Event could not be removed.", show_alert=True)
+        return
+
+    if action == "remove_cancel":
+        await query.answer("Removal cancelled.")
+        try:
+            await query.edit_message_text(
+                "✅ <b>EVENT REMOVAL CANCELLED</b>\n\n"
+                + _format_fields(row and _fields(row) or {}),
+                parse_mode="HTML",
+                reply_markup=_admin_keyboard(submission_id, approved=True),
+            )
+        except Exception:
+            pass
         return
 
     if action == "edit":
@@ -1659,7 +1746,7 @@ def install_application(application):
     application.add_handler(
         CallbackQueryHandler(
             handle_event_admin_callback,
-            pattern=r"^event_ocr_admin_(?:edit(?:_(?:event|date|time|location|price|website))?|approve|deny)_\d+$",
+            pattern=r"^event_ocr_admin_(?:edit(?:_(?:event|date|time|location|price|website))?|remove(?:_(?:confirm|cancel))?|approve|deny)_\d+$",
         ),
         group=group,
     )
