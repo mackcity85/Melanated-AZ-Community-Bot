@@ -36,7 +36,7 @@ QOTD_PANEL_LOCK_TTL_SECONDS = 120
 
 def _int_env(name, default=0):
     try:
-        return int(os.environ.get(name, str(default)) or str(default)
+        return int(os.environ.get(name, str(default)) or str(default))
     except (TypeError, ValueError):
         return default
 
