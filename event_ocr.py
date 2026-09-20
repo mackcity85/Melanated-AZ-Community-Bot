@@ -885,11 +885,49 @@ async def handle_event_start(update, context):
         return
 
     args = getattr(context, "args", None) or []
-    if not args or not args[0].lower().startswith("eventocr_"):
+    if not args:
+        return
+
+    token = args[0].lower()
+
+    if token.startswith("eventadmin_"):
+        try:
+            submission_id = int(token.split("_", 1)[1])
+        except (ValueError, IndexError):
+            return
+
+        try:
+            from admin import is_admin
+            if not await is_admin(user.id, context):
+                await message.reply_text("⛔ You are not authorized to edit Events.")
+                return
+        except Exception:
+            logger.exception("Event OCR admin start authorization failed")
+            await message.reply_text("⛔ Unable to verify admin access.")
+            return
+
+        row = _get_submission(submission_id)
+        if not row or row["status"] != "pending_admin":
+            await message.reply_text("⚠️ This Event is no longer pending admin approval.")
+            return
+
+        fields = _fields(row)
+        context.user_data["event_ocr_admin_submission_id"] = submission_id
+        context.user_data["event_ocr_admin_waiting_for"] = FIELD_ORDER[0]
+        await message.reply_text(
+            "✏️ <b>ADMIN EVENT EDIT</b>\n\n"
+            + _format_fields(fields)
+            + "\n\nEnter the corrected <b>Event Name</b>. "
+              "I will then walk you through Date, Time, Location, Price, and Website.",
+            parse_mode="HTML",
+        )
+        raise ApplicationHandlerStop
+
+    if not token.startswith("eventocr_"):
         return
 
     try:
-        submission_id = int(args[0].split("_", 1)[1])
+        submission_id = int(token.split("_", 1)[1])
     except (ValueError, IndexError):
         return
 
@@ -1014,6 +1052,57 @@ async def handle_event_text(update, context):
     is_private = message.chat.type == "private"
     if not is_private and not _is_events_topic(message):
         return
+
+    admin_submission_id = context.user_data.get("event_ocr_admin_submission_id")
+    admin_field = context.user_data.get("event_ocr_admin_waiting_for")
+
+    if is_private and admin_submission_id and admin_field:
+        try:
+            from admin import is_admin
+            if not await is_admin(update.effective_user.id, context):
+                context.user_data.pop("event_ocr_admin_submission_id", None)
+                context.user_data.pop("event_ocr_admin_waiting_for", None)
+                return
+        except Exception:
+            logger.exception("Event OCR admin edit authorization failed")
+            return
+
+        row = _get_submission(int(admin_submission_id))
+        if not row or row["status"] != "pending_admin":
+            context.user_data.pop("event_ocr_admin_submission_id", None)
+            context.user_data.pop("event_ocr_admin_waiting_for", None)
+            await message.reply_text("⚠️ This Event is no longer pending admin approval.")
+            raise ApplicationHandlerStop
+
+        value = message.text.strip()
+        if not value:
+            return
+
+        fields = _fields(row)
+        fields[admin_field] = value
+        field_index = FIELD_ORDER.index(admin_field)
+
+        if field_index < len(FIELD_ORDER) - 1:
+            _update_submission(int(admin_submission_id), fields=fields)
+            next_field = FIELD_ORDER[field_index + 1]
+            context.user_data["event_ocr_admin_waiting_for"] = next_field
+            await message.reply_text(
+                f"✏️ <b>{FIELD_LABELS[next_field]}</b>\n\n"
+                "Enter the corrected value for this field.",
+                parse_mode="HTML",
+            )
+        else:
+            _update_submission(int(admin_submission_id), fields=fields, status="pending_admin")
+            context.user_data.pop("event_ocr_admin_submission_id", None)
+            context.user_data.pop("event_ocr_admin_waiting_for", None)
+            await _refresh_admin_details(context, int(admin_submission_id))
+            await message.reply_text(
+                "✅ <b>EVENT UPDATED</b>\n\n"
+                + _format_fields(fields)
+                + "\n\nThe Event remains pending admin approval.",
+                parse_mode="HTML",
+            )
+        raise ApplicationHandlerStop
 
     submission_id = context.user_data.get("event_ocr_submission_id")
     field = context.user_data.get("event_ocr_waiting_for")
@@ -1205,6 +1294,34 @@ async def handle_event_member_callback(update, context):
         pass
 
 
+async def _refresh_admin_details(context, submission_id):
+    row = _get_submission(submission_id)
+    if not row or not row["admin_details_message_id"]:
+        return
+
+    fields = _fields(row)
+    submitter = (
+        f"@{row['username']}"
+        if row["username"]
+        else (row["first_name"] or str(row["user_id"]))
+    )
+    try:
+        await context.bot.edit_message_text(
+            chat_id=ADMIN_GROUP_ID,
+            message_id=int(row["admin_details_message_id"]),
+            text=(
+                "🔎 <b>EVENT SUBMISSION</b>\n\n"
+                + _format_fields(fields)
+                + f"\n\nSubmitted by: {html.escape(submitter)}\n\n"
+                "Review the updated fields and approve or deny."
+            ),
+            parse_mode="HTML",
+            reply_markup=_admin_keyboard(submission_id),
+        )
+    except Exception:
+        logger.exception("Could not refresh Event admin details | submission=%s", submission_id)
+
+
 # ==========================================================
 # ADMIN APPROVAL
 # ==========================================================
@@ -1217,7 +1334,7 @@ async def handle_event_admin_callback(update, context):
         return
 
     match = re.fullmatch(
-        r"event_ocr_admin_(approve|deny)_(\d+)",
+        r"event_ocr_admin_(edit|approve|deny)_(\d+)",
         query.data or "",
     )
     if not match:
@@ -1252,6 +1369,30 @@ async def handle_event_admin_callback(update, context):
 
     fields = _fields(row)
     action = match.group(1)
+
+    if action == "edit":
+        context.user_data["event_ocr_admin_submission_id"] = submission_id
+        context.user_data["event_ocr_admin_waiting_for"] = FIELD_ORDER[0]
+        username = await _event_bot_username(context)
+        await query.answer("Opening private Event editor...")
+        if username:
+            await query.message.reply_text(
+                "✏️ <b>ADMIN EVENT EDIT</b>\n\n"
+                "Tap below to open the Melanated AZ Bot privately. "
+                "You will be prompted to correct every field: Event, Date, Time, Location, Price, and Website.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton(
+                        "📝 EDIT ALL FIELDS PRIVATELY",
+                        url=f"https://t.me/{username}?start=eventadmin_{submission_id}",
+                    )]]
+                ),
+            )
+        else:
+            await query.message.reply_text(
+                "The private editor is ready. Open the Melanated AZ Bot and send /start.",
+            )
+        return
 
     if action == "deny":
         _update_submission(submission_id, status="denied")
