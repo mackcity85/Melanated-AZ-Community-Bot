@@ -154,6 +154,16 @@ def _get_submission(submission_id):
         ).fetchone()
 
 
+def _latest_editable_submission(user_id):
+    with _db() as conn:
+        return conn.execute(
+            "SELECT * FROM event_submissions "
+            "WHERE user_id=? AND status IN ('member_input', 'awaiting_confirmation') "
+            "ORDER BY id DESC LIMIT 1",
+            (int(user_id),),
+        ).fetchone()
+
+
 def _update_submission(
     submission_id,
     *,
@@ -1002,7 +1012,32 @@ async def handle_event_text(update, context):
     submission_id = context.user_data.get("event_ocr_submission_id")
     field = context.user_data.get("event_ocr_waiting_for")
 
+    # Recover the active Event submission if Telegram/user_data was lost
+    # during the private handoff or a bot restart.
+    if not submission_id:
+        latest = _latest_editable_submission(update.effective_user.id) if update.effective_user else None
+        if latest:
+            submission_id = int(latest["id"])
+            context.user_data["event_ocr_submission_id"] = submission_id
+            if not field:
+                fields = _fields(latest)
+                missing = _missing(fields)
+                if missing:
+                    field = missing[0]
+                    context.user_data["event_ocr_waiting_for"] = field
+            logger.info(
+                "Recovered Event OCR member state | submission=%s | user=%s | field=%s",
+                submission_id,
+                update.effective_user.id if update.effective_user else None,
+                field,
+            )
+
     if not submission_id or not field or not message.text:
+        logger.info(
+            "Ignored text with no active Event OCR state | user=%s | private=%s",
+            update.effective_user.id if update.effective_user else None,
+            is_private,
+        )
         return
 
     row = _get_submission(int(submission_id))
@@ -1023,6 +1058,12 @@ async def handle_event_text(update, context):
         return
 
     fields = _fields(row)
+    logger.info(
+        "Event OCR member field received | submission=%s | user=%s | field=%s",
+        submission_id,
+        user.id,
+        field,
+    )
     fields[field] = value
     _update_submission(
         submission_id,
