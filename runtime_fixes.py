@@ -123,9 +123,10 @@ def _patch_qotd():
                 await message.delete()
             except TelegramError:
                 pass
-        if qotd.queued_count() == 1 and not qotd.daily_post_already_done():
-            if await qotd.publish_item(context, item_id):
-                return
+        # Keep every submission in the persistent QOTD bank.
+        # The scheduled daily-post job owns publishing; submissions must not
+        # disappear from the queue just because they were the first entry.
+        logger.info("QOTD submission saved to bank | item_id=%s | queued=%s", item_id, qotd.queued_count())
         if chat_id:
             try:
                 count = qotd.queued_count()
