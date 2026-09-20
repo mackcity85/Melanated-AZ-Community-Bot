@@ -411,6 +411,12 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "📅 Approved Events",
+                    callback_data="admin_approved_events",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "🔄 Refresh",
                     callback_data="admin_refresh",
                 ),
@@ -3422,6 +3428,70 @@ async def admin_after_dark_now(update, context):
 
 
 # ==========================================================
+# APPROVED EVENTS
+# ==========================================================
+
+async def admin_approved_events(update, context):
+    """Show every approved Event OCR submission with individual edit buttons."""
+    if not await require_admin(update, context):
+        return
+
+    query = update.callback_query
+    if not query:
+        return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    from event_ocr import _approved_rows, _fields
+
+    rows = _approved_rows()
+    if not rows:
+        await query.edit_message_text(
+            "📅 **APPROVED EVENTS**\n\nThere are currently no approved Events.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")]
+            ]),
+            parse_mode="Markdown",
+        )
+        return
+
+    blocks=[]
+    buttons=[]
+    for row in rows:
+        sid=int(row["id"])
+        fields=_fields(row)
+        name=fields.get("event") or f"Event #{sid}"
+        date=fields.get("date") or "Date missing"
+        blocks.append(f"**{name}**\n📅 {date}\n🆔 Submission #{sid}")
+        buttons += [
+            [InlineKeyboardButton(f"✏️ Event #{sid} — Event", callback_data=f"event_ocr_admin_edit_event_{sid}")],
+            [
+                InlineKeyboardButton("✏️ Date", callback_data=f"event_ocr_admin_edit_date_{sid}"),
+                InlineKeyboardButton("✏️ Time", callback_data=f"event_ocr_admin_edit_time_{sid}"),
+            ],
+            [
+                InlineKeyboardButton("✏️ Location", callback_data=f"event_ocr_admin_edit_location_{sid}"),
+                InlineKeyboardButton("✏️ Price", callback_data=f"event_ocr_admin_edit_price_{sid}"),
+            ],
+            [InlineKeyboardButton("✏️ Website", callback_data=f"event_ocr_admin_edit_website_{sid}")],
+        ]
+
+    buttons += [
+        [InlineKeyboardButton("🔄 Refresh Events", callback_data="admin_approved_events")],
+        [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
+    ]
+    await query.edit_message_text(
+        "📅 **APPROVED EVENTS**\n\n" + "\n\n".join(blocks) +
+        "\n\nSelect a field to edit it privately. Approved Events remain approved and are republished in date order.",
+        reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode="Markdown",
+    )
+
+
+# ==========================================================
 # ADMIN BUTTON ROUTER
 # ==========================================================
 
@@ -3491,6 +3561,10 @@ async def admin_button(
             context,
         )
 
+        return
+
+    if data == "admin_approved_events":
+        await admin_approved_events(update, context)
         return
 
     # ------------------------------------------------------
