@@ -1196,8 +1196,7 @@ async def handle_event_member_callback(update, context):
         return
 
     action = match.group(1)
-    field_name = match.group(2)
-    submission_id = int(match.group(3) or match.group(2))
+    submission_id = int(match.group(2))
     row = _get_submission(submission_id)
 
     if not row or row["user_id"] != user.id:
