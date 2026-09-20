@@ -36,7 +36,7 @@ QOTD_PANEL_LOCK_TTL_SECONDS = 120
 
 def _int_env(name, default=0):
     try:
-        return int(os.environ.get(name, str(default)) or str(default))
+        return int(os.environ.get(name, str(default)) or str(default)
     except (TypeError, ValueError):
         return default
 
@@ -157,7 +157,7 @@ def add_item(item_type, prompt, options, user, voice_file_id=None):
             """
             INSERT INTO qotd_items
                 (item_type,prompt,options_json,submitted_by,submitted_name,created_at,status,voice_file_id)
-            VALUES (?,?,?,?,?,?,?, 'queued')
+            VALUES (?,?,?,?,?,?,'queued',?)
             """,
             (item_type, prompt, options_json, user.id if user else None, display_name, now, voice_file_id),
         )
@@ -248,15 +248,9 @@ async def ensure_qotd_submission_panel(application):
             with db_connect() as conn:
                 conn.execute("DELETE FROM qotd_meta WHERE key=?", ("qotd_submission_panel_message_id",))
                 conn.commit()
-    # Multiple Render workers/restarts can enter this startup path at the same time.
-    # Claim panel creation atomically in SQLite so only one process can create the
-    # permanent panel when no canonical panel ID exists yet.
     creation_claimed = False
     now_ts = int(datetime.now().timestamp())
     with db_connect() as conn:
-        # The old implementation never released this lock after a successful
-        # creation, which permanently blocked replacement after a stale panel
-        # was deleted. Treat the lock as a short-lived startup guard.
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT value FROM qotd_meta WHERE key=?",
@@ -288,9 +282,6 @@ async def ensure_qotd_submission_panel(application):
         return
 
     try:
-        # Re-check the canonical panel ID after taking the lock. Another
-        # startup process may have created it just before this process claimed
-        # the lock.
         canonical_id = get_meta("qotd_submission_panel_message_id")
         if canonical_id:
             try:
@@ -358,8 +349,6 @@ async def ensure_qotd_submission_panel(application):
             chat_id, thread_id,
         )
     finally:
-        # Always release the short-lived creation guard, including after a
-        # successful replacement. This prevents a permanent stale lock.
         with db_connect() as conn:
             conn.execute(
                 "DELETE FROM qotd_meta WHERE key=?",
@@ -385,7 +374,6 @@ async def qotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         message_thread_id=QUESTION_OF_DAY_TOPIC_ID if update.effective_chat.type in ("group", "supergroup") else None,
     )
-    # /qotd is only a temporary helper panel; remove it shortly after posting.
     if context.job_queue and update.effective_chat.type in ("group", "supergroup"):
         context.job_queue.run_once(
             _delete_message_job,
@@ -476,11 +464,10 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not state:
         return
     message = update.effective_message
-    if not message or not message.text:
+    if not message:
         return
     if message.chat.type != "private":
         return
-    text = message.text.strip()
 
     if state == "voice":
         if not message.voice:
@@ -489,6 +476,10 @@ async def qotd_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         item_id = add_item("question", None, None, update.effective_user, voice_file_id=message.voice.file_id)
         await _finish_submission(update, context, item_id, "🎙️ Voice question saved!")
         raise ApplicationHandlerStop
+
+    if not message.text:
+        return
+    text = message.text.strip()
 
     if state == "question":
         if not 1 <= len(text) <= QOTD_MAX_QUESTION:
@@ -531,10 +522,6 @@ async def _finish_submission(update, context, item_id, saved_text):
     for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
         context.user_data.pop(key, None)
 
-    # Every submission stays in the persistent QOTD bank.
-    # The daily scheduler is responsible for posting queued items.
-    # Do not auto-publish the first submission; that made the bank appear
-    # empty immediately after a member submitted an entry.
     logger.info("QOTD submission saved to bank | item_id=%s | queued=%s", item_id, queued_count())
 
     if chat_id:
