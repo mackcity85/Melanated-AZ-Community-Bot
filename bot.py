@@ -175,7 +175,9 @@ async def handle_media_move(update, context):
             message.message_id,
             MEDIA_TOPIC_ID,
         )
-        return
+        # This message has been fully handled. Stop lower-priority media
+        # moderation handlers from warning/deleting the already-routed source.
+        raise ApplicationHandlerStop
     except TelegramError:
         logger.exception("Failed to move media | message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
 
