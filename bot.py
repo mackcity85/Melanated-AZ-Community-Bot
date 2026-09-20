@@ -48,7 +48,7 @@ from real_games.monopoly import monopoly_bp
 from event_ocr import (
     handle_event_photo, handle_event_video, handle_event_text,
     handle_event_member_callback, handle_event_admin_callback,
-    handle_event_start, _init_db,
+    handle_event_start, _init_db, _republish_events_in_date_order,
 )
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
@@ -728,6 +728,16 @@ def main():
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
     application=build_application()
+    # One-time startup rebuild of existing approved Event OCR flyers.
+    # This is scheduled here because bot.py is the actual application entrypoint;
+    # event_ocr.install_application() is not used by this deployment path.
+    if application.job_queue:
+        application.job_queue.run_once(
+            lambda context: _republish_events_in_date_order(context),
+            when=5,
+            name="event-ocr-startup-sort",
+        )
+        logger.info("Event OCR startup sort scheduled | delay=5s | topic=12214")
     start_community_security_monitor(application)
     start_monthly_intro_reminders(application)
     start_weekly_game_center_reminder(application)
