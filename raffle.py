@@ -31,6 +31,7 @@ from raffle_database import (
     add_raffle_entry, get_entry, get_pending_entries, get_raffle_entries,
     approve_entry, deny_entry, get_approved_entries, remove_entry,
     get_connection,
+    update_raffle_expires_at,
 )
 
 logger = logging.getLogger("melanated_az_raffle")
@@ -265,6 +266,91 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         except TelegramError:
             pass
     await message.reply_text(f"✅ Raffle #{raffle_id} created and sent for admin approval.")
+
+
+async def admin_edit_raffle_end_date(update, context):
+    """Prompt an authorized admin for a new raffle end date."""
+    raffle = get_active_raffle() or get_pending_raffle()
+    query = update.callback_query
+    if not raffle:
+        if query:
+            await query.answer("No active or pending raffle found.", show_alert=True)
+        return
+    if query:
+        try:
+            await query.answer()
+        except Exception:
+            pass
+    context.user_data["awaiting_raffle_end_date"] = int(raffle["id"])
+    target = update.effective_user.id if update.effective_user else None
+    if not target:
+        return
+    await context.bot.send_message(
+        chat_id=target,
+        text=(
+            "📅 <b>Edit Raffle End Date</b>\\n\\n"
+            f"🎁 <b>{html.escape(str(raffle.get('prize') or 'Raffle'))}</b>\\n"
+            f"Current end: <b>{format_expiration(raffle.get('expires_at'))}</b>\\n\\n"
+            "Send the new end date as <code>MM/DD/YYYY</code>.\\n"
+            "The raffle will end at <b>11:59 PM Arizona time</b> on that date."
+        ),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def handle_raffle_end_date(update, context):
+    """Save an admin-entered raffle end date and refresh the live post."""
+    raffle_id = context.user_data.get("awaiting_raffle_end_date")
+    message = update.effective_message
+    if not raffle_id or not message or not message.text:
+        return False
+    if not await is_raffle_admin_access(update, context):
+        context.user_data.pop("awaiting_raffle_end_date", None)
+        return False
+    raw = message.text.strip()
+    parsed = None
+    for fmt in ("%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d"):
+        try:
+            parsed = datetime.strptime(raw, fmt)
+            break
+        except ValueError:
+            continue
+    if parsed is None:
+        await message.reply_text("⚠️ Invalid date. Use <code>MM/DD/YYYY</code>.", parse_mode=ParseMode.HTML)
+        return True
+    try:
+        arizona = ZoneInfo("America/Phoenix")
+        expires_at = parsed.replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=arizona).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+        raffle = get_raffle(raffle_id)
+        if not raffle:
+            context.user_data.pop("awaiting_raffle_end_date", None)
+            await message.reply_text("⚠️ Raffle not found.")
+            return True
+        update_raffle_expires_at(raffle_id, expires_at.isoformat())
+        context.user_data.pop("awaiting_raffle_end_date", None)
+        raffle = get_raffle(raffle_id)
+        if raffle.get("status") == "active":
+            old_message_id = raffle.get("message_id")
+            if old_message_id:
+                try:
+                    await context.bot.delete_message(
+                        chat_id=int(raffle.get("chat_id") or RAFFLE_CHAT_ID),
+                        message_id=int(old_message_id),
+                    )
+                except TelegramError:
+                    logger.info("Could not delete previous raffle post during end-date edit | raffle=%s", raffle_id)
+            if not await publish_raffle(raffle_id, context):
+                raise RuntimeError("Raffle repost failed after end-date update")
+        await message.reply_text(
+            f"✅ Raffle end date updated to <b>{parsed.strftime('%B %d, %Y')}</b>.\\n"
+            f"⏰ Ends: <b>{format_expiration(expires_at.isoformat())}</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        return True
+    except Exception:
+        logger.exception("Failed to update raffle end date | raffle=%s", raffle_id)
+        await message.reply_text("❌ Could not update the raffle end date. Check the Render logs.")
+        return True
 
 
 # Telegram forum topic where active raffles are published.
