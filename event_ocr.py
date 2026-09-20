@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import re
+import asyncio
 import sqlite3
 from datetime import datetime
 
@@ -1610,8 +1611,13 @@ def _approved_rows():
         ).fetchall()
 
 
+_event_rebuild_lock = asyncio.Lock()
+
+
 async def _republish_events_in_date_order(context):
-    rows = sorted(_approved_rows(), key=_sort_key)
+    """Rebuild approved Events in date order, serializing concurrent rebuilds."""
+    async with _event_rebuild_lock:
+        rows = sorted(_approved_rows(), key=_sort_key)
 
     if not rows:
         return
