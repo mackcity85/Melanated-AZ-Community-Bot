@@ -1364,7 +1364,7 @@ async def handle_event_admin_callback(update, context):
         return
 
     match = re.fullmatch(
-        r"event_ocr_admin_(edit|remove|approve|deny)(?:_(event|date|time|location|price|website))?_(\d+)",
+        r"event_ocr_admin_(edit|remove(?:_confirm|_cancel)?|approve|deny)(?:_(event|date|time|location|price|website))?_(\d+)",
         query.data or "",
     )
     if not match:
