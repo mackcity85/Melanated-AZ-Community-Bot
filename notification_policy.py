@@ -21,12 +21,16 @@ def _is_main_chat(chat_id):return bool(_main_group_id() and _as_int(chat_id)==_m
 def _is_admin_chat(chat_id):return bool(_admin_group_id() and _as_int(chat_id)==_admin_group_id())
 def _is_permanent_launcher(kwargs):return _as_int(kwargs.get("message_thread_id"),0) in PERMANENT_TOPIC_IDS
 
+def _is_protected_daily_message(kwargs):
+    text = str(kwargs.get("text") or kwargs.get("caption") or "").upper()
+    return any(marker in text for marker in ("DAILY COMMUNITY", "GOOD MORNING", "GOOD AFTERNOON", "GOOD EVENING", "COMMUNITY CHECK-IN", "CONFESSION TIME", "FLIRTY CONFESSION", "SPICY CONFESSION"))
+
 async def _send_message_with_policy(self,*args,**kwargs):
     sent=await _ORIGINAL_SEND_MESSAGE(self,*args,**kwargs)
     chat_id=kwargs.get("chat_id")
     if chat_id is None and args:chat_id=args[0]
     if not _is_main_chat(chat_id) or _is_admin_chat(chat_id):return sent
-    if not _is_permanent_launcher(kwargs) and CLEAN_CHAT_SECONDS>0:
+    if not _is_permanent_launcher(kwargs) and not _is_protected_daily_message(kwargs) and CLEAN_CHAT_SECONDS>0:
         try:asyncio.create_task(_delete_message_later(self,chat_id,sent.message_id))
         except Exception:logger.exception("Could not schedule clean-chat deletion.")
     return sent
