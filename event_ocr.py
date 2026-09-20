@@ -811,7 +811,7 @@ async def _send_private_event_editor(context, user_id, submission_id):
                 photo=row["file_id"],
                 caption=caption,
                 parse_mode="HTML",
-                reply_markup=_member_keyboard(submission_id),
+                reply_markup=_member_keyboard(submission_id, website_missing=not fields.get("website")),
             )
         else:
             await context.bot.send_video(
@@ -819,7 +819,7 @@ async def _send_private_event_editor(context, user_id, submission_id):
                 video=row["file_id"],
                 caption=caption,
                 parse_mode="HTML",
-                reply_markup=_member_keyboard(submission_id),
+                reply_markup=_member_keyboard(submission_id, website_missing=not fields.get("website")),
             )
     except TelegramError:
         logger.exception("Could not send Event flyer to private bot chat | submission=%s", submission_id)
@@ -827,7 +827,7 @@ async def _send_private_event_editor(context, user_id, submission_id):
             chat_id=user_id,
             text=caption,
             parse_mode="HTML",
-            reply_markup=_member_keyboard(submission_id),
+            reply_markup=_member_keyboard(submission_id, website_missing=not fields.get("website")),
         )
 
     if missing:
