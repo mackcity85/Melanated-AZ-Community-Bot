@@ -292,7 +292,7 @@ async def admin_edit_raffle_end_date(update, context):
             f"🎁 <b>{html.escape(str(raffle.get('prize') or 'Raffle'))}</b>\\n"
             f"Current end: <b>{format_expiration(raffle.get('expires_at'))}</b>\\n\\n"
             "Send the new end date as <code>MM/DD/YYYY</code>.\\n"
-            "The raffle will end at <b>11:59 PM Arizona time</b> on that date."
+            "The raffle will end at <b>7:00 PM Arizona time</b> on that date."
         ),
         parse_mode=ParseMode.HTML,
     )
@@ -320,7 +320,7 @@ async def handle_raffle_end_date(update, context):
         return True
     try:
         arizona = ZoneInfo("America/Phoenix")
-        expires_at = parsed.replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=arizona).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+        expires_at = parsed.replace(hour=19, minute=0, second=0, microsecond=0, tzinfo=arizona).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
         raffle = get_raffle(raffle_id)
         if not raffle:
             context.user_data.pop("awaiting_raffle_end_date", None)
@@ -443,6 +443,87 @@ async def _delete_raffle_message_job(context):
         logger.info("Raffle temporary message already gone or could not be deleted | chat=%s message=%s", data.get("chat_id"), data.get("message_id"))
 
 
+async def auto_draw_raffle(context):
+    """Automatically draw the active raffle when its configured end time arrives."""
+    raffle = get_active_raffle()
+    if not raffle:
+        logger.info("Automatic raffle draw skipped: no active raffle.")
+        return
+    try:
+        expires = datetime.fromisoformat(str(raffle.get("expires_at")))
+    except (TypeError, ValueError):
+        logger.error("Automatic raffle draw skipped: invalid expiration | raffle=%s", raffle.get("id"))
+        return
+    now_utc = datetime.utcnow()
+    if expires > now_utc:
+        logger.info("Automatic raffle draw called early; rescheduling | raffle=%s | expires=%s", raffle["id"], expires.isoformat())
+        schedule_raffle_auto_draw(context, int(raffle["id"]), expires)
+        return
+    entries = get_approved_entries(int(raffle["id"]))
+    if not entries:
+        close_raffle(int(raffle["id"]))
+        text = (
+            "🎟️ <b>RAFFLE CLOSED</b>\\n\\n"
+            f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n\\n"
+            "⏰ The raffle ended with no approved entries.\\n"
+            "No winner was selected."
+        )
+    else:
+        winner = random.choice(entries)
+        close_raffle(int(raffle["id"]))
+        text = (
+            "🎉 <b>RAFFLE WINNER!</b>\\n\\n"
+            f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n\\n"
+            f"🏆 <b>Winner:</b> {display_user(winner)}\\n"
+            f"🆔 <b>Entry:</b> <code>{winner['id']}</code>\\n\\n"
+            "🎉 Congratulations!"
+        )
+    try:
+        await context.bot.send_message(
+            chat_id=int(RAFFLE_CHAT_ID),
+            message_thread_id=RAFFLE_TOPIC_ID,
+            text=text,
+            parse_mode=ParseMode.HTML,
+        )
+        logger.info("AUTOMATIC RAFFLE DRAW COMPLETE | raffle=%s | entries=%s", raffle["id"], len(entries))
+    except TelegramError:
+        logger.exception("Automatic raffle draw announcement failed | raffle=%s", raffle["id"])
+
+
+def schedule_raffle_auto_draw(context, raffle_id, expires_at=None):
+    """Schedule exactly one persistent-in-process automatic draw for a raffle."""
+    if not context or not getattr(context, "job_queue", None):
+        logger.warning("Automatic raffle draw unavailable: JobQueue not installed.")
+        return
+    for job in context.job_queue.get_jobs_by_name(f"raffle-auto-draw-{int(raffle_id)}"):
+        job.schedule_removal()
+    if expires_at is None:
+        raffle = get_raffle(int(raffle_id))
+        if not raffle:
+            return
+        try:
+            expires_at = datetime.fromisoformat(str(raffle.get("expires_at")))
+        except (TypeError, ValueError):
+            logger.error("Could not schedule automatic draw: invalid expiration | raffle=%s", raffle_id)
+            return
+    delay = max(0, (expires_at - datetime.utcnow()).total_seconds())
+    context.job_queue.run_once(
+        auto_draw_raffle,
+        when=delay,
+        name=f"raffle-auto-draw-{int(raffle_id)}",
+    )
+    logger.info("Automatic raffle draw scheduled | raffle=%s | expires=%s | delay=%.0fs", raffle_id, expires_at.isoformat(), delay)
+
+
+def schedule_active_raffle_auto_draws(application):
+    """Restore the active raffle draw timer after every bot restart."""
+    if not getattr(application, "job_queue", None):
+        return
+    raffle = get_active_raffle()
+    if raffle:
+        schedule_raffle_auto_draw(application, int(raffle["id"]), None)
+
+
 async def publish_raffle(raffle_id, context):
     raffle = get_raffle(raffle_id)
     if not raffle:
@@ -504,6 +585,7 @@ async def approve_raffle_callback(update, context, raffle_id):
     except TelegramError:
         pass
     if await publish_raffle(raffle_id, context):
+        schedule_raffle_auto_draw(context, raffle_id)
         try:
             await query.message.reply_text("✅ Raffle is now live in the Raffles & Giveaways topic.")
         except Exception:
