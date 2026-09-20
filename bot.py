@@ -685,7 +685,7 @@ def build_application():
         _init_db()
         application.add_handler(CommandHandler("start", handle_event_start), group=-2)
         application.add_handler(CallbackQueryHandler(handle_event_member_callback, pattern=r"^event_ocr_(?:edit|website|confirm)_\d+$"), group=-2)
-        application.add_handler(CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_ocr_admin_(?:edit(?:_(?:event|date|time|location|price|website))?|approve|deny)_\d+$"), group=-2)
+        application.add_handler(CallbackQueryHandler(handle_event_admin_callback, pattern=r"^event_ocr_admin_(?:edit(?:_(?:event|date|time|location|price|website))?|remove(?:_(?:confirm|cancel))?|approve|deny)(?:_(?:event|date|time|location|price|website))?_\d+$"), group=-2)
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_event_text), group=-2)
         # Event OCR must run before community verification/media handlers.
         # Event topic 12214 is exclusively owned by event_ocr.py.
