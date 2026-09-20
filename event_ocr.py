@@ -564,6 +564,12 @@ def _admin_keyboard(submission_id):
         [
             [
                 InlineKeyboardButton(
+                    "✏️ EDIT ALL FIELDS",
+                    callback_data=f"event_ocr_admin_edit_{submission_id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "✅ APPROVE",
                     callback_data=f"event_ocr_admin_approve_{submission_id}",
                 ),
@@ -571,7 +577,7 @@ def _admin_keyboard(submission_id):
                     "❌ DENY",
                     callback_data=f"event_ocr_admin_deny_{submission_id}",
                 ),
-            ]
+            ],
         ]
     )
 
