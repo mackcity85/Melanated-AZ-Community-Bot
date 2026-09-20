@@ -297,8 +297,7 @@ def _clean_lines(text):
     for raw in str(text or "").splitlines():
         line = re.sub(r"\s+", " ", raw).strip(" |•\t")
         if line and line not in result:
-            result.append(line)
-    return result
+            result.append(line)    return result
 
 
 def _extract_labeled(lines, labels):
@@ -517,23 +516,36 @@ def _format_fields(fields):
     return "\n".join(lines)
 
 
-def _member_keyboard(submission_id):
-    return InlineKeyboardMarkup(
+def _member_keyboard(submission_id, website_missing=False):
+    buttons = [
         [
+            InlineKeyboardButton(
+                "✏️ EDIT / FILL IN",
+                callback_data=f"event_ocr_edit_{submission_id}",
+            )
+        ]
+    ]
+
+    if website_missing:
+        buttons.append(
             [
                 InlineKeyboardButton(
-                    "✏️ EDIT / FILL IN",
-                    callback_data=f"event_ocr_edit_{submission_id}",
+                    "🌐 ENTER WEBSITE",
+                    callback_data=f"event_ocr_website_{submission_id}",
                 )
-            ],
-            [
-                InlineKeyboardButton(
-                    "✅ CONFIRM & SUBMIT",
-                    callback_data=f"event_ocr_confirm_{submission_id}",
-                )
-            ],
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "✅ CONFIRM & SUBMIT",
+                callback_data=f"event_ocr_confirm_{submission_id}",
+            )
         ]
     )
+
+    return InlineKeyboardMarkup(buttons)
 
 
 def _admin_keyboard(submission_id):
@@ -597,8 +609,7 @@ async def _prompt_next_missing(context, user_id, submission_id):
     await context.bot.send_message(
         chat_id=EVENT_CHAT_ID,
         message_thread_id=EVENT_TOPIC_ID,
-        text=(
-            "⚠️ <b>EVENT INFORMATION MISSING</b>\n\n"
+        text=(            "⚠️ <b>EVENT INFORMATION MISSING</b>\n\n"
             + _format_fields(fields)
             + "\n\n"
             + prompts[field]
@@ -798,7 +809,7 @@ async def _send_private_event_editor(context, user_id, submission_id):
                 photo=row["file_id"],
                 caption=caption,
                 parse_mode="HTML",
-                reply_markup=_member_keyboard(submission_id),
+                reply_markup=_member_keyboard(submission_id, website_missing=not fields.get("website")),
             )
         else:
             await context.bot.send_video(
@@ -814,7 +825,7 @@ async def _send_private_event_editor(context, user_id, submission_id):
             chat_id=user_id,
             text=caption,
             parse_mode="HTML",
-            reply_markup=_member_keyboard(submission_id),
+            reply_markup=_member_keyboard(submission_id, website_missing=not fields.get("website")),
         )
 
     if missing:
@@ -828,6 +839,14 @@ async def _send_private_event_editor(context, user_id, submission_id):
                 "Please enter the full pricing information. "
                 "You may enter multiple prices, early-bird pricing, promo codes, "
                 "or a pricing table. If it is free, type <b>Free</b>."
+            ),
+            "website": (
+                "🌐 <b>Website</b>\n\n"
+                "OCR did not find a website on this flyer. "
+                "Please enter the website manually. "
+                "You can enter a full URL or a domain such as example.com. "
+                "This field is optional; tap <b>CONFIRM &amp; SUBMIT</b> "
+                "if the event has no website."
             ),
         }
         await context.bot.send_message(
@@ -998,447 +1017,3 @@ async def handle_event_text(update, context):
         return
 
     value = message.text.strip()
-    if not value:
-        return
-
-    fields = _fields(row)
-    fields[field] = value
-    _update_submission(
-        submission_id,
-        fields=fields,
-        status="member_input",
-    )
-
-    context.user_data.pop("event_ocr_waiting_for", None)
-    if is_private:
-        await _send_private_event_editor(
-            context,
-            user.id,
-            int(submission_id),
-        )
-    else:
-        await _prompt_next_missing(
-            context,
-            user.id,
-            int(submission_id),
-        )
-    raise ApplicationHandlerStop
-
-
-async def handle_event_member_callback(update, context):
-    query = update.callback_query
-    user = update.effective_user
-
-    if not query or not user:
-        return
-
-    match = re.fullmatch(
-        r"event_ocr_(edit|confirm)_(\d+)",
-        query.data or "",
-    )
-    if not match:
-        return
-
-    submission_id = int(match.group(2))
-    row = _get_submission(submission_id)
-
-    if not row or row["user_id"] != user.id:
-        await query.answer(
-            "This Event submission is not yours.",
-            show_alert=True,
-        )
-        return
-
-    if row["status"] not in {"member_input", "awaiting_confirmation"}:
-        await query.answer(
-            "This submission is no longer editable.",
-            show_alert=True,
-        )
-        return
-
-    fields = _fields(row)
-
-    if match.group(1) == "edit":
-        context.user_data["event_ocr_submission_id"] = submission_id
-        context.user_data["event_ocr_waiting_for"] = "event"
-        await query.answer()
-        if query.message.chat.type == "private":
-            await query.message.reply_text(
-                "✏️ <b>EDIT EVENT</b>\n\n"
-                + _format_fields(fields)
-                + "\n\nPlease enter the <b>Event Name</b>.",
-                parse_mode="HTML",
-            )
-        else:
-            await query.message.reply_text(
-                "✏️ <b>EDIT EVENT</b>\n\n"
-                "Please use the private Melanated AZ Bot chat to edit the Event.",
-                parse_mode="HTML",
-            )
-        return
-
-    missing = _missing(fields)
-    if missing:
-        context.user_data["event_ocr_submission_id"] = submission_id
-        context.user_data["event_ocr_waiting_for"] = missing[0]
-        await query.answer(
-            "Some required information is still missing.",
-            show_alert=True,
-        )
-        if query.message.chat.type == "private":
-            await _send_private_event_editor(
-                context,
-                user.id,
-                submission_id,
-            )
-        else:
-            await _prompt_next_missing(
-                context,
-                user.id,
-                submission_id,
-            )
-        return
-
-    await query.answer("Submitting to admins...")
-    ok = await _send_to_admins(context, submission_id)
-
-    if not ok:
-        await query.answer(
-            "I couldn't send the Event to the admins. Please try again.",
-            show_alert=True,
-        )
-        return
-
-    context.user_data.pop("event_ocr_submission_id", None)
-    context.user_data.pop("event_ocr_waiting_for", None)
-
-    try:
-        await query.message.edit_text(
-            "✅ <b>EVENT SUBMITTED FOR ADMIN APPROVAL</b>\n\n"
-            + _format_fields(fields)
-            + "\n\nThe flyer is now with the admins. "
-              "It will only be posted publicly if approved.",
-            parse_mode="HTML",
-        )
-    except Exception:
-        pass
-
-
-# ==========================================================
-# ADMIN APPROVAL
-# ==========================================================
-
-async def handle_event_admin_callback(update, context):
-    query = update.callback_query
-    user = update.effective_user
-
-    if not query or not user:
-        return
-
-    match = re.fullmatch(
-        r"event_ocr_admin_(approve|deny)_(\d+)",
-        query.data or "",
-    )
-    if not match:
-        return
-
-    try:
-        from admin import is_admin
-
-        if not await is_admin(user.id, context):
-            await query.answer(
-                "⛔ You are not authorized.",
-                show_alert=True,
-            )
-            return
-    except Exception:
-        logger.exception("Independent Event admin authorization failed")
-        await query.answer(
-            "⛔ Unable to verify admin access.",
-            show_alert=True,
-        )
-        return
-
-    submission_id = int(match.group(2))
-    row = _get_submission(submission_id)
-
-    if not row or row["status"] != "pending_admin":
-        await query.answer(
-            "This Event has already been processed.",
-            show_alert=True,
-        )
-        return
-
-    fields = _fields(row)
-    action = match.group(1)
-
-    if action == "deny":
-        _update_submission(submission_id, status="denied")
-        await query.answer("Event denied.")
-
-        try:
-            await query.edit_message_text(
-                "❌ <b>EVENT DENIED</b>\n\n"
-                + _format_fields(fields),
-                parse_mode="HTML",
-            )
-        except Exception:
-            pass
-
-        await _notify_submitter(
-            context,
-            row,
-            "❌ Your Event flyer was not approved by the admins.",
-        )
-        return
-
-    await query.answer("Publishing Event...")
-
-    try:
-        _update_submission(submission_id, status="approved")
-
-        # Rebuild all approved Events in date order. This keeps the
-        # Events topic sorted by event day rather than approval order.
-        await _republish_events_in_date_order(context)
-
-        try:
-            await query.edit_message_text(
-                "✅ <b>EVENT APPROVED & PUBLISHED</b>\n\n"
-                + _format_fields(fields),
-                parse_mode="HTML",
-            )
-        except Exception:
-            pass
-
-        await _notify_submitter(
-            context,
-            row,
-            "✅ Your Event flyer was approved and posted in the Events topic.",
-        )
-
-        logger.info(
-            "Independent Event approved | submission=%s",
-            submission_id,
-        )
-
-    except Exception:
-        logger.exception(
-            "Independent Event publication failed | submission=%s",
-            submission_id,
-        )
-        _update_submission(submission_id, status="pending_admin")
-        await query.answer(
-            "Publishing failed. Check the Render logs.",
-            show_alert=True,
-        )
-
-
-async def _notify_submitter(context, row, text):
-    try:
-        await context.bot.send_message(
-            chat_id=row["user_id"],
-            text=text,
-        )
-    except TelegramError:
-        logger.info(
-            "Could not DM Event submitter | user_id=%s",
-            row["user_id"],
-        )
-
-
-# ==========================================================
-# CHRONOLOGICAL PUBLICATION
-# ==========================================================
-
-def _parse_event_date(raw):
-    raw = str(raw or "").strip()
-    if not raw:
-        return None
-
-    cleaned = re.sub(
-        r"(st|nd|rd|th)",
-        "",
-        raw,
-        flags=re.IGNORECASE,
-    )
-
-    for fmt in (
-        "%m/%d/%Y",
-        "%m-%d-%Y",
-        "%m/%d/%y",
-        "%m-%d-%y",
-        "%B %d, %Y",
-        "%B %d %Y",
-        "%b %d, %Y",
-        "%b %d %Y",
-    ):
-        try:
-            return datetime.strptime(cleaned, fmt).date()
-        except ValueError:
-            pass
-
-    # Handle OCR strings such as "September 18" by assuming the
-    # current year. This is only a sort key; the displayed value is
-    # never changed.
-    for fmt in ("%B %d", "%b %d"):
-        try:
-            return datetime.strptime(
-                f"{cleaned} {datetime.now().year}",
-                f"{fmt} %Y",
-            ).date()
-        except ValueError:
-            pass
-
-    return None
-
-
-def _sort_key(row):
-    fields = _fields(row)
-    parsed = _parse_event_date(fields.get("date"))
-
-    if parsed is None:
-        return (2, str(fields.get("date") or "").lower(), int(row["id"]))
-
-    today = datetime.now().date()
-    return (
-        0 if parsed >= today else 1,
-        parsed,
-        int(row["id"]),
-    )
-
-
-def _approved_rows():
-    with _db() as conn:
-        return conn.execute(
-            "SELECT * FROM event_submissions "
-            "WHERE status='approved' ORDER BY id ASC"
-        ).fetchall()
-
-
-async def _republish_events_in_date_order(context):
-    rows = sorted(_approved_rows(), key=_sort_key)
-
-    if not rows:
-        return
-
-    # Delete only messages that this independent system previously
-    # published. Nothing else in the Events topic is touched.
-    for row in rows:
-        old_id = row["published_message_id"]
-        if not old_id:
-            continue
-
-        try:
-            await context.bot.delete_message(
-                chat_id=EVENT_CHAT_ID,
-                message_id=int(old_id),
-            )
-        except TelegramError:
-            logger.info(
-                "Prior Event publication already gone | message=%s",
-                old_id,
-            )
-
-    for row in rows:
-        fields = _fields(row)
-        caption = (
-            "📅 <b>EVENT</b>\n\n"
-            + _format_fields(fields)
-        )
-
-        if row["media_type"] == "photo":
-            published = await context.bot.send_photo(
-                chat_id=EVENT_CHAT_ID,
-                message_thread_id=EVENT_TOPIC_ID,
-                photo=row["file_id"],
-                caption=caption,
-                parse_mode="HTML",
-            )
-        else:
-            published = await context.bot.send_video(
-                chat_id=EVENT_CHAT_ID,
-                message_thread_id=EVENT_TOPIC_ID,
-                video=row["file_id"],
-                caption=caption,
-                parse_mode="HTML",
-            )
-
-        _update_submission(
-            row["id"],
-            published_message_id=published.message_id,
-        )
-
-    logger.info(
-        "Independent Events chronological rebuild complete | count=%s",
-        len(rows),
-    )
-
-
-# ==========================================================
-# INSTALLATION
-# ==========================================================
-
-def install_application(application):
-    """Install ONLY the independent Event OCR handlers."""
-
-    if getattr(application, "_melanated_event_ocr_installed", False):
-        return
-
-    _init_db()
-
-    group = -30
-
-    application.add_handler(
-        CommandHandler(
-            "start",
-            handle_event_start,
-        ),
-        group=group,
-    )
-
-    application.add_handler(
-        MessageHandler(
-            filters.PHOTO,
-            handle_event_photo,
-        ),
-        group=group,
-    )
-    application.add_handler(
-        MessageHandler(
-            filters.VIDEO,
-            handle_event_video,
-        ),
-        group=group,
-    )
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_event_text,
-        ),
-        group=group,
-    )
-    application.add_handler(
-        CallbackQueryHandler(
-            handle_event_member_callback,
-            pattern=r"^event_ocr_(?:edit|confirm)_\d+$",
-        ),
-        group=group,
-    )
-    application.add_handler(
-        CallbackQueryHandler(
-            handle_event_admin_callback,
-            pattern=r"^event_ocr_admin_(?:approve|deny)_\d+$",
-        ),
-        group=group,
-    )
-
-    application._melanated_event_ocr_installed = True
-
-    logger.info(
-        "INDEPENDENT EVENT OCR ACTIVE | chat=%s | topic=%s | "
-        "admin_group=%s | handler_group=%s | dependency=NONE",
-        EVENT_CHAT_ID,
-        EVENT_TOPIC_ID,
-        ADMIN_GROUP_ID,
-        group,
-    )
