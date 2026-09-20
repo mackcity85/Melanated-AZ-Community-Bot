@@ -677,7 +677,7 @@ async def _send_to_admins(context, submission_id):
                 "All required fields are present. Final decision requires admin approval."
             ),
             parse_mode="HTML",
-            reply_markup=_admin_keyboard(submission_id, approved=approved),
+            reply_markup=_admin_keyboard(submission_id, approved=False),
         )
 
         _update_submission(
