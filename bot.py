@@ -517,6 +517,56 @@ async def retry_pending_intro(context):
         )
 
 
+async def recover_saved_intros(context):
+    """Recover introductions saved in the database but missing a Telegram topic message."""
+    main = configured_main_group_id()
+    if not main:
+        logger.error("INTRO RECOVERY SKIPPED | MAIN_GROUP_ID is not configured")
+        return
+
+    with community_db_connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM community_members WHERE chat_id=? AND intro_text IS NOT NULL AND TRIM(intro_text)!='' AND intro_message_id IS NULL AND status='active' ORDER BY intro_posted_at ASC",
+            (main,),
+        ).fetchall()
+
+    if not rows:
+        logger.info("INTRO RECOVERY | no saved introductions are missing a topic message")
+        return
+
+    recovered = 0
+    failed = 0
+    for row in rows:
+        user_id = int(row["user_id"])
+        try:
+            user = await context.bot.get_chat(user_id)
+        except TelegramError:
+            logger.exception("INTRO RECOVERY | could not load user | user_id=%s", user_id)
+            failed += 1
+            continue
+
+        topic_message = await _post_intro_to_topic(
+            context.bot,
+            main,
+            user,
+            row["intro_text"],
+            updated=False,
+        )
+        if topic_message:
+            save_intro(main, user_id, row["intro_text"], topic_message.message_id)
+            recovered += 1
+            logger.info(
+                "INTRO RECOVERY SUCCEEDED | user_id=%s | message_id=%s | topic=%s",
+                user_id, topic_message.message_id, INTRO_TOPIC_ID,
+            )
+        else:
+            failed += 1
+
+    logger.info(
+        "INTRO RECOVERY COMPLETE | found=%s | recovered=%s | failed=%s | topic=%s",
+        len(rows), recovered, failed, INTRO_TOPIC_ID,
+    )
+
 async def private_intro_text_handler(update,context):
     message=update.effective_message; user=update.effective_user; chat=update.effective_chat
     if context.user_data.get("awaiting_raffle_end_date"):
@@ -844,6 +894,9 @@ def main():
     database_startup_check(); game_database_startup_check(); real_games_startup_check()
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
+    if application.job_queue:
+        application.job_queue.run_once(recover_saved_intros, when=12, name="intro-saved-recovery")
+        logger.info("Saved introduction recovery scheduled | delay=12s | topic=%s", INTRO_TOPIC_ID)
     application=build_application()
     # One-time startup rebuild of existing approved Event OCR flyers.
     # This is scheduled here because bot.py is the actual application entrypoint;
