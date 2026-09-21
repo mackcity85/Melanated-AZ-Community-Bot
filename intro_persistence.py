@@ -63,10 +63,11 @@ def _is_real_saved_intro(text):
 
 
 async def recover_saved_introductions(application):
-    """Repost every real saved introduction into topic 11570 once for v3.
+    """Repost saved introductions that have no recorded topic message.
 
-    Telegram's Bot API cannot retrieve arbitrary historical/deleted messages.
-    Therefore recovery is based on intro_text still stored in the community DB.
+    This runs at startup and is safe to repeat. It never deletes or rewrites
+    existing introductions; it only repairs saved submissions whose topic
+    post was never recorded as successfully posted.
     """
     main = _main_group_id()
     if not main:
@@ -75,9 +76,6 @@ async def recover_saved_introductions(application):
     if not os.path.exists(COMMUNITY_DB):
         logger.error("INTRO RECOVERY SKIPPED: community database does not exist: %s", COMMUNITY_DB)
         return
-    if os.path.exists(RECOVERY_MARKER):
-        return
-
     try:
         with bot.community_db_connect() as conn:
             rows = conn.execute(
@@ -86,6 +84,7 @@ async def recover_saved_introductions(application):
                     WHERE chat_id=?
                       AND intro_text IS NOT NULL
                       AND TRIM(intro_text) <> ''
+                      AND (intro_message_id IS NULL OR intro_message_id = 0)
                     ORDER BY COALESCE(intro_posted_at, joined_at), user_id""",
                 (main,),
             ).fetchall()
@@ -139,15 +138,9 @@ async def recover_saved_introductions(application):
             )
             return
 
-        os.makedirs(os.path.dirname(RECOVERY_MARKER) or ".", exist_ok=True)
-        with open(RECOVERY_MARKER, "w", encoding="utf-8") as marker:
-            marker.write(
-                f"Recovered {recovered} introductions; skipped {skipped} legacy placeholders.\n"
-            )
-
         logger.info(
-            "INTRO RECOVERY v3 COMPLETE | recovered=%s | skipped=%s | topic=%s",
-            recovered, skipped, INTRO_TOPIC_ID,
+            "INTRO RECOVERY COMPLETE | recovered=%s | failed=%s | skipped=%s | topic=%s",
+            recovered, failed, skipped, INTRO_TOPIC_ID,
         )
     except Exception:
         logger.exception("INTRO RECOVERY v3 failed; marker was not created.")
