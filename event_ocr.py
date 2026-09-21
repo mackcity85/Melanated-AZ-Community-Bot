@@ -597,8 +597,7 @@ async def _prompt_next_missing(context, user_id, submission_id):
                 + _format_fields(fields)
                 + "\n\nEverything required is present. "
                   "Review it and tap <b>CONFIRM &amp; SUBMIT</b>."
-            ),
-            parse_mode="HTML",
+            ),            parse_mode="HTML",
             reply_markup=_member_keyboard(submission_id, website_missing=not fields.get("website")),
         )
         return
@@ -986,6 +985,32 @@ async def _process_media(update, context):
                 message.message_id,
             )
 
+        # If the member has already started the Melanated AZ Bot, open the
+        # private editor immediately. Telegram does not allow a bot to start
+        # a private conversation with a user who has never opened it, so the
+        # public deep-link prompt remains the fallback for first-time users.
+        private_editor_opened = False
+        try:
+            private_editor_opened = bool(
+                await _send_private_event_editor(
+                    context,
+                    user.id,
+                    submission_id,
+                )
+            )
+        except TelegramError:
+            logger.info(
+                "Event private editor unavailable; using public deep link | user=%s | submission=%s",
+                user.id,
+                submission_id,
+            )
+        except Exception:
+            logger.exception(
+                "Event private editor attempt failed | user=%s | submission=%s",
+                user.id,
+                submission_id,
+            )
+
         await _send_public_edit_prompt(
             context,
             submission_id,
@@ -993,12 +1018,13 @@ async def _process_media(update, context):
 
         logger.info(
             "Independent Event flyer captured | submission=%s | user=%s | "
-            "ocr_chars=%s | fields=%s | missing=%s",
+            "ocr_chars=%s | fields=%s | missing=%s | private_editor=%s",
             submission_id,
             user.id,
             len(ocr_text or ""),
             fields,
             _missing(fields),
+            private_editor_opened,
         )
 
         return True
@@ -1197,8 +1223,7 @@ async def handle_event_member_callback(update, context):
         return
 
     action = match.group(1)
-    submission_id = int(match.group(2))
-    row = _get_submission(submission_id)
+    submission_id = int(match.group(2))    row = _get_submission(submission_id)
 
     if not row or row["user_id"] != user.id:
         await query.answer(
@@ -1796,51 +1821,4 @@ def install_application(application):
             handle_event_start,
         ),
         group=group,
-    )
-
-    application.add_handler(
-        MessageHandler(
-            filters.PHOTO,
-            handle_event_photo,
-        ),
-        group=group,
-    )
-    application.add_handler(
-        MessageHandler(
-            filters.VIDEO,
-            handle_event_video,
-        ),
-        group=group,
-    )
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_event_text,
-        ),
-        group=group,
-    )
-    application.add_handler(
-        CallbackQueryHandler(
-            handle_event_member_callback,
-            pattern=r"^event_ocr_(?:edit|website|confirm)_\d+$",
-        ),
-        group=group,
-    )
-    application.add_handler(
-        CallbackQueryHandler(
-            handle_event_admin_callback,
-            pattern=r"^event_ocr_admin_(?:edit(?:_(?:event|date|time|location|price|website))?|remove(?:_(?:confirm|cancel))?|approve|deny)_\d+$",
-        ),
-        group=group,
-    )
-
-    application._melanated_event_ocr_installed = True
-
-    logger.info(
-        "INDEPENDENT EVENT OCR ACTIVE | chat=%s | topic=%s | "
-        "admin_group=%s | handler_group=%s | dependency=NONE",
-        EVENT_CHAT_ID,
-        EVENT_TOPIC_ID,
-        ADMIN_GROUP_ID,
-        group,
     )
