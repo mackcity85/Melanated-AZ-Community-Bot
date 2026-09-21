@@ -452,6 +452,71 @@ async def intro_callback(update,context):
         if not row or not row["verified_at"]: await query.answer("You need to be verified in Melanated AZ first.",show_alert=True); return
         await query.answer(); await send_private_intro_prompt(user,context,update_existing=bool(row["intro_text"]))
 
+async def _post_intro_to_topic(bot, main_group_id, user, intro_text, updated=False):
+    try:
+        return await bot.send_message(
+            chat_id=main_group_id,
+            message_thread_id=INTRO_TOPIC_ID,
+            text=intro_topic_text(user, intro_text, updated=updated),
+            parse_mode=ParseMode.HTML,
+        )
+    except TelegramError as exc:
+        logger.exception(
+            "INTRO TOPIC POST FAILED | chat=%s | topic=%s | user_id=%s | error=%s",
+            main_group_id, INTRO_TOPIC_ID, getattr(user, "id", None), exc,
+        )
+        return None
+
+
+async def retry_pending_intro(context):
+    data = context.job.data or {}
+    main = int(data.get("main_group_id") or 0)
+    user_id = int(data.get("user_id") or 0)
+    intro_text = data.get("intro_text") or ""
+    updated = bool(data.get("updated"))
+    attempt = int(data.get("attempt") or 1)
+    if not main or not user_id or not intro_text:
+        return
+
+    try:
+        user = await context.bot.get_chat(user_id)
+    except TelegramError:
+        logger.exception("INTRO RETRY COULD NOT LOAD USER | user_id=%s", user_id)
+        return
+
+    topic_message = await _post_intro_to_topic(context.bot, main, user, intro_text, updated=updated)
+    if topic_message:
+        save_intro(main, user_id, intro_text, topic_message.message_id)
+        logger.info(
+            "INTRO TOPIC RETRY SUCCEEDED | user_id=%s | message_id=%s | topic=%s",
+            user_id, topic_message.message_id, INTRO_TOPIC_ID,
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="🎉 <b>INTRODUCTION POSTED!</b> 💜\\n\\nYour introduction is now visible in the 👋 Introductions topic.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=intro_view_keyboard(user_id),
+            )
+        except TelegramError:
+            pass
+        return
+
+    if attempt < 3 and context.job_queue:
+        delays = {1: 60, 2: 300}
+        context.job_queue.run_once(
+            retry_pending_intro,
+            when=delays.get(attempt, 300),
+            data={
+                "main_group_id": main,
+                "user_id": user_id,
+                "intro_text": intro_text,
+                "updated": updated,
+                "attempt": attempt + 1,
+            },
+        )
+
+
 async def private_intro_text_handler(update,context):
     message=update.effective_message; user=update.effective_user; chat=update.effective_chat
     if context.user_data.get("awaiting_raffle_end_date"):
@@ -462,10 +527,39 @@ async def private_intro_text_handler(update,context):
     if not intro_text or len(intro_text)>INTRO_MAX_CHARS:return
     main=configured_main_group_id(); row=community_member(main,user.id) if main else None
     if not row or not row["verified_at"]:return
-    try: topic_message=await context.bot.send_message(chat_id=main,message_thread_id=INTRO_TOPIC_ID,text=intro_topic_text(user,intro_text,updated=bool(row["intro_text"])),parse_mode=ParseMode.HTML)
-    except TelegramError: return
-    save_intro(main,user.id,intro_text,topic_message.message_id); context.user_data.pop("awaiting_intro_submission",None); context.user_data.pop("intro_submission_user_id",None)
-    await message.reply_text("🎉 <b>INTRO SAVED!</b> 💜\n\nYour introduction is now posted in the 👋 Introductions topic.",parse_mode=ParseMode.HTML,reply_markup=intro_view_keyboard(user.id))
+
+    updated=bool(row["intro_text"])
+    previous_message_id=row["intro_message_id"] if "intro_message_id" in row.keys() else None
+    # Save first so a Telegram topic-post failure cannot lose the submitted introduction.
+    save_intro(main,user.id,intro_text,previous_message_id if updated else None)
+
+    topic_message=await _post_intro_to_topic(context.bot,main,user,intro_text,updated=updated)
+    context.user_data.pop("awaiting_intro_submission",None)
+    context.user_data.pop("intro_submission_user_id",None)
+
+    if not topic_message:
+        if context.job_queue:
+            context.job_queue.run_once(
+                retry_pending_intro,
+                when=30,
+                data={
+                    "main_group_id": main,
+                    "user_id": user.id,
+                    "intro_text": intro_text,
+                    "updated": updated,
+                    "attempt": 1,
+                },
+            )
+        await message.reply_text(
+            "⚠️ <b>INTRO SAVED — POSTING RETRYING</b> 💜\\n\\n"
+            "I saved your introduction, but Telegram did not accept the topic post yet. "
+            "I’ll automatically retry it. You do not need to submit it again.",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    save_intro(main,user.id,intro_text,topic_message.message_id)
+    await message.reply_text("🎉 <b>INTRO SAVED!</b> 💜\\n\\nYour introduction is now posted in the 👋 Introductions topic.",parse_mode=ParseMode.HTML,reply_markup=intro_view_keyboard(user.id))
 
 async def private_intro_view_callback(update,context):
     query=update.callback_query; user=update.effective_user
