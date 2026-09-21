@@ -20,6 +20,9 @@ from telegram.constants import ParseMode
 from telegram.error import TelegramError, BadRequest
 from telegram.ext import Application, ApplicationHandlerStop, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, ChatMemberHandler, filters
 
+# Install startup integrations before Application.builder() is called.
+import startup_patch  # noqa: F401
+
 from config import BOT_TOKEN, ADMIN_IDS, RAFFLE_CHAT_ID
 from admin import admin_menu, admin_button, admin_birthday_text_handler, is_admin
 from birthday import birthday, my_birthday, remove_my_birthday, birthday_callback, birthday_text_handler
@@ -894,9 +897,6 @@ def main():
     database_startup_check(); game_database_startup_check(); real_games_startup_check()
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
-    if application.job_queue:
-        application.job_queue.run_once(recover_saved_intros, when=12, name="intro-saved-recovery")
-        logger.info("Saved introduction recovery scheduled | delay=12s | topic=%s", INTRO_TOPIC_ID)
     application=build_application()
     # One-time startup rebuild of existing approved Event OCR flyers.
     # This is scheduled here because bot.py is the actual application entrypoint;
