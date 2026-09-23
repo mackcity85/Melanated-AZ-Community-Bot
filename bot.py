@@ -9,6 +9,7 @@ import logging
 import os
 import html
 import threading
+import asyncio
 import sqlite3
 import random
 from datetime import datetime, timedelta, timezone
@@ -136,6 +137,12 @@ MEDIA_TOPIC_ID = 10286
 EVENT_TOPIC_ID = 12214
 MAIN_GROUP_ID = -1002697105809
 
+# Serialize media routing so a second Telegram update (including a reaction/update
+# arriving immediately after the media) cannot cause overlapping work on the same
+# source message. This is intentionally in-memory and scoped only to the router.
+_media_route_lock = asyncio.Lock()
+_media_route_in_progress = set()
+
 async def handle_media_move(update, context):
     """Move new group photos/videos into the dedicated Media topic."""
     message = update.effective_message
@@ -146,13 +153,30 @@ async def handle_media_move(update, context):
         return
     if not (message.photo or message.video):
         return
+
+    source_key = (message.chat_id, message.message_id)
+    async with _media_route_lock:
+        if source_key in _media_route_in_progress:
+            return
+        _media_route_in_progress.add(source_key)
+
     try:
-        copied = await context.bot.copy_message(
-            chat_id=MAIN_GROUP_ID,
-            from_chat_id=MAIN_GROUP_ID,
-            message_id=message.message_id,
-            message_thread_id=MEDIA_TOPIC_ID,
-        )
+        copied = None
+        # A short retry protects the copy/edit sequence from transient Telegram
+        # failures without changing the normal routing behavior.
+        for attempt in range(2):
+            try:
+                copied = await context.bot.copy_message(
+                    chat_id=MAIN_GROUP_ID,
+                    from_chat_id=MAIN_GROUP_ID,
+                    message_id=message.message_id,
+                    message_thread_id=MEDIA_TOPIC_ID,
+                )
+                break
+            except TelegramError:
+                if attempt == 1:
+                    raise
+                await asyncio.sleep(0.5)
 
         # Every photo/video copied into the Media topic is always marked
         # as a Telegram spoiler, regardless of the source message setting.
@@ -167,23 +191,49 @@ async def handle_media_move(update, context):
                     media=message.video.file_id,
                     has_spoiler=True,
                 )
-            await context.bot.edit_message_media(
-                chat_id=MAIN_GROUP_ID,
-                message_id=copied.message_id,
-                media=media,
-            )
+            edit_succeeded = False
+            for attempt in range(2):
+                try:
+                    await context.bot.edit_message_media(
+                        chat_id=MAIN_GROUP_ID,
+                        message_id=copied.message_id,
+                        media=media,
+                    )
+                    edit_succeeded = True
+                    break
+                except TelegramError:
+                    if attempt == 1:
+                        logger.exception(
+                            "Could not apply spoiler after media copy; keeping routed copy and deleting source | source_message=%s | copied_message=%s",
+                            message.message_id, copied.message_id,
+                        )
+                    else:
+                        await asyncio.sleep(0.5)
 
-        await message.delete()
-        logger.info(
-            "Media moved to Media topic with spoiler | source_message=%s | target_topic=%s",
-            message.message_id,
-            MEDIA_TOPIC_ID,
-        )
-        # This message has been fully handled. Stop lower-priority media
-        # moderation handlers from warning/deleting the already-routed source.
-        raise ApplicationHandlerStop
+        # Once Telegram has accepted the routed copy, remove the source even if
+        # the optional spoiler edit failed. This prevents a source message from
+        # becoming stuck in the original topic.
+        if copied and getattr(copied, "message_id", None):
+            try:
+                await message.delete()
+            except TelegramError:
+                logger.exception(
+                    "Routed media copy exists but source deletion failed | source_message=%s | copied_message=%s",
+                    message.message_id, copied.message_id,
+                )
+            logger.info(
+                "Media moved to Media topic | source_message=%s | target_topic=%s | spoiler=%s",
+                message.message_id,
+                MEDIA_TOPIC_ID,
+                edit_succeeded,
+            )
+            # This message has been fully handled. Stop lower-priority media
+            # moderation handlers from warning/deleting the already-routed source.
+            raise ApplicationHandlerStop
     except TelegramError:
         logger.exception("Failed to move media | message=%s | target_topic=%s", message.message_id, MEDIA_TOPIC_ID)
+    finally:
+        _media_route_in_progress.discard(source_key)
 
 async def handle_photo(update, context):
     message = update.effective_message
