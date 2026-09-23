@@ -1605,11 +1605,11 @@ def _parse_event_date(raw):
                 pass
 
     # Month/day without a year is retained for compatibility; only then
-    # do we assume the current year for sorting.
+    # do we assume the current Arizona year for sorting.
     for fmt in ("%B %d", "%b %d", "%m/%d", "%m-%d"):
         try:
             return datetime.strptime(
-                f"{cleaned} {datetime.now().year}",
+                f"{cleaned} {datetime.now(ARIZONA_TZ).year}",
                 f"{fmt} %Y",
             ).date()
         except ValueError:
@@ -1625,7 +1625,7 @@ def _sort_key(row):
     if parsed is None:
         return (2, str(fields.get("date") or "").lower(), int(row["id"]))
 
-    today = datetime.now().date()
+    today = datetime.now(ARIZONA_TZ).date()
     if parsed < today:
         # Keep past events above upcoming events.
         return (0, parsed, int(row["id"]))
@@ -1646,63 +1646,98 @@ _event_rebuild_lock = asyncio.Lock()
 
 
 async def _republish_events_in_date_order(context):
-    """Rebuild approved Events in date order, serializing concurrent rebuilds."""
+    """Rebuild approved Events safely in date order without losing the existing set."""
     async with _event_rebuild_lock:
         rows = sorted(_approved_rows(), key=_sort_key)
 
-    if not rows:
-        return
+        if not rows:
+            return
 
-    # Rebuild the public Events topic automatically after each approval.
-    # Only messages previously published by this independent Event OCR
-    # system are deleted; member/admin/OCR messages are never touched.
-    published_ids = [row["published_message_id"] for row in rows if row["published_message_id"]]
-
-    for old_id in published_ids:
+        # Stage the complete replacement set first. If any send fails, remove
+        # only the newly created messages and leave the current public Events
+        # untouched. This prevents a restart/API hiccup from erasing flyers.
+        staged = []
         try:
-            await context.bot.delete_message(
-                chat_id=EVENT_CHAT_ID,
-                message_id=int(old_id),
-            )
-        except TelegramError:
-            logger.info(
-                "Prior Event publication already gone | message=%s",
-                old_id,
-            )
+            for row in rows:
+                fields = _fields(row)
+                caption = (
+                    "📅 <b>EVENT</b>\\n\\n"
+                    + _format_fields(fields)
+                )
 
-    for row in rows:
-        fields = _fields(row)
-        caption = (
-            "📅 <b>EVENT</b>\n\n"
-            + _format_fields(fields)
+                if row["media_type"] == "photo":
+                    published = await context.bot.send_photo(
+                        chat_id=EVENT_CHAT_ID,
+                        message_thread_id=EVENT_TOPIC_ID,
+                        photo=row["file_id"],
+                        caption=caption,
+                        parse_mode="HTML",
+                    )
+                else:
+                    published = await context.bot.send_video(
+                        chat_id=EVENT_CHAT_ID,
+                        message_thread_id=EVENT_TOPIC_ID,
+                        video=row["file_id"],
+                        caption=caption,
+                        parse_mode="HTML",
+                    )
+
+                staged.append((row, published.message_id))
+        except Exception:
+            logger.exception(
+                "Event chronological rebuild staging failed | keeping existing publications | staged=%s | expected=%s",
+                len(staged), len(rows),
+            )
+            for _, new_id in staged:
+                try:
+                    await context.bot.delete_message(
+                        chat_id=EVENT_CHAT_ID,
+                        message_id=int(new_id),
+                    )
+                except TelegramError:
+                    logger.exception(
+                        "Could not clean staged Event publication after rebuild failure | message=%s",
+                        new_id,
+                    )
+            raise
+
+        # The complete replacement set exists. Only now remove the old
+        # publications tracked by this Event OCR system.
+        old_ids = {
+            int(row["published_message_id"])
+            for row in rows
+            if row["published_message_id"]
+        }
+        new_ids = {int(new_id) for _, new_id in staged}
+
+        for old_id in old_ids:
+            if old_id in new_ids:
+                continue
+            try:
+                await context.bot.delete_message(
+                    chat_id=EVENT_CHAT_ID,
+                    message_id=old_id,
+                )
+            except TelegramError:
+                logger.info(
+                    "Prior Event publication already gone | message=%s",
+                    old_id,
+                )
+
+        # Update the database only after the complete replacement set was
+        # successfully created, so a failed rebuild never loses its records.
+        with _db() as conn:
+            for row, new_id in staged:
+                conn.execute(
+                    "UPDATE event_submissions SET published_message_id=?, updated_at=? WHERE id=? AND status='approved'",
+                    (int(new_id), _now(), int(row["id"])),
+                )
+            conn.commit()
+
+        logger.info(
+            "Independent Events chronological rebuild complete | count=%s",
+            len(staged),
         )
-
-        if row["media_type"] == "photo":
-            published = await context.bot.send_photo(
-                chat_id=EVENT_CHAT_ID,
-                message_thread_id=EVENT_TOPIC_ID,
-                photo=row["file_id"],
-                caption=caption,
-                parse_mode="HTML",
-            )
-        else:
-            published = await context.bot.send_video(
-                chat_id=EVENT_CHAT_ID,
-                message_thread_id=EVENT_TOPIC_ID,
-                video=row["file_id"],
-                caption=caption,
-                parse_mode="HTML",
-            )
-
-        _update_submission(
-            row["id"],
-            published_message_id=published.message_id,
-        )
-
-    logger.info(
-        "Independent Events chronological rebuild complete | count=%s",
-        len(rows),
-    )
 
 
 # ==========================================================
