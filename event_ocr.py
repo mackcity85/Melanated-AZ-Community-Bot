@@ -1665,6 +1665,11 @@ async def _republish_events_in_date_order(context):
                     + _format_fields(fields)
                 )
 
+                # Telegram can take longer than the default HTTPX read timeout
+                # when rebuilding several existing flyers. Use a longer read timeout
+                # for this startup/admin rebuild only. The staged rebuild remains
+                # atomic: no old Event publication is deleted until every new send
+                # succeeds.
                 if row["media_type"] == "photo":
                     published = await context.bot.send_photo(
                         chat_id=EVENT_CHAT_ID,
@@ -1672,6 +1677,10 @@ async def _republish_events_in_date_order(context):
                         photo=row["file_id"],
                         caption=caption,
                         parse_mode="HTML",
+                        connect_timeout=15,
+                        write_timeout=60,
+                        read_timeout=60,
+                        pool_timeout=15,
                     )
                 else:
                     published = await context.bot.send_video(
@@ -1680,6 +1689,10 @@ async def _republish_events_in_date_order(context):
                         video=row["file_id"],
                         caption=caption,
                         parse_mode="HTML",
+                        connect_timeout=15,
+                        write_timeout=60,
+                        read_timeout=60,
+                        pool_timeout=15,
                     )
 
                 staged.append((row, published.message_id))
