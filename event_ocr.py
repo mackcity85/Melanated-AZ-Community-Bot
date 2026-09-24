@@ -1223,7 +1223,8 @@ async def handle_event_member_callback(update, context):
         return
 
     action = match.group(1)
-    submission_id = int(match.group(2))    row = _get_submission(submission_id)
+    submission_id = int(match.group(2))
+    row = _get_submission(submission_id)
 
     if not row or row["user_id"] != user.id:
         await query.answer(
