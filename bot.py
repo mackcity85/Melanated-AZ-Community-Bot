@@ -235,6 +235,58 @@ async def handle_media_move(update, context):
     finally:
         _media_route_in_progress.discard(source_key)
 
+async def handle_media_topic_spoiler(update, context):
+    """Ensure every photo/video already posted in the Media topic is a spoiler."""
+    message = update.effective_message
+    if not message or message.chat_id != MAIN_GROUP_ID:
+        return
+    if getattr(message, "message_thread_id", None) != MEDIA_TOPIC_ID:
+        return
+    if not (message.photo or message.video):
+        return
+
+    # Telegram updates can still carry the original has_media_spoiler=False
+    # value even after another handler edits the message, so always stop this
+    # update once the Media-topic guard has claimed it.
+    if message.has_media_spoiler:
+        raise ApplicationHandlerStop
+
+    try:
+        if message.photo:
+            media = InputMediaPhoto(
+                media=message.photo[-1].file_id,
+                caption=message.caption,
+                caption_entities=message.caption_entities,
+                has_spoiler=True,
+            )
+        else:
+            media = InputMediaVideo(
+                media=message.video.file_id,
+                caption=message.caption,
+                caption_entities=message.caption_entities,
+                has_spoiler=True,
+            )
+        await context.bot.edit_message_media(
+            chat_id=message.chat_id,
+            message_id=message.message_id,
+            media=media,
+        )
+        logger.info(
+            "Media topic spoiler enforced | message=%s | topic=%s",
+            message.message_id,
+            MEDIA_TOPIC_ID,
+        )
+    except TelegramError:
+        logger.exception(
+            "Could not enforce Media-topic spoiler | message=%s | topic=%s",
+            message.message_id,
+            MEDIA_TOPIC_ID,
+        )
+    finally:
+        # Never let the generic unspoiled-media moderation handler delete a
+        # legitimate post that is already in the dedicated Media topic.
+        raise ApplicationHandlerStop
+
 async def handle_photo(update, context):
     message = update.effective_message
     if not message:
@@ -896,6 +948,7 @@ def build_application():
     except Exception:
         logger.exception("Unable to initialize independent Event OCR handlers.")
     # General media routing: Events are handled by the independent OCR pipeline in group 4; all other group photos/videos are moved to Media topic 10286 before spoiler moderation.
+    application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media_topic_spoiler), group=4)
     application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media_move), group=5)
     application.add_handler(MessageHandler(filters.PHOTO,handle_photo),group=5)
     application.add_handler(MessageHandler(filters.VIDEO,handle_video),group=5)
