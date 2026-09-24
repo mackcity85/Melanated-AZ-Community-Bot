@@ -236,7 +236,12 @@ async def handle_media_move(update, context):
         _media_route_in_progress.discard(source_key)
 
 async def handle_media_topic_spoiler(update, context):
-    """Ensure every photo/video already posted in the Media topic is a spoiler."""
+    """Ensure every photo/video posted directly in the Media topic is a spoiler.
+
+    Telegram does not allow a bot to edit media messages sent by another user.
+    Therefore an unspoiled user post must be replaced with a bot-owned copy
+    carrying has_spoiler=True, then the original is deleted.
+    """
     message = update.effective_message
     if not message or message.chat_id != MAIN_GROUP_ID:
         return
@@ -245,40 +250,42 @@ async def handle_media_topic_spoiler(update, context):
     if not (message.photo or message.video):
         return
 
-    # Telegram updates can still carry the original has_media_spoiler=False
-    # value even after another handler edits the message, so always stop this
-    # update once the Media-topic guard has claimed it.
+    # A correctly spoilered user post needs no replacement.
     if message.has_media_spoiler:
         raise ApplicationHandlerStop
 
     try:
+        copied = None
         if message.photo:
-            media = InputMediaPhoto(
-                media=message.photo[-1].file_id,
+            copied = await context.bot.send_photo(
+                chat_id=MAIN_GROUP_ID,
+                photo=message.photo[-1].file_id,
                 caption=message.caption,
                 caption_entities=message.caption_entities,
                 has_spoiler=True,
+                message_thread_id=MEDIA_TOPIC_ID,
             )
         else:
-            media = InputMediaVideo(
-                media=message.video.file_id,
+            copied = await context.bot.send_video(
+                chat_id=MAIN_GROUP_ID,
+                video=message.video.file_id,
                 caption=message.caption,
                 caption_entities=message.caption_entities,
                 has_spoiler=True,
+                message_thread_id=MEDIA_TOPIC_ID,
             )
-        await context.bot.edit_message_media(
-            chat_id=message.chat_id,
-            message_id=message.message_id,
-            media=media,
-        )
+
+        await message.delete()
+
         logger.info(
-            "Media topic spoiler enforced | message=%s | topic=%s",
+            "Media topic spoiler enforced by replacement | source_message=%s | replacement_message=%s | topic=%s",
             message.message_id,
+            copied.message_id,
             MEDIA_TOPIC_ID,
         )
     except TelegramError:
         logger.exception(
-            "Could not enforce Media-topic spoiler | message=%s | topic=%s",
+            "Could not replace unspoiled Media-topic post | message=%s | topic=%s",
             message.message_id,
             MEDIA_TOPIC_ID,
         )
