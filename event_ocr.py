@@ -1662,7 +1662,7 @@ async def _republish_events_in_date_order(context):
             for row in rows:
                 fields = _fields(row)
                 caption = (
-                    "📅 <b>EVENT</b>\\n\\n"
+                    "📅 <b>EVENT</b>\n\n"
                     + _format_fields(fields)
                 )
 
