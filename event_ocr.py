@@ -944,6 +944,15 @@ async def _process_media(update, context):
     if not message.photo and not message.video:
         return False
 
+    logger.info(
+        "EVENT OCR RECEIVED | chat=%s | topic=%s | message=%s | media=%s | user=%s",
+        message.chat_id,
+        getattr(message, "message_thread_id", None),
+        message.message_id,
+        "photo" if message.photo else "video",
+        update.effective_user.id if update.effective_user else None,
+    )
+
     user = update.effective_user
     if not user or user.is_bot:
         return True
@@ -1054,12 +1063,16 @@ async def _process_media(update, context):
 
 
 async def handle_event_photo(update, context):
-    if await _process_media(update, context):
+    handled = await _process_media(update, context)
+    if handled:
+        logger.info("EVENT OCR PHOTO HANDLER CLAIMED | message=%s", update.effective_message.message_id)
         raise ApplicationHandlerStop
 
 
 async def handle_event_video(update, context):
-    if await _process_media(update, context):
+    handled = await _process_media(update, context)
+    if handled:
+        logger.info("EVENT OCR VIDEO HANDLER CLAIMED | message=%s", update.effective_message.message_id)
         raise ApplicationHandlerStop
 
 
