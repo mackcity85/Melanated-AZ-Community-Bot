@@ -1023,10 +1023,10 @@ def main():
     if application.job_queue:
         application.job_queue.run_once(
             event_ocr_startup_sort_job,
-            when=5,
+            when=30,
             name="event-ocr-startup-sort",
         )
-        logger.info("Event OCR startup sort scheduled | delay=5s | topic=12214")
+        logger.info("Event OCR startup sort scheduled | delay=30s | topic=12214")
     schedule_expired_event_cleanup(application)
     if application.job_queue:
         application.job_queue.run_once(
