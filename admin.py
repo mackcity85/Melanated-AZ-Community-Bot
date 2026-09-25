@@ -3465,9 +3465,12 @@ async def admin_approved_events(update, context):
     # surface, so actionable submissions must remain visible after restarts,
     # send failures, or interrupted approval flows.
     with _db() as conn:
+        # Keep every actionable submission visible. In particular,
+        # admin_send_failed was previously omitted, which made a submission
+        # appear to disappear even though it was still recoverable/removable.
         rows = conn.execute(
             "SELECT * FROM event_submissions "
-            "WHERE status IN ('pending_admin', 'approved', 'member_input', 'awaiting_confirmation') "
+            "WHERE status NOT IN ('denied', 'expired') "
             "ORDER BY id DESC"
         ).fetchall()
 
@@ -3504,10 +3507,17 @@ async def admin_approved_events(update, context):
             f"🆔 Submission #{sid}"
         )
 
-        # Only approved and pending submissions have admin edit/remove
-        # controls. Incomplete member-side submissions stay visible so they
-        # cannot silently disappear from the recovery panel.
-        if status in {"approved", "pending_admin"}:
+        # Every non-terminal submission is actionable from the admin
+        # recovery panel. This deliberately includes member_input,
+        # awaiting_confirmation, and admin_send_failed so an interrupted
+        # submission cannot become stranded.
+        if status in {
+            "approved",
+            "pending_admin",
+            "member_input",
+            "awaiting_confirmation",
+            "admin_send_failed",
+        }:
             buttons += [
                 [InlineKeyboardButton("✏️ Event", callback_data=f"event_ocr_admin_edit_event_{sid}")],
                 [
@@ -3519,19 +3529,16 @@ async def admin_approved_events(update, context):
                     InlineKeyboardButton("✏️ Price", callback_data=f"event_ocr_admin_edit_price_{sid}"),
                 ],
                 [InlineKeyboardButton("✏️ Website", callback_data=f"event_ocr_admin_edit_website_{sid}")],
+                [InlineKeyboardButton(
+                    f"🗑️ Remove #{sid}",
+                    callback_data=f"event_ocr_admin_remove_{sid}",
+                )],
             ]
-            if status == "approved":
-                buttons.append(
-                    [InlineKeyboardButton(
-                        f"🗑️ Remove {name}",
-                        callback_data=f"event_ocr_admin_remove_{sid}",
-                    )]
-                )
-            else:
+            if status == "pending_admin":
                 buttons.append(
                     [InlineKeyboardButton(
                         f"🔎 Review / Approve #{sid}",
-                        callback_data=f"admin_pending_event_approvals",
+                        callback_data="admin_pending_event_approvals",
                     )]
                 )
 
