@@ -28,6 +28,7 @@ import logging
 import os
 import re
 import asyncio
+import asyncio
 import sqlite3
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
@@ -1700,42 +1701,58 @@ async def _republish_events_in_date_order(context):
         # untouched. This prevents a restart/API hiccup from erasing flyers.
         staged = []
         try:
-            for row in rows:
+            for index, row in enumerate(rows):
                 fields = _fields(row)
                 caption = (
                     "📅 <b>EVENT</b>\n\n"
                     + _format_fields(fields)
                 )
 
+                # Pace rebuild sends so a restart cannot trip Telegram flood control.
+                # If Telegram still returns RetryAfter, wait exactly as requested and retry.
+
+                if index > 0:
+                    await asyncio.sleep(3)
+
                 # Telegram can take longer than the default HTTPX read timeout
                 # when rebuilding several existing flyers. Use a longer read timeout
                 # for this startup/admin rebuild only. The staged rebuild remains
                 # atomic: no old Event publication is deleted until every new send
                 # succeeds.
-                if row["media_type"] == "photo":
-                    published = await context.bot.send_photo(
-                        chat_id=EVENT_CHAT_ID,
-                        message_thread_id=EVENT_TOPIC_ID,
-                        photo=row["file_id"],
-                        caption=caption,
-                        parse_mode="HTML",
-                        connect_timeout=15,
-                        write_timeout=60,
-                        read_timeout=60,
-                        pool_timeout=15,
-                    )
-                else:
-                    published = await context.bot.send_video(
-                        chat_id=EVENT_CHAT_ID,
-                        message_thread_id=EVENT_TOPIC_ID,
-                        video=row["file_id"],
-                        caption=caption,
-                        parse_mode="HTML",
-                        connect_timeout=15,
-                        write_timeout=60,
-                        read_timeout=60,
-                        pool_timeout=15,
-                    )
+                while True:
+                    try:
+                        if row["media_type"] == "photo":
+                            published = await context.bot.send_photo(
+                                chat_id=EVENT_CHAT_ID,
+                                message_thread_id=EVENT_TOPIC_ID,
+                                photo=row["file_id"],
+                                caption=caption,
+                                parse_mode="HTML",
+                                connect_timeout=15,
+                                write_timeout=60,
+                                read_timeout=60,
+                                pool_timeout=15,
+                            )
+                        else:
+                            published = await context.bot.send_video(
+                                chat_id=EVENT_CHAT_ID,
+                                message_thread_id=EVENT_TOPIC_ID,
+                                video=row["file_id"],
+                                caption=caption,
+                                parse_mode="HTML",
+                                connect_timeout=15,
+                                write_timeout=60,
+                                read_timeout=60,
+                                pool_timeout=15,
+                            )
+                        break
+                    except RetryAfter as exc:
+                        retry_seconds = max(1, int(getattr(exc, "retry_after", 1)))
+                        logger.warning(
+                            "Telegram flood control during Event rebuild | submission=%s | retry_in=%ss",
+                            row["id"], retry_seconds,
+                        )
+                        await asyncio.sleep(retry_seconds + 1)
 
                 staged.append((row, published.message_id))
         except Exception:
