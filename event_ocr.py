@@ -1511,7 +1511,13 @@ async def handle_event_admin_callback(update, context):
         return
 
     if action == "edit":
-        if row["status"] not in {"pending_admin", "approved"}:
+        if row["status"] not in {
+            "pending_admin",
+            "approved",
+            "member_input",
+            "awaiting_confirmation",
+            "admin_send_failed",
+        }:
             await query.answer("This Event is no longer editable.", show_alert=True)
             return
 
