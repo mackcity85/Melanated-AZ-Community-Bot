@@ -570,6 +570,12 @@ def _admin_keyboard(submission_id, approved=False):
                 callback_data=f"event_ocr_admin_edit_{key}_{submission_id}",
             )
         ])
+    rows.append([
+        InlineKeyboardButton(
+            f"🗑️ REMOVE SUBMISSION #{submission_id}",
+            callback_data=f"event_ocr_admin_remove_{submission_id}",
+        )
+    ])
     if not approved:
         rows.append([
             InlineKeyboardButton("✅ APPROVE", callback_data=f"event_ocr_admin_approve_{submission_id}"),
@@ -1367,32 +1373,48 @@ async def _refresh_admin_details(context, submission_id, approved=False):
 # ==========================================================
 
 async def _remove_approved_event(context, submission_id):
-    """Remove an approved Event and its public flyer."""
+    """Remove an active Event submission and any associated copies."""
     row = _get_submission(submission_id)
-    if not row or row["status"] != "approved":
+    if not row:
         return False
 
-    published_id = row["published_message_id"]
-    if published_id:
-        try:
-            await context.bot.delete_message(
-                chat_id=EVENT_CHAT_ID,
-                message_id=int(published_id),
-            )
-        except TelegramError:
-            logger.info(
-                "Approved Event publication already gone | submission=%s | message=%s",
-                submission_id,
-                published_id,
-            )
+    removable = {
+        "approved", "pending_admin", "member_input",
+        "awaiting_confirmation", "admin_send_failed",
+    }
+    if row["status"] not in removable:
+        return False
+
+    for chat_id, message_id in (
+        (EVENT_CHAT_ID, row["published_message_id"]),
+        (ADMIN_GROUP_ID, row["admin_message_id"]),
+        (ADMIN_GROUP_ID, row["admin_details_message_id"]),
+    ):
+        if message_id:
+            try:
+                await context.bot.delete_message(
+                    chat_id=chat_id,
+                    message_id=int(message_id),
+                )
+            except TelegramError:
+                logger.info(
+                    "Event copy already gone | submission=%s | message=%s",
+                    submission_id,
+                    message_id,
+                )
 
     with _db() as conn:
         conn.execute(
-            "DELETE FROM event_submissions WHERE id=? AND status='approved'",
+            "DELETE FROM event_submissions WHERE id=?",
             (int(submission_id),),
         )
         conn.commit()
 
+    logger.info(
+        "Event submission removed | submission=%s | previous_status=%s",
+        submission_id,
+        row["status"],
+    )
     return True
 
 
@@ -1432,8 +1454,8 @@ async def handle_event_admin_callback(update, context):
         return
 
     if action == "remove":
-        if row["status"] != "approved":
-            await query.answer("Only approved Events can be removed here.", show_alert=True)
+        if row["status"] not in {"approved", "pending_admin", "member_input", "awaiting_confirmation", "admin_send_failed"}:
+            await query.answer("This Event submission cannot be removed.", show_alert=True)
             return
 
         fields = _fields(row)
@@ -1442,7 +1464,7 @@ async def handle_event_admin_callback(update, context):
             await query.edit_message_text(
                 "⚠️ <b>REMOVE APPROVED EVENT?</b>\n\n"
                 + _format_fields(fields)
-                + "\n\nThis will remove the Event from the Events topic and the approved-events list.",
+                + "\n\nThis will permanently remove the Event submission and any published/admin copies associated with it.",
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([
                     [
@@ -1458,8 +1480,8 @@ async def handle_event_admin_callback(update, context):
         return
 
     if action == "remove_confirm":
-        if row["status"] != "approved":
-            await query.answer("This Event is no longer available.", show_alert=True)
+        if row["status"] not in {"approved", "pending_admin", "member_input", "awaiting_confirmation", "admin_send_failed"}:
+            await query.answer("This Event submission is no longer removable.", show_alert=True)
             return
         fields = _fields(row)
         if await _remove_approved_event(context, submission_id):
