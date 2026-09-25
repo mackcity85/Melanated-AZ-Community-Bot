@@ -1735,7 +1735,7 @@ async def _republish_events_in_date_order(context):
                 # If Telegram still returns RetryAfter, wait exactly as requested and retry.
 
                 if index > 0:
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(5)
 
                 # Telegram can take longer than the default HTTPX read timeout
                 # when rebuilding several existing flyers. Use a longer read timeout
