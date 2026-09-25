@@ -1026,20 +1026,27 @@ async def _process_media(update, context):
                 submission_id,
             )
 
-        await _send_public_edit_prompt(
-            context,
-            submission_id,
-        )
+        # Keep the member workflow private whenever Telegram allows it.
+        # Only show the public Events-topic deep-link fallback when the bot
+        # cannot open the private editor (for example, the member has never
+        # started the bot).
+        if not private_editor_opened:
+            await _send_public_edit_prompt(
+                context,
+                submission_id,
+            )
 
         logger.info(
             "Independent Event flyer captured | submission=%s | user=%s | "
-            "ocr_chars=%s | fields=%s | missing=%s | private_editor=%s",
+            "ocr_chars=%s | fields=%s | missing=%s | private_editor=%s | "
+            "public_fallback=%s",
             submission_id,
             user.id,
             len(ocr_text or ""),
             fields,
             _missing(fields),
             private_editor_opened,
+            not private_editor_opened,
         )
 
         return True
@@ -1219,11 +1226,28 @@ async def handle_event_text(update, context):
             int(submission_id),
         )
     else:
-        await _prompt_next_missing(
-            context,
-            user.id,
-            int(submission_id),
-        )
+        # Never collect Event details publicly in the Events topic.
+        # Re-open the private editor instead; if the user has not started
+        # the bot yet, the private editor will fail and the public deep-link
+        # fallback can be used.
+        try:
+            opened = await _send_private_event_editor(
+                context,
+                user.id,
+                int(submission_id),
+            )
+        except Exception:
+            logger.exception(
+                "Could not reopen private Event editor | submission=%s | user=%s",
+                submission_id,
+                user.id,
+            )
+            opened = False
+        if not opened:
+            await _send_public_edit_prompt(
+                context,
+                int(submission_id),
+            )
     raise ApplicationHandlerStop
 
 
