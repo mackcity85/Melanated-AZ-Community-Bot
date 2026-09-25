@@ -10,7 +10,8 @@ CLEANUP_SECONDS = int(os.environ.get("CHAT_CLEANUP_SECONDS", "180") or "180")
 BOT_ID = 8810138488
 RAFFLE_TOPIC_ID = 11883
 QOTD_TOPIC_ID = 11999
-# Daily community messages are posted in the QOTD topic and are ALWAYS permanent.\nDAILY_MESSAGE_TOPIC_ID = 11999
+# Daily community messages are posted in the QOTD topic and are ALWAYS permanent.
+DAILY_MESSAGE_TOPIC_ID = 11999
 INTRO_TOPIC_ID = 11570
 GAMES_TOPIC_ID = 8809
 SOCIAL_MEDIA_TOPIC_ID = 9513
