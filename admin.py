@@ -3458,12 +3458,22 @@ async def admin_approved_events(update, context):
     except Exception:
         pass
 
-    from event_ocr import _approved_rows, _fields
+    from event_ocr import _db, _fields
 
-    rows = _approved_rows()
+    # Do not hide submissions simply because they are not currently in the
+    # approved-only publication set. This panel is the admin recovery/control
+    # surface, so actionable submissions must remain visible after restarts,
+    # send failures, or interrupted approval flows.
+    with _db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM event_submissions "
+            "WHERE status IN ('pending_admin', 'approved', 'member_input', 'awaiting_confirmation') "
+            "ORDER BY id DESC"
+        ).fetchall()
+
     if not rows:
         await query.edit_message_text(
-            "📅 **APPROVED EVENTS**\n\nThere are currently no approved Events.",
+            "📅 **EVENT SUBMISSIONS**\n\nThere are currently no active Event submissions.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")]
             ]),
@@ -3471,35 +3481,69 @@ async def admin_approved_events(update, context):
         )
         return
 
-    blocks=[]
-    buttons=[]
+    blocks = []
+    buttons = []
     for row in rows:
-        sid=int(row["id"])
-        fields=_fields(row)
-        name=fields.get("event") or f"Event #{sid}"
-        date=fields.get("date") or "Date missing"
-        blocks.append(f"**{name}**\n📅 {date}\n🆔 Submission #{sid}")
-        buttons += [
-            [InlineKeyboardButton("✏️ Event", callback_data=f"event_ocr_admin_edit_event_{sid}")],
-            [
-                InlineKeyboardButton("✏️ Date", callback_data=f"event_ocr_admin_edit_date_{sid}"),
-                InlineKeyboardButton("✏️ Time", callback_data=f"event_ocr_admin_edit_time_{sid}"),
-            ],
-            [
-                InlineKeyboardButton("✏️ Location", callback_data=f"event_ocr_admin_edit_location_{sid}"),
-                InlineKeyboardButton("✏️ Price", callback_data=f"event_ocr_admin_edit_price_{sid}"),
-            ],
-            [InlineKeyboardButton("✏️ Website", callback_data=f"event_ocr_admin_edit_website_{sid}")],
-            [InlineKeyboardButton(f"🗑️ Remove {name}", callback_data=f"event_ocr_admin_remove_{sid}")],
-        ]
+        sid = int(row["id"])
+        status = str(row["status"] or "")
+        fields = _fields(row)
+        name = fields.get("event") or f"Event #{sid}"
+        date = fields.get("date") or "Date missing"
+
+        status_label = {
+            "approved": "✅ APPROVED",
+            "pending_admin": "⏳ PENDING APPROVAL",
+            "member_input": "✏️ MEMBER INPUT",
+            "awaiting_confirmation": "🔎 AWAITING CONFIRMATION",
+        }.get(status, status.upper())
+
+        blocks.append(
+            f"**{name}**\n"
+            f"📅 {date}\n"
+            f"📌 {status_label}\n"
+            f"🆔 Submission #{sid}"
+        )
+
+        # Only approved and pending submissions have admin edit/remove
+        # controls. Incomplete member-side submissions stay visible so they
+        # cannot silently disappear from the recovery panel.
+        if status in {"approved", "pending_admin"}:
+            buttons += [
+                [InlineKeyboardButton("✏️ Event", callback_data=f"event_ocr_admin_edit_event_{sid}")],
+                [
+                    InlineKeyboardButton("✏️ Date", callback_data=f"event_ocr_admin_edit_date_{sid}"),
+                    InlineKeyboardButton("✏️ Time", callback_data=f"event_ocr_admin_edit_time_{sid}"),
+                ],
+                [
+                    InlineKeyboardButton("✏️ Location", callback_data=f"event_ocr_admin_edit_location_{sid}"),
+                    InlineKeyboardButton("✏️ Price", callback_data=f"event_ocr_admin_edit_price_{sid}"),
+                ],
+                [InlineKeyboardButton("✏️ Website", callback_data=f"event_ocr_admin_edit_website_{sid}")],
+            ]
+            if status == "approved":
+                buttons.append(
+                    [InlineKeyboardButton(
+                        f"🗑️ Remove {name}",
+                        callback_data=f"event_ocr_admin_remove_{sid}",
+                    )]
+                )
+            else:
+                buttons.append(
+                    [InlineKeyboardButton(
+                        f"🔎 Review / Approve #{sid}",
+                        callback_data=f"admin_pending_event_approvals",
+                    )]
+                )
+
+        buttons.append([InlineKeyboardButton("────────", callback_data=f"admin_approved_events")])
 
     buttons += [
         [InlineKeyboardButton("🔄 Refresh Events", callback_data="admin_approved_events")],
         [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
     ]
     await query.edit_message_text(
-        "📅 **APPROVED EVENTS**\n\n" + "\n\n".join(blocks) +
-        "\n\nSelect a field to edit it privately. Approved Events remain approved and are republished in date order.",
+        "📅 **EVENT SUBMISSIONS**\n\n" + "\n\n".join(blocks) +
+        "\n\nApproved events can be edited or removed. Pending submissions can be reviewed. Incomplete member-side submissions remain visible for recovery.",
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown",
     )
