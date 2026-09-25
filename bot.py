@@ -853,6 +853,15 @@ async def admin_command(update,context):
     elif update.effective_message: await update.effective_message.reply_text("⛔ You are not authorized to use the admin panel.")
 
 async def admin_callback_router(update,context):
+    query=update.callback_query
+    data=(query.data or "") if query else ""
+    if data.startswith("event_ocr_admin_"):
+        try:
+            from event_ocr import handle_event_admin_callback
+            await handle_event_admin_callback(update,context)
+        except Exception:
+            logger.exception("Approved Event admin callback routing failed | callback=%s", data)
+        return
     if update.effective_user and await is_admin(update.effective_user.id,context): await admin_button(update,context)
 
 async def birthday_callback_router(update,context): await birthday_callback(update,context)
