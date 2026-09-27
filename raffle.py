@@ -383,6 +383,7 @@ async def send_daily_raffle_status(context: ContextTypes.DEFAULT_TYPE):
         return False
     free = is_free_raffle(raffle.get("price"))
     approved = get_approved_entries(raffle["id"])
+    entry_numbers = ", ".join(f"#{entry['id']}" for entry in approved) or "None yet"
     rows = [[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data=f"enter_{raffle['id']}")]]
     if not free:
         rows.extend([
