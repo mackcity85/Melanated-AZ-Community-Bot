@@ -1642,8 +1642,8 @@ def _parse_event_date(raw):
         return None
 
     # Normalize common OCR/editor date noise while preserving the year.
-    cleaned = re.sub(r"(?i)\\b(st|nd|rd|th)\\b", "", raw)
-    cleaned = re.sub(r"\\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"(?i)\b(st|nd|rd|th)\b", "", raw)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
     # Prefer explicit year-bearing formats. These are the authoritative
     # sort keys whenever a year is present.
@@ -1658,7 +1658,7 @@ def _parse_event_date(raw):
             pass
 
     # OCR may include a leading label such as "Date: 09/20/2026".
-    unlabeled = re.sub(r"(?i)^date\\s*[:\\-]?\\s*", "", cleaned).strip()
+    unlabeled = re.sub(r"(?i)^date\s*[:\-]?\s*", "", cleaned).strip()
     if unlabeled != cleaned:
         for fmt in (
             "%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d",
@@ -1682,6 +1682,50 @@ def _parse_event_date(raw):
             pass
 
     return None
+
+
+def _parse_event_end_date(raw):
+    """Return the last calendar date covered by an Event date field.
+
+    A single-date Event ends on that date. For multi-day ranges, expiration
+    uses the range's final date while chronological sorting continues to use
+    _parse_event_date() (the start date).
+    """
+    raw = str(raw or "").strip()
+    if not raw:
+        return None
+
+    cleaned = re.sub(r"(?i)\b(st|nd|rd|th)\b", "", raw)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    unlabeled = re.sub(r"(?i)^date\s*[:\-]?\s*", "", cleaned).strip()
+
+    # Month-name ranges such as "September 26-27, 2026" or "Sep 26–27 2026".
+    match = re.match(
+        r"(?i)^(January|February|March|April|May|June|July|August|September|October|November|December|"
+        r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+"
+        r"(\d{1,2})\s*[-–—]\s*(\d{1,2})(?:,)?\s+(\d{4})$",
+        unlabeled,
+    )
+    if match:
+        month = re.match(r"(?i)^[A-Za-z]+", unlabeled).group(0)
+        return _parse_event_date(f"{month} {match.group(2)}, {match.group(4)}")
+
+    # Numeric/full ranges such as "09/26/2026 - 09/27/2026".
+    range_match = re.match(r"^(.+?)\s+[-–—]\s+(.+)$", unlabeled)
+    if range_match:
+        parsed_end = _parse_event_date(range_match.group(2).strip())
+        if parsed_end:
+            return parsed_end
+
+    # Ranges using "to" / "through".
+    range_match = re.match(r"(?i)^(.+?)\s+(?:to|through)\s+(.+)$", unlabeled)
+    if range_match:
+        parsed_end = _parse_event_date(range_match.group(2).strip())
+        if parsed_end:
+            return parsed_end
+
+    # Single date or any legacy format.
+    return _parse_event_date(unlabeled)
 
 
 def _sort_key(row):
@@ -1722,7 +1766,7 @@ async def _republish_events_in_date_order(context):
         # Never allow an already-passed Event to be reposted during a rebuild.
         # This is important on startup and after an approved Event is edited.
         for row in approved_rows:
-            event_date = _parse_event_date(_fields(row).get("date"))
+            event_date = _parse_event_end_date(_fields(row).get("date"))
             if event_date is not None and event_date < today:
                 expired_rows.append(row)
             else:
@@ -1891,7 +1935,7 @@ async def remove_expired_events(context):
     expired = []
 
     for row in rows:
-        event_date = _parse_event_date(_fields(row).get("date"))
+        event_date = _parse_event_end_date(_fields(row).get("date"))
         if event_date is None or event_date >= today:
             continue
 
