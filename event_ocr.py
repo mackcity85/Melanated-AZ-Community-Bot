@@ -1931,7 +1931,7 @@ async def remove_expired_events(context):
 
 
 def schedule_expired_event_cleanup(application):
-    """Run Event cleanup at midnight Arizona time every day."""
+    """Remove past Event flyers promptly and keep the Events topic date-clean."""
     job_queue = getattr(application, "job_queue", None)
     if job_queue is None:
         logger.warning("Expired Event cleanup skipped: JobQueue unavailable")
@@ -1940,12 +1940,16 @@ def schedule_expired_event_cleanup(application):
     for job in job_queue.get_jobs_by_name("event-ocr-expired-cleanup"):
         job.schedule_removal()
 
-    job_queue.run_daily(
+    # Check shortly after startup, then re-check hourly. The cleanup itself
+    # compares the Event date against the current Arizona date, so an Event
+    # disappears on the first check after its date has passed.
+    job_queue.run_repeating(
         remove_expired_events,
-        time=time(0, 0, tzinfo=ARIZONA_TZ),
+        interval=3600,
+        first=60,
         name="event-ocr-expired-cleanup",
     )
-    logger.info("Expired Event cleanup scheduled | time=00:00 Arizona | topic=%s", EVENT_TOPIC_ID)
+    logger.info("Expired Event cleanup scheduled | first_check=60s | interval=1h | topic=%s", EVENT_TOPIC_ID)
 
 
 # ==========================================================
