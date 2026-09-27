@@ -1712,9 +1712,51 @@ _event_rebuild_lock = asyncio.Lock()
 
 
 async def _republish_events_in_date_order(context):
-    """Rebuild approved Events safely in date order without losing the existing set."""
+    """Rebuild only current/future approved Events safely in date order."""
     async with _event_rebuild_lock:
-        rows = sorted(_approved_rows(), key=_sort_key)
+        approved_rows = _approved_rows()
+        today = datetime.now(ARIZONA_TZ).date()
+        rows = []
+        expired_rows = []
+
+        # Never allow an already-passed Event to be reposted during a rebuild.
+        # This is important on startup and after an approved Event is edited.
+        for row in approved_rows:
+            event_date = _parse_event_date(_fields(row).get("date"))
+            if event_date is not None and event_date < today:
+                expired_rows.append(row)
+            else:
+                rows.append(row)
+
+        for row in expired_rows:
+            published_id = row["published_message_id"]
+            if published_id:
+                try:
+                    await context.bot.delete_message(
+                        chat_id=EVENT_CHAT_ID,
+                        message_id=int(published_id),
+                    )
+                except TelegramError:
+                    logger.info(
+                        "Expired Event publication already gone | submission=%s | message=%s",
+                        row["id"],
+                        published_id,
+                    )
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE event_submissions SET status='expired', published_message_id=NULL, updated_at=? WHERE id=? AND status='approved'",
+                    (_now(), int(row["id"])),
+                )
+                conn.commit()
+
+        rows = sorted(rows, key=_sort_key)
+
+        if expired_rows:
+            logger.info(
+                "Expired Events removed before rebuild | removed=%s | topic=%s",
+                len(expired_rows),
+                EVENT_TOPIC_ID,
+            )
 
         if not rows:
             return
