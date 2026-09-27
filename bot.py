@@ -681,6 +681,12 @@ async def recover_saved_intros(context):
 
 async def private_intro_text_handler(update,context):
     message=update.effective_message; user=update.effective_user; chat=update.effective_chat
+    # Group-0 private text handlers are evaluated before the general raffle
+    # setup handler. Route an active raffle setup here so the setup state cannot
+    # be swallowed by the private intro handler.
+    if context.user_data.get("awaiting_raffle_setup"):
+        await handle_raffle_setup(update,context)
+        return
     if context.user_data.get("awaiting_raffle_end_date"):
         await handle_raffle_end_date(update,context)
         return
