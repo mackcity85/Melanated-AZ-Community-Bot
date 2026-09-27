@@ -149,6 +149,9 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query:
         await query.answer()
         context.user_data["awaiting_raffle_setup"] = True
+        setup_admins = context.application.bot_data.setdefault("raffle_setup_admins", set())
+        setup_admins.add(int(user.id))
+        logger.info("RAFFLE START REQUEST | user=%s | source=callback", user.id)
         prompt = (
             "🎟️ <b>Start a Raffle</b>\n\n"
             "Send the raffle information in this format:\n\n"
@@ -245,27 +248,24 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user, message = update.effective_user, update.effective_message
-    if not user or not message or not context.user_data.get("awaiting_raffle_setup"):
+    setup_admins = context.application.bot_data.get("raffle_setup_admins", set())
+    awaiting = context.user_data.get("awaiting_raffle_setup") or (
+        user is not None and int(user.id) in setup_admins
+    )
+    if not user or not message or not awaiting:
         return
+    logger.info(
+        "RAFFLE SETUP HANDLER HIT | user=%s | chat=%s",
+        user.id, message.chat_id,
+    )
     if not await is_raffle_admin_access(update, context):
         context.user_data.pop("awaiting_raffle_setup", None)
         await message.reply_text("⛔ You are not authorized to create raffles.")
         raise ApplicationHandlerStop
     payload = (message.text or "").strip()
-    prompt_chat_id = context.user_data.get("raffle_setup_prompt_chat_id")
-    prompt_message_id = context.user_data.get("raffle_setup_prompt_message_id")
-
-    # Accept the setup response in the admin's private chat, or as a reply to
-    # the fallback group prompt. This keeps the existing one-message flow while
-    # avoiding Telegram privacy-mode swallowing arbitrary group text.
-    if prompt_chat_id and message.chat_id != prompt_chat_id:
-        if not (
-            message.reply_to_message
-            and prompt_message_id
-            and message.reply_to_message.message_id == prompt_message_id
-        ):
-            return
-
+    # The setup state is keyed to the authorized admin in bot_data as
+    # well as user_data. Accept the next text from that admin in either the
+    # private chat or the admin group.
     logger.info(
         "RAFFLE SETUP TEXT RECEIVED | user=%s | chat=%s | length=%s",
         user.id, message.chat_id, len(payload),
@@ -277,10 +277,12 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
     active, pending = get_active_raffle(), get_pending_raffle()
     if active:
         context.user_data.pop("awaiting_raffle_setup", None)
+        context.application.bot_data.get("raffle_setup_admins", set()).discard(int(user.id))
         await message.reply_text(f"⚠️ Active raffle already exists.\n🎁 {html.escape(str(active['prize']))}\n💵 {html.escape(str(active['price']))}")
         raise ApplicationHandlerStop
     if pending:
         context.user_data.pop("awaiting_raffle_setup", None)
+        context.application.bot_data.get("raffle_setup_admins", set()).discard(int(user.id))
         await message.reply_text(f"⚠️ Raffle already awaiting approval.\n🎁 {html.escape(str(pending['prize']))}\n💵 {html.escape(str(pending['price']))}")
         raise ApplicationHandlerStop
     expires = datetime.utcnow() + timedelta(days=int(RAFFLE_DURATION_DAYS or 7))
@@ -296,6 +298,7 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data.pop("awaiting_raffle_setup", None)
     context.user_data.pop("raffle_setup_prompt_chat_id", None)
     context.user_data.pop("raffle_setup_prompt_message_id", None)
+    context.application.bot_data.get("raffle_setup_admins", set()).discard(int(user.id))
     logger.info(
         "RAFFLE CREATED | raffle=%s | user=%s | price=%s",
         raffle_id, user.id, price,
