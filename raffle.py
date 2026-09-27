@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from config import (
     ADMIN_IDS,
@@ -124,9 +124,11 @@ def is_free_raffle(price):
 
 
 def parse_raffle_setup(payload):
-    payload = str(payload or "").strip()
+    """Parse admin raffle input without altering the item text."""
+    payload = str(payload or "").replace("\u200b", "").replace("\ufeff", "").strip()
     if payload.startswith("/startraffle"):
         payload = payload[len("/startraffle"):].strip()
+    payload = payload.replace("｜", "|")
     if "|" not in payload:
         return None, None
     prize, price = payload.rsplit("|", 1)
@@ -217,23 +219,31 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not await is_raffle_admin_access(update, context):
         context.user_data.pop("awaiting_raffle_setup", None)
         await message.reply_text("⛔ You are not authorized to create raffles.")
-        return
+        raise ApplicationHandlerStop
     payload = (message.text or "").strip()
     prize, price = parse_raffle_setup(payload)
     if not prize or not price:
         await message.reply_text("⚠️ Invalid format. Use: <code>Raffle item/details | Entry Price</code>", parse_mode=ParseMode.HTML)
-        return
+        raise ApplicationHandlerStop
     active, pending = get_active_raffle(), get_pending_raffle()
     if active:
         context.user_data.pop("awaiting_raffle_setup", None)
         await message.reply_text(f"⚠️ Active raffle already exists.\n🎁 {html.escape(str(active['prize']))}\n💵 {html.escape(str(active['price']))}")
-        return
+        raise ApplicationHandlerStop
     if pending:
         context.user_data.pop("awaiting_raffle_setup", None)
         await message.reply_text(f"⚠️ Raffle already awaiting approval.\n🎁 {html.escape(str(pending['prize']))}\n💵 {html.escape(str(pending['price']))}")
-        return
+        raise ApplicationHandlerStop
     expires = datetime.utcnow() + timedelta(days=int(RAFFLE_DURATION_DAYS or 7))
-    raffle_id = create_raffle(prize, price, expires.isoformat())
+    try:
+        raffle_id = create_raffle(prize, price, expires.isoformat())
+    except Exception:
+        logger.exception("RAFFLE CREATION FAILED | user=%s | prize=%r | price=%r", user.id, prize, price)
+        await message.reply_text(
+            "❌ I could not create the raffle right now. "
+            "Your raffle input was not lost. Please try the same entry again after the bot/database is available."
+        )
+        raise ApplicationHandlerStop
     context.user_data.pop("awaiting_raffle_setup", None)
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Approve Raffle", callback_data=f"raffle_approve_{raffle_id}"),
@@ -270,6 +280,7 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         except TelegramError:
             pass
     await message.reply_text(f"✅ Raffle #{raffle_id} created and sent for admin approval.")
+    raise ApplicationHandlerStop
 
 
 async def admin_edit_raffle_end_date(update, context):
