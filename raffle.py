@@ -149,11 +149,42 @@ async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query:
         await query.answer()
         context.user_data["awaiting_raffle_setup"] = True
-        await query.message.reply_text(
-            "🎟️ <b>Start a Raffle</b>\n\nSend the raffle information in this format:\n\n"
-            "<code>$100 Cash Prize | $5</code>\n\nFormat: <b>Prize | Entry Price</b>",
-            parse_mode=ParseMode.HTML,
+        prompt = (
+            "🎟️ <b>Start a Raffle</b>\n\n"
+            "Send the raffle information in this format:\n\n"
+            "<code>$100 Cash Prize | $5</code>\n\n"
+            "Format: <b>Prize | Entry Price</b>\n\n"
+            "Reply to this message with the raffle details."
         )
+
+        # The admin panel may be in a group where Telegram privacy mode can
+        # prevent the bot from receiving ordinary follow-up text. Prefer the
+        # admin's private chat so the existing stateful setup flow is reliable.
+        try:
+            sent_prompt = await context.bot.send_message(
+                chat_id=user.id,
+                text=prompt,
+                parse_mode=ParseMode.HTML,
+            )
+            context.user_data["raffle_setup_prompt_chat_id"] = sent_prompt.chat_id
+            context.user_data["raffle_setup_prompt_message_id"] = sent_prompt.message_id
+            logger.info(
+                "RAFFLE SETUP PROMPT SENT | user=%s | chat=%s | message=%s",
+                user.id, sent_prompt.chat_id, sent_prompt.message_id,
+            )
+        except TelegramError:
+            # If the admin has not opened a private chat with the bot, retain
+            # the original group behavior as a safe fallback.
+            sent_prompt = await query.message.reply_text(
+                prompt + "\n\n⚠️ <b>If the bot cannot receive your next message, reply directly to this prompt.</b>",
+                parse_mode=ParseMode.HTML,
+            )
+            context.user_data["raffle_setup_prompt_chat_id"] = sent_prompt.chat_id
+            context.user_data["raffle_setup_prompt_message_id"] = sent_prompt.message_id
+            logger.info(
+                "RAFFLE SETUP PROMPT SENT | user=%s | chat=%s | message=%s | fallback=group",
+                user.id, sent_prompt.chat_id, sent_prompt.message_id,
+            )
         return
     if not message:
         return
@@ -221,6 +252,24 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         await message.reply_text("⛔ You are not authorized to create raffles.")
         raise ApplicationHandlerStop
     payload = (message.text or "").strip()
+    prompt_chat_id = context.user_data.get("raffle_setup_prompt_chat_id")
+    prompt_message_id = context.user_data.get("raffle_setup_prompt_message_id")
+
+    # Accept the setup response in the admin's private chat, or as a reply to
+    # the fallback group prompt. This keeps the existing one-message flow while
+    # avoiding Telegram privacy-mode swallowing arbitrary group text.
+    if prompt_chat_id and message.chat_id != prompt_chat_id:
+        if not (
+            message.reply_to_message
+            and prompt_message_id
+            and message.reply_to_message.message_id == prompt_message_id
+        ):
+            return
+
+    logger.info(
+        "RAFFLE SETUP TEXT RECEIVED | user=%s | chat=%s | length=%s",
+        user.id, message.chat_id, len(payload),
+    )
     prize, price = parse_raffle_setup(payload)
     if not prize or not price:
         await message.reply_text("⚠️ Invalid format. Use: <code>Raffle item/details | Entry Price</code>", parse_mode=ParseMode.HTML)
@@ -245,6 +294,12 @@ async def handle_raffle_setup(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         raise ApplicationHandlerStop
     context.user_data.pop("awaiting_raffle_setup", None)
+    context.user_data.pop("raffle_setup_prompt_chat_id", None)
+    context.user_data.pop("raffle_setup_prompt_message_id", None)
+    logger.info(
+        "RAFFLE CREATED | raffle=%s | user=%s | price=%s",
+        raffle_id, user.id, price,
+    )
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Approve Raffle", callback_data=f"raffle_approve_{raffle_id}"),
         InlineKeyboardButton("❌ Cancel", callback_data=f"raffle_cancel_{raffle_id}"),
