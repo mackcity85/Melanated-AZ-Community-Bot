@@ -989,6 +989,37 @@ async def post_init(application):
     try:
         me=await application.bot.get_me(); application.bot_data["bot_username"]=me.username
     except Exception:logger.exception("Could not retrieve bot information.")
+
+    # Introduction recovery must be registered from the actual bot post_init.
+    # Application.builder().post_init(post_init) supplies this callback directly,
+    # so wrapping ApplicationBuilder.build() cannot reliably replace it.
+    try:
+        import intro_persistence
+        if application.job_queue:
+            for job_name in ("intro-topic-recovery-startup", "intro-topic-recovery"):
+                for job in application.job_queue.get_jobs_by_name(job_name):
+                    job.schedule_removal()
+
+            # Run immediately after startup so saved introductions are restored
+            # without waiting for a later deployment or member action.
+            application.job_queue.run_once(
+                intro_persistence.recover_saved_introductions,
+                when=2,
+                name="intro-topic-recovery-startup",
+            )
+            application.job_queue.run_repeating(
+                intro_persistence.recover_saved_introductions,
+                interval=300,
+                first=300,
+                name="intro-topic-recovery",
+            )
+            logger.info(
+                "Introduction recovery ENABLED | startup=2s | interval=300s | topic=11570"
+            )
+        else:
+            await intro_persistence.recover_saved_introductions(application)
+    except Exception:
+        logger.exception("Introduction recovery startup registration FAILED")
     main=configured_main_group_id()
     if main:
         try:
