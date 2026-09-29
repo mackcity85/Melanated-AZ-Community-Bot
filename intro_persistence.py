@@ -57,6 +57,11 @@ def _preserve_saved_intro_on_rejoin():
     bot.save_joining_member = preserved_save_joining_member
 
 
+# Install the wrapper when this module loads; otherwise a returning member's
+# join handler can erase their saved introduction before recovery can see it.
+_preserve_saved_intro_on_rejoin()
+
+
 def _is_real_saved_intro(text):
     text = str(text or "").strip()
     return bool(text) and LEGACY_MARKER not in text
