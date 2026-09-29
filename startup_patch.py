@@ -26,6 +26,14 @@ async def _run_social_media_profile_recovery(context):
         logger.exception("Social Media profile recovery FAILED")
 
 
+async def _run_intro_topic_recovery(context):
+    try:
+        import intro_persistence
+        await intro_persistence.recover_saved_introductions(context.application)
+    except Exception:
+        logger.exception("Scheduled introduction topic recovery FAILED")
+
+
 def _install():
     if getattr(ApplicationBuilder, _MARKER, False):
         return
@@ -88,12 +96,12 @@ def _install():
                         for job in app.job_queue.get_jobs_by_name(job_name):
                             job.schedule_removal()
                     app.job_queue.run_once(
-                        intro_persistence.recover_saved_introductions,
+                        _run_intro_topic_recovery,
                         when=20,
                         name="intro-topic-recovery-startup",
                     )
                     app.job_queue.run_repeating(
-                        intro_persistence.recover_saved_introductions,
+                        _run_intro_topic_recovery,
                         interval=300,
                         first=300,
                         name="intro-topic-recovery",
