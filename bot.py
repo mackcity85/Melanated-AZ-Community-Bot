@@ -697,9 +697,10 @@ async def private_intro_text_handler(update,context):
     if not row or not row["verified_at"]:return
 
     updated=bool(row["intro_text"])
-    previous_message_id=row["intro_message_id"] if "intro_message_id" in row.keys() else None
     # Save first so a Telegram topic-post failure cannot lose the submitted introduction.
-    save_intro(main,user.id,intro_text,previous_message_id if updated else None)
+    # Clear the recorded topic message ID until this exact version is successfully posted.
+    # Otherwise a failed update leaves the old ID set and recovery incorrectly skips it.
+    save_intro(main,user.id,intro_text,None)
 
     topic_message=await _post_intro_to_topic(context.bot,main,user,intro_text,updated=updated)
     context.user_data.pop("awaiting_intro_submission",None)
