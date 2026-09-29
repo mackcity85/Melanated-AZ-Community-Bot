@@ -81,9 +81,28 @@ def _install():
 
             try:
                 import intro_persistence
-                await intro_persistence.recover_saved_introductions(app)
+                # Recover at startup and periodically so saved submissions survive
+                # temporary Telegram errors and deployments/restarts.
+                if app.job_queue:
+                    for job_name in ("intro-topic-recovery-startup", "intro-topic-recovery"):
+                        for job in app.job_queue.get_jobs_by_name(job_name):
+                            job.schedule_removal()
+                    app.job_queue.run_once(
+                        intro_persistence.recover_saved_introductions,
+                        when=20,
+                        name="intro-topic-recovery-startup",
+                    )
+                    app.job_queue.run_repeating(
+                        intro_persistence.recover_saved_introductions,
+                        interval=300,
+                        first=300,
+                        name="intro-topic-recovery",
+                    )
+                    logger.info("Introduction recovery enabled | startup=20s | interval=300s | topic=11570")
+                else:
+                    await intro_persistence.recover_saved_introductions(app)
             except Exception:
-                logger.exception("Guaranteed intro recovery startup failed")
+                logger.exception("Guaranteed intro recovery startup/scheduling failed")
 
             try:
                 import intro_reminder_fix
