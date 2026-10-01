@@ -31,7 +31,9 @@ Please introduce yourself when joining and review the pinned messages.
 
 📸 PROFILE REQUIREMENTS
 
-A profile picture is required.
+A current Telegram profile picture is REQUIRED for all Melanated AZ members.
+
+This is part of the new-member onboarding process and applies to existing members as well. Members without a profile picture will be reminded to add one, and new members must complete this requirement before they can continue through onboarding.
 
 Please include:
 
