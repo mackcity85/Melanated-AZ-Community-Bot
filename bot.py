@@ -29,6 +29,7 @@ from profile_photo_enforcement import (
     ensure_profile_photo_schema, refresh_profile_photo, mark_photo_required,
     clear_photo_required, send_profile_photo_requirement,
 )
+from monthly_member_safety import ensure_monthly_safety_schema, register_monthly_safety, monthly_safety_callback
 from admin import admin_menu, admin_button, admin_birthday_text_handler, is_admin
 from birthday import birthday, my_birthday, remove_my_birthday, birthday_callback, birthday_text_handler
 from raffle import (
@@ -1055,6 +1056,11 @@ def build_application():
     return application
 
 async def post_init(application):
+    try:
+        ensure_monthly_safety_schema()
+        register_monthly_safety(application)
+    except Exception:
+        logger.exception("Monthly member safety check startup FAILED")
     try:
         me=await application.bot.get_me(); application.bot_data["bot_username"]=me.username
     except Exception:logger.exception("Could not retrieve bot information.")
