@@ -1096,8 +1096,8 @@ async def post_init(application):
                 for job in application.job_queue.get_jobs_by_name(job_name):
                     job.schedule_removal()
             application.job_queue.run_once(audit_profile_photo_members, when=10, name='profile-photo-audit-startup')
-            application.job_queue.run_repeating(audit_profile_photo_members, interval=21600, first=21600, name='profile-photo-audit')
-            logger.info('Profile photo enforcement ENABLED | startup=10s | interval=6h')
+            application.job_queue.run_repeating(audit_profile_photo_members, interval=900, first=900, name='profile-photo-audit')
+            logger.info('Profile photo enforcement ENABLED | startup=10s | interval=15m')
         else:
             await audit_profile_photo_members(application)
     except Exception:
