@@ -53,6 +53,12 @@ If we cannot identify you, you may be removed from the group.
 
 ━━━━━━━━━━━━━━━
 
+🛡️ MONTHLY MEMBER SAFETY CHECK
+
+Melanated AZ performs a separate monthly safety check-in for active members. Members may be asked to confirm they are still active and review the community safety rules. This check-in is separate from onboarding, profile-photo enforcement, events, raffles, and other bot systems.
+
+━━━━━━━━━━━━━━━
+
 📜 GROUP RULES 📜
 
 1️⃣ Consent Is Everything
