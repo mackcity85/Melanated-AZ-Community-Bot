@@ -32,6 +32,7 @@ def ensure_monthly_safety_schema():
         additions = [
             ("monthly_safety_sent_at", "TEXT"),
             ("monthly_safety_confirmed_at", "TEXT"),
+            ("monthly_safety_fallback_sent_at", "TEXT"),
         ]
         for name, definition in additions:
             if name not in columns:
@@ -43,9 +44,10 @@ def _now():
 
 def _main_group_id():
     try:
-        return int(os.environ.get("MAIN_GROUP_ID", "0") or "0")
+        configured = int(os.environ.get("MAIN_GROUP_ID", "0") or "0")
+        return configured or -1002697105809
     except (TypeError, ValueError):
-        return 0
+        return -1002697105809
 
 def _eligible_rows(main):
     with _db() as conn:
@@ -114,6 +116,7 @@ async def monthly_safety_check(context):
     skipped = 0
     inactive_or_missing = 0
     errors = 0
+    private_failed = []
 
     for row in rows:
         user_id = int(row["user_id"])
@@ -142,15 +145,43 @@ async def monthly_safety_check(context):
                     )
                     conn.commit()
                 sent += 1
+            else:
+                private_failed.append(user_id)
         except TelegramError:
             errors += 1
         except Exception:
             errors += 1
             logger.exception("MONTHLY SAFETY CHECK FAILED | user_id=%s", user_id)
 
+    if private_failed:
+        try:
+            me = await context.bot.get_me()
+            if me.username:
+                link = f"https://t.me/{me.username}?start=monthly_safety"
+                fallback_text = (
+                    "🛡️ <b>Melanated AZ Monthly Safety Check</b>\n\n"
+                    "Some members could not receive the private safety check because "
+                    "they have not opened the Melanated AZ Bot yet.\n\n"
+                    "Tap the button below to start the bot and receive your individual "
+                    "monthly safety check.\n\n"
+                    "Private delivery will be retried automatically."
+                )
+                await context.bot.send_message(
+                    chat_id=main,
+                    text=fallback_text,
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("🛡️ START MY SAFETY CHECK", url=link)]]
+                    ),
+                    parse_mode="HTML",
+                )
+        except TelegramError:
+            logger.info("Monthly safety fallback group message could not be posted")
+        except Exception:
+            logger.exception("Monthly safety fallback failed")
+
     logger.info(
-        "MONTHLY SAFETY CHECK COMPLETE | members=%s | sent=%s | skipped=%s | inactive_or_missing=%s | errors=%s",
-        len(rows), sent, skipped, inactive_or_missing, errors,
+        "MONTHLY SAFETY CHECK COMPLETE | members=%s | sent=%s | private_failed=%s | skipped=%s | inactive_or_missing=%s | errors=%s",
+        len(rows), sent, len(private_failed), skipped, inactive_or_missing, errors,
     )
 
 async def monthly_safety_callback(update, context):
