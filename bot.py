@@ -25,6 +25,10 @@ from telegram.ext import Application, ApplicationHandlerStop, CallbackQueryHandl
 import startup_patch  # noqa: F401
 
 from config import BOT_TOKEN, ADMIN_IDS, RAFFLE_CHAT_ID
+from profile_photo_enforcement import (
+    ensure_profile_photo_schema, refresh_profile_photo, mark_photo_required,
+    clear_photo_required, send_profile_photo_requirement,
+)
 from admin import admin_menu, admin_button, admin_birthday_text_handler, is_admin
 from birthday import birthday, my_birthday, remove_my_birthday, birthday_callback, birthday_text_handler
 from raffle import (
@@ -361,6 +365,7 @@ def initialize_community_security_database():
         for col, definition in [("intro_text","TEXT"),("intro_message_id","INTEGER"),("inactivity_notice_at","TEXT"),("inactivity_notice_message_id","INTEGER"),("monthly_intro_reminder_at","TEXT")]:
             if col not in columns: conn.execute(f"ALTER TABLE community_members ADD COLUMN {col} {definition}")
         conn.commit()
+    ensure_profile_photo_schema()
 
 def utc_now(): return datetime.now(timezone.utc)
 def iso_now(): return utc_now().isoformat()
@@ -374,7 +379,7 @@ def community_member(chat_id,user_id):
 
 def save_joining_member(chat_id,user):
     with community_db_connect() as conn:
-        conn.execute("""INSERT INTO community_members (chat_id,user_id,username,first_name,joined_at,status) VALUES (?,?,?,?,?,'pending_verification') ON CONFLICT(chat_id,user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name,joined_at=excluded.joined_at,verified_at=NULL,intro_deadline=NULL,intro_posted_at=NULL,intro_text=NULL,intro_message_id=NULL,last_post_at=NULL,verification_attempts=0,verification_message_id=NULL,verification_challenge=NULL,verification_expires_at=NULL,inactivity_notice_at=NULL,inactivity_notice_message_id=NULL,status='pending_verification'""",(chat_id,user.id,user.username,user.first_name,iso_now())); conn.commit()
+        conn.execute("""INSERT INTO community_members (chat_id,user_id,username,first_name,joined_at,status) VALUES (?,?,?,?,?,'pending_verification') ON CONFLICT(chat_id,user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name,joined_at=excluded.joined_at,verified_at=NULL,intro_deadline=NULL,intro_posted_at=NULL,intro_text=NULL,intro_message_id=NULL,last_post_at=NULL,verification_attempts=0,verification_message_id=NULL,verification_challenge=NULL,verification_expires_at=NULL,inactivity_notice_at=NULL,inactivity_notice_message_id=NULL,status='pending_verification',profile_photo_required=0,profile_photo_file_id=NULL,profile_photo_checked_at=NULL,profile_photo_reminder_at=NULL""",(chat_id,user.id,user.username,user.first_name,iso_now())); conn.commit()
 
 def set_verification_challenge(chat_id,user_id,answer,options,message_id):
     expires=utc_now()+timedelta(minutes=VERIFICATION_MESSAGE_TTL_MINUTES)
@@ -509,9 +514,9 @@ async def community_welcome(update,context):
     if new not in {"member","administrator"} or old not in {"left","kicked"}:return
     user=event.new_chat_member.user
     if not user or user.is_bot or await is_admin(user.id,context):return
-    save_joining_member(event.chat.id,user); await restrict_member(context.bot,event.chat.id,user.id); name=user.first_name or "there"; await send_community_intro_video(event.chat.id,context,name)
+    save_joining_member(event.chat.id,user); await restrict_member(context.bot,event.chat.id,user.id); await send_profile_photo_requirement(context.bot,user.id); name=user.first_name or "there"; await send_community_intro_video(event.chat.id,context,name)
     try:
-        welcome=await context.bot.send_message(chat_id=event.chat.id,text=f"👋🏾 <b>WELCOME TO MELANATED AZ, {name}!</b> 💜🔥\n\n🛡️ <b>FIRST THINGS FIRST...</b>\n\nYou need to complete a quick human verification before you can post.\n\nOnce you're verified, you'll have <b>48 HOURS</b> to introduce yourself to the community.\n\nGood energy. Real people. Real connections. 🖤💜",parse_mode=ParseMode.HTML); context.job_queue.run_once(delete_message_job,VERIFICATION_MESSAGE_TTL_MINUTES*60,data=(event.chat.id,welcome.message_id))
+        welcome=await context.bot.send_message(chat_id=event.chat.id,text=f"👋🏾 <b>WELCOME TO MELANATED AZ, {name}!</b> 💜🔥\n\n🛡️ <b>FIRST THINGS FIRST...</b>\n\nYou need to complete a quick human verification and have a current Telegram profile photo before you can post.\n\nOnce you're verified and your profile photo is confirmed, you'll have <b>48 HOURS</b> to introduce yourself to the community.\n\nGood energy. Real people. Real connections. 🖤💜",parse_mode=ParseMode.HTML); context.job_queue.run_once(delete_message_job,VERIFICATION_MESSAGE_TTL_MINUTES*60,data=(event.chat.id,welcome.message_id))
     except TelegramError: pass
     await send_human_challenge(event.chat.id,user.id,context)
 
@@ -536,7 +541,24 @@ async def human_verification_callback(update,context):
         attempts=increment_verification_attempt(chat.id,user.id)
         if attempts>=VERIFICATION_MAX_ATTEMPTS: await remove_unverified_member(context.bot,chat.id,user.id); return
         await send_human_challenge(chat.id,user.id,context); return
-    mark_verified(chat.id,user.id); await restore_member(context.bot,chat.id,user.id); private_opened=await send_private_intro_prompt(user,context)
+    mark_verified(chat.id,user.id)
+    photo_status = await refresh_profile_photo(context.bot, chat.id, user.id)
+    if photo_status is not True:
+        mark_photo_required(chat.id, user.id)
+        await send_profile_photo_requirement(context.bot, user.id)
+        try:
+            await query.edit_message_text(
+                "✅ <b>HUMAN VERIFICATION PASSED!</b> 🎉\n\n"
+                "📸 <b>One more onboarding step:</b> add a Telegram profile photo.\n\n"
+                "You must have a profile photo before you can continue to the introduction step.",
+                parse_mode=ParseMode.HTML,
+            )
+        except TelegramError:
+            pass
+        return
+    clear_photo_required(chat.id, user.id)
+    await restore_member(context.bot,chat.id,user.id)
+    private_opened=await send_private_intro_prompt(user,context)
     try: await query.edit_message_text("✅ <b>HUMAN VERIFICATION PASSED!</b> 🎉\n\nYou're cleared to participate. 💜\n\n👋🏾 I've sent your introduction instructions privately.\nYour intro submission will stay private until the finished introduction is posted in the 👋 Introductions topic.",parse_mode=ParseMode.HTML)
     except TelegramError: pass
 
