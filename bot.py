@@ -904,6 +904,27 @@ async def start_command(update,context):
     try:
         if await handle_real_game_deep_link(update,context):return
     except Exception: logger.exception("Real Games deep-link processing failed."); return
+    if context.args and context.args[0].lower()=="monthly_safety":
+        try:
+            from monthly_member_safety import send_monthly_safety_check
+            if await send_monthly_safety_check(context.bot, user.id):
+                main = configured_main_group_id()
+                with community_db_connect() as conn:
+                    conn.execute(
+                        "UPDATE community_members SET monthly_safety_sent_at=? WHERE chat_id=? AND user_id=?",
+                        (iso_now(), main, user.id),
+                    )
+                    conn.commit()
+                await message.reply_text(
+                    "🛡️ <b>Your monthly safety check is ready above.</b>\n\n"
+                    "Tap <b>I'M SAFE & STILL HERE</b> to complete it.",
+                    parse_mode=ParseMode.HTML,
+                )
+            else:
+                await message.reply_text("⚠️ I couldn't start your safety check yet. Please try again in a moment.", parse_mode=ParseMode.HTML)
+        except Exception:
+            logger.exception("Monthly safety deep-link failed | user_id=%s", user.id)
+        return
     if context.args and context.args[0].lower()=="intro":
         row=community_member(configured_main_group_id(),user.id)
         if not row or not row["verified_at"]: await message.reply_text("👋🏾 <b>You need to complete Melanated AZ verification first.</b>",parse_mode=ParseMode.HTML); return
