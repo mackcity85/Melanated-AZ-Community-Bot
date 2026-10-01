@@ -1165,10 +1165,17 @@ def main():
     threading.Thread(target=run_flask,daemon=True,name="flask-health-server").start()
     initialize_community_security_database(); seed_admin_activity()
     application=build_application()
-    # Do not rebuild/repost the entire Events topic on every startup.
-    # Expired Events are handled by the dedicated date-based cleanup job.
-    # Chronological rebuilds remain available when explicitly triggered
-    # by the Event workflow, avoiding startup delete/repost churn and flood risk.
+    # One-time Event recovery: restore approved current/future flyers and
+    # re-establish chronological ordering after a deployment/restart. This is
+    # intentionally NOT a repeating rebuild, so normal restarts do not churn
+    # the Events topic.
+    if application.job_queue:
+        application.job_queue.run_once(
+            event_ocr_startup_sort_job,
+            when=12,
+            name="event-ocr-recovery-startup",
+        )
+        logger.info("Event flyer recovery scheduled | delay=12s | topic=12214")
     schedule_expired_event_cleanup(application)
     if application.job_queue:
         application.job_queue.run_once(
