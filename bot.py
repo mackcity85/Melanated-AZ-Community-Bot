@@ -507,6 +507,53 @@ async def send_community_intro_video(chat_id,context,member_name):
             try: video_file.close()
             except Exception: pass
 
+async def audit_profile_photo_members(context):
+    """Check existing members for a profile photo and remind missing profiles."""
+    try:
+        ensure_profile_photo_schema()
+        main = configured_main_group_id()
+        if not main:
+            return
+        with community_db_connect() as conn:
+            rows = conn.execute("SELECT user_id,status,profile_photo_reminder_at FROM community_members WHERE chat_id=? AND status NOT IN ('left','removed','removed_by_admin')", (main,)).fetchall()
+        now = utc_now()
+        for row in rows:
+            user_id = int(row['user_id'])
+            if await is_admin(user_id, context):
+                continue
+            try:
+                live = await context.bot.get_chat_member(main, user_id)
+            except TelegramError:
+                continue
+            if getattr(live, 'status', '') in {'left', 'kicked', 'administrator', 'creator'}:
+                continue
+            user = getattr(live, 'user', None)
+            if not user:
+                continue
+            result = await refresh_profile_photo(context.bot, main, user_id)
+            if result is None:
+                continue
+            if result:
+                if row['status'] == 'photo_required':
+                    clear_photo_required(main, user_id)
+                    with community_db_connect() as conn:
+                        conn.execute("UPDATE community_members SET status='verified_intro_pending' WHERE chat_id=? AND user_id=? AND status='photo_required'", (main, user_id))
+                        conn.commit()
+                    await restore_member(context.bot, main, user_id)
+                    await send_private_intro_prompt(user, context)
+                continue
+            mark_photo_required(main, user_id)
+            reminder_at = parse_iso(row['profile_photo_reminder_at'])
+            if reminder_at and (now - reminder_at).total_seconds() < 86400:
+                continue
+            sent = await send_profile_photo_requirement(context.bot, user_id)
+            if sent:
+                with community_db_connect() as conn:
+                    conn.execute("UPDATE community_members SET profile_photo_reminder_at=? WHERE chat_id=? AND user_id=?", (now.isoformat(), main, user_id))
+                    conn.commit()
+    except Exception:
+        logger.exception('PROFILE PHOTO AUDIT FAILED')
+
 async def community_welcome(update,context):
     event=update.chat_member
     if not event or not community_chat_is_allowed(event.chat.id):return
@@ -1042,6 +1089,20 @@ async def post_init(application):
             await intro_persistence.recover_saved_introductions(application)
     except Exception:
         logger.exception("Introduction recovery startup registration FAILED")
+    try:
+        ensure_profile_photo_schema()
+        if application.job_queue:
+            for job_name in ('profile-photo-audit-startup', 'profile-photo-audit'):
+                for job in application.job_queue.get_jobs_by_name(job_name):
+                    job.schedule_removal()
+            application.job_queue.run_once(audit_profile_photo_members, when=10, name='profile-photo-audit-startup')
+            application.job_queue.run_repeating(audit_profile_photo_members, interval=21600, first=21600, name='profile-photo-audit')
+            logger.info('Profile photo enforcement ENABLED | startup=10s | interval=6h')
+        else:
+            await audit_profile_photo_members(application)
+    except Exception:
+        logger.exception('Profile photo enforcement startup FAILED')
+
     main=configured_main_group_id()
     if main:
         try:
