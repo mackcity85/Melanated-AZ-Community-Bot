@@ -1200,6 +1200,19 @@ def main():
         logger.info("Active raffle automatic draw recovery initialized.")
     except Exception:
         logger.exception("Unable to initialize automatic raffle draw recovery.")
+    # Ensure the Raffles & Giveaways topic always exposes the admin Start Raffle button.
+    if application.job_queue:
+        try:
+            from raffle_pin_manager import ensure_raffle_topic_admin_button
+            application.job_queue.run_once(
+                ensure_raffle_topic_admin_button,
+                when=5,
+                name="raffle-topic-admin-button-startup",
+            )
+            logger.info("Raffle topic admin button scheduled | delay=5s | topic=11883")
+        except Exception:
+            logger.exception("Unable to initialize raffle topic admin button.")
+
     # One-time repair of the existing active raffle. This does NOT create a raffle and does NOT repeat.
     if application.job_queue:
         application.job_queue.run_once(repair_active_raffle_post,when=10,name="one-time-raffle-topic-repair")
