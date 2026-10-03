@@ -281,39 +281,32 @@ def install_raffle_publish_pin_guard(application):
     raffle.publish_raffle = guarded_publish
 
 
-async def ensure_raffle_topic_admin_button(context):
-    """Ensure the Raffles & Giveaways topic always has an admin raffle launcher."""
+async def ensure_raffle_topic_member_button(context):
+    """Ensure the raffle topic has a clean member-facing entry button."""
     chat_id = _main_group_id()
-    state_path = Path("/var/data/raffle_topic_admin_button.json")
+    state_path = Path("/var/data/raffle_topic_member_button.json")
     state = _load_json(state_path)
     message_id = int(state.get("message_id") or 0)
-    if message_id:
-        try:
-            await context.bot.edit_message_reply_markup(
-                chat_id=chat_id,
-                message_id=message_id,
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ START RAFFLE", callback_data="admin_start_raffle")]]),
-            )
-            return True
-        except TelegramError:
+    raffle = get_active_raffle()
+    if not raffle:
+        if message_id:
+            try: await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+            except TelegramError: pass
             _clear_file(state_path)
+        return False
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data="raffle_enter_current")]])
+    text = "🎟️ <b>RAFFLE ENTRY</b>\\n\\n👇🏾 Tap below to enter the current Melanated AZ raffle."
     try:
-        sent = await context.bot.send_message(
-            chat_id=chat_id,
-            message_thread_id=RAFFLE_TOPIC_ID,
-            text=("🎟️ <b>RAFFLE ADMIN</b>\\n\\n"
-                  "Admins can start a new raffle from this topic.\\n"
-                  "Members can use the active raffle post below when one is live."),
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ START RAFFLE", callback_data="admin_start_raffle")]]),
-            parse_mode="HTML",
-        )
+        if message_id:
+            await context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=keyboard, parse_mode="HTML")
+            return True
+        sent = await context.bot.send_message(chat_id=chat_id, message_thread_id=RAFFLE_TOPIC_ID, text=text, reply_markup=keyboard, parse_mode="HTML")
         _save_json(state_path, {"chat_id": chat_id, "message_id": sent.message_id, "topic_id": RAFFLE_TOPIC_ID})
-        logger.info("Raffle topic admin button ensured | topic=%s | message=%s", RAFFLE_TOPIC_ID, sent.message_id)
+        logger.info("Raffle topic member button ensured | topic=%s | message=%s", RAFFLE_TOPIC_ID, sent.message_id)
         return True
     except TelegramError:
-        logger.exception("Could not create raffle topic admin button | topic=%s", RAFFLE_TOPIC_ID)
+        logger.exception("Could not create raffle topic member button | topic=%s", RAFFLE_TOPIC_ID)
         return False
-
 
 def start_raffle_pin_manager(application):
     install_raffle_publish_pin_guard(application)
