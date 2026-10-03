@@ -3743,7 +3743,17 @@ async def admin_button(
         return
 
     if data == "admin_approved_events":
-        await admin_approved_events(update, context)
+        await admin_approved_events(update, context, page=0)
+        return
+
+    if data.startswith("admin_approved_events_"):
+        page_text = data[len("admin_approved_events_"):]
+        try:
+            page = int(page_text)
+        except (TypeError, ValueError):
+            await query.answer("Invalid page.", show_alert=True)
+            return
+        await admin_approved_events(update, context, page=page)
         return
 
     # ------------------------------------------------------
@@ -4198,18 +4208,3 @@ async def admin_button(
         )
 
         return
-
-    # ------------------------------------------------------
-    # SELECT BIRTHDAY MEMBER
-    # ------------------------------------------------------
-
-    if data.startswith("admin_bday_select_"):
-
-        member_user_id = data[
-            len("admin_bday_select_"):
-        ]
-
-        await admin_birthday_select(
-            update,
-            context,
-            member_user_id,
