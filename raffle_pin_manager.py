@@ -304,13 +304,27 @@ async def ensure_raffle_topic_member_button(context):
         if message_id:
             try:
                 await context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=keyboard, parse_mode="HTML")
+                try:
+                    await context.bot.pin_chat_message(chat_id=chat_id, message_id=message_id, disable_notification=True)
+                except TelegramError:
+                    logger.exception("Could not pin raffle topic member button | message=%s", message_id)
+                    return False
                 return True
             except TelegramError:
                 _clear_file(state_path)
                 message_id = 0
         sent = await context.bot.send_message(chat_id=chat_id, message_thread_id=RAFFLE_TOPIC_ID, text=text, reply_markup=keyboard, parse_mode="HTML")
+        try:
+            await context.bot.pin_chat_message(chat_id=chat_id, message_id=sent.message_id, disable_notification=True)
+        except TelegramError:
+            logger.exception("Could not pin raffle topic member button | message=%s", sent.message_id)
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=sent.message_id)
+            except TelegramError:
+                pass
+            return False
         _save_json(state_path, {"chat_id": chat_id, "message_id": sent.message_id, "topic_id": RAFFLE_TOPIC_ID})
-        logger.info("Raffle topic member button ensured | topic=%s | message=%s", RAFFLE_TOPIC_ID, sent.message_id)
+        logger.info("Raffle topic member button ensured and pinned | topic=%s | message=%s", RAFFLE_TOPIC_ID, sent.message_id)
         return True
     except TelegramError:
         logger.exception("Could not create raffle topic member button | topic=%s", RAFFLE_TOPIC_ID)
