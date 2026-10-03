@@ -295,7 +295,7 @@ async def ensure_raffle_topic_member_button(context):
             _clear_file(state_path)
         return False
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data="raffle_enter_current")]])
-    text = "🎟️ <b>RAFFLE ENTRY</b>\\n\\n👇🏾 Tap below to enter the current Melanated AZ raffle."
+    text = "🎟️ <b>RAFFLE ENTRY</b>\n\n👇🏾 Tap below to enter the current Melanated AZ raffle."
     try:
         if message_id:
             await context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=keyboard, parse_mode="HTML")
