@@ -1404,7 +1404,7 @@ async def _remove_approved_event(context, submission_id):
 
     removable = {
         "approved", "pending_admin", "member_input",
-        "awaiting_confirmation", "admin_send_failed",
+        "awaiting_confirmation", "admin_send_failed", "expired",
     }
     if row["status"] not in removable:
         return False
@@ -1478,7 +1478,7 @@ async def handle_event_admin_callback(update, context):
         return
 
     if action == "remove":
-        if row["status"] not in {"approved", "pending_admin", "member_input", "awaiting_confirmation", "admin_send_failed"}:
+        if row["status"] not in {"approved", "pending_admin", "member_input", "awaiting_confirmation", "admin_send_failed", "expired"}:
             await query.answer("This Event submission cannot be removed.", show_alert=True)
             return
 
@@ -1504,7 +1504,7 @@ async def handle_event_admin_callback(update, context):
         return
 
     if action == "remove_confirm":
-        if row["status"] not in {"approved", "pending_admin", "member_input", "awaiting_confirmation", "admin_send_failed"}:
+        if row["status"] not in {"approved", "pending_admin", "member_input", "awaiting_confirmation", "admin_send_failed", "expired"}:
             await query.answer("This Event submission is no longer removable.", show_alert=True)
             return
         fields = _fields(row)
