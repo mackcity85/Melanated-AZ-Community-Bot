@@ -635,6 +635,12 @@ async def publish_raffle(raffle_id, context):
             await context.bot.pin_chat_message(chat_id=main_chat_id, message_id=sent.message_id, disable_notification=True)
         except TelegramError:
             logger.exception("Raffle %s posted but could not be pinned.", raffle_id)
+        # Keep a permanent member-facing entry button in the same Raffles & Giveaways topic.
+        try:
+            from raffle_pin_manager import ensure_raffle_topic_member_button
+            await ensure_raffle_topic_member_button(context)
+        except Exception:
+            logger.exception("Could not ensure member-facing raffle topic button | raffle=%s", raffle_id)
         # The pin manager owns the permanent main-chat navigation message.
         return True
     except TelegramError:
