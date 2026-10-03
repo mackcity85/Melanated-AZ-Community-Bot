@@ -3470,7 +3470,7 @@ async def admin_approved_events(update, context):
         # appear to disappear even though it was still recoverable/removable.
         rows = conn.execute(
             "SELECT * FROM event_submissions "
-            "WHERE status NOT IN ('denied', 'expired') "
+            "WHERE status != 'denied' "
             "ORDER BY id DESC"
         ).fetchall()
 
@@ -3517,6 +3517,7 @@ async def admin_approved_events(update, context):
             "member_input",
             "awaiting_confirmation",
             "admin_send_failed",
+            "expired",
         }:
             buttons += [
                 [InlineKeyboardButton("✏️ Event", callback_data=f"event_ocr_admin_edit_event_{sid}")],
