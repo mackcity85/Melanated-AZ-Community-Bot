@@ -10,6 +10,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import BadRequest, TelegramError
 
 from games.game_center import GAMES_CHAT_ID
+try:
+    from config import RAFFLE_CHAT_ID
+except Exception:
+    RAFFLE_CHAT_ID = GAMES_CHAT_ID
 from raffle_database import get_active_raffle, get_approved_entries, close_raffle
 
 logger = logging.getLogger("melanatedaz.raffle_pin_manager")
@@ -283,7 +287,7 @@ def install_raffle_publish_pin_guard(application):
 
 async def ensure_raffle_topic_member_button(context):
     """Ensure the raffle topic has a clean member-facing entry button."""
-    chat_id = _main_group_id()
+    chat_id = int(RAFFLE_CHAT_ID)
     state_path = Path("/var/data/raffle_topic_member_button.json")
     state = _load_json(state_path)
     message_id = int(state.get("message_id") or 0)
@@ -298,8 +302,12 @@ async def ensure_raffle_topic_member_button(context):
     text = "🎟️ <b>RAFFLE ENTRY</b>\n\n👇🏾 Tap below to enter the current Melanated AZ raffle."
     try:
         if message_id:
-            await context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=keyboard, parse_mode="HTML")
-            return True
+            try:
+                await context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=keyboard, parse_mode="HTML")
+                return True
+            except TelegramError:
+                _clear_file(state_path)
+                message_id = 0
         sent = await context.bot.send_message(chat_id=chat_id, message_thread_id=RAFFLE_TOPIC_ID, text=text, reply_markup=keyboard, parse_mode="HTML")
         _save_json(state_path, {"chat_id": chat_id, "message_id": sent.message_id, "topic_id": RAFFLE_TOPIC_ID})
         logger.info("Raffle topic member button ensured | topic=%s | message=%s", RAFFLE_TOPIC_ID, sent.message_id)
