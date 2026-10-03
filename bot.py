@@ -1203,9 +1203,9 @@ def main():
     # Ensure the Raffles & Giveaways topic always exposes the admin Start Raffle button.
     if application.job_queue:
         try:
-            from raffle_pin_manager import ensure_raffle_topic_admin_button
+            from raffle_pin_manager import ensure_raffle_topic_member_button
             application.job_queue.run_once(
-                ensure_raffle_topic_admin_button,
+                ensure_raffle_topic_member_button,
                 when=5,
                 name="raffle-topic-admin-button-startup",
             )
