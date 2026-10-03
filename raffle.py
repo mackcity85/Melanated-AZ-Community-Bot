@@ -1014,6 +1014,16 @@ async def repost_raffle(update, context):
         )
     return True
 
+async def enter_current_raffle(update, context):
+    raffle = get_active_raffle()
+    query = update.callback_query
+    if not raffle:
+        if query:
+            await query.answer("There is no active raffle right now.", show_alert=True)
+        return
+    await enter_raffle(update, context, int(raffle["id"]))
+
+
 async def raffle_callback(update, context):
     query = update.callback_query
     if not query:
