@@ -1050,6 +1050,9 @@ async def raffle_callback(update, context):
         if value.isdigit(): await deny_entry_callback(update, context, int(value))
         else: await query.answer("Invalid entry ID.", show_alert=True)
         return
+    if data == "raffle_enter_current":
+        await enter_current_raffle(update, context)
+        return
     if data.startswith("enter_"):
         value = data[len("enter_"):]
         if value.isdigit(): await enter_raffle(update, context, int(value))
