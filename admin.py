@@ -3444,8 +3444,8 @@ async def admin_after_dark_now(update, context):
 # APPROVED EVENTS
 # ==========================================================
 
-async def admin_approved_events(update, context):
-    """Show every approved Event OCR submission with individual edit buttons."""
+async def admin_approved_events(update, context, page=0):
+    """Show Event OCR submissions in pages so older IDs never disappear from the admin UI."""
     if not await require_admin(update, context):
         return
 
@@ -3460,23 +3460,25 @@ async def admin_approved_events(update, context):
 
     from event_ocr import _db, _fields
 
-    # Do not hide submissions simply because they are not currently in the
-    # approved-only publication set. This panel is the admin recovery/control
-    # surface, so actionable submissions must remain visible after restarts,
-    # send failures, or interrupted approval flows.
+    PAGE_SIZE = 5
+
     with _db() as conn:
-        # Keep every actionable submission visible. In particular,
-        # admin_send_failed was previously omitted, which made a submission
-        # appear to disappear even though it was still recoverable/removable.
         rows = conn.execute(
             "SELECT * FROM event_submissions "
             "WHERE status != 'denied' "
             "ORDER BY id DESC"
         ).fetchall()
 
+    total = len(rows)
+    max_page = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    try:
+        page = max(0, min(int(page), max_page - 1))
+    except (TypeError, ValueError):
+        page = 0
+
     if not rows:
         await query.edit_message_text(
-            "📅 **EVENT SUBMISSIONS**\n\nThere are currently no active Event submissions.",
+            "📅 **EVENT SUBMISSIONS**\n\nThere are currently no Event submissions.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")]
             ]),
@@ -3484,9 +3486,11 @@ async def admin_approved_events(update, context):
         )
         return
 
+    page_rows = rows[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
     blocks = []
     buttons = []
-    for row in rows:
+
+    for row in page_rows:
         sid = int(row["id"])
         status = str(row["status"] or "")
         fields = _fields(row)
@@ -3498,7 +3502,9 @@ async def admin_approved_events(update, context):
             "pending_admin": "⏳ PENDING APPROVAL",
             "member_input": "✏️ MEMBER INPUT",
             "awaiting_confirmation": "🔎 AWAITING CONFIRMATION",
-        }.get(status, status.upper())
+            "admin_send_failed": "⚠️ ADMIN SEND FAILED",
+            "expired": "⌛ EXPIRED — FLYER REMOVED",
+        }.get(status, status.upper() or "UNKNOWN")
 
         blocks.append(
             f"**{name}**\n"
@@ -3507,10 +3513,6 @@ async def admin_approved_events(update, context):
             f"🆔 Submission #{sid}"
         )
 
-        # Every non-terminal submission is actionable from the admin
-        # recovery panel. This deliberately includes member_input,
-        # awaiting_confirmation, and admin_send_failed so an interrupted
-        # submission cannot become stranded.
         if status in {
             "approved",
             "pending_admin",
@@ -3536,26 +3538,39 @@ async def admin_approved_events(update, context):
                 )],
             ]
             if status == "pending_admin":
-                buttons.append(
-                    [InlineKeyboardButton(
+                buttons.append([
+                    InlineKeyboardButton(
                         f"🔎 Review / Approve #{sid}",
                         callback_data="admin_pending_event_approvals",
-                    )]
-                )
+                    )
+                ])
 
-        buttons.append([InlineKeyboardButton("────────", callback_data=f"admin_approved_events")])
+        buttons.append([
+            InlineKeyboardButton("────────", callback_data=f"admin_approved_events_{page}")
+        ])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Newer", callback_data=f"admin_approved_events_{page - 1}"))
+    if page < max_page - 1:
+        nav.append(InlineKeyboardButton("Older ➡️", callback_data=f"admin_approved_events_{page + 1}"))
+    if nav:
+        buttons.append(nav)
 
     buttons += [
-        [InlineKeyboardButton("🔄 Refresh Events", callback_data="admin_approved_events")],
+        [InlineKeyboardButton(f"📄 Page {page + 1} of {max_page} ({total} total)", callback_data=f"admin_approved_events_{page}")],
+        [InlineKeyboardButton("🔄 Refresh Events", callback_data=f"admin_approved_events_{page}")],
         [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
     ]
+
     await query.edit_message_text(
-        "📅 **EVENT SUBMISSIONS**\n\n" + "\n\n".join(blocks) +
-        "\n\nApproved events can be edited or removed. Pending submissions can be reviewed. Incomplete member-side submissions remain visible for recovery.",
+        f"📅 **EVENT SUBMISSIONS — Page {page + 1} of {max_page}**\n\n"
+        + "\n\n".join(blocks)
+        + "\n\nUse **Older ➡️** to reach older submission IDs. "
+          "Expired flyers remain recoverable here; only the public Events flyer is removed after the event date.",
         reply_markup=InlineKeyboardMarkup(buttons),
         parse_mode="Markdown",
     )
-
 
 async def admin_pending_event_approvals(update, context):
     """Show pending Event OCR flyers so an admin can review them manually."""
@@ -4198,66 +4213,3 @@ async def admin_button(
             update,
             context,
             member_user_id,
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # REMOVE ONE BIRTHDAY
-    # ------------------------------------------------------
-
-    if data.startswith("admin_bday_remove_"):
-
-        birthday_id = data[
-            len("admin_bday_remove_"):
-        ]
-
-        await admin_remove_birthday(
-            update,
-            context,
-            birthday_id,
-        )
-
-        return
-
-    # ------------------------------------------------------
-    # MEMBER BANK / INTRO TRACKING
-    # ------------------------------------------------------
-
-    if data == "admin_members":
-        await admin_members(update, context, page=0)
-        return
-
-    if data.startswith("admin_members_page_"):
-        page_text = data[len("admin_members_page_"):]
-        try:
-            page = int(page_text)
-        except (TypeError, ValueError):
-            await query.answer("Invalid page.", show_alert=True)
-            return
-        await admin_members(update, context, page=page)
-        return
-
-    if data.startswith("admin_member_view_"):
-        member_user_id = data[len("admin_member_view_"):]
-        await admin_member_view(update, context, member_user_id)
-        return
-
-    # ------------------------------------------------------
-    # UNKNOWN
-    # ------------------------------------------------------
-
-    logger.warning(
-        "Unknown admin callback: %s",
-        data,
-    )
-
-    await query.answer(
-        "⚠️ This option is unavailable.",
-        show_alert=True,
-    )
-
-
-# ==========================================================
-# END admin.py
-# ==========================================================
