@@ -1409,6 +1409,29 @@ async def _remove_approved_event(context, submission_id):
     if row["status"] not in removable:
         return False
 
+    # Explicitly clear the public Event pin before deleting the flyer.
+    # Telegram pin state must be handled separately from message deletion.
+    published_message_id = row["published_message_id"]
+    if published_message_id:
+        try:
+            await context.bot.unpin_chat_message(
+                chat_id=EVENT_CHAT_ID,
+                message_id=int(published_message_id),
+            )
+            logger.info(
+                "Event flyer unpinned before removal | submission=%s | message=%s",
+                submission_id,
+                published_message_id,
+            )
+        except TelegramError:
+            # Already unpinned / not pinned / permission edge case should not
+            # prevent the requested Event removal.
+            logger.info(
+                "Event flyer pin already cleared or could not be cleared | submission=%s | message=%s",
+                submission_id,
+                published_message_id,
+            )
+
     for chat_id, message_id in (
         (EVENT_CHAT_ID, row["published_message_id"]),
         (ADMIN_GROUP_ID, row["admin_message_id"]),
