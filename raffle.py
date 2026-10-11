@@ -33,7 +33,7 @@ from raffle_database import (
     get_connection,
     update_raffle_expires_at,
     create_queued_raffle, get_queued_raffles, cancel_queued_raffle,
-    activate_next_queued_raffle,
+    activate_next_queued_raffle, requeue_unpublished_raffle,
 )
 
 logger = logging.getLogger("melanated_az_raffle")
@@ -239,27 +239,44 @@ async def launch_next_queued_raffle(context):
         logger.info("Raffle queue is empty; no follow-up raffle to launch.")
         return
     raffle_id = int(raffle["id"])
-    if await publish_raffle(raffle_id, context):
-        logger.info("QUEUED RAFFLE PUBLISHED | raffle=%s", raffle_id)
+    try:
+        published = await publish_raffle(raffle_id, context)
+    except Exception:
+        logger.exception("Unexpected error publishing queued raffle | raffle=%s", raffle_id)
+        published = False
+    if not published:
         try:
-            await context.bot.send_message(
-                chat_id=int(RAFFLE_CHAT_ID),
-                message_thread_id=RAFFLE_TOPIC_ID,
-                text=(
-                    "🔥 <b>THE NEXT RAFFLE IS LIVE!</b> 🔥\n\n"
-                    f"🎁 {html.escape(str(raffle.get('prize') or 'Raffle'))}\n"
-                    "Head to the raffle post above to enter!"
-                ),
-                parse_mode=ParseMode.HTML,
+            requeued = requeue_unpublished_raffle(raffle_id)
+        except Exception:
+            logger.exception("Could not safely requeue unpublished raffle | raffle=%s", raffle_id)
+            requeued = False
+        if requeued:
+            logger.error(
+                "Queued raffle %s could not be published and was returned to the queue; "
+                "no draw timer was scheduled.",
+                raffle_id,
             )
-        except TelegramError:
-            logger.exception("Could not announce queued raffle launch | raffle=%s", raffle_id)
-    else:
-        logger.error(
-            "Queued raffle %s is active but its post could not be published; "
-            "the raffle was retained in the database for admin recovery.",
-            raffle_id,
+        else:
+            logger.error(
+                "Queued raffle %s could not be published and could not be returned to the queue. "
+                "Check database and Telegram state before retrying.",
+                raffle_id,
+            )
+        return
+    logger.info("QUEUED RAFFLE PUBLISHED | raffle=%s", raffle_id)
+    try:
+        await context.bot.send_message(
+            chat_id=int(RAFFLE_CHAT_ID),
+            message_thread_id=RAFFLE_TOPIC_ID,
+            text=(
+                "🔥 <b>THE NEXT RAFFLE IS LIVE!</b> 🔥\\n\\n"
+                f"🎁 {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n"
+                "Head to the raffle post above to enter!"
+            ),
+            parse_mode=ParseMode.HTML,
         )
+    except TelegramError:
+        logger.exception("Could not announce queued raffle launch | raffle=%s", raffle_id)
     schedule_raffle_auto_draw(context, raffle_id, expires)
 
 
