@@ -207,6 +207,109 @@ def get_member(user_id, chat_id):
     finally:
         conn.close()
 
+def create_queued_raffle(prize, price):
+    """Create an upcoming raffle without changing any active or pending raffle."""
+    conn = get_connection()
+    try:
+        now = datetime.utcnow().isoformat()
+        cur = conn.execute("""
+            INSERT INTO raffles (prize, price, expires_at, status, created_at)
+            VALUES (?, ?, ?, 'queued', ?)
+        """, (str(prize), str(price), now, now))
+        conn.commit()
+        return cur.lastrowid
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_queued_raffles():
+    """Return upcoming raffles in the order they will launch."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM raffles WHERE status='queued' ORDER BY id ASC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def cancel_queued_raffle(raffle_id):
+    """Cancel one queued raffle without deleting its history or entries."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "UPDATE raffles SET status='cancelled' WHERE id=? AND status='queued'",
+            (int(raffle_id),),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def activate_next_queued_raffle(expires_at):
+    """Atomically activate the oldest queued raffle only when none is active."""
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        active = conn.execute(
+            "SELECT id FROM raffles WHERE status='active' LIMIT 1"
+        ).fetchone()
+        if active:
+            conn.rollback()
+            return None
+        queued = conn.execute(
+            "SELECT id FROM raffles WHERE status='queued' ORDER BY id ASC LIMIT 1"
+        ).fetchone()
+        if not queued:
+            conn.rollback()
+            return None
+        cur = conn.execute("""
+            UPDATE raffles
+            SET status='active', expires_at=?
+            WHERE id=? AND status='queued'
+        """, (str(expires_at), int(queued["id"])))
+        if cur.rowcount != 1:
+            conn.rollback()
+            return None
+        row = conn.execute(
+            "SELECT * FROM raffles WHERE id=?", (int(queued["id"]),)
+        ).fetchone()
+        conn.commit()
+        return dict(row) if row else None
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+
+def requeue_unpublished_raffle(raffle_id):
+    """Return a raffle to the queue only if it never acquired a Telegram post."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("""
+            UPDATE raffles
+            SET status='queued'
+            WHERE id=? AND status='active'
+              AND chat_id IS NULL AND message_id IS NULL
+        """, (int(raffle_id),))
+        conn.commit()
+        return cur.rowcount == 1
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 def create_raffle(prize, price, expires_at):
     conn = get_connection()
     try:
