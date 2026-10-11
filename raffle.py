@@ -1359,6 +1359,10 @@ async def draw_raffle(update, context):
     text = ("🎉 <b>RAFFLE WINNER!</b>\n\n" f"🎁 Prize: <b>{raffle['prize']}</b>\n\n" f"🏆 Winner: <b>{display_user(winner)}</b>\n" f"🆔 Entry: <code>{winner['id']}</code>\n\n🎉 Congratulations!")
     if query: await query.answer("Winner selected!")
     target = query.message if query else message
-    if target:
-        await target.reply_text(text, parse_mode=ParseMode.HTML)
-    await launch_next_queued_raffle(context)
+    try:
+        if target:
+            await target.reply_text(text, parse_mode=ParseMode.HTML)
+    except TelegramError:
+        logger.exception("Manual raffle winner announcement failed | raffle=%s", raffle["id"])
+    finally:
+        await launch_next_queued_raffle(context)
