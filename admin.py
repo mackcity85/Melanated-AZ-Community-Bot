@@ -36,7 +36,7 @@ from telegram import (
     InlineKeyboardMarkup,
 )
 
-from telegram.error import TelegramError
+from telegram.error import BadRequest, TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from config import ADMIN_IDS
@@ -3738,6 +3738,13 @@ async def show_admin_raffle_queue(update, context, notice=None):
             await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode="HTML")
         else:
             await target.reply_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    except BadRequest as exc:
+        # Telegram returns this when a refresh produces identical text and buttons.
+        # That is a harmless no-op, not a queue failure.
+        if "Message is not modified" in str(exc):
+            logger.debug("Raffle queue refresh unchanged; no edit needed.")
+            return
+        logger.exception("Unable to display raffle queue admin panel.")
     except Exception:
         logger.exception("Unable to display raffle queue admin panel.")
 
@@ -3749,6 +3756,7 @@ async def admin_queue_add_prompt(update, context):
     if not query:
         return
     context.user_data["admin_queue_raffle_waiting"] = True
+    logger.info("Admin started queued-raffle entry | user=%s", update.effective_user.id if update.effective_user else None)
     try:
         await query.answer()
         await query.edit_message_text(
@@ -3779,6 +3787,7 @@ async def admin_queue_text_handler(update, context):
         await message.reply_text("⛔ You are not authorized to add a queued raffle.")
         raise ApplicationHandlerStop
     payload = (message.text or "").strip()
+    logger.info("Received queued-raffle submission | user=%s | payload_length=%s", user.id, len(payload))
     if "|" not in payload:
         await message.reply_text(
             "⚠️ Please use this format: `Prize | Entry Price`\nExample: `$50 Gift Card | $5`",
