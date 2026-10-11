@@ -30,7 +30,7 @@ from profile_photo_enforcement import (
     clear_photo_required, send_profile_photo_requirement,
 )
 from monthly_member_safety import ensure_monthly_safety_schema, register_monthly_safety, monthly_safety_callback
-from admin import admin_menu, admin_button, admin_birthday_text_handler, is_admin
+from admin import admin_menu, admin_button, admin_birthday_text_handler, admin_queue_text_handler, is_admin
 from birthday import birthday, my_birthday, remove_my_birthday, birthday_callback, birthday_text_handler
 from raffle import (
     start_raffle,
@@ -1075,7 +1075,7 @@ def build_application():
     application.add_handler(CallbackQueryHandler(private_intro_view_callback,pattern=r"^intro_view_"),group=0)
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,private_intro_text_handler),group=0)
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,handle_raffle_end_date),group=0)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, __import__("admin").admin_queue_text_handler), group=-1)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, admin_queue_text_handler), group=-1)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_raffle_setup),group=0)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,text_router),group=10)
     application.add_error_handler(error_handler)
