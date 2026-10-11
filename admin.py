@@ -67,6 +67,9 @@ from raffle_database import (
     save_birthday,
     get_members,
     get_member,
+    create_queued_raffle,
+    get_queued_raffles,
+    cancel_queued_raffle,
 )
 
 
@@ -318,6 +321,12 @@ def admin_main_keyboard():
                 InlineKeyboardButton(
                     "📊 Post Raffle Status",
                     callback_data="admin_status",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🎟️ Raffle Queue",
+                    callback_data="admin_raffle_queue",
                 ),
             ],
             [
@@ -3670,6 +3679,155 @@ async def admin_pending_event_approvals(update, context):
 # ADMIN BUTTON ROUTER
 # ==========================================================
 
+# ==========================================================
+# RAFFLE QUEUE ADMIN PANEL
+# ==========================================================
+
+def admin_raffle_queue_keyboard(queued):
+    rows = []
+    for position, raffle in enumerate(queued, 1):
+        rows.append([
+            InlineKeyboardButton(
+                f"❌ Remove #{raffle['id']}",
+                callback_data=f"admin_queue_remove_{raffle['id']}",
+            )
+        ])
+    rows.extend([
+        [InlineKeyboardButton("➕ Add Raffle", callback_data="admin_queue_add")],
+        [InlineKeyboardButton("🔄 Refresh Queue", callback_data="admin_queue_refresh")],
+        [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
+    ])
+    return InlineKeyboardMarkup(rows)
+
+
+async def show_admin_raffle_queue(update, context, notice=None):
+    if not await require_admin(update, context, alert=True):
+        return
+    query = update.callback_query
+    if query:
+        try:
+            await query.answer()
+        except Exception:
+            pass
+    try:
+        queued = get_queued_raffles()
+    except Exception:
+        logger.exception("Unable to load raffle queue in admin panel.")
+        text = "⚠️ **Raffle Queue**\n\nI couldn't load the queue. Please check the Render logs."
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")]])
+    else:
+        lines = ["🎟️ **Raffle Queue**", ""]
+        if notice:
+            lines.extend([notice, ""])
+        if not queued:
+            lines.append("The queue is currently empty.")
+        else:
+            lines.append("Upcoming raffles launch in this order:")
+            for position, raffle in enumerate(queued, 1):
+                prize = str(raffle.get("prize") or "Raffle").replace("<", "&lt;").replace(">", "&gt;")
+                price = str(raffle.get("price") or "").replace("<", "&lt;").replace(">", "&gt;")
+                lines.append(f"**{position}.** Raffle **#{raffle['id']}** — {prize} ({price})")
+        text = "\n".join(lines)
+        keyboard = admin_raffle_queue_keyboard(queued)
+    target = query.message if query else update.effective_message
+    if not target:
+        return
+    try:
+        if query:
+            await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode="Markdown")
+        else:
+            await target.reply_text(text=text, reply_markup=keyboard, parse_mode="Markdown")
+    except Exception:
+        logger.exception("Unable to display raffle queue admin panel.")
+
+
+async def admin_queue_add_prompt(update, context):
+    if not await require_admin(update, context, alert=True):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    context.user_data["admin_queue_raffle_waiting"] = True
+    try:
+        await query.answer()
+        await query.edit_message_text(
+            "➕ **Add a Raffle to the Queue**\n\n"
+            "Send the prize and entry price on one line, separated by `|`.\n\n"
+            "Example: `$50 Gift Card | $5`\n\n"
+            "This only adds an upcoming raffle; it will not change the active raffle.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✖️ Cancel", callback_data="admin_queue_cancel_add")],
+                [InlineKeyboardButton("⬅️ Back to Queue", callback_data="admin_queue_refresh")],
+            ]),
+            parse_mode="Markdown",
+        )
+    except Exception:
+        logger.exception("Unable to open Add Raffle queue prompt.")
+
+
+async def admin_queue_text_handler(update, context):
+    """Consume the next non-command text message when an admin started queue-add from the panel."""
+    if not context.user_data.get("admin_queue_raffle_waiting"):
+        return False
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not user:
+        return False
+    if not await is_admin(user.id, context):
+        context.user_data.pop("admin_queue_raffle_waiting", None)
+        await message.reply_text("⛔ You are not authorized to add a queued raffle.")
+        return True
+    payload = (message.text or "").strip()
+    if "|" not in payload:
+        await message.reply_text(
+            "⚠️ Please use this format: `Prize | Entry Price`\nExample: `$50 Gift Card | $5`",
+            parse_mode="Markdown",
+        )
+        return True
+    prize, price = (part.strip() for part in payload.split("|", 1))
+    if not prize or not price:
+        await message.reply_text(
+            "⚠️ Both prize and entry price are required. Use: `Prize | Entry Price`",
+            parse_mode="Markdown",
+        )
+        return True
+    try:
+        raffle_id = create_queued_raffle(prize, price)
+        queued = get_queued_raffles()
+        position = next((i for i, item in enumerate(queued, 1) if int(item["id"]) == int(raffle_id)), len(queued))
+    except Exception:
+        logger.exception("Admin panel could not add raffle to queue | user=%s", user.id)
+        context.user_data.pop("admin_queue_raffle_waiting", None)
+        await message.reply_text("❌ I couldn't add that raffle. No existing raffle was changed.")
+        return True
+    context.user_data.pop("admin_queue_raffle_waiting", None)
+    await message.reply_text(
+        "✅ **Raffle Added to Queue**\n\n"
+        f"**Raffle ID:** {raffle_id}\n"
+        f"**Prize:** {prize}\n"
+        f"**Entry price:** {price}\n"
+        f"**Queue position:** {position}\n\n"
+        "It will launch automatically after the current raffle closes and its winner is drawn.",
+        parse_mode="Markdown",
+    )
+    return True
+
+
+async def admin_queue_remove_button(update, context, raffle_id):
+    if not await require_admin(update, context, alert=True):
+        return
+    try:
+        removed = cancel_queued_raffle(int(raffle_id))
+    except Exception:
+        logger.exception("Could not remove queued raffle %s from admin panel.", raffle_id)
+        removed = False
+    await show_admin_raffle_queue(
+        update, context,
+        notice=("❌ Raffle #%s removed from the queue." % raffle_id) if removed
+        else ("⚠️ Raffle #%s was not in the queue; nothing was changed." % raffle_id),
+    )
+
+
 async def admin_button(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -3727,6 +3885,32 @@ async def admin_button(
         return
     if data.startswith("admin_member_remove_"):
         await _member_remove_prompt(update, context, data[len("admin_member_remove_"):])
+        return
+
+    if data == "admin_raffle_queue":
+        await show_admin_raffle_queue(update, context)
+        return
+
+    if data == "admin_queue_add":
+        await admin_queue_add_prompt(update, context)
+        return
+
+    if data == "admin_queue_refresh":
+        context.user_data.pop("admin_queue_raffle_waiting", None)
+        await show_admin_raffle_queue(update, context)
+        return
+
+    if data == "admin_queue_cancel_add":
+        context.user_data.pop("admin_queue_raffle_waiting", None)
+        await show_admin_raffle_queue(update, context, notice="Queue-add cancelled.")
+        return
+
+    if data.startswith("admin_queue_remove_"):
+        raffle_id = data[len("admin_queue_remove_"):]
+        if not raffle_id.isdigit():
+            await query.answer("Invalid raffle ID.", show_alert=True)
+            return
+        await admin_queue_remove_button(update, context, int(raffle_id))
         return
 
     if data == "admin_refresh":
