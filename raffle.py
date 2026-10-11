@@ -32,6 +32,8 @@ from raffle_database import (
     approve_entry, deny_entry, get_approved_entries, remove_entry,
     get_connection,
     update_raffle_expires_at,
+    create_queued_raffle, get_queued_raffles, cancel_queued_raffle,
+    activate_next_queued_raffle,
 )
 
 logger = logging.getLogger("melanated_az_raffle")
@@ -134,6 +136,131 @@ def parse_raffle_setup(payload):
     prize, price = payload.rsplit("|", 1)
     prize, price = prize.strip(), price.strip()
     return (prize, price) if prize and price else (None, None)
+
+
+async def queue_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Add an admin-created raffle to the queue without touching the live raffle."""
+    message, user = update.effective_message, update.effective_user
+    if not user or not message or not await is_raffle_admin_access(update, context):
+        if message:
+            await message.reply_text("⛔ Admins only.")
+        return
+    payload = " ".join(context.args or []).strip()
+    if not payload:
+        await message.reply_text(
+            "Use: <code>/queueraffle Prize | Entry Price</code>\n"
+            "Example: <code>/queueraffle $50 Gift Card | $5</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+    prize, price = parse_raffle_setup(payload)
+    if not prize or not price:
+        await message.reply_text(
+            "⚠️ Invalid format. Use: <code>/queueraffle Prize | Entry Price</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+    try:
+        raffle_id = create_queued_raffle(prize, price)
+    except Exception:
+        logger.exception("QUEUED RAFFLE CREATION FAILED | user=%s", user.id)
+        await message.reply_text("❌ I couldn't add that raffle to the queue. No existing raffle was changed.")
+        return
+    queued = get_queued_raffles()
+    position = next((i for i, item in enumerate(queued, 1) if int(item["id"]) == int(raffle_id)), len(queued))
+    await message.reply_text(
+        "✅ <b>RAFFLE ADDED TO QUEUE</b>\n\n"
+        f"🆔 Raffle: <code>{raffle_id}</code>\n"
+        f"🎁 Prize: <b>{html.escape(str(prize))}</b>\n"
+        f"💵 Entry: <b>{html.escape(str(price))}</b>\n"
+        f"📋 Queue position: <b>{position}</b>\n\n"
+        "It will go live automatically after the current raffle closes and its winner is drawn.",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def raffle_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show upcoming raffles in launch order."""
+    message, user = update.effective_message, update.effective_user
+    if not user or not message or not await is_raffle_admin_access(update, context):
+        if message:
+            await message.reply_text("⛔ Admins only.")
+        return
+    queued = get_queued_raffles()
+    if not queued:
+        await message.reply_text("📋 The raffle queue is empty.")
+        return
+    lines = ["📋 <b>UPCOMING RAFFLE QUEUE</b>", ""]
+    for position, raffle in enumerate(queued, 1):
+        lines.append(
+            f"<b>{position}.</b> Raffle <code>{raffle['id']}</code> — "
+            f"{html.escape(str(raffle.get('prize') or 'Raffle'))} "
+            f"({html.escape(str(raffle.get('price') or ''))})"
+        )
+    lines.append("\nRemove an item with <code>/removequeuedraffle ID</code>.")
+    await message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
+
+
+async def remove_queued_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel a queued raffle by ID while preserving its database history."""
+    message, user = update.effective_message, update.effective_user
+    if not user or not message or not await is_raffle_admin_access(update, context):
+        if message:
+            await message.reply_text("⛔ Admins only.")
+        return
+    args = context.args or []
+    if len(args) != 1 or not args[0].isdigit():
+        await message.reply_text("Use: <code>/removequeuedraffle ID</code>", parse_mode=ParseMode.HTML)
+        return
+    raffle_id = int(args[0])
+    raffle = get_raffle(raffle_id)
+    if not raffle or raffle.get("status") != "queued" or not cancel_queued_raffle(raffle_id):
+        await message.reply_text("⚠️ That raffle isn't in the queue. No active raffle was changed.")
+        return
+    await message.reply_text(
+        f"❌ Removed raffle <code>{raffle_id}</code> from the queue. "
+        "Its record was preserved and the active raffle was not changed.",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def launch_next_queued_raffle(context):
+    """Launch the oldest queued raffle after a completed draw, if no raffle is active."""
+    if get_active_raffle():
+        logger.warning("Queued raffle launch skipped because a raffle is already active.")
+        return
+    expires = datetime.utcnow() + timedelta(days=int(RAFFLE_DURATION_DAYS or 7))
+    try:
+        raffle = activate_next_queued_raffle(expires.isoformat())
+    except Exception:
+        logger.exception("Could not activate the next queued raffle.")
+        return
+    if not raffle:
+        logger.info("Raffle queue is empty; no follow-up raffle to launch.")
+        return
+    raffle_id = int(raffle["id"])
+    if await publish_raffle(raffle_id, context):
+        logger.info("QUEUED RAFFLE PUBLISHED | raffle=%s", raffle_id)
+        try:
+            await context.bot.send_message(
+                chat_id=int(RAFFLE_CHAT_ID),
+                message_thread_id=RAFFLE_TOPIC_ID,
+                text=(
+                    "🔥 <b>THE NEXT RAFFLE IS LIVE!</b> 🔥\n\n"
+                    f"🎁 {html.escape(str(raffle.get('prize') or 'Raffle'))}\n"
+                    "Head to the raffle post above to enter!"
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+        except TelegramError:
+            logger.exception("Could not announce queued raffle launch | raffle=%s", raffle_id)
+    else:
+        logger.error(
+            "Queued raffle %s is active but its post could not be published; "
+            "the raffle was retained in the database for admin recovery.",
+            raffle_id,
+        )
+    schedule_raffle_auto_draw(context, raffle_id, expires)
 
 
 async def start_raffle(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -568,6 +695,9 @@ async def auto_draw_raffle(context):
         logger.info("AUTOMATIC RAFFLE DRAW COMPLETE | raffle=%s | entries=%s", raffle["id"], len(entries))
     except TelegramError:
         logger.exception("Automatic raffle draw announcement failed | raffle=%s", raffle["id"])
+    # Only advance the queue after the current raffle has been closed and its
+    # winner/no-entry result has been determined and announced (or announcement attempted).
+    await launch_next_queued_raffle(context)
 
 
 def schedule_raffle_auto_draw(context, raffle_id, expires_at=None):
@@ -1166,7 +1296,9 @@ async def raffle_entries(update, context):
         text = "🎟️ <b>APPROVED ENTRIES</b>\n\n" + ("\n".join(f"{i}. {display_user(e)} (Entry #{e['id']})" for i, e in enumerate(entries, 1)) if entries else "No approved entries yet.")
     if query: await query.answer()
     target = query.message if query else message
-    if target: await target.reply_text(text, parse_mode=ParseMode.HTML)
+    if target:
+        await target.reply_text(text, parse_mode=ParseMode.HTML)
+    await launch_next_queued_raffle(context)
 
 
 async def pending_entries(update, context):
