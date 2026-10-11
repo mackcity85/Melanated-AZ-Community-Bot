@@ -3714,10 +3714,10 @@ async def show_admin_raffle_queue(update, context, notice=None):
         queued = get_queued_raffles()
     except Exception:
         logger.exception("Unable to load raffle queue in admin panel.")
-        text = "⚠️ **Raffle Queue**\n\nI couldn't load the queue. Please check the Render logs."
+        text = "⚠️ <b>Raffle Queue</b>\n\nI couldn't load the queue. Please check the Render logs."
         keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")]])
     else:
-        lines = ["🎟️ **Raffle Queue**", ""]
+        lines = ["🎟️ <b>Raffle Queue</b>", ""]
         if notice:
             lines.extend([notice, ""])
         if not queued:
@@ -3728,7 +3728,7 @@ async def show_admin_raffle_queue(update, context, notice=None):
                 prize = html.escape(str(raffle.get("prize") or "Raffle"))
                 price = html.escape(str(raffle.get("price") or ""))
                 lines.append(f"<b>{position}.</b> Raffle <b>#{raffle['id']}</b> — {prize} ({price})")
-        text = "\n".join(lines).replace("🎟️ **Raffle Queue**", "🎟️ <b>Raffle Queue</b>")
+        text = "\n".join(lines)
         keyboard = admin_raffle_queue_keyboard(queued)
     target = query.message if query else update.effective_message
     if not target:
