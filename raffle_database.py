@@ -291,6 +291,25 @@ def activate_next_queued_raffle(expires_at):
         conn.close()
 
 
+
+def requeue_unpublished_raffle(raffle_id):
+    """Return a raffle to the queue only if it never acquired a Telegram post."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("""
+            UPDATE raffles
+            SET status='queued'
+            WHERE id=? AND status='active'
+              AND chat_id IS NULL AND message_id IS NULL
+        """, (int(raffle_id),))
+        conn.commit()
+        return cur.rowcount == 1
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 def create_raffle(prize, price, expires_at):
     conn = get_connection()
     try:
