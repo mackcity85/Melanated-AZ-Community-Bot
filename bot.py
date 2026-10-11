@@ -894,6 +894,11 @@ def start_community_security_monitor(application):
 
 async def text_router(update,context):
     try:
+        from admin import admin_queue_text_handler
+        if await admin_queue_text_handler(update,context): return
+    except Exception:
+        logger.exception("Admin raffle queue text handler failed.")
+    try:
         from member_bank import member_bank_message_handler
         if await member_bank_message_handler(update,context):return
     except Exception:
