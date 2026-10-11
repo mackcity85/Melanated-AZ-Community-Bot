@@ -26,6 +26,7 @@
 #   - Holiday Exchange
 # ==========================================================
 
+import html
 import logging
 import os
 
@@ -3724,19 +3725,19 @@ async def show_admin_raffle_queue(update, context, notice=None):
         else:
             lines.append("Upcoming raffles launch in this order:")
             for position, raffle in enumerate(queued, 1):
-                prize = str(raffle.get("prize") or "Raffle").replace("<", "&lt;").replace(">", "&gt;")
-                price = str(raffle.get("price") or "").replace("<", "&lt;").replace(">", "&gt;")
-                lines.append(f"**{position}.** Raffle **#{raffle['id']}** — {prize} ({price})")
-        text = "\n".join(lines)
+                prize = html.escape(str(raffle.get("prize") or "Raffle"))
+                price = html.escape(str(raffle.get("price") or ""))
+                lines.append(f"<b>{position}.</b> Raffle <b>#{raffle['id']}</b> — {prize} ({price})")
+        text = "\n".join(lines).replace("🎟️ **Raffle Queue**", "🎟️ <b>Raffle Queue</b>")
         keyboard = admin_raffle_queue_keyboard(queued)
     target = query.message if query else update.effective_message
     if not target:
         return
     try:
         if query:
-            await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode="Markdown")
+            await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode="HTML")
         else:
-            await target.reply_text(text=text, reply_markup=keyboard, parse_mode="Markdown")
+            await target.reply_text(text=text, reply_markup=keyboard, parse_mode="HTML")
     except Exception:
         logger.exception("Unable to display raffle queue admin panel.")
 
@@ -3802,13 +3803,13 @@ async def admin_queue_text_handler(update, context):
         return True
     context.user_data.pop("admin_queue_raffle_waiting", None)
     await message.reply_text(
-        "✅ **Raffle Added to Queue**\n\n"
-        f"**Raffle ID:** {raffle_id}\n"
-        f"**Prize:** {prize}\n"
-        f"**Entry price:** {price}\n"
-        f"**Queue position:** {position}\n\n"
+        "✅ <b>Raffle Added to Queue</b>\n\n"
+        f"<b>Raffle ID:</b> {raffle_id}\n"
+        f"<b>Prize:</b> {html.escape(prize)}\n"
+        f"<b>Entry price:</b> {html.escape(price)}\n"
+        f"<b>Queue position:</b> {position}\n\n"
         "It will launch automatically after the current raffle closes and its winner is drawn.",
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
     return True
 
