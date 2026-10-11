@@ -894,11 +894,6 @@ def start_community_security_monitor(application):
 
 async def text_router(update,context):
     try:
-        from admin import admin_queue_text_handler
-        if await admin_queue_text_handler(update,context): return
-    except Exception:
-        logger.exception("Admin raffle queue text handler failed.")
-    try:
         from member_bank import member_bank_message_handler
         if await member_bank_message_handler(update,context):return
     except Exception:
@@ -1080,6 +1075,7 @@ def build_application():
     application.add_handler(CallbackQueryHandler(private_intro_view_callback,pattern=r"^intro_view_"),group=0)
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,private_intro_text_handler),group=0)
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,handle_raffle_end_date),group=0)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, __import__("admin").admin_queue_text_handler), group=-1)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_raffle_setup),group=0)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,text_router),group=10)
     application.add_error_handler(error_handler)
