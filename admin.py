@@ -37,7 +37,7 @@ from telegram import (
 )
 
 from telegram.error import TelegramError
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from config import ADMIN_IDS
 
@@ -3777,21 +3777,21 @@ async def admin_queue_text_handler(update, context):
     if not await is_admin(user.id, context):
         context.user_data.pop("admin_queue_raffle_waiting", None)
         await message.reply_text("⛔ You are not authorized to add a queued raffle.")
-        return True
+        raise ApplicationHandlerStop
     payload = (message.text or "").strip()
     if "|" not in payload:
         await message.reply_text(
             "⚠️ Please use this format: `Prize | Entry Price`\nExample: `$50 Gift Card | $5`",
             parse_mode="Markdown",
         )
-        return True
+        raise ApplicationHandlerStop
     prize, price = (part.strip() for part in payload.split("|", 1))
     if not prize or not price:
         await message.reply_text(
             "⚠️ Both prize and entry price are required. Use: `Prize | Entry Price`",
             parse_mode="Markdown",
         )
-        return True
+        raise ApplicationHandlerStop
     try:
         raffle_id = create_queued_raffle(prize, price)
         queued = get_queued_raffles()
@@ -3800,7 +3800,7 @@ async def admin_queue_text_handler(update, context):
         logger.exception("Admin panel could not add raffle to queue | user=%s", user.id)
         context.user_data.pop("admin_queue_raffle_waiting", None)
         await message.reply_text("❌ I couldn't add that raffle. No existing raffle was changed.")
-        return True
+        raise ApplicationHandlerStop
     context.user_data.pop("admin_queue_raffle_waiting", None)
     await message.reply_text(
         "✅ <b>Raffle Added to Queue</b>\n\n"
@@ -3811,7 +3811,7 @@ async def admin_queue_text_handler(update, context):
         "It will launch automatically after the current raffle closes and its winner is drawn.",
         parse_mode="HTML",
     )
-    return True
+    raise ApplicationHandlerStop
 
 
 async def admin_queue_remove_button(update, context, raffle_id):
