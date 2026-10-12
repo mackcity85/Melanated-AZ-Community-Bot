@@ -178,7 +178,7 @@ async def _publish_existing_raffle(context, raffle):
         f"🎁 <b>Prize:</b> {html_escape(raffle.get('prize') or 'Raffle')}\n"
         f"💵 <b>Entry:</b> {html_escape(raffle.get('price') or 'See raffle details')}\n"
         f"⏰ <b>Ends:</b> {html_escape(raffle.get('expires_at') or 'Unknown')}\n\n"
-        "👇 Tap below to enter.\n\n" f"{payment_notice}"
+        f"👇 Tap below to enter {html_escape(raffle.get('prize') or 'the raffle')}!\n\n" f"{payment_notice}"
     )
     chat_id = _main_group_id()
     try:
@@ -299,7 +299,7 @@ async def ensure_raffle_topic_member_button(context):
             _clear_file(state_path)
         return False
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data="raffle_enter_current")]])
-    text = "🎟️ <b>RAFFLE ENTRY</b>\n\n👇🏾 Tap below to enter the current Melanated AZ raffle."
+    text = (\n        "🎟️ <b>RAFFLE ENTRY</b>\n\n"\n        f"👇🏾 Tap below to enter {html_escape(raffle.get('prize') or 'the raffle')}."\n    )
     try:
         if message_id:
             try:
