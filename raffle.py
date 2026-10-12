@@ -1105,7 +1105,7 @@ async def post_raffle_status_to_main_chat(context, announce_new_entry=False):
         f"👥 <b>Total Entries:</b> {len(approved)}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle.get('expires_at'))}\n\n"
         + ("🔥 <b>Someone just joined the raffle!</b>\n\n" if announce_new_entry else "")
-        + "👇 <b>Tap ENTER RAFFLE to join!</b>"
+        + f"👇 <b>Tap below to enter {html.escape(str(raffle.get('prize') or 'the raffle'))}!</b>"
     )
 
     target_chat = int(MAIN_GROUP_ID or RAFFLE_CHAT_ID)
