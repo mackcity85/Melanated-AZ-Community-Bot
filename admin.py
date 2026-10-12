@@ -3334,21 +3334,58 @@ async def admin_qotd_status(update, context):
     if not query:
         return
     await query.answer()
-    from question_of_day import queued_count, daily_post_already_done
-    count = queued_count()
-    posted = daily_post_already_done()
-    await query.edit_message_text(
-        "📚 **QOTD BANK STATUS**\n\n"
-        f"Queued items: **{count}**\n"
-        f"Today's QOTD: **{'Posted' if posted else 'Not posted'}**\n\n"
-        "Questions and polls share the QOTD bank.\n"
-        "Empty bank = no scheduled QOTD post.",
-        reply_markup=InlineKeyboardMarkup([
+    try:
+        import json
+        from question_of_day import db_connect, daily_post_already_done
+        with db_connect() as conn:
+            rows = conn.execute(
+                "SELECT id, item_type, prompt, options_json, voice_file_id "
+                "FROM qotd_items WHERE status='queued' ORDER BY id ASC LIMIT 8"
+            ).fetchall()
+            count = conn.execute(
+                "SELECT COUNT(*) FROM qotd_items WHERE status='queued'"
+            ).fetchone()[0]
+        posted = daily_post_already_done()
+        lines = [
+            "📚 <b>QOTD BANK — QUEUED ITEMS</b>",
+            f"Queued: <b>{count}</b> | Today's post: <b>{'Posted' if posted else 'Not posted'}</b>",
+            "",
+            "Select an item below to view it and edit or delete it:",
+        ]
+        buttons = []
+        for row in rows:
+            item_id, item_type, prompt, options_json, voice_file_id = row
+            label = (prompt or ("Voice question" if voice_file_id else "Untitled question")).replace("\\n", " ").strip()
+            if len(label) > 48:
+                label = label[:45] + "..."
+            prefix = "📊" if item_type == "poll" else ("🎙️" if item_type == "voice" or voice_file_id else "💭")
+            buttons.append([InlineKeyboardButton(
+                f"{prefix} #{item_id} {label}",
+                callback_data=f"qotd_bank_item_{item_id}"
+            )])
+        if count > 8:
+            buttons.append([InlineKeyboardButton("➡️ Next items", callback_data="qotd_bank_page_1")])
+        buttons.extend([
+            [InlineKeyboardButton("🔄 Refresh", callback_data="admin_qotd_status")],
             [InlineKeyboardButton("⬅️ Back", callback_data="admin_questions")],
             [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
-        ]),
-        parse_mode="Markdown",
-    )
+        ])
+        if not rows:
+            lines.append("\nNo queued questions or polls were found in the QOTD database.")
+        await query.edit_message_text(
+            "\\n".join(lines),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="HTML",
+        )
+    except Exception:
+        logger.exception("Unable to display queued QOTD items in admin panel")
+        await query.edit_message_text(
+            "📚 QOTD bank could not be loaded. Check the bot logs for the database error.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Try again", callback_data="admin_qotd_status")],
+                [InlineKeyboardButton("⬅️ Back", callback_data="admin_questions")],
+            ]),
+        )
 
 async def admin_qotd_post_next(update, context):
     if not await require_admin(update, context):
