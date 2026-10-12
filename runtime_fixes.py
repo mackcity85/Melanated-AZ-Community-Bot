@@ -27,6 +27,70 @@ def install():
 def _patch_qotd():
     import question_of_day as qotd
 
+    def get_queued_qotd_item(item_id):
+        with qotd.db_connect() as conn:
+            return conn.execute("SELECT * FROM qotd_items WHERE id=? AND status='queued'", (item_id,)).fetchone()
+
+    async def show_qotd_bank(query, context, page=0, alert=False, edit_message=False):
+        user = query.from_user
+        if not user or not await bot.is_admin(user.id, context):
+            await query.answer("Admin access only.", show_alert=True)
+            return
+        with qotd.db_connect() as conn:
+            total = conn.execute("SELECT COUNT(*) FROM qotd_items WHERE status='queued'").fetchone()[0]
+            items = conn.execute(
+                "SELECT id,item_type,prompt FROM qotd_items WHERE status='queued' ORDER BY id ASC LIMIT 8 OFFSET ?",
+                (max(0, page) * 8,),
+            ).fetchall()
+        rows = []
+        for item in items:
+            label = "📊" if item["item_type"] == "poll" else "💭"
+            prompt = (item["prompt"] or "Voice question").replace("\\n", " ")
+            if len(prompt) > 48:
+                prompt = prompt[:45] + "..."
+            rows.append([InlineKeyboardButton(f"{label} #{item['id']} {prompt}", callback_data=f"qotd_bank_item_{item['id']}")])
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"qotd_bank_page_{page-1}"))
+        if (page + 1) * 8 < total:
+            nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"qotd_bank_page_{page+1}"))
+        if nav:
+            rows.append(nav)
+        rows.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"qotd_bank_page_{page}")])
+        text = f"📚 <b>QUESTION OF THE DAY BANK</b>\\n\\nQueued: <b>{total}</b>\\nPage: <b>{page+1}</b>\\n\\nSelect an item to edit or delete it."
+        markup = InlineKeyboardMarkup(rows)
+        if alert:
+            await query.answer(f"{total} queued item(s) in the bank.", show_alert=True)
+        else:
+            await query.answer()
+        try:
+            if edit_message:
+                await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
+            else:
+                await context.bot.send_message(chat_id=user.id, text=text, parse_mode=ParseMode.HTML, reply_markup=markup)
+        except TelegramError:
+            logger.exception("Unable to display QOTD bank to admin %s", user.id)
+
+    async def show_qotd_bank_item(query, item_id):
+        item = get_queued_qotd_item(item_id)
+        if not item:
+            await query.answer("Only queued items can be edited or deleted.", show_alert=True)
+            return
+        options = json.loads(item["options_json"] or "[]")
+        text = f"📚 <b>BANK ITEM #{item_id}</b>\\n\\nType: <b>{item['item_type'].title()}</b>\\nQuestion: {item['prompt'] or 'Voice question'}"
+        if options:
+            text += "\\n\\nChoices:\\n" + "\\n".join(f"• {option}" for option in options)
+        rows = []
+        if item["item_type"] == "poll":
+            rows.append([InlineKeyboardButton("✏️ Edit question", callback_data=f"qotd_edit_prompt_{item_id}")])
+            rows.append([InlineKeyboardButton("📝 Edit choices", callback_data=f"qotd_edit_options_{item_id}")])
+        elif not item["voice_file_id"]:
+            rows.append([InlineKeyboardButton("✏️ Edit question", callback_data=f"qotd_edit_prompt_{item_id}")])
+        rows.append([InlineKeyboardButton("🗑 Delete", callback_data=f"qotd_delete_{item_id}")])
+        rows.append([InlineKeyboardButton("⬅️ Back to bank", callback_data="qotd_bank")])
+        await query.answer()
+        await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=InlineKeyboardMarkup(rows))
+
     async def private_qotd_callback(update, context):
         query = update.callback_query
         if not query or not query.data:
@@ -34,8 +98,83 @@ def _patch_qotd():
         action = query.data
         await query.answer()
         if action == "qotd_status":
-            count = qotd.queued_count()
-            await query.answer(f"{count} day{'s' if count != 1 else ''} in the bank.", show_alert=True)
+            # Answer once only; the previous double-answer prevented the status popup from appearing.
+            await show_qotd_bank(query, context, page=0, alert=True)
+            return
+        if action == "qotd_bank" or action.startswith("qotd_bank_page_"):
+            page = int(action.rsplit("_", 1)[1]) if action.startswith("qotd_bank_page_") else 0
+            await show_qotd_bank(query, context, page=page)
+            return
+        if action.startswith("qotd_bank_item_"):
+            if not await bot.is_admin(update.effective_user.id, context):
+                await query.answer("Admin access only.", show_alert=True)
+                return
+            item_id = int(action.rsplit("_", 1)[1])
+            await show_qotd_bank_item(query, item_id)
+            return
+        if action.startswith("qotd_edit_prompt_"):
+            if not await bot.is_admin(update.effective_user.id, context):
+                await query.answer("Admin access only.", show_alert=True)
+                return
+            item_id = int(action.rsplit("_", 1)[1])
+            item = get_queued_qotd_item(item_id)
+            if not item:
+                await query.answer("That queued item no longer exists.", show_alert=True)
+                return
+            context.user_data["qotd_state"] = f"qotd_edit_prompt_{item_id}"
+            await query.answer()
+            await context.bot.send_message(chat_id=update.effective_user.id, text=f"✏️ Send the new question for bank item #{item_id}.\n\nCurrent question:\n{item['prompt'] or '(voice question)'}\n\nSend /cancel to leave it unchanged.")
+            return
+        if action.startswith("qotd_edit_options_"):
+            if not await bot.is_admin(update.effective_user.id, context):
+                await query.answer("Admin access only.", show_alert=True)
+                return
+            item_id = int(action.rsplit("_", 1)[1])
+            item = get_queued_qotd_item(item_id)
+            if not item or item["item_type"] != "poll":
+                await query.answer("Only queued polls can have answer choices edited.", show_alert=True)
+                return
+            context.user_data["qotd_state"] = f"qotd_edit_options_{item_id}"
+            await query.answer()
+            choices = " | ".join(json.loads(item["options_json"] or "[]"))
+            await context.bot.send_message(chat_id=update.effective_user.id, text=f"📊 Send the new 2–10 answer choices for poll #{item_id}, separated by |.\n\nCurrent choices:\n{choices}\n\nSend /cancel to leave them unchanged.")
+            return
+        if action.startswith("qotd_delete_") and not action.startswith(("qotd_delete_confirm_", "qotd_delete_cancel_")):
+            if not await bot.is_admin(update.effective_user.id, context):
+                await query.answer("Admin access only.", show_alert=True)
+                return
+            item_id = int(action.rsplit("_", 1)[1])
+            item = get_queued_qotd_item(item_id)
+            if not item:
+                await query.answer("Only queued items can be deleted.", show_alert=True)
+                return
+            await query.answer()
+            await query.edit_message_text(
+                f"⚠️ Delete queued item #{item_id}?\n\n{item['prompt'] or 'Voice question'}",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🗑 Confirm delete", callback_data=f"qotd_delete_confirm_{item_id}"),
+                    InlineKeyboardButton("↩️ Keep it", callback_data=f"qotd_delete_cancel_{item_id}"),
+                ]]),
+            )
+            return
+        if action.startswith("qotd_delete_confirm_"):
+            if not await bot.is_admin(update.effective_user.id, context):
+                await query.answer("Admin access only.", show_alert=True)
+                return
+            item_id = int(action.rsplit("_", 1)[1])
+            with qotd.db_connect() as conn:
+                cur = conn.execute("DELETE FROM qotd_items WHERE id=? AND status='queued'", (item_id,))
+                conn.commit()
+            await query.answer("Deleted from the bank." if cur.rowcount else "Item not found in the queue.", show_alert=True)
+            await show_qotd_bank(query, context, page=0, edit_message=True)
+            return
+        if action.startswith("qotd_delete_cancel_"):
+            if not await bot.is_admin(update.effective_user.id, context):
+                await query.answer("Admin access only.", show_alert=True)
+                return
+            item_id = int(action.rsplit("_", 1)[1])
+            await query.answer("Kept in the bank.")
+            await show_qotd_bank_item(query, item_id)
             return
         if action == "qotd_cancel":
             for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
@@ -82,6 +221,50 @@ def _patch_qotd():
         if not message or not message.text or message.chat.type != "private":
             return
         text = message.text.strip()
+        if state.startswith("qotd_edit_prompt_"):
+            try:
+                item_id = int(state.rsplit("_", 1)[1])
+            except (ValueError, IndexError):
+                context.user_data.pop("qotd_state", None)
+                await message.reply_text("❌ Edit session expired. Open the bank and try again.")
+                raise ApplicationHandlerStop
+            if text.lower() == "/cancel":
+                context.user_data.pop("qotd_state", None)
+                await message.reply_text("Edit cancelled; the bank item was not changed.")
+                raise ApplicationHandlerStop
+            if not 1 <= len(text) <= 300:
+                await message.reply_text("❌ Poll questions must be between 1 and 300 characters.")
+                raise ApplicationHandlerStop
+            with qotd.db_connect() as conn:
+                cur = conn.execute("UPDATE qotd_items SET prompt=? WHERE id=? AND status='queued' AND item_type IN ('question','poll')", (text, item_id))
+                conn.commit()
+            context.user_data.pop("qotd_state", None)
+            await message.reply_text("✅ Queued question updated." if cur.rowcount else "❌ That item is no longer queued.")
+            raise ApplicationHandlerStop
+        if state.startswith("qotd_edit_options_"):
+            try:
+                item_id = int(state.rsplit("_", 1)[1])
+            except (ValueError, IndexError):
+                context.user_data.pop("qotd_state", None)
+                await message.reply_text("❌ Edit session expired. Open the bank and try again.")
+                raise ApplicationHandlerStop
+            if text.lower() == "/cancel":
+                context.user_data.pop("qotd_state", None)
+                await message.reply_text("Edit cancelled; the poll was not changed.")
+                raise ApplicationHandlerStop
+            options = [part.strip() for part in text.split("|") if part.strip()]
+            if not qotd.QOTD_MIN_OPTIONS <= len(options) <= qotd.QOTD_MAX_OPTIONS:
+                await message.reply_text("❌ A poll needs 2–10 answer choices separated by |.")
+                raise ApplicationHandlerStop
+            if any(len(option) > qotd.QOTD_MAX_OPTION for option in options):
+                await message.reply_text("❌ Each poll choice must be 100 characters or fewer.")
+                raise ApplicationHandlerStop
+            with qotd.db_connect() as conn:
+                cur = conn.execute("UPDATE qotd_items SET options_json=? WHERE id=? AND item_type='poll' AND status='queued'", (json.dumps(options, ensure_ascii=False), item_id))
+                conn.commit()
+            context.user_data.pop("qotd_state", None)
+            await message.reply_text("✅ Poll answer choices updated." if cur.rowcount else "❌ That poll is no longer queued.")
+            raise ApplicationHandlerStop
         if state == "question":
             if not 1 <= len(text) <= qotd.QOTD_MAX_QUESTION:
                 await message.reply_text("❌ That question must be between 1 and 3,000 characters.")
