@@ -235,7 +235,16 @@ def _patch_qotd():
         if not state:
             return
         message = update.effective_message
-        if not message or not message.text or message.chat.type != "private":
+        if not message or message.chat.type != "private":
+            return
+        if state == "voice":
+            if not message.voice:
+                await message.reply_text("❌ Please send a voice recording, or tap Cancel.")
+                raise ApplicationHandlerStop
+            item_id = qotd.add_item("question", None, None, update.effective_user, voice_file_id=message.voice.file_id)
+            await private_finish_submission(update, context, item_id, "🎙️ Voice question saved!")
+            raise ApplicationHandlerStop
+        if not message.text:
             return
         text = message.text.strip()
         if state.startswith("qotd_edit_prompt_"):
