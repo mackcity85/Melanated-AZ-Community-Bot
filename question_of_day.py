@@ -383,6 +383,76 @@ async def qotd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+def _get_queued_qotd_item(item_id):
+    with db_connect() as conn:
+        return conn.execute("SELECT * FROM qotd_items WHERE id=? AND status='queued'", (item_id,)).fetchone()
+
+
+async def _show_qotd_bank(query, context, page=0, alert=False, edit_message=False, answer_query=True):
+    import bot
+    user = query.from_user
+    if not user or not await bot.is_admin(user.id, context):
+        await query.answer("Admin access only.", show_alert=True)
+        return
+    with db_connect() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM qotd_items WHERE status='queued'").fetchone()[0]
+        items = conn.execute(
+            "SELECT id,item_type,prompt FROM qotd_items WHERE status='queued' ORDER BY id ASC LIMIT 8 OFFSET ?",
+            (max(0, page) * 8,),
+        ).fetchall()
+    rows = []
+    for item in items:
+        label = "📊" if item["item_type"] == "poll" else "💭"
+        prompt = (item["prompt"] or "Voice question").replace("\\n", " ")
+        if len(prompt) > 48:
+            prompt = prompt[:45] + "..."
+        rows.append([InlineKeyboardButton(f"{label} #{item['id']} {prompt}", callback_data=f"qotd_bank_item_{item['id']}")])
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"qotd_bank_page_{page-1}"))
+    if (page + 1) * 8 < total:
+        nav.append(InlineKeyboardButton("Next ➡️", callback_data=f"qotd_bank_page_{page+1}"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"qotd_bank_page_{page}")])
+    text = f"📚 <b>QUESTION OF THE DAY BANK</b>\\n\\nQueued: <b>{total}</b>\\nPage: <b>{page+1}</b>\\n\\nSelect an item to edit or delete it."
+    markup = InlineKeyboardMarkup(rows)
+    if answer_query:
+        if alert:
+            await query.answer(f"{total} queued item(s) in the bank.", show_alert=True)
+        else:
+            await query.answer()
+    try:
+        if edit_message:
+            await query.edit_message_text(text, parse_mode="HTML", reply_markup=markup)
+        else:
+            await context.bot.send_message(chat_id=user.id, text=text, parse_mode="HTML", reply_markup=markup)
+    except TelegramError:
+        logger.exception("Unable to display QOTD bank to admin %s", user.id)
+
+
+async def _show_qotd_bank_item(query, item_id):
+    item = _get_queued_qotd_item(item_id)
+    if not item:
+        await query.answer("Only queued items can be edited or deleted.", show_alert=True)
+        return
+    options = json.loads(item["options_json"] or "[]")
+    prompt = item["prompt"] or "Voice question"
+    text = f"📚 <b>BANK ITEM #{item_id}</b>\\n\\nType: <b>{item['item_type'].title()}</b>\\nQuestion: {prompt}"
+    if options:
+        text += "\\n\\nChoices:\\n" + "\\n".join(f"• {option}" for option in options)
+    rows = []
+    if item["item_type"] == "poll":
+        rows.append([InlineKeyboardButton("✏️ Edit question", callback_data=f"qotd_edit_prompt_{item_id}")])
+        rows.append([InlineKeyboardButton("📝 Edit choices", callback_data=f"qotd_edit_options_{item_id}")])
+    elif not item["voice_file_id"]:
+        rows.append([InlineKeyboardButton("✏️ Edit question", callback_data=f"qotd_edit_prompt_{item_id}")])
+    rows.append([InlineKeyboardButton("🗑 Delete", callback_data=f"qotd_delete_{item_id}")])
+    rows.append([InlineKeyboardButton("⬅️ Back to bank", callback_data="qotd_bank")])
+    await query.answer()
+    await query.edit_message_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(rows))
+
+
 async def qotd_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if not query or not query.data:
