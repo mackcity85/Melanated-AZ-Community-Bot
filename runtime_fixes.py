@@ -31,7 +31,7 @@ def _patch_qotd():
         with qotd.db_connect() as conn:
             return conn.execute("SELECT * FROM qotd_items WHERE id=? AND status='queued'", (item_id,)).fetchone()
 
-    async def show_qotd_bank(query, context, page=0, alert=False, edit_message=False):
+    async def show_qotd_bank(query, context, page=0, alert=False, edit_message=False, answer_query=True):
         user = query.from_user
         if not user or not await bot.is_admin(user.id, context):
             await query.answer("Admin access only.", show_alert=True)
@@ -59,10 +59,11 @@ def _patch_qotd():
         rows.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"qotd_bank_page_{page}")])
         text = f"📚 <b>QUESTION OF THE DAY BANK</b>\\n\\nQueued: <b>{total}</b>\\nPage: <b>{page+1}</b>\\n\\nSelect an item to edit or delete it."
         markup = InlineKeyboardMarkup(rows)
-        if alert:
-            await query.answer(f"{total} queued item(s) in the bank.", show_alert=True)
-        else:
-            await query.answer()
+        if answer_query:
+            if alert:
+                await query.answer(f"{total} queued item(s) in the bank.", show_alert=True)
+            else:
+                await query.answer()
         try:
             if edit_message:
                 await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=markup)
@@ -96,7 +97,6 @@ def _patch_qotd():
         if not query or not query.data:
             return
         action = query.data
-        await query.answer()
         if action == "qotd_status":
             # Answer once only; the previous double-answer prevented the status popup from appearing.
             await show_qotd_bank(query, context, page=0, alert=True)
@@ -123,7 +123,7 @@ def _patch_qotd():
                 return
             context.user_data["qotd_state"] = f"qotd_edit_prompt_{item_id}"
             await query.answer()
-            await context.bot.send_message(chat_id=update.effective_user.id, text=f"✏️ Send the new question for bank item #{item_id}.\n\nCurrent question:\n{item['prompt'] or '(voice question)'}\n\nSend /cancel to leave it unchanged.")
+            await context.bot.send_message(chat_id=update.effective_user.id, text=f"✏️ Send the new question for bank item #{item_id}.\n\nCurrent question:\n{item['prompt'] or '(voice question)'}\n\nSend CANCEL to leave it unchanged.")
             return
         if action.startswith("qotd_edit_options_"):
             if not await bot.is_admin(update.effective_user.id, context):
@@ -137,7 +137,7 @@ def _patch_qotd():
             context.user_data["qotd_state"] = f"qotd_edit_options_{item_id}"
             await query.answer()
             choices = " | ".join(json.loads(item["options_json"] or "[]"))
-            await context.bot.send_message(chat_id=update.effective_user.id, text=f"📊 Send the new 2–10 answer choices for poll #{item_id}, separated by |.\n\nCurrent choices:\n{choices}\n\nSend /cancel to leave them unchanged.")
+            await context.bot.send_message(chat_id=update.effective_user.id, text=f"📊 Send the new 2–10 answer choices for poll #{item_id}, separated by |.\n\nCurrent choices:\n{choices}\n\nSend CANCEL to leave them unchanged.")
             return
         if action.startswith("qotd_delete_") and not action.startswith(("qotd_delete_confirm_", "qotd_delete_cancel_")):
             if not await bot.is_admin(update.effective_user.id, context):
@@ -166,17 +166,17 @@ def _patch_qotd():
                 cur = conn.execute("DELETE FROM qotd_items WHERE id=? AND status='queued'", (item_id,))
                 conn.commit()
             await query.answer("Deleted from the bank." if cur.rowcount else "Item not found in the queue.", show_alert=True)
-            await show_qotd_bank(query, context, page=0, edit_message=True)
+            await show_qotd_bank(query, context, page=0, edit_message=True, answer_query=False)
             return
         if action.startswith("qotd_delete_cancel_"):
             if not await bot.is_admin(update.effective_user.id, context):
                 await query.answer("Admin access only.", show_alert=True)
                 return
             item_id = int(action.rsplit("_", 1)[1])
-            await query.answer("Kept in the bank.")
             await show_qotd_bank_item(query, item_id)
             return
         if action == "qotd_cancel":
+            await query.answer()
             for key in ("qotd_state", "qotd_prompt", "qotd_chat_id", "qotd_thread_id"):
                 context.user_data.pop(key, None)
             try:
@@ -184,8 +184,24 @@ def _patch_qotd():
             except TelegramError:
                 pass
             return
+        if action == "qotd_submit_voice":
+            context.user_data["qotd_state"] = "voice"
+            context.user_data["qotd_chat_id"] = None
+            context.user_data["qotd_thread_id"] = None
+            await query.answer()
+            try:
+                await context.bot.send_message(
+                    chat_id=update.effective_user.id,
+                    text="🎙️ <b>Record your Question of the Day</b>\\n\\n🔒 Send a voice recording here. Your recording stays private until it is posted as the QOTD.",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
+                )
+            except TelegramError:
+                await context.bot.send_message(chat_id=update.effective_user.id, text="Open the bot privately and press Start first, then try again.")
+            return
         if action == "qotd_submit_question":
             context.user_data["qotd_state"] = "question"
+            await query.answer()
             context.user_data["qotd_chat_id"] = None
             context.user_data["qotd_thread_id"] = None
             try:
@@ -200,6 +216,7 @@ def _patch_qotd():
             return
         if action == "qotd_submit_poll":
             context.user_data["qotd_state"] = "poll_question"
+            await query.answer()
             context.user_data["qotd_chat_id"] = None
             context.user_data["qotd_thread_id"] = None
             try:
@@ -228,7 +245,7 @@ def _patch_qotd():
                 context.user_data.pop("qotd_state", None)
                 await message.reply_text("❌ Edit session expired. Open the bank and try again.")
                 raise ApplicationHandlerStop
-            if text.lower() == "/cancel":
+            if text.lower() in ("/cancel", "cancel"):
                 context.user_data.pop("qotd_state", None)
                 await message.reply_text("Edit cancelled; the bank item was not changed.")
                 raise ApplicationHandlerStop
@@ -248,7 +265,7 @@ def _patch_qotd():
                 context.user_data.pop("qotd_state", None)
                 await message.reply_text("❌ Edit session expired. Open the bank and try again.")
                 raise ApplicationHandlerStop
-            if text.lower() == "/cancel":
+            if text.lower() in ("/cancel", "cancel"):
                 context.user_data.pop("qotd_state", None)
                 await message.reply_text("Edit cancelled; the poll was not changed.")
                 raise ApplicationHandlerStop
