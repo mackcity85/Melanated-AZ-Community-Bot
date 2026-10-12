@@ -898,20 +898,21 @@ async def enter_raffle(update, context, raffle_id):
     if entry_id is None:
         await query.answer("You already have an entry for this raffle.", show_alert=True)
         return
-    # Announce successful submissions publicly without exposing the member's name.
-    await announce_raffle_entry(context, raffle)
-
     if free:
         if not approve_entry(entry_id, user.id):
             await query.answer("Free entry could not be approved.", show_alert=True)
             return
         await query.answer("🎟️ Free entry approved!", show_alert=True)
+        # Announce only after the free entry has been approved.
+        await announce_raffle_entry(context, raffle)
         entry_message = await query.message.reply_text(
             f"🎟️ <b>ENTRY APPROVED</b>\n\n🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n💵 Entry Price: <b>{html.escape(str(raffle['price']))}</b>\n🆔 Entry: <code>{entry_id}</code>\n\n✅ <b>FREE ENTRY — no payment required.</b>",
             parse_mode=ParseMode.HTML,
         )
     else:
         await query.answer("Entry submitted!", show_alert=True)
+        # Paid entries are announced as submitted; payment verification remains admin-only.
+        await announce_raffle_entry(context, raffle)
         entry_message = await query.message.reply_text(
             f"🎟️ <b>ENTRY SUBMITTED</b>\n\n🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n💵 Entry Price: <b>{html.escape(str(raffle['price']))}</b>\n🆔 Entry: <code>{entry_id}</code>\n\n⚠️ Your entry is <b>PENDING</b> until an admin verifies payment.",
             parse_mode=ParseMode.HTML,
