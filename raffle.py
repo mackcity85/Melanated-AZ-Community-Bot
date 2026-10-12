@@ -769,7 +769,7 @@ async def publish_raffle(raffle_id, context):
         "🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>\n\n"
         f"🎁 <b>Prize:</b> {html.escape(str(raffle['prize']))}\n"
         f"💵 <b>Entry:</b> {html.escape(str(raffle['price']))}\n"
-        f"⏰ <b>Ends:</b> {format_expiration(raffle['expires_at'])}\n\n👇 Tap below to enter.\n\n{payment_notice}"
+        f"⏰ <b>Ends:</b> {format_expiration(raffle['expires_at'])}\n\n👇 Tap below to enter {html.escape(str(raffle.get('prize') or 'the raffle'))}!\n\n{payment_notice}"
     )
     main_chat_id = int(RAFFLE_CHAT_ID)
     try:
