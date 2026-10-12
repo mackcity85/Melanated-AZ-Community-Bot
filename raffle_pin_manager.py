@@ -299,7 +299,10 @@ async def ensure_raffle_topic_member_button(context):
             _clear_file(state_path)
         return False
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🎟️ ENTER RAFFLE", callback_data="raffle_enter_current")]])
-    text = (\n        "🎟️ <b>RAFFLE ENTRY</b>\n\n"\n        f"👇🏾 Tap below to enter {html_escape(raffle.get('prize') or 'the raffle')}."\n    )
+    text = (
+        "🎟️ <b>RAFFLE ENTRY</b>\n\n"
+        f"👇🏾 Tap below to enter {html_escape(raffle.get('prize') or 'the raffle')}."
+    )
     try:
         if message_id:
             try:
