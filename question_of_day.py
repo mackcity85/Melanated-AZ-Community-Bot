@@ -726,6 +726,13 @@ def start_question_of_day_scheduler(application):
 
 
 def register_question_of_day_handlers(application):
+    # Apply the bank-management callback/text handlers BEFORE registering them.
+    # Patching after add_handler() leaves Telegram holding the original callbacks.
+    try:
+        import runtime_fixes
+        runtime_fixes._patch_qotd()
+    except Exception:
+        logger.exception("Unable to install QOTD bank management handlers")
     initialize_question_of_day_database()
     application.add_handler(CommandHandler("qotd", qotd_command), group=0)
     application.add_handler(
