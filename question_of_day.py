@@ -661,7 +661,7 @@ def register_question_of_day_handlers(application):
     application.add_handler(
         CallbackQueryHandler(
             qotd_callback,
-            pattern=r"^qotd_(submit_question|submit_voice|submit_poll|status|cancel|bank|bank_item_\\d+|edit_prompt_\\d+|edit_options_\\d+|delete_\\d+|delete_confirm_\\d+|delete_cancel_\\d+|bank_page_\\d+)$",
+            pattern=r"^qotd_(submit_question|submit_voice|submit_poll|status|cancel|bank|bank_item_\d+|edit_prompt_\d+|edit_options_\d+|delete_\d+|delete_confirm_\d+|delete_cancel_\d+|bank_page_\d+)$",
         ),
         group=0,
     )
