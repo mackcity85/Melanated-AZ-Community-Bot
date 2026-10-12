@@ -564,7 +564,30 @@ async def community_welcome(update,context):
     old=event.old_chat_member.status; new=event.new_chat_member.status
     if new not in {"member","administrator"} or old not in {"left","kicked"}:return
     user=event.new_chat_member.user
-    if not user or user.is_bot or await is_admin(user.id,context):return
+    if not user or user.is_bot:return
+    # Notify the configured Admin Group whenever a real member joins.
+    # Notification failures must never interrupt the existing onboarding flow.
+    admin_group_id = configured_admin_group_id()
+    if admin_group_id and not await is_admin(user.id,context):
+        try:
+            display_name = html.escape(user.full_name or user.first_name or "Unknown member")
+            username = f"@{html.escape(user.username)}" if user.username else "No username"
+            group_name = html.escape(event.chat.title or str(event.chat.id))
+            await context.bot.send_message(
+                chat_id=admin_group_id,
+                text=(
+                    "🆕 <b>NEW MELANATED AZ MEMBER</b>\\n\\n"
+                    f"👤 <b>Name:</b> {display_name}\\n"
+                    f"🔗 <b>Username:</b> {username}\\n"
+                    f"🆔 <b>User ID:</b> <code>{user.id}</code>\\n"
+                    f"👥 <b>Group:</b> {group_name}"
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+            logger.info("ADMIN JOIN NOTIFICATION SENT | user_id=%s | admin_group_id=%s", user.id, admin_group_id)
+        except TelegramError:
+            logger.exception("ADMIN JOIN NOTIFICATION FAILED | user_id=%s | admin_group_id=%s", user.id, admin_group_id)
+    if await is_admin(user.id,context):return
     save_joining_member(event.chat.id,user); await restrict_member(context.bot,event.chat.id,user.id); await send_profile_photo_requirement(context.bot,user.id); name=user.first_name or "there"; await send_community_intro_video(event.chat.id,context,name)
     try:
         welcome=await context.bot.send_message(chat_id=event.chat.id,text=f"👋🏾 <b>WELCOME TO MELANATED AZ, {name}!</b> 💜🔥\n\n🛡️ <b>FIRST THINGS FIRST...</b>\n\nYou need to complete a quick human verification and have a current Telegram profile photo before you can post.\n\nOnce you're verified and your profile photo is confirmed, you'll have <b>48 HOURS</b> to introduce yourself to the community.\n\nGood energy. Real people. Real connections. 🖤💜",parse_mode=ParseMode.HTML); context.job_queue.run_once(delete_message_job,VERIFICATION_MESSAGE_TTL_MINUTES*60,data=(event.chat.id,welcome.message_id))
