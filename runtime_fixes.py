@@ -45,7 +45,7 @@ def _patch_qotd():
         rows = []
         for item in items:
             label = "📊" if item["item_type"] == "poll" else "💭"
-            prompt = (item["prompt"] or "Voice question").replace("\\n", " ")
+            prompt = (item["prompt"] or "Voice question").replace("\n", " ")
             if len(prompt) > 48:
                 prompt = prompt[:45] + "..."
             rows.append([InlineKeyboardButton(f"{label} #{item['id']} {prompt}", callback_data=f"qotd_bank_item_{item['id']}")])
@@ -57,7 +57,7 @@ def _patch_qotd():
         if nav:
             rows.append(nav)
         rows.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"qotd_bank_page_{page}")])
-        text = f"📚 <b>QUESTION OF THE DAY BANK</b>\\n\\nQueued: <b>{total}</b>\\nPage: <b>{page+1}</b>\\n\\nSelect an item to edit or delete it."
+        text = f"📚 <b>QUESTION OF THE DAY BANK</b>\n\nQueued: <b>{total}</b>\nPage: <b>{page+1}</b>\n\nSelect an item to edit or delete it."
         markup = InlineKeyboardMarkup(rows)
         if answer_query:
             if alert:
@@ -78,9 +78,9 @@ def _patch_qotd():
             await query.answer("Only queued items can be edited or deleted.", show_alert=True)
             return
         options = json.loads(item["options_json"] or "[]")
-        text = f"📚 <b>BANK ITEM #{item_id}</b>\\n\\nType: <b>{item['item_type'].title()}</b>\\nQuestion: {item['prompt'] or 'Voice question'}"
+        text = f"📚 <b>BANK ITEM #{item_id}</b>\n\nType: <b>{item['item_type'].title()}</b>\nQuestion: {item['prompt'] or 'Voice question'}"
         if options:
-            text += "\\n\\nChoices:\\n" + "\\n".join(f"• {option}" for option in options)
+            text += "\n\nChoices:\n" + "\n".join(f"• {option}" for option in options)
         rows = []
         if item["item_type"] == "poll":
             rows.append([InlineKeyboardButton("✏️ Edit question", callback_data=f"qotd_edit_prompt_{item_id}")])
@@ -188,20 +188,19 @@ def _patch_qotd():
             context.user_data["qotd_state"] = "voice"
             context.user_data["qotd_chat_id"] = None
             context.user_data["qotd_thread_id"] = None
-            await query.answer()
             try:
                 await context.bot.send_message(
                     chat_id=update.effective_user.id,
-                    text="🎙️ <b>Record your Question of the Day</b>\\n\\n🔒 Send a voice recording here. Your recording stays private until it is posted as the QOTD.",
+                    text="🎙️ <b>Record your Question of the Day</b>\n\n🔒 Send a voice recording here. Your recording stays private until it is posted as the QOTD.",
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
                 )
+                await query.answer("Check your private chat with the bot.", show_alert=True)
             except TelegramError:
-                await context.bot.send_message(chat_id=update.effective_user.id, text="Open the bot privately and press Start first, then try again.")
+                await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
             return
         if action == "qotd_submit_question":
             context.user_data["qotd_state"] = "question"
-            await query.answer()
             context.user_data["qotd_chat_id"] = None
             context.user_data["qotd_thread_id"] = None
             try:
@@ -211,12 +210,12 @@ def _patch_qotd():
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
                 )
+                await query.answer("Check your private chat with the bot.", show_alert=True)
             except TelegramError:
                 await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
             return
         if action == "qotd_submit_poll":
             context.user_data["qotd_state"] = "poll_question"
-            await query.answer()
             context.user_data["qotd_chat_id"] = None
             context.user_data["qotd_thread_id"] = None
             try:
@@ -226,6 +225,7 @@ def _patch_qotd():
                     parse_mode=ParseMode.HTML,
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="qotd_cancel")]]),
                 )
+                await query.answer("Check your private chat with the bot.", show_alert=True)
             except TelegramError:
                 await query.answer("Open the bot privately and press Start first, then try again.", show_alert=True)
             return
