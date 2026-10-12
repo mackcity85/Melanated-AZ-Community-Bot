@@ -79,9 +79,12 @@ def _patch_qotd():
             await query.answer("Only queued items can be edited or deleted.", show_alert=True)
             return
         options = json.loads(item["options_json"] or "[]")
-        text = f"📚 <b>BANK ITEM #{item_id}</b>\n\nType: <b>{item['item_type'].title()}</b>\nQuestion: {item['prompt'] or 'Voice question'}"
+        # User-submitted prompts and poll choices may contain HTML characters.
+        # Escape them so Telegram can render the item details and its Delete button.
+        prompt = html.escape(item["prompt"] or "Voice question")
+        text = f"📚 <b>BANK ITEM #{item_id}</b>\n\nType: <b>{html.escape(item['item_type'].title())}</b>\nQuestion: {prompt}"
         if options:
-            text += "\n\nChoices:\n" + "\n".join(f"• {option}" for option in options)
+            text += "\n\nChoices:\n" + "\n".join(f"• {html.escape(str(option))}" for option in options)
         rows = []
         if item["item_type"] == "poll":
             rows.append([InlineKeyboardButton("✏️ Edit question", callback_data=f"qotd_edit_prompt_{item_id}")])
