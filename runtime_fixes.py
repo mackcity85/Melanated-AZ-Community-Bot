@@ -5,6 +5,7 @@ behaviors without touching existing Telegram topic content.
 """
 
 import html
+import json
 import logging
 import os
 
