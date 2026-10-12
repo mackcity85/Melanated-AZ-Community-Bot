@@ -99,8 +99,9 @@ def _patch_qotd():
             return
         action = query.data
         if action == "qotd_status":
-            # Answer once only; the previous double-answer prevented the status popup from appearing.
-            await show_qotd_bank(query, context, page=0, alert=True)
+            # Bank Status must open the actual list, not just a popup with a count.
+            # Send the queue to the admin's private chat so each question/poll is selectable.
+            await show_qotd_bank(query, context, page=0, alert=False)
             return
         if action == "qotd_bank" or action.startswith("qotd_bank_page_"):
             page = int(action.rsplit("_", 1)[1]) if action.startswith("qotd_bank_page_") else 0
