@@ -848,6 +848,42 @@ async def cancel_raffle_callback(update, context, raffle_id):
         pass
 
 
+async def announce_raffle_entry(context, raffle):
+    """Announce a new raffle entry in the raffle topic and the main group."""
+    prize = html.escape(str(raffle.get("prize") or "the raffle"))
+    text = (
+        "🎟️ <b>NEW RAFFLE ENTRY!</b>\n\n"
+        "👤 A new member entered!\n"
+        f"🎁 Raffle: <b>{prize}</b>\n\n"
+        "Good luck, everyone! 🍀"
+    )
+    destinations = [
+        (int(RAFFLE_CHAT_ID), RAFFLE_TOPIC_ID, "raffle_topic"),
+    ]
+    main_chat_id = int(MAIN_GROUP_ID or RAFFLE_CHAT_ID)
+    if main_chat_id != int(RAFFLE_CHAT_ID):
+        destinations.append((main_chat_id, None, "main_chat"))
+    else:
+        # Same group: also post in the main chat (outside the raffle topic).
+        destinations.append((main_chat_id, None, "main_chat"))
+
+    for chat_id, topic_id, destination in destinations:
+        try:
+            kwargs = {"chat_id": chat_id, "text": text, "parse_mode": ParseMode.HTML}
+            if topic_id is not None:
+                kwargs["message_thread_id"] = topic_id
+            sent = await context.bot.send_message(**kwargs)
+            logger.info(
+                "RAFFLE ENTRY ANNOUNCEMENT SENT | raffle=%s | destination=%s | chat=%s | message=%s",
+                raffle.get("id"), destination, chat_id, sent.message_id
+            )
+        except TelegramError:
+            logger.exception(
+                "RAFFLE ENTRY ANNOUNCEMENT FAILED | raffle=%s | destination=%s | chat=%s",
+                raffle.get("id"), destination, chat_id
+            )
+
+
 async def enter_raffle(update, context, raffle_id):
     query, user = update.callback_query, update.effective_user
     if not query or not user:
@@ -862,13 +898,14 @@ async def enter_raffle(update, context, raffle_id):
     if entry_id is None:
         await query.answer("You already have an entry for this raffle.", show_alert=True)
         return
+    # Announce successful submissions publicly without exposing the member's name.
+    await announce_raffle_entry(context, raffle)
+
     if free:
         if not approve_entry(entry_id, user.id):
             await query.answer("Free entry could not be approved.", show_alert=True)
             return
         await query.answer("🎟️ Free entry approved!", show_alert=True)
-        # Refresh the public raffle status immediately after a successful entry.
-        await post_raffle_status_to_main_chat(context, announce_new_entry=True)
         entry_message = await query.message.reply_text(
             f"🎟️ <b>ENTRY APPROVED</b>\n\n🎁 Prize: <b>{html.escape(str(raffle['prize']))}</b>\n💵 Entry Price: <b>{html.escape(str(raffle['price']))}</b>\n🆔 Entry: <code>{entry_id}</code>\n\n✅ <b>FREE ENTRY — no payment required.</b>",
             parse_mode=ParseMode.HTML,
