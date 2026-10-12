@@ -72,6 +72,16 @@ def _patch_qotd():
                 await context.bot.send_message(chat_id=user.id, text=text, parse_mode=ParseMode.HTML, reply_markup=markup)
         except TelegramError:
             logger.exception("Unable to display QOTD bank to admin %s", user.id)
+            # If Telegram cannot DM the bank (for example, the admin has not
+            # started the bot privately), give a visible recovery instruction
+            # instead of silently leaving the admin with no questions or buttons.
+            try:
+                await query.edit_message_text(
+                    "📚 I couldn't send the Question of the Day bank to your private chat. "
+                    "Open this bot privately, press Start, then tap Bank Status again."
+                )
+            except TelegramError:
+                pass
 
     async def show_qotd_bank_item(query, item_id):
         item = get_queued_qotd_item(item_id)
