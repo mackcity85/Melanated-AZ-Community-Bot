@@ -39,7 +39,7 @@ from telegram import (
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
-from config import ADMIN_IDS
+from config import ADMIN_IDS, MAIN_GROUP_ID, RAFFLE_CHAT_ID
 
 from member_bank import (
     admin_members, admin_member_view,
@@ -380,6 +380,12 @@ def admin_main_keyboard():
                 InlineKeyboardButton(
                     "📅 View Birthdays",
                     callback_data="admin_birthdays",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "📢 Repost Birthdays",
+                    callback_data="admin_repost_birthdays",
                 ),
             ],
             [
@@ -2061,6 +2067,134 @@ async def admin_birthdays(update, context):
         ),
         parse_mode="Markdown",
     )
+
+
+# ==========================================================
+# REPOST BIRTHDAYS TO THE MAIN COMMUNITY GROUP
+# ==========================================================
+
+async def admin_repost_birthdays(update, context):
+
+    if not await require_admin(update, context):
+        return
+
+    query = update.callback_query
+
+    if query:
+        try:
+            await query.answer("🎂 Reposting birthdays...")
+        except Exception:
+            pass
+
+    # Use the configured community group. RAFFLE_CHAT_ID is the
+    # existing fallback used by this project when MAIN_GROUP_ID
+    # is not separately configured.
+    target_chat_id = MAIN_GROUP_ID or RAFFLE_CHAT_ID
+
+    if not target_chat_id:
+        if query and query.message:
+            await query.message.reply_text(
+                "❌ Birthday repost failed: MAIN_GROUP_ID is not configured."
+            )
+        logger.error("Birthday repost skipped: no community group ID configured.")
+        return
+
+    try:
+        birthdays = get_all_birthdays() or []
+        lines = []
+
+        for record in birthdays:
+            name = (
+                record.get("display_name")
+                or (
+                    "@" + record.get("username")
+                    if record.get("username")
+                    else None
+                )
+                or "Melanated AZ Member"
+            )
+            birthday_value = record.get("birthday") or "Date not set"
+            lines.append(
+                f"🎂 {html.escape(str(birthday_value))} — {html.escape(str(name))}"
+            )
+
+        if lines:
+            body = (
+                "🎉 <b>MELANATED AZ BIRTHDAYS</b> 🎂\n\n"
+                "Let's show our Queens and Kings some birthday love! 💜🥳\n\n"
+                + "\n".join(lines)
+                + "\n\nNot on the list yet, or need to update your date? "
+                "Tap the button below!"
+            )
+        else:
+            body = (
+                "🎉 <b>MELANATED AZ BIRTHDAYS</b> 🎂\n\n"
+                "We don't have any birthdays saved yet. Be the first to add yours! 💜🥳"
+            )
+
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                "🎂 Submit My Birthday",
+                callback_data="birthday_enter",
+            )]
+        ])
+
+        # Telegram limits a message to 4096 characters. Split long lists
+        # into safe-sized posts and include the submit button on every post.
+        max_chars = 3400
+        chunks = []
+        current = (
+            "🎉 <b>MELANATED AZ BIRTHDAYS</b> 🎂\n\n"
+            "Let's show our Queens and Kings some birthday love! 💜🥳\n\n"
+        )
+        if not lines:
+            chunks = [body]
+        else:
+            for line in lines:
+                if len(current) + len(line) + 1 > max_chars:
+                    chunks.append(current.rstrip())
+                    current = "🎂 <b>MORE MELANATED AZ BIRTHDAYS</b> 🎂\n\n"
+                current += line + "\n"
+            current += (
+                "\nNot on the list yet, or need to update your date? "
+                "Tap the button below!"
+            )
+            chunks.append(current.rstrip())
+
+        sent = 0
+        for chunk in chunks:
+            await context.bot.send_message(
+                chat_id=target_chat_id,
+                text=chunk,
+                reply_markup=keyboard,
+                parse_mode="HTML",
+            )
+            sent += 1
+
+        logger.info(
+            "Admin reposted birthdays | admin=%s | count=%s | messages=%s | chat=%s",
+            update.effective_user.id if update.effective_user else None,
+            len(birthdays),
+            sent,
+            target_chat_id,
+        )
+
+        if query and query.message:
+            await query.message.reply_text(
+                f"✅ Birthday list reposted to the community group ({len(birthdays)} saved birthdays)."
+            )
+
+    except Exception:
+        logger.exception("Failed to repost birthdays.")
+        if query and query.message:
+            try:
+                await query.message.reply_text(
+                    "❌ <b>Birthday Repost Failed</b>\n\n"
+                    "The birthday list could not be reposted. Check the Render logs.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
 
 
 # ==========================================================
@@ -4357,6 +4491,15 @@ async def admin_button(
     if data == "admin_birthdays":
 
         await admin_birthdays(
+            update,
+            context,
+        )
+
+        return
+
+    if data == "admin_repost_birthdays":
+
+        await admin_repost_birthdays(
             update,
             context,
         )
