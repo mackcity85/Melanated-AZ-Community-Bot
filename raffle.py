@@ -269,8 +269,8 @@ async def launch_next_queued_raffle(context):
             chat_id=int(RAFFLE_CHAT_ID),
             message_thread_id=RAFFLE_TOPIC_ID,
             text=(
-                "🔥 <b>THE NEXT RAFFLE IS LIVE!</b> 🔥\\n\\n"
-                f"🎁 {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n"
+                "🔥 <b>THE NEXT RAFFLE IS LIVE!</b> 🔥\n\n"
+                f"🎁 {html.escape(str(raffle.get('prize') or 'Raffle'))}\n"
                 "Head to the raffle post above to enter!"
             ),
             parse_mode=ParseMode.HTML,
@@ -1231,6 +1231,21 @@ async def raffle_callback(update, context):
         if value.isdigit(): await cancel_raffle_callback(update, context, int(value))
         else: await query.answer("Invalid raffle ID.", show_alert=True)
         return
+    if data.startswith("remove_approved_confirm_"):
+        value = data[len("remove_approved_confirm_"):]
+        if value.isdigit(): await remove_approved_entry_callback(update, context, int(value), confirm=True)
+        else: await query.answer("Invalid entry ID.", show_alert=True)
+        return
+    if data.startswith("remove_approved_cancel_"):
+        value = data[len("remove_approved_cancel_"):]
+        if value.isdigit(): await cancel_remove_approved_entry_callback(update, context, int(value))
+        else: await query.answer("Invalid entry ID.", show_alert=True)
+        return
+    if data.startswith("remove_approved_"):
+        value = data[len("remove_approved_"):]
+        if value.isdigit(): await remove_approved_entry_callback(update, context, int(value), confirm=False)
+        else: await query.answer("Invalid entry ID.", show_alert=True)
+        return
     if data.startswith("approve_"):
         value = data[len("approve_"):]
         if value.isdigit(): await approve_entry_callback(update, context, int(value))
@@ -1344,15 +1359,113 @@ async def raffle_entries(update, context):
         if query: await query.answer("⛔ Admins only.", show_alert=True)
         return
     raffle = get_active_raffle()
+    buttons = []
     if not raffle:
         text = "🎟️ <b>RAFFLE ENTRIES</b>\n\nNo active raffle."
     else:
         entries = get_approved_entries(raffle["id"])
-        text = "🎟️ <b>APPROVED ENTRIES</b>\n\n" + ("\n".join(f"{i}. {display_user(e)} (Entry #{e['id']})" for i, e in enumerate(entries, 1)) if entries else "No approved entries yet.")
+        text = "🎟️ <b>APPROVED ENTRIES</b>\n\n" + ("\n".join(f"{i}. {html.escape(display_user(e))} (Entry #{e['id']})" for i, e in enumerate(entries, 1)) if entries else "No approved entries yet.")
+        for entry in entries:
+            buttons.append([InlineKeyboardButton(
+                f"🗑️ Remove Entry #{entry['id']}",
+                callback_data=f"remove_approved_{entry['id']}",
+            )])
     if query: await query.answer()
     target = query.message if query else message
     if target:
-        await target.reply_text(text, parse_mode=ParseMode.HTML)
+        await target.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
+            parse_mode=ParseMode.HTML,
+        )
+
+
+async def remove_approved_entry_callback(update, context, entry_id, confirm=False):
+    query, user = update.callback_query, update.effective_user
+    if not query or not user:
+        return
+    if not await is_raffle_admin_access(update, context):
+        await query.answer("⛔ Admins only.", show_alert=True)
+        return
+
+    entry = get_entry(entry_id)
+    if not entry:
+        await query.answer("Entry not found.", show_alert=True)
+        return
+    if entry.get("status") != "approved":
+        await query.answer("This entry is no longer approved.", show_alert=True)
+        return
+
+    if not confirm:
+        await query.answer()
+        await query.edit_message_text(
+            "⚠️ <b>REMOVE APPROVED RAFFLE ENTRY?</b>\n\n"
+            f"🎟️ Raffle: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+            f"🆔 Entry: <code>{int(entry_id)}</code>\n"
+            f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n\n"
+            "This removes the entry from the raffle. The member will be notified by private message.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("✅ Confirm Removal", callback_data=f"remove_approved_confirm_{int(entry_id)}"),
+                InlineKeyboardButton("↩️ Keep Entry", callback_data=f"remove_approved_cancel_{int(entry_id)}"),
+            ]]),
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    if not remove_entry(int(entry_id)):
+        await query.answer("Entry could not be removed.", show_alert=True)
+        return
+
+    await query.answer("Approved entry removed.")
+    try:
+        await query.edit_message_text(
+            "🗑️ <b>RAFFLE ENTRY REMOVED</b>\n\n"
+            f"🆔 Entry: <code>{int(entry_id)}</code>\n"
+            f"🎟️ Raffle: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+            f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n\n"
+            f"Removed by admin <code>{int(user.id)}</code>.",
+            parse_mode=ParseMode.HTML,
+        )
+    except TelegramError:
+        logger.exception("Could not update admin message after removing raffle entry %s", entry_id)
+
+    try:
+        await context.bot.send_message(
+            chat_id=int(entry["user_id"]),
+            text=(
+                "⚠️ <b>YOUR RAFFLE ENTRY HAS BEEN REMOVED</b>\n\n"
+                f"🎁 Prize: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+                f"🆔 Entry: <code>{int(entry_id)}</code>\n\n"
+                "An admin has removed your approved entry from this raffle. "
+                "If you believe this was a mistake, please contact the Melanated AZ admins."
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+        logger.info("Removed approved raffle entry and notified member | entry=%s user=%s admin=%s", entry_id, entry["user_id"], user.id)
+    except TelegramError:
+        logger.warning("Approved raffle entry %s was removed, but member %s could not be DM'd.", entry_id, entry.get("user_id"))
+        try:
+            await query.message.reply_text(
+                "⚠️ The entry was removed, but Telegram could not deliver the member notification. "
+                "They may need to start the bot or unblock it before the bot can message them.",
+                parse_mode=ParseMode.HTML,
+            )
+        except TelegramError:
+            pass
+
+
+async def cancel_remove_approved_entry_callback(update, context, entry_id):
+    query = update.callback_query
+    if not query:
+        return
+    if not await is_raffle_admin_access(update, context):
+        await query.answer("⛔ Admins only.", show_alert=True)
+        return
+    await query.answer("Entry kept.")
+    try:
+        await query.edit_message_text("✅ <b>Removal cancelled.</b> The approved raffle entry remains in place.", parse_mode=ParseMode.HTML)
+    except TelegramError:
+        pass
 
 
 async def pending_entries(update, context):
