@@ -15,7 +15,7 @@
 #   MM/DD
 #
 # Birthday messages and user birthday input are temporary
-# and automatically deleted after 60 seconds.
+# and automatically deleted after 12 hours.
 # ==========================================================
 
 import logging
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # ==========================================================
 
-BIRTHDAY_RESPONSE_DELETE_SECONDS = 60
+BIRTHDAY_RESPONSE_DELETE_SECONDS = 12 * 60 * 60
 
 
 # ==========================================================
@@ -277,7 +277,7 @@ async def birthday(
     if not message or not user:
         return
 
-    # Delete the user's /birthday command after 60 seconds.
+    # Delete the user's /birthday command after 12 hours.
     schedule_user_message_deletion(
         context,
         message,
@@ -364,7 +364,7 @@ async def my_birthday(
     if not message or not user:
         return
 
-    # Delete the user's /mybirthday command after 60 seconds.
+    # Delete the user's /mybirthday command after 12 hours.
     schedule_user_message_deletion(
         context,
         message,
@@ -418,7 +418,7 @@ async def remove_my_birthday(
     if not message or not user:
         return
 
-    # Delete the user's /removebirthday command after 60 seconds.
+    # Delete the user's /removebirthday command after 12 hours.
     schedule_user_message_deletion(
         context,
         message,
@@ -470,7 +470,7 @@ async def birthday_text_handler(
     if not awaiting:
         return False
 
-    # Delete the user's birthday input after 60 seconds.
+    # Delete the user's birthday input after 12 hours.
     schedule_user_message_deletion(
         context,
         message,
