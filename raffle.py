@@ -269,8 +269,8 @@ async def launch_next_queued_raffle(context):
             chat_id=int(RAFFLE_CHAT_ID),
             message_thread_id=RAFFLE_TOPIC_ID,
             text=(
-                "🔥 <b>THE NEXT RAFFLE IS LIVE!</b> 🔥\\n\\n"
-                f"🎁 {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n"
+                "🔥 <b>THE NEXT RAFFLE IS LIVE!</b> 🔥\n\n"
+                f"🎁 {html.escape(str(raffle.get('prize') or 'Raffle'))}\n"
                 "Head to the raffle post above to enter!"
             ),
             parse_mode=ParseMode.HTML,
@@ -1399,10 +1399,10 @@ async def remove_approved_entry_callback(update, context, entry_id, confirm=Fals
     if not confirm:
         await query.answer()
         await query.edit_message_text(
-            "⚠️ <b>REMOVE APPROVED RAFFLE ENTRY?</b>\\n\\n"
-            f"🎟️ Raffle: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\\n"
-            f"🆔 Entry: <code>{int(entry_id)}</code>\\n"
-            f"👤 Member: <b>{html.escape(display_user(entry))}</b>\\n\\n"
+            "⚠️ <b>REMOVE APPROVED RAFFLE ENTRY?</b>\n\n"
+            f"🎟️ Raffle: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+            f"🆔 Entry: <code>{int(entry_id)}</code>\n"
+            f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n\n"
             "This removes the entry from the raffle. The member will be notified by private message.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("✅ Confirm Removal", callback_data=f"remove_approved_confirm_{int(entry_id)}"),
@@ -1419,10 +1419,10 @@ async def remove_approved_entry_callback(update, context, entry_id, confirm=Fals
     await query.answer("Approved entry removed.")
     try:
         await query.edit_message_text(
-            "🗑️ <b>RAFFLE ENTRY REMOVED</b>\\n\\n"
-            f"🆔 Entry: <code>{int(entry_id)}</code>\\n"
-            f"🎟️ Raffle: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\\n"
-            f"👤 Member: <b>{html.escape(display_user(entry))}</b>\\n\\n"
+            "🗑️ <b>RAFFLE ENTRY REMOVED</b>\n\n"
+            f"🆔 Entry: <code>{int(entry_id)}</code>\n"
+            f"🎟️ Raffle: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+            f"👤 Member: <b>{html.escape(display_user(entry))}</b>\n\n"
             f"Removed by admin <code>{int(user.id)}</code>.",
             parse_mode=ParseMode.HTML,
         )
@@ -1433,9 +1433,9 @@ async def remove_approved_entry_callback(update, context, entry_id, confirm=Fals
         await context.bot.send_message(
             chat_id=int(entry["user_id"]),
             text=(
-                "⚠️ <b>YOUR RAFFLE ENTRY HAS BEEN REMOVED</b>\\n\\n"
-                f"🎁 Prize: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\\n"
-                f"🆔 Entry: <code>{int(entry_id)}</code>\\n\\n"
+                "⚠️ <b>YOUR RAFFLE ENTRY HAS BEEN REMOVED</b>\n\n"
+                f"🎁 Prize: <b>{html.escape(str(entry.get('prize') or 'Raffle'))}</b>\n"
+                f"🆔 Entry: <code>{int(entry_id)}</code>\n\n"
                 "An admin has removed your approved entry from this raffle. "
                 "If you believe this was a mistake, please contact the Melanated AZ admins."
             ),
