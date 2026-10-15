@@ -1105,6 +1105,14 @@ def build_application():
     return application
 
 async def post_init(application):
+    # Register the birthday scheduler from the actual application startup path.
+    # Keep this isolated so a scheduler setup issue cannot block other startup tasks.
+    try:
+        from birthday_scheduler import start_birthday_scheduler
+        start_birthday_scheduler(application)
+    except Exception:
+        logger.exception("Birthday announcement scheduler startup FAILED")
+
     try:
         ensure_monthly_safety_schema()
         register_monthly_safety(application)
