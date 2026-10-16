@@ -7,6 +7,7 @@ nudges an eligible member when they open the bot.
 """
 
 import logging
+import os
 from datetime import timedelta
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -18,6 +19,96 @@ logger = logging.getLogger("melanated_az_intro_reminders")
 
 JOB_NAME = "monthly-intro-reminders-fixed"
 INITIAL_JOB_NAME = "monthly-intro-reminders-fixed-initial"
+
+
+async def post_private_message_fallback(context, reminder_type, failed_count):
+    """Post a rate-limited group nudge when private delivery is blocked."""
+    if failed_count <= 0:
+        return
+
+    main = bot.configured_main_group_id()
+    if not main:
+        return
+
+    bot_username = context.application.bot_data.get("bot_username")
+    if not bot_username:
+        try:
+            me = await context.bot.get_me()
+            bot_username = me.username
+            if bot_username:
+                context.application.bot_data["bot_username"] = bot_username
+        except Exception:
+            logger.exception("Could not get bot username for private-message fallback.")
+            return
+    if not bot_username:
+        logger.warning("Private-message fallback skipped: bot username unavailable.")
+        return
+
+    now = bot.utc_now()
+    try:
+        with bot.community_db_connect() as conn:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS community_reminder_fallbacks (
+                    reminder_type TEXT PRIMARY KEY,
+                    sent_at TEXT NOT NULL
+                )"""
+            )
+            previous = conn.execute(
+                "SELECT sent_at FROM community_reminder_fallbacks WHERE reminder_type=?",
+                (reminder_type,),
+            ).fetchone()
+            last_sent = bot.parse_iso(previous["sent_at"]) if previous else None
+            if last_sent and (now - last_sent).total_seconds() < 86400:
+                return
+
+        if reminder_type == "intro":
+            button_text = "👋🏾 OPEN BOT TO COMPLETE INTRO"
+            start_param = "intro"
+            heading = "Introduction reminder"
+            detail = "Your introduction is still required."
+        elif reminder_type == "profile_photo":
+            button_text = "📸 OPEN BOT FOR PROFILE PHOTO"
+            start_param = "profile_photo"
+            heading = "Profile-photo reminder"
+            detail = "A current Telegram profile photo is required."
+        else:
+            logger.warning("Unknown private-message fallback type: %s", reminder_type)
+            return
+
+        await context.bot.send_message(
+            chat_id=main,
+            message_thread_id=int(os.environ.get("INTRO_TOPIC_ID", "11570") or "11570"),
+            text=(
+                f"💜 <b>Melanated AZ {heading}</b>\n\n"
+                "Some members may not receive private bot messages until they open the bot.\n\n"
+                f"{detail} If this applies to you, tap below to open the bot and continue. 👇🏾"
+            ),
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    button_text,
+                    url=f"https://t.me/{bot_username}?start={start_param}",
+                )
+            ]]),
+            parse_mode=bot.ParseMode.HTML,
+        )
+        with bot.community_db_connect() as conn:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS community_reminder_fallbacks (
+                    reminder_type TEXT PRIMARY KEY,
+                    sent_at TEXT NOT NULL
+                )"""
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO community_reminder_fallbacks (reminder_type, sent_at) VALUES (?, ?)",
+                (reminder_type, now.isoformat()),
+            )
+            conn.commit()
+        logger.info(
+            "Private-message group fallback posted | type=%s | private_failed=%s",
+            reminder_type, failed_count,
+        )
+    except Exception:
+        logger.exception("Could not post private-message group fallback | type=%s", reminder_type)
 
 
 def _eligible_rows():
@@ -58,6 +149,7 @@ async def send_intro_reminders(context):
             logger.exception("Could not get bot username for intro reminder links.")
 
     now = bot.utc_now()
+    private_failed = 0
     for row in rows:
         uid = int(row["user_id"])
         try:
@@ -109,12 +201,15 @@ async def send_intro_reminders(context):
             logger.info("Intro reminder delivered | user_id=%s", uid)
 
         except TelegramError as exc:
-            # Do not update monthly_intro_reminder_at on failure. This leaves
-            # the member eligible for the next sweep, including after they
-            # open the bot and make private messaging possible.
+            # Telegram blocks private delivery until the member opens the bot.
+            # Keep the row eligible and post one rate-limited group fallback.
+            private_failed += 1
             logger.warning("Intro reminder not delivered | user_id=%s | error=%s", uid, exc)
         except Exception:
             logger.exception("Intro reminder failed | user_id=%s", uid)
+
+    if private_failed:
+        await post_private_message_fallback(context, "intro", private_failed)
 
 
 async def remind_on_private_start(update, context):
