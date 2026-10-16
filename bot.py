@@ -521,6 +521,7 @@ async def audit_profile_photo_members(context):
         with community_db_connect() as conn:
             rows = conn.execute("SELECT user_id,status,profile_photo_reminder_at FROM community_members WHERE chat_id=? AND status NOT IN ('left','removed','removed_by_admin')", (main,)).fetchall()
         now = utc_now()
+        private_failed = 0
         for row in rows:
             user_id = int(row['user_id'])
             if await is_admin(user_id, context):
@@ -555,6 +556,14 @@ async def audit_profile_photo_members(context):
                 with community_db_connect() as conn:
                     conn.execute("UPDATE community_members SET profile_photo_reminder_at=? WHERE chat_id=? AND user_id=?", (now.isoformat(), main, user_id))
                     conn.commit()
+            else:
+                private_failed += 1
+        if private_failed:
+            try:
+                from intro_reminder_fix import post_private_message_fallback
+                await post_private_message_fallback(context, "profile_photo", private_failed)
+            except Exception:
+                logger.exception("Could not post profile-photo private-message fallback")
     except Exception:
         logger.exception('PROFILE PHOTO AUDIT FAILED')
 
@@ -951,9 +960,40 @@ async def start_command(update,context):
         except Exception:
             logger.exception("Monthly safety deep-link failed | user_id=%s", user.id)
         return
+    if context.args and context.args[0].lower()=="profile_photo":
+        main = configured_main_group_id()
+        row = community_member(main, user.id) if main else None
+        if not row or row["status"] in {"left", "removed", "removed_by_admin"}:
+            await message.reply_text("This profile-photo reminder is for current Melanated AZ members.")
+            return
+        result = await refresh_profile_photo(context.bot, main, user.id)
+        if result is None:
+            await message.reply_text("⚠️ I couldn't check your profile photo just now. Please try again shortly.")
+        elif result:
+            clear_photo_required(main, user.id)
+            if row["status"] == "photo_required":
+                with community_db_connect() as conn:
+                    conn.execute(
+                        "UPDATE community_members SET status='verified_intro_pending' WHERE chat_id=? AND user_id=? AND status='photo_required'",
+                        (main, user.id),
+                    )
+                    conn.commit()
+                await restore_member(context.bot, main, user.id)
+                await message.reply_text("✅ Your profile photo is confirmed. You're cleared to continue onboarding.")
+                if row["verified_at"] and not row["intro_text"]:
+                    await send_private_intro_prompt(user, context)
+            else:
+                await message.reply_text("✅ Your Telegram profile photo is showing correctly. Thank you!")
+        else:
+            mark_photo_required(main, user.id)
+            await send_profile_photo_requirement(context.bot, user.id)
+        return
     if context.args and context.args[0].lower()=="intro":
         row=community_member(configured_main_group_id(),user.id)
         if not row or not row["verified_at"]: await message.reply_text("👋🏾 <b>You need to complete Melanated AZ verification first.</b>",parse_mode=ParseMode.HTML); return
+        if row["status"] == "photo_required" or ("profile_photo_required" in row.keys() and row["profile_photo_required"]):
+            await send_profile_photo_requirement(context.bot, user.id)
+            return
         await send_private_intro_prompt(user,context,update_existing=bool(row["intro_text"])); return
     text="👋 <b>Welcome to Melanated AZ Bot!</b>\n\n🎂 Birthdays\n🎟️ Raffles\n🔥 Truth or Dare\n🎮 Game Center\n🎲 Real Games\n🛡️ Media protection"
     if await is_admin(user.id,context):text+="\n\n👑 <b>Admin:</b> <code>/admin</code>"
