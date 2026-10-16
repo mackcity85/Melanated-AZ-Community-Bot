@@ -886,8 +886,14 @@ async def send_monthly_intro_reminders(context):
             if getattr(live,"status","") not in {"member","administrator","creator"}:continue
             if await is_admin(uid,context):continue
             first_name=getattr(getattr(live,"user",None),"first_name",None) or row["first_name"] or "there"
-            url=f"https://t.me/{bot_username}?start=intro" if bot_username else None
-            keyboard=InlineKeyboardMarkup([[InlineKeyboardButton("👋🏾 Complete My Intro",url=url)]]) if url else None
+            intro_url=f"https://t.me/{bot_username}?start=intro" if bot_username else None
+            photo_url=f"https://t.me/{bot_username}?start=profile_photo" if bot_username else None
+            birthday_url=f"https://t.me/{bot_username}?start=birthday" if bot_username else None
+            keyboard=InlineKeyboardMarkup([
+                [InlineKeyboardButton("👋🏾 Complete My Intro",url=intro_url)],
+                [InlineKeyboardButton("📸 Profile Photo Verification",url=photo_url)],
+                [InlineKeyboardButton("🎂 Add My Birthday",url=birthday_url)],
+            ]) if bot_username else None
             text=f"👋🏾 <b>Hey {html.escape(first_name)}!</b> 💜\n\nWe’d love to get to know you a little better. Your introduction is still missing, and it’s required for everyone in the Melanated AZ community.\n\nIt only takes a few minutes and helps everyone know who’s part of the community.\n\n🎂 <b>Birthday is optional</b>, but if you add yours, we’ll make sure you get a birthday shoutout! 🎉\n\nWhenever you’re ready, tap below to complete your intro. 👇🏾"
             await context.bot.send_message(chat_id=uid,text=text,reply_markup=keyboard,parse_mode=ParseMode.HTML)
             with community_db_connect() as conn:
@@ -960,6 +966,9 @@ async def start_command(update,context):
         except Exception:
             logger.exception("Monthly safety deep-link failed | user_id=%s", user.id)
         return
+    if context.args and context.args[0].lower()=="birthday":
+        await birthday(update, context)
+        return
     if context.args and context.args[0].lower()=="profile_photo":
         main = configured_main_group_id()
         row = community_member(main, user.id) if main else None
@@ -995,9 +1004,18 @@ async def start_command(update,context):
             await send_profile_photo_requirement(context.bot, user.id)
             return
         await send_private_intro_prompt(user,context,update_existing=bool(row["intro_text"])); return
-    text="👋 <b>Welcome to Melanated AZ Bot!</b>\n\n🎂 Birthdays\n🎟️ Raffles\n🔥 Truth or Dare\n🎮 Game Center\n🎲 Real Games\n🛡️ Media protection"
+    bot_username=await get_bot_username(context)
+    intro_url=f"https://t.me/{bot_username}?start=intro" if bot_username else None
+    photo_url=f"https://t.me/{bot_username}?start=profile_photo" if bot_username else None
+    birthday_url=f"https://t.me/{bot_username}?start=birthday" if bot_username else None
+    text="👋 <b>Welcome to Melanated AZ Bot!</b>\n\nUse the buttons below for onboarding and birthdays.\n\n🎟️ Raffles\n🔥 Truth or Dare\n🎮 Game Center\n🎲 Real Games\n🛡️ Media protection"
     if await is_admin(user.id,context):text+="\n\n👑 <b>Admin:</b> <code>/admin</code>"
-    await message.reply_text(text,reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎮 REAL GAMES",callback_data="real_games_menu")]]),parse_mode=ParseMode.HTML)
+    rows=[]
+    if intro_url: rows.append([InlineKeyboardButton("📝 Intro Verification",url=intro_url)])
+    if photo_url: rows.append([InlineKeyboardButton("📸 Profile Photo Verification",url=photo_url)])
+    if birthday_url: rows.append([InlineKeyboardButton("🎂 Birthdays",url=birthday_url)])
+    rows.append([InlineKeyboardButton("🎮 REAL GAMES",callback_data="real_games_menu")])
+    await message.reply_text(text,reply_markup=InlineKeyboardMarkup(rows),parse_mode=ParseMode.HTML)
 
 async def my_intro_command(update,context):
     message=update.effective_message; user=update.effective_user
