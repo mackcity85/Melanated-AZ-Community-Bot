@@ -971,7 +971,19 @@ async def start_command(update,context):
             await message.reply_text("⚠️ I couldn't check your profile photo just now. Please try again shortly.")
         elif result:
             clear_photo_required(main, user.id)
-            await message.reply_text("✅ Your Telegram profile photo is showing correctly. Thank you!")
+            if row["status"] == "photo_required":
+                with community_db_connect() as conn:
+                    conn.execute(
+                        "UPDATE community_members SET status='verified_intro_pending' WHERE chat_id=? AND user_id=? AND status='photo_required'",
+                        (main, user.id),
+                    )
+                    conn.commit()
+                await restore_member(context.bot, main, user.id)
+                await message.reply_text("✅ Your profile photo is confirmed. You're cleared to continue onboarding.")
+                if row["verified_at"] and not row["intro_text"]:
+                    await send_private_intro_prompt(user, context)
+            else:
+                await message.reply_text("✅ Your Telegram profile photo is showing correctly. Thank you!")
         else:
             mark_photo_required(main, user.id)
             await send_profile_photo_requirement(context.bot, user.id)
