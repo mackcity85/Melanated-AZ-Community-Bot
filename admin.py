@@ -68,6 +68,9 @@ from raffle_database import (
     save_birthday,
     get_members,
     get_member,
+    get_active_raffle,
+    get_pending_entries,
+    get_entry,
     create_queued_raffle,
     get_queued_raffles,
     cancel_queued_raffle,
@@ -338,6 +341,12 @@ def admin_main_keyboard():
                 InlineKeyboardButton(
                     "⏳ Pending Payments",
                     callback_data="admin_pending",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "💸 Payment Reminders",
+                    callback_data="admin_payment_reminders",
                 ),
             ],
             [
@@ -4009,6 +4018,205 @@ async def admin_queue_remove_button(update, context, raffle_id):
     )
 
 
+# ==========================================================
+# ACTIVE RAFFLE PAYMENT REMINDERS
+# ==========================================================
+
+def _payment_reminder_keyboard(raffle_id):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("📩 Private DMs", callback_data=f"admin_payment_mode_private_{raffle_id}"),
+            InlineKeyboardButton("📢 Group Post", callback_data=f"admin_payment_mode_group_{raffle_id}"),
+        ],
+        [InlineKeyboardButton("📩 + 📢 Send Both", callback_data=f"admin_payment_mode_both_{raffle_id}")],
+        [InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_back")],
+    ])
+
+def _payment_reminder_confirm_keyboard(mode, raffle_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Confirm & Send", callback_data=f"admin_payment_execute_{mode}_{raffle_id}")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="admin_payment_reminders")],
+    ])
+
+def _active_pending_payment_entries():
+    raffle = get_active_raffle()
+    if not raffle:
+        return None, []
+    return raffle, get_pending_entries(int(raffle["id"]))
+
+async def admin_payment_reminders(update, context):
+    if not await require_admin(update, context, alert=True):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+    raffle, entries = _active_pending_payment_entries()
+    if not raffle:
+        await query.edit_message_text(
+            "💸 **PAYMENT REMINDERS**\n\nThere is no active raffle right now.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔄 Refresh", callback_data="admin_payment_reminders")],
+                [InlineKeyboardButton("⬅️ Admin Panel", callback_data="admin_back")],
+            ]),
+            parse_mode="Markdown",
+        )
+        return
+    prize = html.escape(str(raffle.get("prize") or "Raffle"))
+    price = html.escape(str(raffle.get("price") or ""))
+    await query.edit_message_text(
+        "💸 **ACTIVE RAFFLE PAYMENT REMINDERS**\n\n"
+        f"🎟️ Raffle: **{prize}**\n"
+        f"💵 Entry price: **{price or 'See raffle details'}**\n"
+        f"⏳ Entries awaiting payment/approval: **{len(entries)}**\n\n"
+        "Choose where to send the reminder. You will get a confirmation screen before anything is sent. "
+        "Only pending entries for this active raffle are eligible; approved entries are excluded.",
+        reply_markup=_payment_reminder_keyboard(int(raffle["id"])),
+        parse_mode="Markdown",
+    )
+
+async def admin_payment_reminder_choose_mode(update, context, mode, raffle_id):
+    if not await require_admin(update, context, alert=True):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+    raffle = get_active_raffle()
+    if not raffle or int(raffle.get("id", 0)) != int(raffle_id):
+        await query.edit_message_text(
+            "⚠️ The active raffle changed or ended. No reminders were sent. Please reopen Payment Reminders.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Recheck", callback_data="admin_payment_reminders")]]),
+        )
+        return
+    entries = get_pending_entries(int(raffle_id))
+    mode_names = {
+        "private": "private messages to pending entrants",
+        "group": "one generic group announcement",
+        "both": "private messages plus one generic group announcement",
+    }
+    if mode not in mode_names:
+        await query.answer("Invalid reminder option.", show_alert=True)
+        return
+    pending_note = (
+        "There are no pending entries to message privately."
+        if mode in {"private", "both"} and not entries
+        else f"{len(entries)} pending entries will be checked again before sending."
+    )
+    await query.edit_message_text(
+        "⚠️ **CONFIRM PAYMENT REMINDER**\n\n"
+        f"🎟️ Raffle: **{html.escape(str(raffle.get('prize') or 'Raffle'))}**\n"
+        f"📨 Action: **{mode_names[mode]}**\n"
+        f"⏳ {pending_note}\n\n"
+        "Approved entries will not be messaged. Group announcements will not name members. Continue?",
+        reply_markup=_payment_reminder_confirm_keyboard(mode, int(raffle_id)),
+        parse_mode="Markdown",
+    )
+
+async def admin_payment_reminder_execute(update, context, mode, raffle_id):
+    if not await require_admin(update, context, alert=True):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer("Processing payment reminders...")
+    raffle = get_active_raffle()
+    if not raffle or int(raffle.get("id", 0)) != int(raffle_id):
+        await query.edit_message_text(
+            "⚠️ The active raffle changed or ended. No reminders were sent.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Admin Panel", callback_data="admin_back")]]),
+        )
+        return
+    prize = str(raffle.get("prize") or "the active raffle")
+    price = str(raffle.get("price") or "")
+    private_sent = 0
+    private_failed = 0
+    private_skipped = 0
+    group_status = "Not requested"
+    group_error = None
+    if mode in {"private", "both"}:
+        candidates = get_pending_entries(int(raffle_id))
+        for candidate in candidates:
+            entry_id = candidate.get("id")
+            try:
+                current = get_entry(int(entry_id)) if entry_id is not None else None
+                if (
+                    not current
+                    or str(current.get("status", "")).lower() != "pending"
+                    or int(current.get("raffle_id", 0)) != int(raffle_id)
+                    or str(current.get("raffle_status", "")).lower() != "active"
+                ):
+                    private_skipped += 1
+                    continue
+                member_id = current.get("user_id")
+                if not member_id:
+                    private_skipped += 1
+                    continue
+                name = html.escape(str(current.get("display_name") or current.get("username") or "there"))
+                safe_prize = html.escape(prize)
+                safe_price = html.escape(price)
+                message = (
+                    "🎟️ <b>MELANATED AZ — PAYMENT REMINDER</b>\n\n"
+                    f"Hey {name}! ❤️🖤\n\n"
+                    f"You entered our <b>{safe_prize}</b>, but your entry is still awaiting payment confirmation.\n\n"
+                    + (f"💵 Entry price: <b>{safe_price}</b>\n\n" if safe_price else "")
+                    + "Please complete your payment so your entry can be approved. Your entry remains pending until payment is received and verified.\n\n"
+                    "Thanks for supporting Melanated AZ! Good luck! 🔥"
+                )
+                await context.bot.send_message(chat_id=int(member_id), text=message, parse_mode="HTML")
+                private_sent += 1
+            except TelegramError as exc:
+                private_failed += 1
+                logger.info("Payment reminder DM failed | raffle_id=%s | entry_id=%s | error=%s", raffle_id, entry_id, exc)
+            except Exception:
+                private_failed += 1
+                logger.exception("Unexpected payment reminder DM failure | raffle_id=%s | entry_id=%s", raffle_id, entry_id)
+    if mode in {"group", "both"}:
+        try:
+            group_id = int(MAIN_GROUP_ID)
+            safe_prize = html.escape(prize)
+            safe_price = html.escape(price)
+            group_text = (
+                "🎟️🔥 <b>MELANATED AZ — RAFFLE PAYMENT REMINDER!</b> 🔥🎟️\n\n"
+                "Hey, Melanated AZ family! ❤️🖤\n\n"
+                f"If you entered our <b>{safe_prize}</b> but have not completed payment, this is your reminder.\n"
+                + (f"💵 Entry price: <b>{safe_price}</b>\n" if safe_price else "")
+                + "✅ Payment must be received and verified before your entry is approved.\n"
+                "⏳ Entries remain pending until payment is confirmed.\n\n"
+                "If you cannot receive the bot's private messages, please open the Melanated AZ bot or contact an admin to check your entry status.\n\n"
+                "Good luck, family! ❤️🖤🔥"
+            )
+            await context.bot.send_message(chat_id=group_id, text=group_text, parse_mode="HTML")
+            group_status = "Posted successfully"
+        except Exception as exc:
+            group_status = "Failed"
+            group_error = str(exc)
+            logger.exception("Payment reminder group post failed | raffle_id=%s", raffle_id)
+    report = [
+        "✅ **PAYMENT REMINDER RESULTS**",
+        "",
+        f"🎟️ Raffle: **{html.escape(prize)}**",
+    ]
+    if mode in {"private", "both"}:
+        report.extend([
+            f"📩 Private messages sent: **{private_sent}**",
+            f"⚠️ Private messages failed: **{private_failed}**",
+            f"⏭️ Entries skipped after recheck: **{private_skipped}**",
+        ])
+    if mode in {"group", "both"}:
+        report.append(f"📢 Group announcement: **{group_status}**")
+        if group_error:
+            report.append(f"Error: {html.escape(group_error[:250])}")
+    report.extend(["", "Approved entries were not messaged."])
+    await query.edit_message_text(
+        "\n".join(report),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Refresh Counts", callback_data="admin_payment_reminders")],
+            [InlineKeyboardButton("⬅️ Admin Panel", callback_data="admin_back")],
+        ]),
+        parse_mode="Markdown",
+    )
+
 async def admin_button(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -4038,6 +4246,29 @@ async def admin_button(
         data,
         user.id,
     )
+
+    if data == "admin_payment_reminders":
+        await admin_payment_reminders(update, context)
+        return
+
+    for mode in ("private", "group", "both"):
+        prefix = f"admin_payment_mode_{mode}_"
+        if data.startswith(prefix):
+            raffle_id = data[len(prefix):]
+            if not raffle_id.isdigit():
+                await query.answer("Invalid raffle ID.", show_alert=True)
+                return
+            await admin_payment_reminder_choose_mode(update, context, mode, int(raffle_id))
+            return
+
+        prefix = f"admin_payment_execute_{mode}_"
+        if data.startswith(prefix):
+            raffle_id = data[len(prefix):]
+            if not raffle_id.isdigit():
+                await query.answer("Invalid raffle ID.", show_alert=True)
+                return
+            await admin_payment_reminder_execute(update, context, mode, int(raffle_id))
+            return
 
     # ------------------------------------------------------
     # NAVIGATION
