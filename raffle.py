@@ -1524,13 +1524,32 @@ async def draw_raffle(update, context):
         return
     winner = random.choice(entries)
     close_raffle(raffle["id"])
-    text = ("🎉 <b>RAFFLE WINNER!</b>\n\n" f"🎁 Prize: <b>{raffle['prize']}</b>\n\n" f"🏆 Winner: <b>{display_user(winner)}</b>\n" f"🆔 Entry: <code>{winner['id']}</code>\n\n🎉 Congratulations!")
+    text = (
+        "🎉 <b>RAFFLE WINNER!</b>\\n\\n"
+        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n\\n"
+        f"🏆 <b>Winner:</b> {html.escape(display_user(winner))}\\n"
+        f"🆔 <b>Entry:</b> <code>{int(winner['id'])}</code>\\n\\n"
+        "🎉 Congratulations!"
+    )
     if query: await query.answer("Winner selected!")
-    target = query.message if query else message
     try:
+        await context.bot.send_message(
+            chat_id=int(RAFFLE_CHAT_ID),
+            message_thread_id=RAFFLE_TOPIC_ID,
+            text=text,
+            parse_mode=ParseMode.HTML,
+        )
+        logger.info(
+            "Manual raffle winner announced in Raffles & Giveaways topic | raffle=%s | topic=%s",
+            raffle["id"], RAFFLE_TOPIC_ID,
+        )
+        target = query.message if query else message
         if target:
-            await target.reply_text(text, parse_mode=ParseMode.HTML)
+            await target.reply_text("✅ Winner announced in the Raffles & Giveaways topic.", parse_mode=ParseMode.HTML)
     except TelegramError:
         logger.exception("Manual raffle winner announcement failed | raffle=%s", raffle["id"])
+        target = query.message if query else message
+        if target:
+            await target.reply_text("⚠️ Winner was selected, but the public announcement could not be sent. Check Render logs.")
     finally:
         await launch_next_queued_raffle(context)
