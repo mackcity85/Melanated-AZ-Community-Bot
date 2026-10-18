@@ -42,7 +42,7 @@ from telegram.ext import ApplicationHandlerStop, ContextTypes
 from config import ADMIN_IDS, MAIN_GROUP_ID, RAFFLE_CHAT_ID
 
 from member_bank import (
-    admin_members, admin_member_view, birthday_member_candidates,
+    admin_members, admin_member_view, _community_rows,
     _member_message_prompt, _member_message_cancel,
     _member_remove_prompt, _member_remove_cancel, _member_remove_confirm,
 )
@@ -1635,10 +1635,49 @@ async def show_birthday_member_selector(
         )
         return
 
-    # Pull from the unified Member Bank source, which combines community
-    # members with raffle participants, entries, and already-saved birthdays.
-    # The raffle-only members table can be empty even when these records exist.
-    members = birthday_member_candidates()
+    # Use the community Member Bank, the same source as the admin's
+    # Members screen. The raffle DB's members table may be empty even when
+    # the community DB already knows these people.
+    members_by_id = {}
+
+    try:
+        for row in _community_rows():
+            item = dict(row)
+            try:
+                uid = int(item.get("user_id"))
+            except (TypeError, ValueError):
+                continue
+            item["user_id"] = uid
+            item["display_name"] = (
+                item.get("display_name")
+                or item.get("first_name")
+                or (f"@{item['username']}" if item.get("username") else str(uid))
+            )
+            members_by_id[uid] = item
+    except Exception:
+        logger.exception("Unable to load community Member Bank for birthday selector.")
+
+    # Keep compatibility with members known only to the raffle database.
+    try:
+        for row in get_members(chat_id=chat_id, limit=1000):
+            item = dict(row)
+            try:
+                uid = int(item.get("user_id"))
+            except (TypeError, ValueError):
+                continue
+            item["user_id"] = uid
+            item["display_name"] = (
+                item.get("display_name")
+                or (f"@{item['username']}" if item.get("username") else str(uid))
+            )
+            members_by_id.setdefault(uid, item)
+    except Exception:
+        logger.exception("Unable to load raffle DB members for birthday selector.")
+
+    members = sorted(
+        members_by_id.values(),
+        key=lambda item: str(item.get("display_name") or item.get("user_id")).casefold(),
+    )
 
     context.user_data[
         "admin_birthday_members"
