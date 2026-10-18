@@ -44,7 +44,6 @@ from config import ADMIN_IDS, MAIN_GROUP_ID, RAFFLE_CHAT_ID
 from member_bank import (
     admin_members, admin_member_view, _community_rows,
     _member_message_prompt, _member_message_cancel,
-    _member_remove_prompt, _member_message_cancel,
     _member_remove_prompt, _member_remove_cancel, _member_remove_confirm,
 )
 
