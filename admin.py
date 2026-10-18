@@ -1532,6 +1532,7 @@ def member_display_name(member):
 
     return (
         member.get("display_name")
+        or member.get("first_name")
         or (
             f"@{member.get('username')}"
             if member.get("username")
@@ -1539,7 +1540,6 @@ def member_display_name(member):
         )
         or str(member.get("user_id"))
     )
-
 
 # ==========================================================
 # BUILD SCROLLABLE MEMBER KEYBOARD
