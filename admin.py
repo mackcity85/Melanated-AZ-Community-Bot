@@ -1635,10 +1635,10 @@ async def show_birthday_member_selector(
         )
         return
 
-    members = get_members(
-        chat_id=chat_id,
-        limit=1000,
-    )
+    # Pull from the unified Member Bank source, which combines community
+    # members with raffle participants, entries, and already-saved birthdays.
+    # The raffle-only members table can be empty even when these records exist.
+    members = birthday_member_candidates()
 
     context.user_data[
         "admin_birthday_members"
