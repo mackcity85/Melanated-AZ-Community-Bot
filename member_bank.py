@@ -149,6 +149,35 @@ def _legacy_people():
     return people
 
 
+def birthday_member_candidates():
+    """Return known people across the community, raffle, entry, and birthday records."""
+    people = _legacy_people()
+    birthdays = _birthday_map()
+    candidates = []
+
+    for user_id, person in people.items():
+        birthday = birthdays.get(int(user_id), {})
+        username = person.get("username") or birthday.get("username")
+        display_name = (
+            person.get("first_name")
+            or birthday.get("display_name")
+            or (f"@{username}" if username else None)
+            or str(user_id)
+        )
+        candidates.append({
+            "user_id": int(user_id),
+            "username": username,
+            "display_name": display_name,
+            "first_name": person.get("first_name") or display_name,
+            "birthday": birthday.get("birthday"),
+        })
+
+    candidates.sort(
+        key=lambda row: str(row.get("display_name") or row["user_id"]).casefold()
+    )
+    return candidates
+
+
 def run_legacy_intro_backfill():
     """One-time database migration for people already known before intro tracking."""
     if os.path.exists(BACKFILL_MARKER):
