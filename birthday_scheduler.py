@@ -19,7 +19,7 @@
 # ==========================================================
 
 import logging
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from telegram.ext import ContextTypes
@@ -29,6 +29,7 @@ from config import RAFFLE_CHAT_ID
 
 from raffle_database import (
     get_birthdays_for_date,
+    get_connection,
 )
 
 
@@ -52,6 +53,102 @@ BIRTHDAY_ANNOUNCEMENT_SECONDS = 86400
 # Arizona uses Mountain Standard Time (MST / UTC-7) year-round.
 # America/Phoenix does not switch to daylight saving time.
 ARIZONA_TZ = ZoneInfo("America/Phoenix")
+
+
+
+# ==========================================================
+# SAME-DAY RECOVERY / DUPLICATE PROTECTION
+# ==========================================================
+
+BIRTHDAY_ANNOUNCEMENT_TABLE = "birthday_announcement_log"
+BIRTHDAY_RECOVERY_JOB_NAME = "melanated_birthday_recovery"
+
+
+def _claim_announcement(chat_id, now_arizona):
+    """Claim today's announcement; prevent repeats across restarts."""
+    day_key = now_arizona.strftime("%Y-%m-%d")
+    now_text = now_arizona.isoformat()
+    stale_before = (now_arizona - timedelta(minutes=15)).isoformat()
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS birthday_announcement_log (
+                announcement_date TEXT NOT NULL,
+                chat_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                message_id INTEGER,
+                PRIMARY KEY (announcement_date, chat_id)
+            )
+        """)
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("""
+            SELECT status, updated_at
+            FROM birthday_announcement_log
+            WHERE announcement_date=? AND chat_id=?
+        """, (day_key, int(chat_id))).fetchone()
+
+        if row and row["status"] == "sent":
+            conn.commit()
+            return False
+
+        if (row and row["status"] == "sending"
+                and row["updated_at"] >= stale_before):
+            conn.commit()
+            return False
+
+        conn.execute("""
+            INSERT INTO birthday_announcement_log
+                (announcement_date, chat_id, status, updated_at, message_id)
+            VALUES (?, ?, 'sending', ?, NULL)
+            ON CONFLICT(announcement_date, chat_id) DO UPDATE SET
+                status='sending', updated_at=excluded.updated_at,
+                message_id=NULL
+        """, (day_key, int(chat_id), now_text))
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        logger.exception("Could not claim birthday announcement recovery.")
+        # Fail closed: avoid duplicate posts if the idempotency log is unavailable.
+        return False
+    finally:
+        conn.close()
+
+
+def _finish_announcement(chat_id, now_arizona, status, message_id=None):
+    day_key = now_arizona.strftime("%Y-%m-%d")
+    conn = get_connection()
+    try:
+        conn.execute("""
+            UPDATE birthday_announcement_log
+            SET status=?, updated_at=?, message_id=?
+            WHERE announcement_date=? AND chat_id=?
+        """, (
+            status, datetime.now(ARIZONA_TZ).isoformat(), message_id,
+            day_key, int(chat_id),
+        ))
+        conn.commit()
+    except Exception:
+        logger.exception("Could not update birthday announcement recovery log.")
+    finally:
+        conn.close()
+
+
+async def birthday_scheduler_recovery(context: ContextTypes.DEFAULT_TYPE):
+    """Catch up today's birthday post after 9 AM if startup missed it."""
+    now_arizona = datetime.now(ARIZONA_TZ)
+    if (now_arizona.hour, now_arizona.minute) < (9, 0):
+        logger.info(
+            "Birthday recovery skipped before 9:00 AM Arizona time."
+        )
+        return
+
+    logger.info(
+        "Birthday same-day recovery check started | Arizona time=%s",
+        now_arizona.strftime("%Y-%m-%d %H:%M:%S %Z"),
+    )
+    await birthday_scheduler(context)
 
 
 # ==========================================================
@@ -270,6 +367,14 @@ async def birthday_scheduler(
     if not message_text:
         return
 
+    if not _claim_announcement(chat_id, now_arizona):
+        logger.info(
+            "Birthday announcement already sent or another run is handling it "
+            "| date=%s | chat=%s",
+            month_day, chat_id,
+        )
+        return
+
     try:
 
         sent_message = (
@@ -277,6 +382,10 @@ async def birthday_scheduler(
                 chat_id=chat_id,
                 text=message_text,
             )
+        )
+
+        _finish_announcement(
+            chat_id, now_arizona, "sent", sent_message.message_id
         )
 
         logger.info(
@@ -327,13 +436,13 @@ async def birthday_scheduler(
             )
 
     except TelegramError:
-
+        _finish_announcement(chat_id, now_arizona, "failed")
         logger.exception(
             "Unable to send birthday announcement."
         )
 
     except Exception:
-
+        _finish_announcement(chat_id, now_arizona, "failed")
         logger.exception(
             "Unexpected birthday scheduler error."
         )
@@ -396,6 +505,25 @@ def start_birthday_scheduler(
         "🎂 Birthday scheduler started — "
         "daily at exactly 9:00 AM Arizona/MST "
         "(America/Phoenix, UTC-7)."
+    )
+
+    # On each process start, catch up today's shout-out if 9:00 AM
+    # has already passed. The persistent announcement log prevents
+    # duplicate posts if both this recovery and the daily job run.
+    existing_recovery = [
+        job for job in application.job_queue.jobs()
+        if job.name == BIRTHDAY_RECOVERY_JOB_NAME
+    ]
+    for job in existing_recovery:
+        job.schedule_removal()
+
+    application.job_queue.run_once(
+        birthday_scheduler_recovery,
+        when=5,
+        name=BIRTHDAY_RECOVERY_JOB_NAME,
+    )
+    logger.info(
+        "🎂 Same-day birthday recovery registered for startup."
     )
 
 
