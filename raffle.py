@@ -547,6 +547,9 @@ async def handle_raffle_end_date(update, context):
         context.user_data.pop("awaiting_raffle_end_date", None)
         raffle = get_raffle(raffle_id)
         if raffle.get("status") == "active":
+            # Keep the automatic draw aligned with the newly saved end time.
+            # This also handles moving the deadline earlier or later.
+            schedule_raffle_auto_draw(context, int(raffle_id), expires_at)
             old_message_id = raffle.get("message_id")
             if old_message_id:
                 try:
