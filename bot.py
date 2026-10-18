@@ -1046,6 +1046,12 @@ async def admin_callback_router(update,context):
         return
     if update.effective_user and await is_admin(update.effective_user.id,context): await admin_button(update,context)
 
+async def admin_birthday_text_router(update, context):
+    """Consume private admin birthday input before generic text handlers."""
+    handled = await admin_birthday_text_handler(update, context)
+    if handled:
+        raise ApplicationHandlerStop
+
 async def birthday_callback_router(update,context): await birthday_callback(update,context)
 async def game_center_callback_router_wrapper(update,context): await game_center_callback_router(update,context)
 async def real_games_callback_router(update,context):
@@ -1120,6 +1126,15 @@ def build_application():
     for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("queueraffle",queue_raffle),("rafflequeue",raffle_queue),("removequeuedraffle",remove_queued_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command)]: application.add_handler(CommandHandler(command,callback))
     application.add_handler(CallbackQueryHandler(raffle_callback_router,pattern=r"^(raffle_|approve_|deny_|enter_|pay_|payment_|paid_|draw_|reroll_|bonus_|remove_)"))
     application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^admin_"))
+    # Run before generic private-text handlers so birthday input is saved
+    # by the admin birthday flow instead of being consumed by another feature.
+    application.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+            admin_birthday_text_router,
+        ),
+        group=-4,
+    )
     application.add_handler(CallbackQueryHandler(birthday_callback_router,pattern=r"^birthday_"))
     application.add_handler(CallbackQueryHandler(game_center_callback_router_wrapper,pattern=r"^(games_|game_)"))
     application.add_handler(CallbackQueryHandler(real_games_callback_router,pattern=r"^real_games_"))
