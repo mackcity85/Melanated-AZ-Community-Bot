@@ -42,7 +42,7 @@ from telegram.ext import ApplicationHandlerStop, ContextTypes
 from config import ADMIN_IDS, MAIN_GROUP_ID, RAFFLE_CHAT_ID
 
 from member_bank import (
-    admin_members, admin_member_view,
+    admin_members, admin_member_view, birthday_member_candidates,
     _member_message_prompt, _member_message_cancel,
     _member_remove_prompt, _member_remove_cancel, _member_remove_confirm,
 )
@@ -1016,10 +1016,10 @@ async def show_manual_raffle_member_selector(
         )
         return
 
-    members = get_members(
-        chat_id=chat_id,
-        limit=1000,
-    )
+    # The raffle members table is only one source of known users.
+    # Use the unified Member Bank so community members, raffle entrants,
+    # and people with existing birthday records are all selectable.
+    members = birthday_member_candidates()
 
     if not members:
 
