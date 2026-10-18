@@ -705,18 +705,38 @@ async def auto_draw_raffle(context):
             f"❤️ Congratulations again, {display_user(winner)}!\n"
             "Enjoy your prize — <b>YOU EARNED THAT WIN!</b> 🥳🏆"
         )
-    try:
-        await context.bot.send_message(
-            chat_id=int(RAFFLE_CHAT_ID),
-            message_thread_id=RAFFLE_TOPIC_ID,
-            text=text,
-            parse_mode=ParseMode.HTML,
-        )
-        logger.info("AUTOMATIC RAFFLE DRAW COMPLETE | raffle=%s | entries=%s", raffle["id"], len(entries))
-    except TelegramError:
-        logger.exception("Automatic raffle draw announcement failed | raffle=%s", raffle["id"])
+    # Publish the result in both the Raffles & Giveaways topic and the main chat.
+    # De-duplicate destinations if configuration ever points them at the same destination.
+    destinations = [
+        (int(RAFFLE_CHAT_ID), RAFFLE_TOPIC_ID, "raffle_topic"),
+        (int(MAIN_GROUP_ID or RAFFLE_CHAT_ID), None, "main_chat"),
+    ]
+    sent_destinations = set()
+    for chat_id, topic_id, destination in destinations:
+        key = (chat_id, topic_id)
+        if key in sent_destinations:
+            continue
+        sent_destinations.add(key)
+        try:
+            kwargs = {
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": ParseMode.HTML,
+            }
+            if topic_id is not None:
+                kwargs["message_thread_id"] = topic_id
+            sent = await context.bot.send_message(**kwargs)
+            logger.info(
+                "AUTOMATIC RAFFLE DRAW ANNOUNCEMENT SENT | raffle=%s | destination=%s | chat=%s | topic=%s | message=%s",
+                raffle["id"], destination, chat_id, topic_id, sent.message_id,
+            )
+        except TelegramError:
+            logger.exception(
+                "Automatic raffle draw announcement failed | raffle=%s | destination=%s | chat=%s | topic=%s",
+                raffle["id"], destination, chat_id, topic_id,
+            )
     # Only advance the queue after the current raffle has been closed and its
-    # winner/no-entry result has been determined and announced (or announcement attempted).
+    # winner/no-entry result has been determined and both announcements attempted.
     await launch_next_queued_raffle(context)
 
 
