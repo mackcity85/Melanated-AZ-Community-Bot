@@ -1618,7 +1618,22 @@ async def show_birthday_member_selector(
     if not query or not query.message:
         return
 
-    chat_id = query.message.chat_id
+    # The selector is displayed in the admin's private chat, but
+    # member records are keyed to the community group ID.
+    try:
+        chat_id = int(
+            context.user_data.get("admin_birthday_chat_id")
+            or MAIN_GROUP_ID
+        )
+    except (TypeError, ValueError):
+        await query.edit_message_text(
+            "⚠️ The community group is not configured correctly. "
+            "Please check MAIN_GROUP_ID.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")]
+            ]),
+        )
+        return
 
     members = get_members(
         chat_id=chat_id,
