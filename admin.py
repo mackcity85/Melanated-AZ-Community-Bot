@@ -1002,7 +1002,19 @@ async def show_manual_raffle_member_selector(
     if not query or not query.message:
         return
 
-    chat_id = query.message.chat_id
+    # The admin panel is opened in the admin's private chat, but
+    # member records are keyed by the community group chat ID.
+    try:
+        chat_id = int(MAIN_GROUP_ID)
+    except (TypeError, ValueError):
+        logger.error("MAIN_GROUP_ID is missing or invalid; cannot load birthday members.")
+        await query.edit_message_text(
+            "⚠️ The community group is not configured correctly. Please check MAIN_GROUP_ID.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")]
+            ]),
+        )
+        return
 
     members = get_members(
         chat_id=chat_id,
@@ -1691,9 +1703,17 @@ async def admin_birthday_add(update, context):
     except Exception:
         pass
 
-    context.user_data[
-        "admin_birthday_chat_id"
-    ] = query.message.chat_id
+    # Store the community chat ID, not the private admin DM ID.
+    try:
+        context.user_data["admin_birthday_chat_id"] = int(MAIN_GROUP_ID)
+    except (TypeError, ValueError):
+        await query.edit_message_text(
+            "⚠️ The community group is not configured correctly. Please check MAIN_GROUP_ID.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Back", callback_data="admin_back")]
+            ]),
+        )
+        return
 
     context.user_data[
         "awaiting_admin_birthday"
@@ -4747,8 +4767,13 @@ async def admin_button(
         return
 
     # ------------------------------------------------------
-    # BIRTHDAY MEMBER PAGES
+    # BIRTHDAY MEMBER SELECTION + PAGINATION
     # ------------------------------------------------------
+
+    if data.startswith("admin_bday_select_"):
+        member_user_id = data[len("admin_bday_select_"):]
+        await admin_birthday_select(update, context, member_user_id)
+        return
 
     if data.startswith("admin_bday_page_"):
 
