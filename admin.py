@@ -1675,9 +1675,49 @@ async def show_birthday_member_selector(
         )
         return
 
-    members = get_members(
-        chat_id=chat_id,
-        limit=1000,
+    # Prefer the community Member Bank as the source of known group
+    # members. The raffle database may be empty even when the community
+    # database already contains members. Merge raffle records as a fallback.
+    members_by_id = {}
+
+    try:
+        for member in _community_rows():
+            try:
+                uid = int(member.get("user_id"))
+            except (TypeError, ValueError):
+                continue
+            if uid:
+                normalized = dict(member)
+                normalized["user_id"] = uid
+                members_by_id[uid] = normalized
+    except Exception:
+        logger.exception("Unable to load community Member Bank for birthday selector.")
+
+    try:
+        for member in get_members(chat_id=chat_id, limit=1000):
+            try:
+                uid = int(member.get("user_id"))
+            except (TypeError, ValueError):
+                continue
+            if not uid:
+                continue
+            if uid not in members_by_id:
+                members_by_id[uid] = dict(member)
+            else:
+                # Fill missing display details from raffle history without
+                # replacing the authoritative community member record.
+                for key in ("username", "first_name", "display_name"):
+                    if not members_by_id[uid].get(key) and member.get(key):
+                        members_by_id[uid][key] = member[key]
+    except Exception:
+        logger.exception("Unable to load raffle members for birthday selector.")
+
+    members = sorted(
+        members_by_id.values(),
+        key=lambda item: (
+            str(item.get("first_name") or item.get("display_name") or "").casefold(),
+            int(item.get("user_id") or 0),
+        ),
     )
 
     context.user_data[
