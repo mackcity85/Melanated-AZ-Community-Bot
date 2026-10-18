@@ -1525,10 +1525,10 @@ async def draw_raffle(update, context):
     winner = random.choice(entries)
     close_raffle(raffle["id"])
     text = (
-        "🎉 <b>RAFFLE WINNER!</b>\\n\\n"
-        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\\n\\n"
-        f"🏆 <b>Winner:</b> {html.escape(display_user(winner))}\\n"
-        f"🆔 <b>Entry:</b> <code>{int(winner['id'])}</code>\\n\\n"
+        "🎉 <b>RAFFLE WINNER!</b>\n\n"
+        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}\n\n"
+        f"🏆 <b>Winner:</b> {html.escape(display_user(winner))}\n"
+        f"🆔 <b>Entry:</b> <code>{int(winner['id'])}</code>\n\n"
         "🎉 Congratulations!"
     )
     if query: await query.answer("Winner selected!")
