@@ -21,7 +21,7 @@ GAMES_CHAT_ID = -1002697105809
 GAMES_TOPIC_ID = 8809
 ADMIN_GROUP_ID = int(os.getenv("ADMIN_GROUP_ID", "0") or "0")
 GAME_CENTER_PIN_FILE = "/var/data/game_center_pin.txt"
-GAME_CENTER_PIN_TEXT = ("🎮🔥 <b>MELANATED AZ GAME CENTER</b> 🔥🎮\n\n🥊 <b>Fighting</b>\n🏆 <b>Sports</b>\n🎭 <b>Dirty Minds</b>\n\n🟥 <b>Nintendo</b>\n🔵 <b>Sega</b>\n🟦 <b>PlayStation</b>\n🟩 <b>Xbox</b>\n\n👇🏾 <b>Choose a game or start Dirty Minds.</b>")
+GAME_CENTER_PIN_TEXT = ("🎮🔥 <b>MELANATED AZ GAME CENTER</b> 🔥🎮\n\n🍫 <b>Chocolate Candy Land</b>\n🎭 <b>Dirty Minds</b>\n🥊 <b>Fighting</b> · 🏆 <b>Sports</b>\n🟥 <b>Nintendo</b> · 🔵 <b>Sega</b>\n🟦 <b>PlayStation</b> · 🟩 <b>Xbox</b>\n\n👇🏾 <b>Tap OPEN GAME CENTER to browse the games, or start Dirty Minds.</b>")
 
 GAME_CATEGORIES = {"fighting": {"title":"🥊 FIGHTING", "games":[]}, "sports": {"title":"🏆 SPORTS", "games":[]}}
 
@@ -46,7 +46,7 @@ def console_home_keyboard():
 
 def pinned_game_center_keyboard():
     base=os.getenv("PUBLIC_BASE_URL","").strip().rstrip("/") or "https://melanatedaz.onrender.com"
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🎮 OPEN GAME CENTER",callback_data="games_home")],[InlineKeyboardButton("🍫 CHOCOLATE CANDY LAND",url=f"{base}/real-games/play/chocolate_candy_land")],[InlineKeyboardButton("🎭 START DIRTY MINDS",callback_data="games_dirty_minds_start")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🎮 OPEN GAME CENTER",url=f"{base}/real-games/")],[InlineKeyboardButton("🍫 CHOCOLATE CANDY LAND",url=f"{base}/real-games/play/chocolate_candy_land")],[InlineKeyboardButton("🎭 START DIRTY MINDS",callback_data="games_dirty_minds_start")]])
 
 async def ensure_pinned_game_center(bot):
     mid=_load_pinned_game_center_id()
