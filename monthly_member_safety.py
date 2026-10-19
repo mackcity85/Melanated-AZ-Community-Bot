@@ -10,7 +10,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import TelegramError
+from telegram.error import Forbidden, TelegramError
 
 from config import ADMIN_IDS
 
@@ -99,9 +99,15 @@ async def send_monthly_safety_check(bot, user_id):
             parse_mode="HTML",
         )
         return True
-    except TelegramError:
-        logger.info("Monthly safety check could not be sent privately | user_id=%s", user_id)
+    except Forbidden:
+        # Expected: the member has not opened the bot or has blocked private messages.
+        logger.info("Monthly safety DM unavailable | user_id=%s | reason=forbidden", user_id)
         return False
+    except TelegramError:
+        # A transient Telegram/API error is not evidence that the member cannot
+        # receive DMs. Let the next scheduled run retry instead of rate-limiting it.
+        logger.exception("Monthly safety delivery API error | user_id=%s", user_id)
+        return None
 
 async def monthly_safety_check(context):
     """Independent monthly audit/check-in. It never removes members by itself."""
@@ -140,8 +146,12 @@ async def monthly_safety_check(context):
                 continue
 
             delivered = await send_monthly_safety_check(context.bot, user_id)
-            # Track delivery attempts separately from successful delivery.
-            # This rate-limits persistent Telegram 403s without claiming receipt.
+            if delivered is None:
+                errors += 1
+                continue
+
+            # Track successful delivery and expected Forbidden attempts separately.
+            # A failed DM is rate-limited, but never counted as sent or confirmed.
             with _db() as conn:
                 conn.execute(
                     "UPDATE community_members SET monthly_safety_attempted_at=? WHERE chat_id=? AND user_id=?",
