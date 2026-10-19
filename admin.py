@@ -207,7 +207,9 @@ async def is_admin(user_id, context=None):
 
             return True
 
-        logger.info(
+        # A non-member status is a normal denial (for example, status=left),
+        # not an application error. Keep this at DEBUG to avoid noisy production logs.
+        logger.debug(
             "Admin authorization denied | "
             "user_id=%s | status=%s | "
             "admin_group=%s",
