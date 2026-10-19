@@ -65,6 +65,9 @@ from event_ocr import (
 )
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(name)s | %(message)s", level=logging.INFO)
+# httpx logs request URLs containing the Telegram bot token. Never write those URLs to Render logs.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger("melanated_az_bot")
 
 app = Flask(__name__)
