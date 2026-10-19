@@ -36,14 +36,17 @@ def _save_pinned_game_center_id(message_id):
     except OSError: logger.exception("Could not save Game Center launcher ID.")
 
 def console_home_keyboard():
-    rows=[[InlineKeyboardButton("🥊 FIGHTING",callback_data="games_genre_all_fighting"),InlineKeyboardButton("🏆 SPORTS",callback_data="games_genre_all_sports")],[InlineKeyboardButton("🎭 DIRTY MINDS",callback_data="games_dirty_minds_start")]]
+    base=os.getenv("PUBLIC_BASE_URL","").strip().rstrip("/") or "https://melanatedaz.onrender.com"
+    rows=[[InlineKeyboardButton("🥊 FIGHTING",callback_data="games_genre_all_fighting"),InlineKeyboardButton("🏆 SPORTS",callback_data="games_genre_all_sports")],[InlineKeyboardButton("🎭 DIRTY MINDS",callback_data="games_dirty_minds_start")],[InlineKeyboardButton("🍫 CHOCOLATE CANDY LAND",url=f"{base}/real-games/play/chocolate_candy_land")]]
     for i in range(0,len(CONSOLE_ORDER),2):
         row=[InlineKeyboardButton(CONSOLE_BUTTONS[CONSOLE_ORDER[i]],callback_data=f"games_console_{CONSOLE_ORDER[i]}")]
         if i+1<len(CONSOLE_ORDER): row.append(InlineKeyboardButton(CONSOLE_BUTTONS[CONSOLE_ORDER[i+1]],callback_data=f"games_console_{CONSOLE_ORDER[i+1]}"))
         rows.append(row)
     return InlineKeyboardMarkup(rows)
 
-def pinned_game_center_keyboard(): return InlineKeyboardMarkup([[InlineKeyboardButton("🎮 OPEN GAME CENTER",callback_data="games_home")],[InlineKeyboardButton("🎭 START DIRTY MINDS",callback_data="games_dirty_minds_start")]])
+def pinned_game_center_keyboard():
+    base=os.getenv("PUBLIC_BASE_URL","").strip().rstrip("/") or "https://melanatedaz.onrender.com"
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🎮 OPEN GAME CENTER",callback_data="games_home")],[InlineKeyboardButton("🍫 CHOCOLATE CANDY LAND",url=f"{base}/real-games/play/chocolate_candy_land")],[InlineKeyboardButton("🎭 START DIRTY MINDS",callback_data="games_dirty_minds_start")]])
 
 async def ensure_pinned_game_center(bot):
     mid=_load_pinned_game_center_id()
