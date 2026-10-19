@@ -94,6 +94,7 @@ def play_game(game_id):
     game=get_game(game_id)
     if not game:return render_template("real_games.html",games=_home_games(),categories=_home_categories()),404
     gid=game_id.lower()
+    if gid=="chocolate_candy_land":return render_template("chocolate_candy_land.html")
     if gid=="dirty_minds":
         room_id=request.args.get("room","").strip().upper();player_key=request.args.get("player_key","").strip()
         if not room_id or not player_key:return "<h2>Dirty Minds</h2><p>This game must be opened from the Telegram JOIN button.</p>",400

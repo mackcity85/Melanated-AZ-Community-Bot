@@ -1,4 +1,5 @@
 from .real_games import real_games_bp
+from . import chocolate_candy_land  # Register the dedicated board-game route.
 from .deep_links import (
     real_games_start,
     handle_game_launch,
