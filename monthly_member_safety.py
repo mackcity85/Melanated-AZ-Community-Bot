@@ -52,7 +52,7 @@ def _main_group_id():
 def _eligible_rows(main):
     with _db() as conn:
         return conn.execute(
-            """SELECT user_id, username, first_name, status, monthly_safety_sent_at
+            """SELECT user_id, username, first_name, status, monthly_safety_sent_at, monthly_safety_fallback_sent_at
                FROM community_members
                WHERE chat_id=?
                  AND status NOT IN ('left','removed','removed_by_admin')
@@ -153,18 +153,21 @@ async def monthly_safety_check(context):
             errors += 1
             logger.exception("MONTHLY SAFETY CHECK FAILED | user_id=%s", user_id)
 
-    if private_failed:
+    fallback_sent_this_month = any(
+        _already_sent_this_month(row["monthly_safety_fallback_sent_at"], now)
+        for row in rows
+    )
+    if private_failed and not fallback_sent_this_month:
         try:
             me = await context.bot.get_me()
             if me.username:
                 link = f"https://t.me/{me.username}?start=monthly_safety"
                 fallback_text = (
-                    "🛡️ <b>Melanated AZ Monthly Safety Check</b>\n\n"
-                    "Some members could not receive the private safety check because "
-                    "they have not opened the Melanated AZ Bot yet.\n\n"
-                    "Tap the button below to start the bot and receive your individual "
-                    "monthly safety check.\n\n"
-                    "Private delivery will be retried automatically."
+                    "🛡️ <b>Melanated AZ Monthly Safety Check</b>\\n\\n"
+                    "Some members could not receive the private safety check. "
+                    "If you have not started the bot, tap below to open it and receive "
+                    "your individual monthly check-in.\\n\\n"
+                    "This reminder is posted at most once per month."
                 )
                 await context.bot.send_message(
                     chat_id=main,
@@ -174,6 +177,14 @@ async def monthly_safety_check(context):
                     ),
                     parse_mode="HTML",
                 )
+                # Rate-limit the group fallback per affected member, even if the
+                # daily safety sweep retries private delivery after a 403.
+                with _db() as conn:
+                    conn.executemany(
+                        "UPDATE community_members SET monthly_safety_fallback_sent_at=? WHERE chat_id=? AND user_id=?",
+                        [(now.isoformat(), main, uid) for uid in private_failed],
+                    )
+                    conn.commit()
         except TelegramError:
             logger.info("Monthly safety fallback group message could not be posted")
         except Exception:
