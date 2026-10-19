@@ -34,8 +34,8 @@ def get_game(game_id):
         if game["game_id"]==gid:return game
     game=registry_get_game(gid);return _game_dict(game) if game else None
 
-def _home_games(): return GAMES + CONSOLE_GAMES
-def _home_categories(): return CATEGORY_ORDER + ["NES","SNES","Fighting","Sports"] + sorted({g["system_name"] for g in RETRO_GAMES})
+def _home_games(): return GAMES + [DIRTY_MINDS_GAME] + CONSOLE_GAMES
+def _home_categories(): return CATEGORY_ORDER + ["Party", "NES", "SNES", "Fighting", "Sports"] + sorted({g["system_name"] for g in RETRO_GAMES})
 
 def _telegram_delete_message(chat_id, message_id):
     token=os.getenv("BOT_TOKEN","").strip()
