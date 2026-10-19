@@ -31,6 +31,7 @@ def ensure_monthly_safety_schema():
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(community_members)").fetchall()}
         additions = [
             ("monthly_safety_sent_at", "TEXT"),
+            ("monthly_safety_attempted_at", "TEXT"),
             ("monthly_safety_confirmed_at", "TEXT"),
             ("monthly_safety_fallback_sent_at", "TEXT"),
         ]
@@ -52,7 +53,7 @@ def _main_group_id():
 def _eligible_rows(main):
     with _db() as conn:
         return conn.execute(
-            """SELECT user_id, username, first_name, status, monthly_safety_sent_at, monthly_safety_fallback_sent_at
+            """SELECT user_id, username, first_name, status, monthly_safety_sent_at, monthly_safety_attempted_at, monthly_safety_fallback_sent_at
                FROM community_members
                WHERE chat_id=?
                  AND status NOT IN ('left','removed','removed_by_admin')
@@ -134,10 +135,21 @@ async def monthly_safety_check(context):
                 skipped += 1
                 continue
 
-            if _already_sent_this_month(row["monthly_safety_sent_at"], now):
+            if (_already_sent_this_month(row["monthly_safety_sent_at"], now)
+                    or _already_sent_this_month(row["monthly_safety_attempted_at"], now)):
                 continue
 
-            if await send_monthly_safety_check(context.bot, user_id):
+            delivered = await send_monthly_safety_check(context.bot, user_id)
+            # Track delivery attempts separately from successful delivery.
+            # This rate-limits persistent Telegram 403s without claiming receipt.
+            with _db() as conn:
+                conn.execute(
+                    "UPDATE community_members SET monthly_safety_attempted_at=? WHERE chat_id=? AND user_id=?",
+                    (now.isoformat(), main, user_id),
+                )
+                conn.commit()
+
+            if delivered:
                 with _db() as conn:
                     conn.execute(
                         "UPDATE community_members SET monthly_safety_sent_at=? WHERE chat_id=? AND user_id=?",
@@ -177,8 +189,7 @@ async def monthly_safety_check(context):
                     ),
                     parse_mode="HTML",
                 )
-                # Rate-limit the group fallback per affected member, even if the
-                # daily safety sweep retries private delivery after a 403.
+                # This fallback does not confirm receipt or completion.
                 with _db() as conn:
                     conn.executemany(
                         "UPDATE community_members SET monthly_safety_fallback_sent_at=? WHERE chat_id=? AND user_id=?",
