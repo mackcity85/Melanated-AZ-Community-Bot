@@ -560,6 +560,14 @@ async def audit_profile_photo_members(context):
                     conn.execute("UPDATE community_members SET profile_photo_reminder_at=? WHERE chat_id=? AND user_id=?", (now.isoformat(), main, user_id))
                     conn.commit()
             else:
+                # Rate-limit failed private attempts too. This records an attempt,
+                # not completion of the profile-photo requirement.
+                with community_db_connect() as conn:
+                    conn.execute(
+                        "UPDATE community_members SET profile_photo_reminder_at=? WHERE chat_id=? AND user_id=?",
+                        (now.isoformat(), main, user_id),
+                    )
+                    conn.commit()
                 private_failed += 1
         if private_failed:
             try:
