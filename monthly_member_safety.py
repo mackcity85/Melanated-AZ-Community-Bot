@@ -175,10 +175,10 @@ async def monthly_safety_check(context):
             if me.username:
                 link = f"https://t.me/{me.username}?start=monthly_safety"
                 fallback_text = (
-                    "🛡️ <b>Melanated AZ Monthly Safety Check</b>\\n\\n"
+                    "🛡️ <b>Melanated AZ Monthly Safety Check</b>\n\n"
                     "Some members could not receive the private safety check. "
                     "If you have not started the bot, tap below to open it and receive "
-                    "your individual monthly check-in.\\n\\n"
+                    "your individual monthly check-in.\n\n"
                     "This reminder is posted at most once per month."
                 )
                 await context.bot.send_message(
