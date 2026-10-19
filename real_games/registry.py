@@ -109,6 +109,18 @@ GAMES: List[GameDefinition] = [
     # ==========================================================
 
     GameDefinition(
+        "chocolate_candy_land",
+        "Chocolate Candy Land",
+        "🍫",
+        "Board Games",
+        "Race through the Melanated Kingdom, collect treats, tackle challenges, and reach the Chocolate Castle.",
+        mode="multiplayer",
+        min_players=2,
+        max_players=6,
+        uses_rooms=False
+    ),
+
+    GameDefinition(
         "monopoly",
         "Monopoly",
         "💰",
