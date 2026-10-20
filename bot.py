@@ -517,21 +517,6 @@ async def send_community_intro_video(chat_id,context,member_name):
 async def audit_profile_photo_members(context):
     """Check existing members for a profile photo and remind missing profiles."""
     try:
-        if application.job_queue:
-            for job in application.job_queue.get_jobs_by_name("human-verification-pin-startup"):
-                job.schedule_removal()
-            application.job_queue.run_once(
-                ensure_human_verification_pin,
-                when=5,
-                name="human-verification-pin-startup",
-            )
-        else:
-            class _StartupContext:
-                bot = application.bot
-            await ensure_human_verification_pin(_StartupContext())
-    except Exception:
-        logger.exception("Human verification pinned-button startup FAILED")
-    try:
         ensure_profile_photo_schema()
         main = configured_main_group_id()
         if not main:
@@ -1286,6 +1271,21 @@ async def post_init(application):
         me=await application.bot.get_me(); application.bot_data["bot_username"]=me.username
     except Exception:logger.exception("Could not retrieve bot information.")
 
+    try:
+        if application.job_queue:
+            for job in application.job_queue.get_jobs_by_name("human-verification-pin-startup"):
+                job.schedule_removal()
+            application.job_queue.run_once(
+                ensure_human_verification_pin,
+                when=5,
+                name="human-verification-pin-startup",
+            )
+        else:
+            class _StartupContext:
+                bot = application.bot
+            await ensure_human_verification_pin(_StartupContext())
+    except Exception:
+        logger.exception("Human verification pinned-button startup FAILED")
     # Introduction recovery must be registered from the actual bot post_init.
     # Application.builder().post_init(post_init) supplies this callback directly,
     # so wrapping ApplicationBuilder.build() cannot reliably replace it.
