@@ -977,6 +977,20 @@ async def start_command(update,context):
         except Exception:
             logger.exception("Monthly safety deep-link failed | user_id=%s", user.id)
         return
+    if context.args and context.args[0].lower()=="verify":
+        main = configured_main_group_id()
+        row = community_member(main, user.id) if main else None
+        if not row or row["status"] in {"left", "removed", "removed_by_admin"}:
+            await message.reply_text("This verification link is for current Melanated AZ members.")
+            return
+        if row["verified_at"]:
+            await message.reply_text("✅ Your human verification is already complete. Continue with your introduction or profile-photo step if needed.")
+            if not row["intro_text"] and row["status"] != "photo_required":
+                await send_private_intro_prompt(user, context)
+            return
+        await message.reply_text("🛡️ Let’s complete your human verification. Tap the correct answer in the challenge message below.")
+        await send_human_challenge(main, user.id, context)
+        return
     if context.args and context.args[0].lower()=="birthday":
         await birthday(update, context)
         return
