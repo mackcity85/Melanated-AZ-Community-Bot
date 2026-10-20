@@ -484,7 +484,27 @@ def _patch_onboarding():
                 context.job_queue.run_once(bot.delete_message_job, bot.VERIFICATION_MESSAGE_TTL_MINUTES * 60, data=(event.chat.id, welcome.message_id))
         except TelegramError:
             pass
+        # Always provide a group-visible recovery path as well as the private challenge.
+        # Members who have not opened the bot can tap this deep link to start it and request a fresh challenge.
         await private_human_challenge(event.chat.id, user.id, context)
+        try:
+            me = await context.bot.get_me()
+            verify_url = f"https://t.me/{me.username}?start=verify" if me.username else None
+            if verify_url:
+                await context.bot.send_message(
+                    chat_id=event.chat.id,
+                    message_thread_id=bot.INTRO_TOPIC_ID,
+                    text=(
+                        f"🛡️ <b>{html.escape(name)}, complete your human verification</b> 💜\\n\\n"
+                        "Your verification challenge is sent privately by the bot. If you do not see it, "
+                        "tap the button below, press Start, and the bot will send you a fresh challenge.\\n\\n"
+                        "You must pass human verification before you can post or submit your introduction."
+                    ),
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛡️ Complete Human Verification", url=verify_url)]]),
+                    parse_mode=ParseMode.HTML,
+                )
+        except TelegramError:
+            logger.exception("Could not post group human-verification link | user_id=%s", user.id)
 
     bot.send_human_challenge = private_human_challenge
     bot.human_verification_callback = verification_callback
