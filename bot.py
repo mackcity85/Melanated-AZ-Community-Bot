@@ -1227,8 +1227,15 @@ async def ensure_human_verification_pin(context):
                 await context.bot.pin_chat_message(chat_id=main, message_id=message_id, disable_notification=True)
                 logger.info("Human verification topic pin confirmed | message_id=%s | topic=%s", message_id, INTRO_TOPIC_ID)
                 return
-            except TelegramError:
-                logger.warning("Saved human verification pin is unavailable; recreating it.")
+            except TelegramError as exc:
+                # Only recreate the post if Telegram explicitly says that the saved
+                # message no longer exists. Permission/network errors must not cause
+                # another verification post to be published on every restart.
+                if isinstance(exc, BadRequest) and "message to pin not found" in str(exc).lower():
+                    logger.warning("Saved human verification post no longer exists; recreating it.")
+                else:
+                    logger.exception("Could not re-pin saved human verification post; avoiding duplicate post.")
+                    return
         post = await context.bot.send_message(
             chat_id=main,
             message_thread_id=INTRO_TOPIC_ID,
