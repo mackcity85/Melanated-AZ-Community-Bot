@@ -484,7 +484,10 @@ def _patch_onboarding():
                 context.job_queue.run_once(bot.delete_message_job, bot.VERIFICATION_MESSAGE_TTL_MINUTES * 60, data=(event.chat.id, welcome.message_id))
         except TelegramError:
             pass
+        # Always provide a group-visible recovery path as well as the private challenge.
+        # Members who have not opened the bot can tap this deep link to start it and request a fresh challenge.
         await private_human_challenge(event.chat.id, user.id, context)
+        # A single persistent verification button is pinned in the Introductions topic at startup.
 
     bot.send_human_challenge = private_human_challenge
     bot.human_verification_callback = verification_callback

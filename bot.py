@@ -977,6 +977,20 @@ async def start_command(update,context):
         except Exception:
             logger.exception("Monthly safety deep-link failed | user_id=%s", user.id)
         return
+    if context.args and context.args[0].lower()=="verify":
+        main = configured_main_group_id()
+        row = community_member(main, user.id) if main else None
+        if not row or row["status"] in {"left", "removed", "removed_by_admin"}:
+            await message.reply_text("This verification link is for current Melanated AZ members.")
+            return
+        if row["verified_at"]:
+            await message.reply_text("✅ Your human verification is already complete. Continue with your introduction or profile-photo step if needed.")
+            if not row["intro_text"] and row["status"] != "photo_required":
+                await send_private_intro_prompt(user, context)
+            return
+        await message.reply_text("🛡️ Let’s complete your human verification. Tap the correct answer in the challenge message below.")
+        await send_human_challenge(main, user.id, context)
+        return
     if context.args and context.args[0].lower()=="birthday":
         await birthday(update, context)
         return
@@ -1188,6 +1202,67 @@ def build_application():
     application.add_error_handler(error_handler)
     return application
 
+async def ensure_human_verification_pin(context):
+    """Create and pin one persistent human-verification help post in Introductions."""
+    main = configured_main_group_id()
+    if not main:
+        logger.error("Human verification pin skipped: MAIN_GROUP_ID is not configured.")
+        return
+    marker = "/var/data/human_verification_pin.txt" if os.path.isdir("/var/data") else "./human_verification_pin.txt"
+    try:
+        me = await context.bot.get_me()
+        if not me.username:
+            logger.error("Human verification pin skipped: bot username is unavailable.")
+            return
+        verify_url = f"https://t.me/{me.username}?start=verify"
+        message_id = None
+        if os.path.isfile(marker):
+            try:
+                with open(marker, "r", encoding="utf-8") as fh:
+                    message_id = int(fh.read().strip())
+            except (OSError, ValueError):
+                message_id = None
+        if message_id:
+            try:
+                await context.bot.pin_chat_message(chat_id=main, message_id=message_id, disable_notification=True)
+                logger.info("Human verification topic pin confirmed | message_id=%s | topic=%s", message_id, INTRO_TOPIC_ID)
+                return
+            except TelegramError as exc:
+                # Only recreate the post if Telegram explicitly says that the saved
+                # message no longer exists. Permission/network errors must not cause
+                # another verification post to be published on every restart.
+                if isinstance(exc, BadRequest) and "message to pin not found" in str(exc).lower():
+                    logger.warning("Saved human verification post no longer exists; recreating it.")
+                else:
+                    logger.exception("Could not re-pin saved human verification post; avoiding duplicate post.")
+                    return
+        post = await context.bot.send_message(
+            chat_id=main,
+            message_thread_id=INTRO_TOPIC_ID,
+            text=(
+                "🛡️ <b>HUMAN VERIFICATION REQUIRED</b> 💜\n\n"
+                "Before posting or submitting your introduction, every member must complete the quick human-verification challenge sent privately by the Melanated AZ bot.\n\n"
+                "If you never received the challenge, tap the button below and press <b>Start</b>. The bot will send you a fresh challenge. Passing this check is required; the button does not verify you automatically.\n\n"
+                "📸 A current Telegram profile photo and a completed introduction are also required."
+            ),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛡️ VERIFY HUMAN", url=verify_url)]]),
+            parse_mode=ParseMode.HTML,
+        )
+        # Persist the message ID immediately after Telegram creates the post.
+        # If pinning fails (or the process restarts), the next startup retries the
+        # same message instead of publishing another copy in Introductions.
+        try:
+            os.makedirs(os.path.dirname(marker) or ".", exist_ok=True)
+            with open(marker, "w", encoding="utf-8") as fh:
+                fh.write(str(post.message_id))
+        except OSError:
+            logger.exception("Could not persist human verification pin marker.")
+        await context.bot.pin_chat_message(chat_id=main, message_id=post.message_id, disable_notification=True)
+        logger.info("Human verification help post created and pinned | message_id=%s | topic=%s", post.message_id, INTRO_TOPIC_ID)
+    except TelegramError:
+        logger.exception("Could not create/pin human verification help post | chat=%s | topic=%s", main, INTRO_TOPIC_ID)
+
+
 async def post_init(application):
     # Register the birthday scheduler from the actual application startup path.
     # Keep this isolated so a scheduler setup issue cannot block other startup tasks.
@@ -1206,6 +1281,21 @@ async def post_init(application):
         me=await application.bot.get_me(); application.bot_data["bot_username"]=me.username
     except Exception:logger.exception("Could not retrieve bot information.")
 
+    try:
+        if application.job_queue:
+            for job in application.job_queue.get_jobs_by_name("human-verification-pin-startup"):
+                job.schedule_removal()
+            application.job_queue.run_once(
+                ensure_human_verification_pin,
+                when=5,
+                name="human-verification-pin-startup",
+            )
+        else:
+            class _StartupContext:
+                bot = application.bot
+            await ensure_human_verification_pin(_StartupContext())
+    except Exception:
+        logger.exception("Human verification pinned-button startup FAILED")
     # Introduction recovery must be registered from the actual bot post_init.
     # Application.builder().post_init(post_init) supplies this callback directly,
     # so wrapping ApplicationBuilder.build() cannot reliably replace it.
