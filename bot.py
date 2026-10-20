@@ -517,6 +517,21 @@ async def send_community_intro_video(chat_id,context,member_name):
 async def audit_profile_photo_members(context):
     """Check existing members for a profile photo and remind missing profiles."""
     try:
+        if application.job_queue:
+            for job in application.job_queue.get_jobs_by_name("human-verification-pin-startup"):
+                job.schedule_removal()
+            application.job_queue.run_once(
+                ensure_human_verification_pin,
+                when=5,
+                name="human-verification-pin-startup",
+            )
+        else:
+            class _StartupContext:
+                bot = application.bot
+            await ensure_human_verification_pin(_StartupContext())
+    except Exception:
+        logger.exception("Human verification pinned-button startup FAILED")
+    try:
         ensure_profile_photo_schema()
         main = configured_main_group_id()
         if not main:
@@ -1201,6 +1216,57 @@ def build_application():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,text_router),group=10)
     application.add_error_handler(error_handler)
     return application
+
+async def ensure_human_verification_pin(context):
+    """Create and pin one persistent human-verification help post in Introductions."""
+    main = configured_main_group_id()
+    if not main:
+        logger.error("Human verification pin skipped: MAIN_GROUP_ID is not configured.")
+        return
+    marker = "/var/data/human_verification_pin.txt" if os.path.isdir("/var/data") else "./human_verification_pin.txt"
+    try:
+        me = await context.bot.get_me()
+        if not me.username:
+            logger.error("Human verification pin skipped: bot username is unavailable.")
+            return
+        verify_url = f"https://t.me/{me.username}?start=verify"
+        message_id = None
+        if os.path.isfile(marker):
+            try:
+                with open(marker, "r", encoding="utf-8") as fh:
+                    message_id = int(fh.read().strip())
+            except (OSError, ValueError):
+                message_id = None
+        if message_id:
+            try:
+                await context.bot.pin_chat_message(chat_id=main, message_id=message_id, disable_notification=True)
+                logger.info("Human verification topic pin confirmed | message_id=%s | topic=%s", message_id, INTRO_TOPIC_ID)
+                return
+            except TelegramError:
+                logger.warning("Saved human verification pin is unavailable; recreating it.")
+        post = await context.bot.send_message(
+            chat_id=main,
+            message_thread_id=INTRO_TOPIC_ID,
+            text=(
+                "🛡️ <b>HUMAN VERIFICATION REQUIRED</b> 💜\n\n"
+                "Before posting or submitting your introduction, every member must complete the quick human-verification challenge sent privately by the Melanated AZ bot.\n\n"
+                "If you never received the challenge, tap the button below and press <b>Start</b>. The bot will send you a fresh challenge. Passing this check is required; the button does not verify you automatically.\n\n"
+                "📸 A current Telegram profile photo and a completed introduction are also required."
+            ),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛡️ VERIFY HUMAN", url=verify_url)]]),
+            parse_mode=ParseMode.HTML,
+        )
+        await context.bot.pin_chat_message(chat_id=main, message_id=post.message_id, disable_notification=True)
+        try:
+            os.makedirs(os.path.dirname(marker) or ".", exist_ok=True)
+            with open(marker, "w", encoding="utf-8") as fh:
+                fh.write(str(post.message_id))
+        except OSError:
+            logger.exception("Could not persist human verification pin marker.")
+        logger.info("Human verification help post created and pinned | message_id=%s | topic=%s", post.message_id, INTRO_TOPIC_ID)
+    except TelegramError:
+        logger.exception("Could not create/pin human verification help post | chat=%s | topic=%s", main, INTRO_TOPIC_ID)
+
 
 async def post_init(application):
     # Register the birthday scheduler from the actual application startup path.
