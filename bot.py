@@ -1241,13 +1241,16 @@ async def ensure_human_verification_pin(context):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛡️ VERIFY HUMAN", url=verify_url)]]),
             parse_mode=ParseMode.HTML,
         )
-        await context.bot.pin_chat_message(chat_id=main, message_id=post.message_id, disable_notification=True)
+        # Persist the message ID immediately after Telegram creates the post.
+        # If pinning fails (or the process restarts), the next startup retries the
+        # same message instead of publishing another copy in Introductions.
         try:
             os.makedirs(os.path.dirname(marker) or ".", exist_ok=True)
             with open(marker, "w", encoding="utf-8") as fh:
                 fh.write(str(post.message_id))
         except OSError:
             logger.exception("Could not persist human verification pin marker.")
+        await context.bot.pin_chat_message(chat_id=main, message_id=post.message_id, disable_notification=True)
         logger.info("Human verification help post created and pinned | message_id=%s | topic=%s", post.message_id, INTRO_TOPIC_ID)
     except TelegramError:
         logger.exception("Could not create/pin human verification help post | chat=%s | topic=%s", main, INTRO_TOPIC_ID)
