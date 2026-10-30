@@ -26,6 +26,22 @@ async def _run_social_media_profile_recovery(context):
         logger.exception("Social Media profile recovery FAILED")
 
 
+async def _run_social_media_panel_pin_maintenance(context):
+    """Restore the existing Social Media submission panel pin without reposting it."""
+    try:
+        from social_media import send_social_panel
+        message_id = await send_social_panel(context.bot)
+        if message_id:
+            logger.info(
+                "Social Media panel pin maintenance COMPLETE | message=%s | chat=%s topic=%s",
+                message_id, -1002697105809, 9513,
+            )
+        else:
+            logger.error("Social Media panel pin maintenance FAILED | chat=%s topic=%s", -1002697105809, 9513)
+    except Exception:
+        logger.exception("Social Media panel pin maintenance FAILED | chat=%s topic=%s", -1002697105809, 9513)
+
+
 async def _run_intro_topic_recovery(context):
     try:
         import intro_persistence
@@ -73,6 +89,23 @@ def _install():
                 logger.info("Social Media panel initialized once | chat=%s topic=%s | no recurring re-pin", -1002697105809, 9513)
             except Exception:
                 logger.exception("Social media friends directory startup failed")
+
+            # Re-check the same saved panel periodically. send_social_panel()
+            # edits/re-pins the saved message and only replaces it if Telegram
+            # confirms that the original message no longer exists.
+            try:
+                if app.job_queue:
+                    for job in app.job_queue.get_jobs_by_name("social-media-panel-pin-maintenance"):
+                        job.schedule_removal()
+                    app.job_queue.run_repeating(
+                        _run_social_media_panel_pin_maintenance,
+                        interval=300,
+                        first=300,
+                        name="social-media-panel-pin-maintenance",
+                    )
+                    logger.info("Social Media panel pin maintenance enabled | interval=300s | topic=9513")
+            except Exception:
+                logger.exception("Social Media panel pin maintenance scheduling FAILED")
 
             # Member social profiles remain recoverable. Recovery only creates
             # a new profile when the stored Telegram message is actually gone.
