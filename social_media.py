@@ -299,13 +299,10 @@ async def _ensure_social_panel_pinned(bot, message_id):
                     and old_message_id > 0
                 ):
                     message_id = old_message_id
+            elif isinstance(saved, int) and saved > 0:
+                old_message_id = saved
         except (OSError, ValueError, TypeError):
-            # Old state files contain only an integer and are not topic-verifiable.
-            try:
-                with open(PANEL_STATE, "r", encoding="utf-8") as fh:
-                    old_message_id = int(fh.read().strip())
-            except (OSError, ValueError):
-                old_message_id = None
+            # Non-JSON legacy state is handled below.
 
     if message_id:
         try:
