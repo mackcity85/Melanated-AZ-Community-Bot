@@ -86,7 +86,7 @@ def _install():
             try:
                 from social_media import startup_social_media
                 await startup_social_media(app)
-                logger.info("Social Media panel initialized once | chat=%s topic=%s | no recurring re-pin", -1002697105809, 9513)
+                logger.info("Social Media panel initialized once | chat=%s topic=%s", -1002697105809, 9513)
             except Exception:
                 logger.exception("Social media friends directory startup failed")
 
