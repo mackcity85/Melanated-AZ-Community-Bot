@@ -252,11 +252,29 @@ async def _publish_member_profile(bot, user_id):
         logger.exception("Unable to publish social profile | user_id=%s", user_id)
 
 
-async def send_social_panel(bot):
-    """Ensure one persistent Social Media panel exists.
+async def _ensure_social_panel_pinned(bot, message_id):
+    """Re-pin the existing panel without creating another message."""
+    try:
+        await bot.pin_chat_message(
+            chat_id=CHAT_ID,
+            message_id=int(message_id),
+            disable_notification=True,
+        )
+        logger.info("Social Media submission panel pin ensured | message=%s | topic=%s", message_id, TOPIC_ID)
+        return True
+    except TelegramError as exc:
+        if "already pinned" in str(exc).lower():
+            logger.debug("Social Media submission panel is already pinned | message=%s", message_id)
+            return True
+        logger.exception("Unable to pin Social Media submission panel | message=%s | topic=%s", message_id, TOPIC_ID)
+        return False
 
-    Existing panel messages are edited only. They are never re-pinned.
-    A pin is attempted only when a brand-new panel message has to be created.
+
+async def send_social_panel(bot):
+    """Ensure one persistent Social Media submission panel exists and is pinned.
+
+    Reuse the saved message whenever it still exists. Re-pin it on every startup;
+    create a replacement only when Telegram confirms the saved message is gone.
     """
     initialize_social_media_database()
     text = (
@@ -271,7 +289,7 @@ async def send_social_panel(bot):
             try:
                 with open(PANEL_STATE, "r", encoding="utf-8") as fh:
                     message_id = int(fh.read().strip())
-            except Exception:
+            except (OSError, ValueError):
                 message_id = None
 
         if message_id:
@@ -283,11 +301,13 @@ async def send_social_panel(bot):
                     reply_markup=_topic_panel_keyboard(),
                     parse_mode="HTML",
                 )
+                await _ensure_social_panel_pinned(bot, message_id)
                 return message_id
             except TelegramError as exc:
                 text_error = str(exc).lower()
                 if "message is not modified" in text_error:
                     logger.debug("Social panel already current; no edit needed | message=%s", message_id)
+                    await _ensure_social_panel_pinned(bot, message_id)
                     return message_id
                 if not any(
                     phrase in text_error
@@ -303,6 +323,8 @@ async def send_social_panel(bot):
                         message_id,
                         exc,
                     )
+                    # Editing may be disallowed while pinning is still possible.
+                    await _ensure_social_panel_pinned(bot, message_id)
                     return message_id
                 logger.info(
                     "Stored Social Media panel is gone; creating replacement | old_message=%s",
@@ -316,12 +338,10 @@ async def send_social_panel(bot):
             reply_markup=_topic_panel_keyboard(),
             parse_mode="HTML",
         )
+        os.makedirs(os.path.dirname(PANEL_STATE) or ".", exist_ok=True)
         with open(PANEL_STATE, "w", encoding="utf-8") as fh:
             fh.write(str(message.message_id))
-        try:
-            await bot.pin_chat_message(CHAT_ID, message.message_id, disable_notification=True)
-        except TelegramError:
-            logger.exception("Unable to pin new Social Media panel | message=%s", message.message_id)
+        await _ensure_social_panel_pinned(bot, message.message_id)
         return message.message_id
     except TelegramError:
         logger.exception("Unable to create social panel")
