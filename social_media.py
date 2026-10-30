@@ -302,7 +302,8 @@ async def _ensure_social_panel_pinned(bot, message_id):
             elif isinstance(saved, int) and saved > 0:
                 old_message_id = saved
         except (OSError, ValueError, TypeError):
-            # Non-JSON legacy state is handled below.
+            # Non-JSON legacy state is not trusted; create a fresh topic-bound panel.
+            pass
 
     if message_id:
         try:
