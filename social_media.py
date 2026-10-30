@@ -4,6 +4,7 @@
 # ==========================================================
 
 import html
+import json
 import logging
 import os
 import re
@@ -267,85 +268,123 @@ async def _ensure_social_panel_pinned(bot, message_id):
             logger.debug("Social Media submission panel is already pinned | message=%s", message_id)
             return True
         logger.exception("Unable to pin Social Media submission panel | message=%s | topic=%s", message_id, TOPIC_ID)
-        return False
+        retasync def send_social_panel(bot):
+    """Ensure the persistent submission panel is in the correct forum topic.
 
-
-async def send_social_panel(bot):
-    """Ensure one persistent Social Media submission panel exists and is pinned.
-
-    Reuse the saved message whenever it still exists. Re-pin it on every startup;
-    create a replacement only when Telegram confirms the saved message is gone.
+    Older deployments stored only a bare message ID. A bare ID cannot prove
+    that the message belongs to TOPIC_ID, so it is treated as legacy and
+    replaced once. New state records bind the ID to this chat/topic/panel.
     """
     initialize_social_media_database()
-    text = (
-        "📱 <b>MELANATED AZ — CONNECT &amp; ADD FRIENDS</b>\n\n"
-        "Want people in the community to find you on social media?\n\n"
-        "Add your social links and your social profile will be posted in this topic so members can connect with you.\n\n"
+    panel_text = (
+        "📱 <b>MELANATED AZ — CONNECT &amp; ADD FRIENDS</b>\\n\\n"
+        "Want people in the community to find you on social media?\\n\\n"
+        "Add your social links and your social profile will be posted in this topic so members can connect with you.\\n\\n"
         "👇🏾 Tap below to add your links."
     )
-    try:
-        message_id = None
-        if os.path.exists(PANEL_STATE):
+    panel_key = "melanated-az-social-panel-v1"
+    old_message_id = None
+    message_id = None
+
+    # Only reuse a state record that explicitly proves the expected topic.
+    if os.path.exists(PANEL_STATE):
+        try:
+            with open(PANEL_STATE, "r", encoding="utf-8") as fh:
+                saved = json.load(fh)
+            if isinstance(saved, dict):
+                old_message_id = saved.get("message_id")
+                if (
+                    saved.get("panel_key") == panel_key
+                    and saved.get("chat_id") == CHAT_ID
+                    and saved.get("topic_id") == TOPIC_ID
+                    and isinstance(old_message_id, int)
+                    and old_message_id > 0
+                ):
+                    message_id = old_message_id
+        except (OSError, ValueError, TypeError):
+            # Legacy integer files and malformed state are not trusted.
             try:
                 with open(PANEL_STATE, "r", encoding="utf-8") as fh:
-                    message_id = int(fh.read().strip())
+                    old_message_id = int(fh.read().strip())
             except (OSError, ValueError):
-                message_id = None
+                old_message_id = None
 
-        if message_id:
-            try:
-                await bot.edit_message_text(
-                    chat_id=CHAT_ID,
-                    message_id=message_id,
-                    text=text,
-                    reply_markup=_topic_panel_keyboard(),
-                    parse_mode="HTML",
+    if message_id:
+        try:
+            await bot.edit_message_text(
+                chat_id=CHAT_ID,
+                message_id=message_id,
+                text=panel_text,
+                reply_markup=_topic_panel_keyboard(),
+                parse_mode="HTML",
+            )
+            await _ensure_social_panel_pinned(bot, message_id)
+            return message_id
+        except TelegramError as exc:
+            text_error = str(exc).lower()
+            if "message is not modified" in text_error:
+                await _ensure_social_panel_pinned(bot, message_id)
+                return message_id
+            if not any(
+                phrase in text_error
+                for phrase in (
+                    "message to edit not found",
+                    "message not found",
+                    "message identifier is not valid",
+                    "message_id_invalid",
+                )
+            ):
+                logger.warning(
+                    "Social panel edit failed; NOT creating duplicate | message=%s error=%s",
+                    message_id,
+                    exc,
                 )
                 await _ensure_social_panel_pinned(bot, message_id)
                 return message_id
-            except TelegramError as exc:
-                text_error = str(exc).lower()
-                if "message is not modified" in text_error:
-                    logger.debug("Social panel already current; no edit needed | message=%s", message_id)
-                    await _ensure_social_panel_pinned(bot, message_id)
-                    return message_id
-                if not any(
-                    phrase in text_error
-                    for phrase in (
-                        "message to edit not found",
-                        "message not found",
-                        "message identifier is not valid",
-                        "message_id_invalid",
-                    )
-                ):
-                    logger.warning(
-                        "Social panel edit failed; NOT creating duplicate | message=%s error=%s",
-                        message_id,
-                        exc,
-                    )
-                    # Editing may be disallowed while pinning is still possible.
-                    await _ensure_social_panel_pinned(bot, message_id)
-                    return message_id
-                logger.info(
-                    "Stored Social Media panel is gone; creating replacement | old_message=%s",
-                    message_id,
-                )
+            logger.warning("Saved Social Media panel no longer exists; replacing | message=%s", message_id)
 
+    # Create the replacement explicitly inside the requested forum topic.
+    try:
         message = await bot.send_message(
             chat_id=CHAT_ID,
             message_thread_id=TOPIC_ID,
-            text=text,
+            text=panel_text,
             reply_markup=_topic_panel_keyboard(),
             parse_mode="HTML",
         )
+        message_id = int(message.message_id)
+
+        # Persist the topic-bound state before pinning, so a temporary pin
+        # failure never causes another panel to be posted on the next run.
         os.makedirs(os.path.dirname(PANEL_STATE) or ".", exist_ok=True)
+        state = {
+            "panel_key": panel_key,
+            "chat_id": CHAT_ID,
+            "topic_id": TOPIC_ID,
+            "message_id": message_id,
+        }
         with open(PANEL_STATE, "w", encoding="utf-8") as fh:
-            fh.write(str(message.message_id))
-        await _ensure_social_panel_pinned(bot, message.message_id)
-        return message.message_id
+            json.dump(state, fh)
+
+        pinned = await _ensure_social_panel_pinned(bot, message_id)
+        if pinned and old_message_id and int(old_message_id) != message_id:
+            try:
+                await bot.unpin_chat_message(chat_id=CHAT_ID, message_id=int(old_message_id))
+                logger.info(
+                    "Removed legacy Social Media panel pin after replacement | old_message=%s new_message=%s",
+                    old_message_id,
+                    message_id,
+                )
+            except TelegramError:
+                logger.warning(
+                    "Could not remove legacy panel pin; new topic panel is in place | old_message=%s",
+                    old_message_id,
+                )
+        return message_id
     except TelegramError:
-        logger.exception("Unable to create social panel")
+        logger.exception("Unable to create or pin Social Media panel in topic=%s", TOPIC_ID)
         return None
+return None
 
 
 async def socials_command(update, context):
