@@ -268,7 +268,10 @@ async def _ensure_social_panel_pinned(bot, message_id):
             logger.debug("Social Media submission panel is already pinned | message=%s", message_id)
             return True
         logger.exception("Unable to pin Social Media submission panel | message=%s | topic=%s", message_id, TOPIC_ID)
-        async def send_social_panel(bot):
+        return False
+
+
+async def send_social_panel(bot):
     """Ensure the persistent submission panel is in the correct forum topic.
 
     Legacy bare message IDs cannot prove their forum topic. Replace that
