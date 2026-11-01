@@ -135,6 +135,7 @@ def initialize_database():
         _add_column_if_missing(c.connection, "raffles", "chat_id", "INTEGER")
         _add_column_if_missing(c.connection, "raffles", "message_id", "INTEGER")
         _add_column_if_missing(c.connection, "raffles", "created_at", "TEXT")
+        _add_column_if_missing(c.connection, "raffles", "photo_file_id", "TEXT")
         _add_column_if_missing(c.connection, "raffle_entries", "username", "TEXT")
         _add_column_if_missing(c.connection, "raffle_entries", "display_name", "TEXT")
         _add_column_if_missing(c.connection, "raffle_entries", "payment_method", "TEXT")
