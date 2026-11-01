@@ -737,34 +737,35 @@ async def admin_completed(update, context):
     if not target:
         return
     if not raffle:
-        await target.reply_text("💸 **COMPLETED PAYMENTS**\\n\\nThere is no active raffle.", parse_mode="Markdown")
+        await target.reply_text("💸 **COMPLETED PAYMENTS**\n\nThere is no active raffle.", parse_mode="Markdown")
         return
 
     approved = get_approved_entries(raffle["id"])
-    paid = [entry for entry in approved if str(entry.get("payment_method") or "").strip().lower() not in {"", "free", "none"}]
-    if not paid:
+    if not approved:
         await target.reply_text(
-            "💸 **COMPLETED PAYMENTS**\\n\\n"
-            f"🎁 Prize: **{raffle.get('prize') or 'Raffle'}**\\n"
-            "No approved paid entries were found for this raffle.",
+            "💸 **COMPLETED PAYMENTS**\n\n"
+            f"🎁 Prize: **{raffle.get('prize') or 'Raffle'}**\n"
+            "No approved entries have been recorded for this raffle yet.",
             parse_mode="Markdown",
         )
         return
 
     lines = [
-        "💸 <b>COMPLETED PAYMENTS</b>",
+        "💸 <b>COMPLETED PAYMENTS / APPROVED ENTRIES</b>",
         f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}",
-        f"✅ <b>Verified paid entries:</b> {len(paid)}",
+        f"✅ <b>Approved entries:</b> {len(approved)}",
+        "<i>Approved status is the payment-verification record. Payment method may not be stored for older entries.</i>",
         "",
     ]
-    for entry in paid:
-        method = html.escape(str(entry.get("payment_method") or "Verified"))
+    for entry in approved:
+        method_value = entry.get("payment_method") or ("Free entry" if str(entry.get("price") or "").strip().lower() in {"free", "$0", "0"} else "Verified; method not recorded")
+        method = html.escape(str(method_value))
         lines.append(
             f"🆔 <code>{int(entry['id'])}</code> — "
             f"{html.escape(str(entry.get('display_name') or entry.get('username') or entry.get('user_id') or 'Member'))}"
             f" | {method}"
         )
-    await target.reply_text("\\n".join(lines), parse_mode="HTML")
+    await target.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 async def admin_draw(update, context):
@@ -3639,7 +3640,7 @@ async def admin_qotd_status(update, context):
         buttons = []
         for row in rows:
             item_id, item_type, prompt, options_json, voice_file_id = row
-            label = (prompt or ("Voice question" if voice_file_id else "Untitled question")).replace("\\n", " ").strip()
+            label = (prompt or ("Voice question" if voice_file_id else "Untitled question")).replace("\n", " ").strip()
             if len(label) > 48:
                 label = label[:45] + "..."
             prefix = "📊" if item_type == "poll" else ("🎙️" if item_type == "voice" or voice_file_id else "💭")
@@ -3657,7 +3658,7 @@ async def admin_qotd_status(update, context):
         if not rows:
             lines.append("\nNo queued questions or polls were found in the QOTD database.")
         await query.edit_message_text(
-            "\\n".join(lines),
+            "\n".join(lines),
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode="HTML",
         )
