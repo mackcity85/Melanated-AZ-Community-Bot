@@ -10,9 +10,9 @@ import html
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, InputFile
 from telegram.constants import ParseMode
-from telegram.error import TelegramError
+from telegram.error import BadRequest, TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from config import (
@@ -586,8 +586,8 @@ async def handle_raffle_photo(update, context):
         await message.reply_text("⚠️ That raffle is no longer active or pending. No raffle was changed.")
         return True
 
-    # Telegram may deliver an image as a compressed photo or as an uncompressed document.
-    # Both provide a reusable file_id accepted by send_photo().
+    # Preserve the uploaded Telegram file_id. Document file_ids are normalized to
+    # photo file_ids during publication because Telegram will not accept them in send_photo().
     photo_file_id = (
         message.photo[-1].file_id
         if message.photo
@@ -920,15 +920,40 @@ async def publish_raffle(raffle_id, context):
             return False
         photo_file_id = raffle.get("photo_file_id")
         if photo_file_id:
-            sent = await context.bot.send_photo(
-                chat_id=main_chat_id,
-                message_thread_id=RAFFLE_TOPIC_ID,
-                photo=photo_file_id,
-                caption=text,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.HTML,
-                has_spoiler=False,
-            )
+            try:
+                sent = await context.bot.send_photo(
+                    chat_id=main_chat_id,
+                    message_thread_id=RAFFLE_TOPIC_ID,
+                    photo=photo_file_id,
+                    caption=text,
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.HTML,
+                    has_spoiler=False,
+                )
+            except BadRequest as photo_error:
+                # A Telegram document file_id cannot be passed to send_photo().
+                # Download that image and upload its bytes as a real Telegram photo.
+                if "file of type document as photo" not in str(photo_error).lower():
+                    raise
+                logger.info(
+                    "Raffle %s image was uploaded as a document; converting it to a Telegram photo.",
+                    raffle_id,
+                )
+                telegram_file = await context.bot.get_file(photo_file_id)
+                photo_bytes = await telegram_file.download_as_bytearray()
+                sent = await context.bot.send_photo(
+                    chat_id=main_chat_id,
+                    message_thread_id=RAFFLE_TOPIC_ID,
+                    photo=InputFile(bytes(photo_bytes), filename="raffle.jpg"),
+                    caption=text,
+                    reply_markup=keyboard,
+                    parse_mode=ParseMode.HTML,
+                    has_spoiler=False,
+                )
+                # Cache Telegram's new photo file_id so future raffle republishes
+                # use the native photo directly instead of downloading again.
+                if sent.photo:
+                    save_raffle_photo_file_id(int(raffle_id), sent.photo[-1].file_id)
         else:
             sent = await context.bot.send_message(
                 chat_id=main_chat_id,
