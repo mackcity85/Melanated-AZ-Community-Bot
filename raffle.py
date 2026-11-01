@@ -121,10 +121,7 @@ def save_raffle_photo_file_id(raffle_id, file_id):
         conn.close()
 
 
-# Additive migration only: existing raffle records and entries are untouched.
-ensure_raffle_description_column()
-
-
+# Schema migration is called after database initialization, not during module import.
 def save_raffle_description(raffle_id, description):
     conn = get_connection()
     try:
@@ -554,9 +551,9 @@ async def admin_edit_raffle_photo(update, context):
     await context.bot.send_message(
         chat_id=update.effective_user.id,
         text=(
-            "📸 <b>Edit Raffle Photo</b>\\n\\n"
-            f"🎁 <b>{html.escape(str(raffle.get('prize') or 'Raffle'))}</b>\\n"
-            "Send the new photo here in this private chat.\\n"
+            "📸 <b>Edit Raffle Photo</b>\n\n"
+            f"🎁 <b>{html.escape(str(raffle.get('prize') or 'Raffle'))}</b>\n"
+            "Send the new photo here in this private chat.\n"
             "The photo will appear normally in Raffles & Giveaways—"
             "<b>no spoiler is applied</b>."
         ),
@@ -566,6 +563,8 @@ async def admin_edit_raffle_photo(update, context):
 
 async def handle_raffle_photo(update, context):
     """Save an admin-uploaded raffle photo and refresh the existing live post."""
+    if context.user_data.get("awaiting_raffle_photo"):
+        ensure_raffle_description_column()
     raffle_id = context.user_data.get("awaiting_raffle_photo")
     message = update.effective_message
     user = update.effective_user
@@ -879,6 +878,8 @@ def schedule_active_raffle_auto_draws(application):
 
 
 async def publish_raffle(raffle_id, context):
+    # Run the additive column migration only after normal database startup has completed.
+    ensure_raffle_description_column()
     raffle = get_raffle(raffle_id)
     if not raffle:
         return False
