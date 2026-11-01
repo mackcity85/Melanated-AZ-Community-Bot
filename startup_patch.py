@@ -164,6 +164,12 @@ def _install():
             except Exception:
                 logger.exception("Social member profile sync startup failed")
 
+            try:
+                from member_spotlight import start_member_spotlight_scheduler
+                start_member_spotlight_scheduler(app)
+            except Exception:
+                logger.exception("Member Spotlight scheduler startup failed")
+
         application.post_init = patched_post_init
         setattr(application, _MARKER, True)
         return application
