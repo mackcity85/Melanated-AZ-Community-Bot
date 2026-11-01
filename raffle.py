@@ -568,7 +568,11 @@ async def handle_raffle_photo(update, context):
     raffle_id = context.user_data.get("awaiting_raffle_photo")
     message = update.effective_message
     user = update.effective_user
-    if not raffle_id or not message or not message.photo or not user:
+    if not raffle_id or not message or not user:
+        return False
+    if not message.photo and not message.document:
+        return False
+    if message.document and not str(message.document.mime_type or "").lower().startswith("image/"):
         return False
     if message.chat.type != "private":
         return False
@@ -582,7 +586,13 @@ async def handle_raffle_photo(update, context):
         await message.reply_text("⚠️ That raffle is no longer active or pending. No raffle was changed.")
         return True
 
-    photo_file_id = message.photo[-1].file_id
+    # Telegram may deliver an image as a compressed photo or as an uncompressed document.
+    # Both provide a reusable file_id accepted by send_photo().
+    photo_file_id = (
+        message.photo[-1].file_id
+        if message.photo
+        else message.document.file_id
+    )
     try:
         save_raffle_photo_file_id(int(raffle_id), photo_file_id)
         context.user_data.pop("awaiting_raffle_photo", None)
@@ -893,10 +903,14 @@ async def publish_raffle(raffle_id, context):
             [InlineKeyboardButton("🏦 PAY WITH ZELLE", callback_data=f"pay_zelle_{raffle_id}")],
         ])
     payment_notice = "🎟️ Entry is FREE — no payment is required." if free else "⚠️ Your entry remains pending until an admin verifies your payment."
+    # Older/admin-entered raffle details may contain literal backslash-n text.
+    # Convert those sequences to real line breaks before sending the caption.
+    prize_text = str(raffle.get("prize") or "Raffle").replace("\\n", "\n")
+    price_text = str(raffle.get("price") or "").replace("\\n", "\n")
     text = (
         "🎟️ <b>MELANATED AZ FRIENDS RAFFLE</b>\n\n"
-        f"🎁 <b>Prize:</b> {html.escape(str(raffle['prize']))}\n"
-        f"💵 <b>Entry:</b> {html.escape(str(raffle['price']))}\n"
+        f"🎁 <b>Prize:</b> {html.escape(prize_text)}\n"
+        f"💵 <b>Entry:</b> {html.escape(price_text)}\n"
         f"⏰ <b>Ends:</b> {format_expiration(raffle['expires_at'])}\n\n👇 Tap below to enter {html.escape(str(raffle.get('prize') or 'the raffle'))}!\n\n{payment_notice}"
     )
     main_chat_id = int(RAFFLE_CHAT_ID)
