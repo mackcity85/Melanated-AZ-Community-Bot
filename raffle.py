@@ -99,9 +99,30 @@ def ensure_raffle_description_column():
         columns = {row[1] for row in conn.execute("PRAGMA table_info(raffles)").fetchall()}
         if "description" not in columns:
             conn.execute("ALTER TABLE raffles ADD COLUMN description TEXT")
-            conn.commit()
+            columns.add("description")
+        if "photo_file_id" not in columns:
+            conn.execute("ALTER TABLE raffles ADD COLUMN photo_file_id TEXT")
+        conn.commit()
     finally:
         conn.close()
+
+
+def save_raffle_photo_file_id(raffle_id, file_id):
+    """Save a Telegram photo file_id without changing raffle or entry records."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE raffles SET photo_file_id=? WHERE id=?",
+            (str(file_id), int(raffle_id)),
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+# Additive migration only: existing raffle records and entries are untouched.
+ensure_raffle_description_column()
 
 
 def save_raffle_description(raffle_id, description):
@@ -515,6 +536,89 @@ async def admin_edit_raffle_end_date(update, context):
     )
 
 
+async def admin_edit_raffle_photo(update, context):
+    """Prompt an authorized admin to upload a replacement raffle photo privately."""
+    query = update.callback_query
+    if not await is_raffle_admin_access(update, context):
+        if query:
+            await query.answer("⛔ Admins only.", show_alert=True)
+        return
+    raffle = get_active_raffle() or get_pending_raffle()
+    if not raffle:
+        if query:
+            await query.answer("No active or pending raffle found.", show_alert=True)
+        return
+    if query:
+        await query.answer()
+    context.user_data["awaiting_raffle_photo"] = int(raffle["id"])
+    await context.bot.send_message(
+        chat_id=update.effective_user.id,
+        text=(
+            "📸 <b>Edit Raffle Photo</b>\\n\\n"
+            f"🎁 <b>{html.escape(str(raffle.get('prize') or 'Raffle'))}</b>\\n"
+            "Send the new photo here in this private chat.\\n"
+            "The photo will appear normally in Raffles & Giveaways—"
+            "<b>no spoiler is applied</b>."
+        ),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+async def handle_raffle_photo(update, context):
+    """Save an admin-uploaded raffle photo and refresh the existing live post."""
+    raffle_id = context.user_data.get("awaiting_raffle_photo")
+    message = update.effective_message
+    user = update.effective_user
+    if not raffle_id or not message or not message.photo or not user:
+        return False
+    if message.chat.type != "private":
+        return False
+    if not await is_raffle_admin_access(update, context):
+        context.user_data.pop("awaiting_raffle_photo", None)
+        await message.reply_text("⛔ You are not authorized to edit the raffle photo.")
+        return True
+    raffle = get_raffle(raffle_id)
+    if not raffle or raffle.get("status") not in {"active", "pending"}:
+        context.user_data.pop("awaiting_raffle_photo", None)
+        await message.reply_text("⚠️ That raffle is no longer active or pending. No raffle was changed.")
+        return True
+
+    photo_file_id = message.photo[-1].file_id
+    try:
+        save_raffle_photo_file_id(int(raffle_id), photo_file_id)
+        context.user_data.pop("awaiting_raffle_photo", None)
+        if raffle.get("status") == "active":
+            old_chat_id = int(raffle.get("chat_id") or RAFFLE_CHAT_ID)
+            old_message_id = raffle.get("message_id")
+            if not await publish_raffle(int(raffle_id), context):
+                await message.reply_text(
+                    "⚠️ The photo was saved, but I couldn't refresh the live raffle post. "
+                    "The existing post was left in place; check the Render logs."
+                )
+                return True
+            if old_message_id:
+                try:
+                    await context.bot.delete_message(
+                        chat_id=old_chat_id,
+                        message_id=int(old_message_id),
+                    )
+                except TelegramError:
+                    logger.warning(
+                        "Updated raffle photo posted but previous message could not be removed | raffle=%s",
+                        raffle_id,
+                    )
+            await message.reply_text("✅ Raffle photo updated. It is posted normally with no spoiler.")
+        else:
+            await message.reply_text(
+                "✅ Raffle photo saved. It will appear normally when this raffle is approved and published."
+            )
+        return True
+    except Exception:
+        logger.exception("Could not save/update raffle photo | raffle=%s", raffle_id)
+        await message.reply_text("❌ I couldn't update the raffle photo. The existing raffle and entries were not changed.")
+        return True
+
+
 async def handle_raffle_end_date(update, context):
     """Save an admin-entered raffle end date and refresh the live post."""
     raffle_id = context.user_data.get("awaiting_raffle_end_date")
@@ -799,7 +903,25 @@ async def publish_raffle(raffle_id, context):
         if len(text) > 4096:
             logger.error("Raffle %s is too long to publish as one Telegram message | chars=%s", raffle_id, len(text))
             return False
-        sent = await context.bot.send_message(chat_id=main_chat_id, message_thread_id=RAFFLE_TOPIC_ID, text=text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+        photo_file_id = raffle.get("photo_file_id")
+        if photo_file_id:
+            sent = await context.bot.send_photo(
+                chat_id=main_chat_id,
+                message_thread_id=RAFFLE_TOPIC_ID,
+                photo=photo_file_id,
+                caption=text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML,
+                has_spoiler=False,
+            )
+        else:
+            sent = await context.bot.send_message(
+                chat_id=main_chat_id,
+                message_thread_id=RAFFLE_TOPIC_ID,
+                text=text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML,
+            )
         set_raffle_post(raffle_id, main_chat_id, sent.message_id)
         try:
             await context.bot.pin_chat_message(chat_id=main_chat_id, message_id=sent.message_id, disable_notification=True)
