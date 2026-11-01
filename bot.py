@@ -37,6 +37,7 @@ from raffle import (
     handle_raffle_setup,
     raffle_status,
     handle_raffle_end_date,
+    handle_raffle_photo,
     start_daily_raffle_status,
     start_raffle_cleanup_recovery,
     raffle_entries,
@@ -1186,6 +1187,12 @@ def build_application():
         logger.info("Independent Event OCR handlers REGISTERED | chat=-1002697105809 topic=12214")
     except Exception:
         logger.exception("Unable to initialize independent Event OCR handlers.")
+    # Private admin raffle-photo uploads are handled before general media moderation.
+    # They are sent by the bot directly to the Raffles topic with has_spoiler=False.
+    application.add_handler(
+        MessageHandler(filters.ChatType.PRIVATE & filters.PHOTO, handle_raffle_photo),
+        group=-5,
+    )
     # General media routing: Events are handled by the independent OCR pipeline in group 4; all other group photos/videos are moved to Media topic 10286 before spoiler moderation.
     application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media_topic_spoiler), group=4)
     application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO, handle_media_move), group=5)
