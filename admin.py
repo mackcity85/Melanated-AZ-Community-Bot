@@ -70,6 +70,7 @@ from raffle_database import (
     get_member,
     get_active_raffle,
     get_pending_entries,
+    get_approved_entries,
     get_entry,
     create_queued_raffle,
     get_queued_raffles,
@@ -720,28 +721,50 @@ async def admin_pending(update, context):
 
 
 async def admin_completed(update, context):
-
-    if not await require_admin(
-        update,
-        context,
-    ):
+    """Show paid entries that have been approved for the active raffle."""
+    if not await require_admin(update, context):
         return
 
     query = update.callback_query
-
     if query:
-
         try:
             await query.answer()
         except Exception:
             pass
 
-    await run_raffle_handler(
-        paid_entry,
-        update,
-        context,
-        "Completed Payments",
-    )
+    raffle = get_active_raffle()
+    target = query.message if query else update.effective_message
+    if not target:
+        return
+    if not raffle:
+        await target.reply_text("💸 **COMPLETED PAYMENTS**\\n\\nThere is no active raffle.", parse_mode="Markdown")
+        return
+
+    approved = get_approved_entries(raffle["id"])
+    paid = [entry for entry in approved if str(entry.get("payment_method") or "").strip().lower() not in {"", "free", "none"}]
+    if not paid:
+        await target.reply_text(
+            "💸 **COMPLETED PAYMENTS**\\n\\n"
+            f"🎁 Prize: **{raffle.get('prize') or 'Raffle'}**\\n"
+            "No approved paid entries were found for this raffle.",
+            parse_mode="Markdown",
+        )
+        return
+
+    lines = [
+        "💸 <b>COMPLETED PAYMENTS</b>",
+        f"🎁 <b>Prize:</b> {html.escape(str(raffle.get('prize') or 'Raffle'))}",
+        f"✅ <b>Verified paid entries:</b> {len(paid)}",
+        "",
+    ]
+    for entry in paid:
+        method = html.escape(str(entry.get("payment_method") or "Verified"))
+        lines.append(
+            f"🆔 <code>{int(entry['id'])}</code> — "
+            f"{html.escape(str(entry.get('display_name') or entry.get('username') or entry.get('user_id') or 'Member'))}"
+            f" | {method}"
+        )
+    await target.reply_text("\\n".join(lines), parse_mode="HTML")
 
 
 async def admin_draw(update, context):
@@ -4401,6 +4424,26 @@ async def admin_button(
 
         return
 
+    if data == "admin_members":
+        await admin_members(update, context, page=0)
+        return
+
+    if data.startswith("admin_members_page_"):
+        page_text = data[len("admin_members_page_"):]
+        if not page_text.isdigit():
+            await query.answer("Invalid member page.", show_alert=True)
+            return
+        await admin_members(update, context, page=int(page_text))
+        return
+
+    if data.startswith("admin_member_view_"):
+        member_id = data[len("admin_member_view_"):]
+        if not member_id.isdigit():
+            await query.answer("Invalid member ID.", show_alert=True)
+            return
+        await admin_member_view(update, context, int(member_id))
+        return
+
     if data.startswith("admin_member_message_cancel_"):
         await _member_message_cancel(update, context, data[len("admin_member_message_cancel_"):])
         return
@@ -4936,3 +4979,6 @@ async def admin_button(
         )
 
         return
+
+    logger.warning("Unrecognized admin callback | callback=%s | user=%s", data, user.id if user else None)
+    await query.answer("That admin action is not available. Please refresh the admin panel.", show_alert=True)
