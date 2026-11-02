@@ -23,7 +23,7 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from telegram.ext import ContextTypes
-from telegram.error import TelegramError
+from telegram.error import TelegramError, BadRequest
 
 from config import RAFFLE_CHAT_ID
 
