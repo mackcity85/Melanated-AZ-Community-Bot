@@ -203,6 +203,138 @@ def _ensure_birthday_deletion_scheduled(context, chat_id, now_arizona):
         logger.exception("Could not restore birthday announcement deletion timer.")
 
 
+def _claim_manual_resend(chat_id, now_arizona):
+    """Atomically reserve an admin-authorized resend and retain the prior ID."""
+    day_key = now_arizona.strftime("%Y-%m-%d")
+    now_text = now_arizona.isoformat()
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("""
+            SELECT status, message_id
+            FROM birthday_announcement_log
+            WHERE announcement_date=? AND chat_id=?
+        """, (day_key, int(chat_id))).fetchone()
+
+        if row and row["status"] == "sending":
+            conn.rollback()
+            return None, "already_sending"
+
+        previous_message_id = row["message_id"] if row else None
+        conn.execute("""
+            INSERT INTO birthday_announcement_log
+                (announcement_date, chat_id, status, updated_at, message_id)
+            VALUES (?, ?, 'sending', ?, ?)
+            ON CONFLICT(announcement_date, chat_id) DO UPDATE SET
+                status='sending', updated_at=excluded.updated_at,
+                message_id=excluded.message_id
+        """, (day_key, int(chat_id), now_text, previous_message_id))
+        conn.commit()
+        return previous_message_id, None
+    except Exception:
+        conn.rollback()
+        logger.exception("Could not reserve admin-authorized birthday resend.")
+        return None, "database_error"
+    finally:
+        conn.close()
+
+
+async def birthday_resend_command(update, context):
+    """Admin-only, explicitly confirmed resend for today's birthday post."""
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not user:
+        return
+
+    from admin import is_admin
+    if not await is_admin(user.id, context):
+        await message.reply_text("⛔ You are not authorized to use /birthdayresend.")
+        return
+
+    if not context.args or context.args[0].strip().upper() != "CONFIRM":
+        await message.reply_text(
+            "⚠️ This will replace today's recorded birthday announcement in the main topic.\n\n"
+            "If the previous post still exists, the bot will try to delete it first.\n"
+            "To proceed, send: /birthdayresend CONFIRM"
+        )
+        return
+
+    now_arizona = datetime.now(ARIZONA_TZ)
+    birthdays = get_birthdays_for_date(now_arizona.strftime("%m/%d"))
+    if not birthdays:
+        await message.reply_text("No birthdays are recorded for today, so nothing was resent.")
+        return
+
+    chat_id = RAFFLE_CHAT_ID
+    if not chat_id:
+        await message.reply_text("❌ The main group chat is not configured.")
+        return
+
+    previous_message_id, claim_error = _claim_manual_resend(chat_id, now_arizona)
+    if claim_error:
+        await message.reply_text(
+            "❌ A resend could not be started. "
+            + ("Another birthday send is already in progress." if claim_error == "already_sending"
+               else "The birthday send log could not be updated.")
+        )
+        return
+
+    if previous_message_id:
+        try:
+            await context.bot.delete_message(
+                chat_id=chat_id, message_id=int(previous_message_id)
+            )
+            logger.info(
+                "Removed prior birthday announcement before controlled resend | chat=%s | message=%s",
+                chat_id, previous_message_id,
+            )
+        except BadRequest as exc:
+            detail = str(exc).lower()
+            if "message to delete not found" not in detail and "message_id_invalid" not in detail:
+                _finish_announcement(chat_id, now_arizona, "sent", previous_message_id)
+                await message.reply_text(
+                    "❌ I could not safely replace the previous birthday post. "
+                    f"Telegram returned: {exc}"
+                )
+                return
+            logger.info(
+                "Prior birthday announcement was already absent | chat=%s | message=%s",
+                chat_id, previous_message_id,
+            )
+        except TelegramError:
+            _finish_announcement(chat_id, now_arizona, "sent", previous_message_id)
+            logger.exception("Could not remove prior birthday announcement for controlled resend.")
+            await message.reply_text("❌ Telegram would not let me remove the previous post. No resend was made.")
+            return
+
+    belated = (now_arizona.hour, now_arizona.minute) >= (20, 0)
+    text = birthday_message(birthdays, belated=belated)
+    try:
+        sent = await context.bot.send_message(chat_id=chat_id, text=text)
+        _finish_announcement(chat_id, now_arizona, "sent", sent.message_id)
+
+        if context.job_queue:
+            context.job_queue.run_once(
+                delete_birthday_message,
+                when=BIRTHDAY_ANNOUNCEMENT_SECONDS,
+                data={"chat_id": chat_id, "message_id": sent.message_id},
+                name=f"{BIRTHDAY_DELETE_JOB_PREFIX}_{chat_id}_{sent.message_id}",
+            )
+
+        logger.info(
+            "Controlled birthday resend completed | chat=%s | message=%s | admin=%s",
+            chat_id, sent.message_id, user.id,
+        )
+        await message.reply_text(
+            "✅ Birthday announcement resent to the main (General) topic. "
+            "It is scheduled for deletion after 24 hours."
+        )
+    except TelegramError as exc:
+        _finish_announcement(chat_id, now_arizona, "failed")
+        logger.exception("Controlled birthday resend failed.")
+        await message.reply_text(f"❌ The resend failed. Telegram returned: {exc}")
+
+
 def _finish_announcement(chat_id, now_arizona, status, message_id=None):
     day_key = now_arizona.strftime("%Y-%m-%d")
     conn = get_connection()
