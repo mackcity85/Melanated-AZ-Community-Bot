@@ -1139,7 +1139,7 @@ async def handle_event_text(update, context):
         context.user_data.pop("event_ocr_admin_waiting_for", None)
 
         if was_approved:
-            await _republish_events_in_date_order(context)
+            await _republish_events_in_date_order(context, force=True)
             await _refresh_admin_details(context, int(admin_submission_id), approved=True)
         else:
             await _refresh_admin_details(context, int(admin_submission_id))
@@ -1759,12 +1759,9 @@ def _sort_key(row):
         return (2, str(fields.get("date") or "").lower(), int(row["id"]))
 
     today = datetime.now(ARIZONA_TZ).date()
-    if parsed < today:
-        # Keep past events above upcoming events.
-        return (0, parsed, int(row["id"]))
-    # Upcoming events run furthest-out to nearest, so the next event
-    # is physically reposted at the bottom of the Events topic.
-    return (1, -parsed.toordinal(), int(row["id"]))
+    # Upcoming events must appear nearest-first in the Events topic.
+    # Past events are removed by the expiration cleanup before publication.
+    return (0, parsed, int(row["id"]))
 
 
 def _approved_rows():
@@ -1778,8 +1775,8 @@ def _approved_rows():
 _event_rebuild_lock = asyncio.Lock()
 
 
-async def _republish_events_in_date_order(context):
-    """Rebuild only current/future approved Events safely in date order."""
+async def _republish_events_in_date_order(context, force=False):
+    """Rebuild approved Events nearest-first; skip startup rebuild when already ordered."""
     async with _event_rebuild_lock:
         approved_rows = _approved_rows()
         today = datetime.now(ARIZONA_TZ).date()
@@ -1817,6 +1814,30 @@ async def _republish_events_in_date_order(context):
                 conn.commit()
 
         rows = sorted(rows, key=_sort_key)
+
+        # Telegram message IDs increase in the order messages were published.
+        # If every approved Event already has a publication and those IDs are
+        # increasing in the desired order, startup must not repost the flyers.
+        # Admin edits/approvals pass force=True so edited content is refreshed.
+        published_ids = [
+            int(row["published_message_id"])
+            for row in rows
+            if row["published_message_id"]
+        ]
+        already_ordered = (
+            len(published_ids) == len(rows)
+            and all(
+                published_ids[index] < published_ids[index + 1]
+                for index in range(len(published_ids) - 1)
+            )
+        )
+        if rows and already_ordered and not force:
+            logger.info(
+                "Events already in chronological order; startup rebuild skipped | count=%s | topic=%s",
+                len(rows),
+                EVENT_TOPIC_ID,
+            )
+            return
 
         if expired_rows:
             logger.info(
