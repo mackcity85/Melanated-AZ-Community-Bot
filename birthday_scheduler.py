@@ -157,6 +157,7 @@ async def birthday_scheduler_recovery(context: ContextTypes.DEFAULT_TYPE):
 
 def birthday_message(
     birthdays,
+    belated=False,
 ):
 
     if not birthdays:
@@ -175,6 +176,17 @@ def birthday_message(
             or birthday.get("username")
             or "Melanated AZ member"
         )
+
+        if belated:
+            return (
+                "🎉🎂💜 A BELATED BIRTHDAY SHOUTOUT! 💜🎂🎉\n\n"
+                f"🚨 MELANATED AZ, LET'S SHOW {name.upper()} SOME LOVE! 🚨\n\n"
+                "We may have missed the day, but we haven't forgotten you! "
+                "We hope your birthday was filled with love, laughter, and "
+                "everything that makes you smile. 💜\n\n"
+                f"🥳 HAPPY BELATED BIRTHDAY, {name}! 🎂👑\n"
+                "The celebration doesn't stop just because the day has passed! 🎉"
+            )
 
         return (
             "🎉🎂🥳 IT'S YOUR BIRTHDAY! 🥳🎂🎉\n\n"
@@ -197,15 +209,26 @@ def birthday_message(
     # MULTIPLE BIRTHDAYS
     # ------------------------------------------------------
 
-    lines = [
-        "🎉🎂🥳 IT'S A BIRTHDAY CELEBRATION! 🥳🎂🎉",
-        "",
-        "🚨🎉 MELANATED AZ, LET'S SHOW OUR BIRTHDAY STARS",
-        "SOME SERIOUS LOVE TODAY! 🎉🚨",
-        "",
-        "These are YOUR birthday stars — so let's celebrate THEM! 💜🙌🏾",
-        "",
-    ]
+    if belated:
+        lines = [
+            "🎉🎂💜 A BELATED BIRTHDAY CELEBRATION! 💜🎂🎉",
+            "",
+            "MELANATED AZ, WE MAY BE A LITTLE LATE, BUT WE'RE NOT",
+            "LETTING THESE BIRTHDAYS GO UNCELEBRATED! 🎉",
+            "",
+            "Let's show our birthday stars some love! 💜🙌🏾",
+            "",
+        ]
+    else:
+        lines = [
+            "🎉🎂🥳 IT'S A BIRTHDAY CELEBRATION! 🥳🎂🎉",
+            "",
+            "🚨🎉 MELANATED AZ, LET'S SHOW OUR BIRTHDAY STARS",
+            "SOME SERIOUS LOVE TODAY! 🎉🚨",
+            "",
+            "These are YOUR birthday stars — so let's celebrate THEM! 💜🙌🏾",
+            "",
+        ]
 
     for birthday in birthdays:
 
@@ -222,14 +245,28 @@ def birthday_message(
     lines.extend(
         [
             "",
-            "👑 From ALL of us at Melanated AZ — we are celebrating YOU! "
-            "May your day be filled with BIG energy, real love, good people, "
-            "laughter, unforgettable memories, and plenty of reasons to smile! 💜🔥",
+            (
+                "👑 From ALL of us at Melanated AZ — we are celebrating YOU! "
+                "We hope your birthday was filled with BIG energy, real love, "
+                "good people, laughter, and unforgettable memories! 💜🔥"
+                if belated else
+                "👑 From ALL of us at Melanated AZ — we are celebrating YOU! "
+                "May your day be filled with BIG energy, real love, good people, "
+                "laughter, unforgettable memories, and plenty of reasons to smile! 💜🔥"
+            ),
             "",
             "🎊🎊 EVERYBODY DROP SOME BIRTHDAY LOVE! 🎊🎊",
             "",
-            "🥳 HAPPY BIRTHDAY TO OUR BIRTHDAY STARS! 👑🎂",
-            "💜 WE CELEBRATE YOU TODAY — ENJOY YOUR DAY! 🎉",
+            (
+                "🥳 HAPPY BELATED BIRTHDAY TO OUR BIRTHDAY STARS! 👑🎂"
+                if belated else
+                "🥳 HAPPY BIRTHDAY TO OUR BIRTHDAY STARS! 👑🎂"
+            ),
+            (
+                "💜 WE'RE STILL CELEBRATING YOU — ENJOYED YOUR DAY! 🎉"
+                if belated else
+                "💜 WE CELEBRATE YOU TODAY — ENJOY YOUR DAY! 🎉"
+            ),
         ]
     )
 
@@ -360,9 +397,20 @@ async def birthday_scheduler(
 
         return
 
+    # After 8:00 PM Arizona time, use a belated birthday message.
+    # This applies to both the regular run and startup catch-up.
+    is_belated = (now_arizona.hour, now_arizona.minute) >= (20, 0)
+
     message_text = birthday_message(
-        birthdays
+        birthdays,
+        belated=is_belated,
     )
+
+    if is_belated:
+        logger.info(
+            "Using belated birthday announcement | Arizona time=%s",
+            now_arizona.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        )
 
     if not message_text:
         return
