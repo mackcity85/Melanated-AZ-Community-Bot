@@ -1758,7 +1758,6 @@ def _sort_key(row):
     if parsed is None:
         return (2, str(fields.get("date") or "").lower(), int(row["id"]))
 
-    today = datetime.now(ARIZONA_TZ).date()
     # Upcoming events must appear nearest-first in the Events topic.
     # Past events are removed by the expiration cleanup before publication.
     return (0, parsed, int(row["id"]))
