@@ -62,6 +62,8 @@ ARIZONA_TZ = ZoneInfo("America/Phoenix")
 
 BIRTHDAY_ANNOUNCEMENT_TABLE = "birthday_announcement_log"
 BIRTHDAY_RECOVERY_JOB_NAME = "melanated_birthday_recovery"
+BIRTHDAY_RECOVERY_INTERVAL_JOB_NAME = "melanated_birthday_recovery_interval"
+BIRTHDAY_RECOVERY_INTERVAL_SECONDS = 300
 
 
 def _claim_announcement(chat_id, now_arizona):
@@ -552,10 +554,35 @@ def start_birthday_scheduler(
             len(recovery_jobs),
         )
 
+    # Keep checking today's birthday periodically after startup. This is a
+    # safety net if the one-time startup callback fires before the bot is
+    # fully ready, or a transient Telegram/database error prevents delivery.
+    # The persistent announcement log prevents duplicate posts.
+    interval_jobs = application.job_queue.get_jobs_by_name(
+        BIRTHDAY_RECOVERY_INTERVAL_JOB_NAME
+    )
+    if not interval_jobs:
+        application.job_queue.run_repeating(
+            birthday_scheduler_recovery,
+            interval=BIRTHDAY_RECOVERY_INTERVAL_SECONDS,
+            first=15,
+            name=BIRTHDAY_RECOVERY_INTERVAL_JOB_NAME,
+        )
+        logger.info(
+            "Birthday recovery watchdog REGISTERED | first=15s | interval=%ss | timezone=America/Phoenix",
+            BIRTHDAY_RECOVERY_INTERVAL_SECONDS,
+        )
+    else:
+        logger.info(
+            "Birthday recovery watchdog already registered | jobs=%s",
+            len(interval_jobs),
+        )
+
     logger.info(
-        "Birthday scheduler registration verified | daily=%s | recovery=%s",
+        "Birthday scheduler registration verified | daily=%s | recovery=%s | watchdog=%s",
         len(application.job_queue.get_jobs_by_name(BIRTHDAY_JOB_NAME)),
         len(application.job_queue.get_jobs_by_name(BIRTHDAY_RECOVERY_JOB_NAME)),
+        len(application.job_queue.get_jobs_by_name(BIRTHDAY_RECOVERY_INTERVAL_JOB_NAME)),
     )
 
 
