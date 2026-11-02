@@ -39,7 +39,10 @@ from telegram import (
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
-from config import ADMIN_IDS, MAIN_GROUP_ID, RAFFLE_CHAT_ID
+from config import (
+    ADMIN_IDS, MAIN_GROUP_ID, RAFFLE_CHAT_ID,
+    CASHAPP_TAG, CASHAPP_URL, ZELLE_PHONE,
+)
 
 from member_bank import (
     admin_members, admin_member_view, _community_rows,
@@ -4266,6 +4269,37 @@ async def admin_payment_reminder_choose_mode(update, context, mode, raffle_id):
         parse_mode="HTML",
     )
 
+def _payment_reminder_instructions(entry, price):
+    """Build payment instructions using the method selected for this pending entry."""
+    method = str((entry or {}).get("payment_method") or "").strip().lower()
+    safe_price = html.escape(str(price or "the listed entry price"))
+    parts = []
+
+    if method in {"cashapp", "cash app"}:
+        if CASHAPP_TAG:
+            parts.append(f"💵 <b>Cash App:</b> Send <b>{safe_price}</b> to <code>{html.escape(CASHAPP_TAG)}</code>")
+        if CASHAPP_URL:
+            safe_url = html.escape(str(CASHAPP_URL), quote=True)
+            parts.append(f'🔗 <a href="{safe_url}">Open Cash App</a>')
+    elif method == "zelle":
+        if ZELLE_PHONE:
+            parts.append(f"🏦 <b>Zelle:</b> Send <b>{safe_price}</b> to <code>{html.escape(ZELLE_PHONE)}</code>")
+    else:
+        # Older entries may not have a recorded payment method. Show all configured options.
+        if CASHAPP_TAG:
+            parts.append(f"💵 <b>Cash App:</b> Send <b>{safe_price}</b> to <code>{html.escape(CASHAPP_TAG)}</code>")
+        if CASHAPP_URL:
+            safe_url = html.escape(str(CASHAPP_URL), quote=True)
+            parts.append(f'🔗 <a href="{safe_url}">Open Cash App</a>')
+        if ZELLE_PHONE:
+            parts.append(f"🏦 <b>Zelle:</b> Send <b>{safe_price}</b> to <code>{html.escape(ZELLE_PHONE)}</code>")
+
+    if not parts:
+        parts.append("Please use the payment details shown in the raffle post, or contact an admin for the current payment information.")
+
+    return "\n".join(parts)
+
+
 async def admin_payment_reminder_execute(update, context, mode, raffle_id):
     if not await require_admin(update, context, alert=True):
         return
@@ -4313,7 +4347,9 @@ async def admin_payment_reminder_execute(update, context, mode, raffle_id):
                     f"Hey {name}! ❤️🖤\n\n"
                     f"You entered our <b>{safe_prize}</b>, but your entry is still awaiting payment confirmation.\n\n"
                     + (f"💵 Entry price: <b>{safe_price}</b>\n\n" if safe_price else "")
-                    + "Please complete your payment so your entry can be approved. Your entry remains pending until payment is received and verified.\n\n"
+                    + "<b>HOW TO PAY</b>\n"
+                    + _payment_reminder_instructions(current, price)
+                    + "\n\nPlease complete your payment so your entry can be approved. Your entry remains pending until payment is received and verified.\n\n"
                     "Thanks for supporting Melanated AZ! Good luck! 🔥"
                 )
                 await context.bot.send_message(chat_id=int(member_id), text=message, parse_mode="HTML")
@@ -4334,6 +4370,11 @@ async def admin_payment_reminder_execute(update, context, mode, raffle_id):
                 "Hey, Melanated AZ family! ❤️🖤\n\n"
                 f"If you entered our <b>{safe_prize}</b> but have not completed payment, this is your reminder.\n"
                 + (f"💵 Entry price: <b>{safe_price}</b>\n" if safe_price else "")
+                + ("\n".join(filter(None, [
+                    f"💵 <b>Cash App:</b> <code>{html.escape(str(CASHAPP_TAG))}</code>" if CASHAPP_TAG else "",
+                    f"🔗 <a href=\"{html.escape(str(CASHAPP_URL), quote=True)}\">Open Cash App</a>" if CASHAPP_URL else "",
+                    f"🏦 <b>Zelle:</b> <code>{html.escape(str(ZELLE_PHONE))}</code>" if ZELLE_PHONE else "",
+                ])) + "\n" if (CASHAPP_TAG or CASHAPP_URL or ZELLE_PHONE) else "")
                 + "✅ Payment must be received and verified before your entry is approved.\n"
                 "⏳ Entries remain pending until payment is confirmed.\n\n"
                 "If you cannot receive the bot's private messages, please open the Melanated AZ bot or contact an admin to check your entry status.\n\n"
