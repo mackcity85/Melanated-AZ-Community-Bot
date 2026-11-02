@@ -1619,7 +1619,7 @@ async def handle_event_admin_callback(update, context):
     await query.answer("Publishing Event...")
     try:
         _update_submission(submission_id, status="approved")
-        await _republish_events_in_date_order(context)
+        await _republish_events_in_date_order(context, force=True)
         try:
             await query.edit_message_text(
                 "✅ <b>EVENT APPROVED & PUBLISHED</b>\n\n"
