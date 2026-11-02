@@ -85,19 +85,41 @@ def _claim_announcement(chat_id, now_arizona):
         """)
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("""
-            SELECT status, updated_at
+            SELECT status, updated_at, message_id
             FROM birthday_announcement_log
             WHERE announcement_date=? AND chat_id=?
         """, (day_key, int(chat_id))).fetchone()
 
         if row and row["status"] == "sent":
+            logger.warning(
+                "Birthday announcement claim blocked | reason=already_sent "
+                "| date=%s | chat=%s | updated_at=%s | message_id=%s",
+                day_key, chat_id, row["updated_at"], row["message_id"],
+            )
             conn.commit()
             return False
 
-        if (row and row["status"] == "sending"
-                and row["updated_at"] >= stale_before):
-            conn.commit()
-            return False
+        if row and row["status"] == "sending":
+            if row["updated_at"] >= stale_before:
+                logger.warning(
+                    "Birthday announcement claim blocked | reason=active_sending_claim "
+                    "| date=%s | chat=%s | updated_at=%s | stale_before=%s",
+                    day_key, chat_id, row["updated_at"], stale_before,
+                )
+                conn.commit()
+                return False
+
+            logger.warning(
+                "Birthday announcement stale claim will be reclaimed "
+                "| date=%s | chat=%s | previous_updated_at=%s | stale_before=%s",
+                day_key, chat_id, row["updated_at"], stale_before,
+            )
+        elif row:
+            logger.warning(
+                "Birthday announcement retrying prior non-sent state "
+                "| date=%s | chat=%s | status=%s | updated_at=%s",
+                day_key, chat_id, row["status"], row["updated_at"],
+            )
 
         conn.execute("""
             INSERT INTO birthday_announcement_log
@@ -419,9 +441,9 @@ async def birthday_scheduler(
 
     if not _claim_announcement(chat_id, now_arizona):
         logger.info(
-            "Birthday announcement already sent or another run is handling it "
-            "| date=%s | chat=%s",
-            month_day, chat_id,
+            "Birthday announcement not sent because its claim is blocked "
+            "| date=%s | chat=%s | see preceding claim diagnostic",
+            now_arizona.strftime("%Y-%m-%d"), chat_id,
         )
         return
 
