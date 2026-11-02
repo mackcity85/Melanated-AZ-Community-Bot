@@ -4343,14 +4343,14 @@ async def admin_payment_reminder_execute(update, context, mode, raffle_id):
                 safe_prize = html.escape(prize)
                 safe_price = html.escape(price)
                 message = (
-                    "🎟️ <b>MELANATED AZ — PAYMENT REMINDER</b>\n\n"
+                    "🎟️ <b>A FRIENDLY REMINDER FROM MELANATED AZ</b>\n\n"
                     f"Hey {name}! ❤️🖤\n\n"
-                    f"You entered our <b>{safe_prize}</b>, but your entry is still awaiting payment confirmation.\n\n"
+                    f"Just a quick reminder about your entry in our <b>{safe_prize}</b> raffle. We’re looking forward to having you participate!\n\n"
                     + (f"💵 Entry price: <b>{safe_price}</b>\n\n" if safe_price else "")
-                    + "<b>HOW TO PAY</b>\n"
+                    + "<b>PAYMENT DETAILS</b>\n"
                     + _payment_reminder_instructions(current, price)
-                    + "\n\nAfter sending your payment, contact an admin directly so they can verify it and approve your raffle entry. Your entry will remain pending until an admin confirms payment.\n\n"
-                    "Thanks for supporting Melanated AZ! Good luck! 🔥"
+                    + "\n\nOnce you've sent your payment, please send a quick message to an admin so they can verify it and approve your entry. If you've already paid, thank you! Just reach out to an admin so we can get your entry updated.\n\n"
+                    "Thanks for being part of the Melanated AZ family, and good luck! ❤️🖤🔥"
                 )
                 await context.bot.send_message(chat_id=int(member_id), text=message, parse_mode="HTML")
                 private_sent += 1
@@ -4368,17 +4368,16 @@ async def admin_payment_reminder_execute(update, context, mode, raffle_id):
             group_text = (
                 "🎟️🔥 <b>MELANATED AZ — RAFFLE PAYMENT REMINDER!</b> 🔥🎟️\n\n"
                 "Hey, Melanated AZ family! ❤️🖤\n\n"
-                f"If you entered our <b>{safe_prize}</b> but have not completed payment, this is your reminder.\n"
+                f"Just a friendly reminder for everyone who entered our <b>{safe_prize}</b> raffle. We’re excited to have you participating!\n"
                 + (f"💵 Entry price: <b>{safe_price}</b>\n" if safe_price else "")
                 + ("\n".join(filter(None, [
                     f"💵 <b>Cash App:</b> <code>{html.escape(str(CASHAPP_TAG))}</code>" if CASHAPP_TAG else "",
                     f"🔗 <a href=\"{html.escape(str(CASHAPP_URL), quote=True)}\">Open Cash App</a>" if CASHAPP_URL else "",
                     f"🏦 <b>Zelle:</b> <code>{html.escape(str(ZELLE_PHONE))}</code>" if ZELLE_PHONE else "",
                 ])) + "\n" if (CASHAPP_TAG or CASHAPP_URL or ZELLE_PHONE) else "")
-                + "✅ After sending payment, contact an admin directly to have it verified and your entry approved. Entries remain pending until an admin confirms payment.\n"
-                "⏳ Entries remain pending until payment is confirmed.\n\n"
-                "If you cannot receive the bot's private messages, please open the Melanated AZ bot or contact an admin to check your entry status.\n\n"
-                "Good luck, family! ❤️🖤🔥"
+                + "✅ Once you've sent your payment, please send a quick message to an admin so they can verify it and update your entry. If you've already paid, thank you! Just contact an admin so we can get you marked as approved.\n\n"
+                "If you have any questions or need help with payment, feel free to reach out to an admin. If you cannot receive the bot's private messages, you can also open the Melanated AZ bot or contact an admin to check your entry status.\n\n"
+                "Thanks for being part of the Melanated AZ family, and good luck! ❤️🖤🔥"
             )
             await context.bot.send_message(chat_id=group_id, text=group_text, parse_mode="HTML")
             group_status = "Posted successfully"
