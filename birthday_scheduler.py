@@ -465,65 +465,49 @@ def start_birthday_scheduler(
 
         return
 
-    # ------------------------------------------------------
-    # Prevent duplicate scheduler jobs.
-    # ------------------------------------------------------
-
-    existing_jobs = [
-        job
-        for job in application.job_queue.jobs()
-        if job.name == BIRTHDAY_JOB_NAME
-    ]
-
-    if existing_jobs:
-
+    # Register the daily job and startup recovery independently.
+    # A partially registered scheduler must not prevent the missing job
+    # from being repaired on the next startup.
+    daily_jobs = application.job_queue.get_jobs_by_name(BIRTHDAY_JOB_NAME)
+    if not daily_jobs:
+        application.job_queue.run_daily(
+            birthday_scheduler,
+            time=time(hour=9, minute=0, tzinfo=ARIZONA_TZ),
+            name=BIRTHDAY_JOB_NAME,
+        )
         logger.info(
-            "🎂 Birthday scheduler is already running."
+            "Birthday scheduler REGISTERED | daily=09:00 | timezone=America/Phoenix"
+        )
+    else:
+        logger.info(
+            "Birthday scheduler already registered | daily_jobs=%s",
+            len(daily_jobs),
         )
 
-        return
-
-    # ------------------------------------------------------
-    # Run every day at exactly 9:00 AM Arizona/MST.
-    # ------------------------------------------------------
-    # The timezone is attached directly to the scheduled time,
-    # so the job does not depend on Render's operating-system
-    # timezone or UTC configuration.
-    # ------------------------------------------------------
-
-    application.job_queue.run_daily(
-        birthday_scheduler,
-        time=time(
-            hour=9,
-            minute=0,
-            tzinfo=ARIZONA_TZ,
-        ),
-        name=BIRTHDAY_JOB_NAME,
+    # Catch up today's shout-out after startup when 9:00 AM Arizona time
+    # has passed. The persistent announcement log prevents duplicate posts.
+    recovery_jobs = application.job_queue.get_jobs_by_name(
+        BIRTHDAY_RECOVERY_JOB_NAME
     )
+    if not recovery_jobs:
+        application.job_queue.run_once(
+            birthday_scheduler_recovery,
+            when=5,
+            name=BIRTHDAY_RECOVERY_JOB_NAME,
+        )
+        logger.info(
+            "Same-day birthday recovery REGISTERED | startup_delay=5s"
+        )
+    else:
+        logger.info(
+            "Same-day birthday recovery already registered | jobs=%s",
+            len(recovery_jobs),
+        )
 
     logger.info(
-        "🎂 Birthday scheduler started — "
-        "daily at exactly 9:00 AM Arizona/MST "
-        "(America/Phoenix, UTC-7)."
-    )
-
-    # On each process start, catch up today's shout-out if 9:00 AM
-    # has already passed. The persistent announcement log prevents
-    # duplicate posts if both this recovery and the daily job run.
-    existing_recovery = [
-        job for job in application.job_queue.jobs()
-        if job.name == BIRTHDAY_RECOVERY_JOB_NAME
-    ]
-    for job in existing_recovery:
-        job.schedule_removal()
-
-    application.job_queue.run_once(
-        birthday_scheduler_recovery,
-        when=5,
-        name=BIRTHDAY_RECOVERY_JOB_NAME,
-    )
-    logger.info(
-        "🎂 Same-day birthday recovery registered for startup."
+        "Birthday scheduler registration verified | daily=%s | recovery=%s",
+        len(application.job_queue.get_jobs_by_name(BIRTHDAY_JOB_NAME)),
+        len(application.job_queue.get_jobs_by_name(BIRTHDAY_RECOVERY_JOB_NAME)),
     )
 
 
