@@ -1129,6 +1129,15 @@ def build_application():
     if not BOT_TOKEN:raise RuntimeError("BOT_TOKEN is not configured.")
     application=Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
+    # Register birthdays during application construction as well as post_init.
+    # This makes scheduler registration independent of startup-hook wrappers;
+    # start_birthday_scheduler() is idempotent and repairs missing jobs.
+    try:
+        from birthday_scheduler import start_birthday_scheduler
+        start_birthday_scheduler(application)
+    except Exception:
+        logger.exception("Birthday scheduler build-time registration FAILED")
+
     # QOTD and After Dark are separate startup paths.
     try:
         from topic_routing import install_all_topic_routing
