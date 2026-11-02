@@ -1789,9 +1789,10 @@ def _sort_key(row):
     if parsed is None:
         return (2, str(fields.get("date") or "").lower(), int(row["id"]))
 
-    # Upcoming events must appear nearest-first in the Events topic.
+    # Sort newest event dates first in the Events topic.
+    # Telegram displays earlier published messages before later ones.
     # Past events are removed by the expiration cleanup before publication.
-    return (0, parsed, int(row["id"]))
+    return (0, -parsed.toordinal(), int(row["id"]))
 
 
 def _approved_rows():
