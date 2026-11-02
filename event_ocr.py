@@ -1664,37 +1664,68 @@ def _parse_event_date(raw):
     if not raw:
         return None
 
-    # Normalize common OCR/editor date noise while preserving the year.
-    cleaned = re.sub(r"(?i)\b(st|nd|rd|th)\b", "", raw)
+    # Normalize ordinal suffixes attached directly to a day number:
+    # 1st, 2nd, 3rd, 21st. The previous word-boundary expression missed these.
+    cleaned = re.sub(r"(?i)(?<=\d)(st|nd|rd|th)\b", "", raw)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"(?i)^date\s*[:\-]?\s*", "", cleaned).strip()
 
-    # Prefer explicit year-bearing formats. These are the authoritative
-    # sort keys whenever a year is present.
+    # Remove a leading weekday commonly included in manually entered dates.
+    cleaned = re.sub(
+        r"(?i)^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|"
+        r"Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri|Sat|Sun)\s*,?\s*",
+        "",
+        cleaned,
+    ).strip()
+
+    # If a date field contains a range or extra details, use its first date.
+    month_names = (
+        r"January|February|March|April|May|June|July|August|September|October|"
+        r"November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
+    )
+    month_match = re.search(
+        rf"(?i)\b({month_names})\s+(\d{{1,2}})(?:\s*[-–—]|\s+to\b|\s+through\b|,)",
+        cleaned,
+    )
+    if month_match:
+        tail = cleaned[month_match.end():]
+        year_match = re.search(r"\b(20\d{2}|19\d{2})\b", tail)
+        year = int(year_match.group(1)) if year_match else datetime.now(ARIZONA_TZ).year
+        candidate = f"{month_match.group(1)} {month_match.group(2)}, {year}"
+        for fmt in ("%B %d, %Y", "%b %d, %Y"):
+            try:
+                return datetime.strptime(candidate, fmt).date()
+            except ValueError:
+                pass
+
+    numeric_match = re.search(
+        r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b",
+        cleaned,
+    )
+    if numeric_match:
+        month, day, year = numeric_match.groups()
+        if year:
+            year = int(year)
+            if year < 100:
+                year += 2000 if year < 70 else 1900
+        else:
+            year = datetime.now(ARIZONA_TZ).year
+        try:
+            return datetime(int(year), int(month), int(day)).date()
+        except ValueError:
+            pass
+
+    # Prefer explicit year-bearing formats.
     for fmt in (
-        "%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d",
-        "%m/%d/%y", "%m-%d-%y",
-        "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y",
+        "%Y-%m-%d", "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y",
+        "%m/%d/%Y", "%m-%d-%Y", "%m/%d/%y", "%m-%d-%y",
     ):
         try:
             return datetime.strptime(cleaned, fmt).date()
         except ValueError:
             pass
 
-    # OCR may include a leading label such as "Date: 09/20/2026".
-    unlabeled = re.sub(r"(?i)^date\s*[:\-]?\s*", "", cleaned).strip()
-    if unlabeled != cleaned:
-        for fmt in (
-            "%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d",
-            "%m/%d/%y", "%m-%d-%y",
-            "%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y",
-        ):
-            try:
-                return datetime.strptime(unlabeled, fmt).date()
-            except ValueError:
-                pass
-
-    # Month/day without a year is retained for compatibility; only then
-    # do we assume the current Arizona year for sorting.
+    # Month/day without a year: assume the current Arizona year.
     for fmt in ("%B %d", "%b %d", "%m/%d", "%m-%d"):
         try:
             return datetime.strptime(
@@ -1718,7 +1749,7 @@ def _parse_event_end_date(raw):
     if not raw:
         return None
 
-    cleaned = re.sub(r"(?i)\b(st|nd|rd|th)\b", "", raw)
+    cleaned = re.sub(r"(?i)(?<=\d)(st|nd|rd|th)\b", "", raw)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     unlabeled = re.sub(r"(?i)^date\s*[:\-]?\s*", "", cleaned).strip()
 
