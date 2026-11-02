@@ -251,7 +251,11 @@ async def birthday_resend_command(update, context):
         await message.reply_text("⛔ You are not authorized to use /birthdayresend.")
         return
 
-    if not context.args or context.args[0].strip().upper() != "CONFIRM":
+    # A deliberate admin-panel button click is itself confirmation.
+    is_panel_confirmation = bool(update.callback_query)
+    if not is_panel_confirmation and (
+        not context.args or context.args[0].strip().upper() != "CONFIRM"
+    ):
         await message.reply_text(
             "⚠️ This will replace today's recorded birthday announcement in the main topic.\n\n"
             "If the previous post still exists, the bot will try to delete it first.\n"
