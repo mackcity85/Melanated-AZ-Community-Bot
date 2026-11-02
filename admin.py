@@ -407,6 +407,12 @@ def admin_main_keyboard():
             ],
             [
                 InlineKeyboardButton(
+                    "🔁 Resend Today's Birthday Announcement",
+                    callback_data="admin_birthday_resend",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     "🗑️ Remove Birthday",
                     callback_data="admin_birthday_remove",
                 ),
@@ -4906,6 +4912,11 @@ async def admin_button(
             context,
         )
 
+        return
+
+    if data == "admin_birthday_resend":
+        from birthday_scheduler import birthday_resend_command
+        await birthday_resend_command(update, context)
         return
 
     if data == "admin_birthday_remove":
