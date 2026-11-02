@@ -140,6 +140,69 @@ def _claim_announcement(chat_id, now_arizona):
         conn.close()
 
 
+def _get_announcement_record(chat_id, now_arizona):
+    """Return today's persisted announcement state without modifying it."""
+    day_key = now_arizona.strftime("%Y-%m-%d")
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS birthday_announcement_log (
+                announcement_date TEXT NOT NULL,
+                chat_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                message_id INTEGER,
+                PRIMARY KEY (announcement_date, chat_id)
+            )
+        """)
+        row = conn.execute("""
+            SELECT status, updated_at, message_id
+            FROM birthday_announcement_log
+            WHERE announcement_date=? AND chat_id=?
+        """, (day_key, int(chat_id))).fetchone()
+        return dict(row) if row else None
+    except Exception:
+        logger.exception("Could not read birthday announcement recovery log.")
+        return None
+    finally:
+        conn.close()
+
+
+def _ensure_birthday_deletion_scheduled(context, chat_id, now_arizona):
+    """Restore the 24-hour deletion timer after a bot restart."""
+    if not context.job_queue:
+        logger.warning("JobQueue unavailable; cannot restore birthday deletion timer.")
+        return
+
+    record = _get_announcement_record(chat_id, now_arizona)
+    if not record or record.get("status") != "sent" or not record.get("message_id"):
+        return
+
+    try:
+        sent_at = datetime.fromisoformat(record["updated_at"])
+        elapsed = max(0, (now_arizona - sent_at).total_seconds())
+        remaining = max(0, BIRTHDAY_ANNOUNCEMENT_SECONDS - elapsed)
+        message_id = int(record["message_id"])
+        job_name = f"{BIRTHDAY_DELETE_JOB_PREFIX}_{chat_id}_{message_id}"
+
+        if context.job_queue.get_jobs_by_name(job_name):
+            return
+
+        context.job_queue.run_once(
+            delete_birthday_message,
+            when=remaining,
+            data={"chat_id": chat_id, "message_id": message_id},
+            name=job_name,
+        )
+        logger.info(
+            "Restored birthday announcement 24-hour deletion timer | "
+            "chat=%s | message=%s | remaining_seconds=%s",
+            chat_id, message_id, int(remaining),
+        )
+    except Exception:
+        logger.exception("Could not restore birthday announcement deletion timer.")
+
+
 def _finish_announcement(chat_id, now_arizona, status, message_id=None):
     day_key = now_arizona.strftime("%Y-%m-%d")
     conn = get_connection()
@@ -440,9 +503,12 @@ async def birthday_scheduler(
         return
 
     if not _claim_announcement(chat_id, now_arizona):
+        # A prior run may have posted successfully before a service restart.
+        # Restore its original 24-hour deletion timer without reposting it.
+        _ensure_birthday_deletion_scheduled(context, chat_id, now_arizona)
         logger.info(
             "Birthday announcement not sent because its claim is blocked "
-            "| date=%s | chat=%s | see preceding claim diagnostic",
+            "| date=%s | chat=%s | existing post retained in main topic",
             now_arizona.strftime("%Y-%m-%d"), chat_id,
         )
         return
