@@ -4349,7 +4349,7 @@ async def admin_payment_reminder_execute(update, context, mode, raffle_id):
                     + (f"💵 Entry price: <b>{safe_price}</b>\n\n" if safe_price else "")
                     + "<b>HOW TO PAY</b>\n"
                     + _payment_reminder_instructions(current, price)
-                    + "\n\nPlease complete your payment so your entry can be approved. Your entry remains pending until payment is received and verified.\n\n"
+                    + "\n\nAfter sending your payment, contact an admin directly so they can verify it and approve your raffle entry. Your entry will remain pending until an admin confirms payment.\n\n"
                     "Thanks for supporting Melanated AZ! Good luck! 🔥"
                 )
                 await context.bot.send_message(chat_id=int(member_id), text=message, parse_mode="HTML")
@@ -4375,7 +4375,7 @@ async def admin_payment_reminder_execute(update, context, mode, raffle_id):
                     f"🔗 <a href=\"{html.escape(str(CASHAPP_URL), quote=True)}\">Open Cash App</a>" if CASHAPP_URL else "",
                     f"🏦 <b>Zelle:</b> <code>{html.escape(str(ZELLE_PHONE))}</code>" if ZELLE_PHONE else "",
                 ])) + "\n" if (CASHAPP_TAG or CASHAPP_URL or ZELLE_PHONE) else "")
-                + "✅ Payment must be received and verified before your entry is approved.\n"
+                + "✅ After sending payment, contact an admin directly to have it verified and your entry approved. Entries remain pending until an admin confirms payment.\n"
                 "⏳ Entries remain pending until payment is confirmed.\n\n"
                 "If you cannot receive the bot's private messages, please open the Melanated AZ bot or contact an admin to check your entry status.\n\n"
                 "Good luck, family! ❤️🖤🔥"
