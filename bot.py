@@ -148,6 +148,7 @@ async def send_private_media_warning(update, context):
 
 MEDIA_TOPIC_ID = 10286
 EVENT_TOPIC_ID = 12214
+PASSPORT_TOPIC_ID = 16271
 MAIN_GROUP_ID = -1002697105809
 
 # Serialize media routing so a second Telegram update (including a reaction/update
@@ -162,7 +163,7 @@ async def handle_media_move(update, context):
     if not message or message.chat_id != MAIN_GROUP_ID:
         return
     thread_id = getattr(message, "message_thread_id", None)
-    if thread_id in {MEDIA_TOPIC_ID, EVENT_TOPIC_ID}:
+    if thread_id in {MEDIA_TOPIC_ID, EVENT_TOPIC_ID, PASSPORT_TOPIC_ID}:
         return
     if not (message.photo or message.video):
         return
@@ -258,7 +259,11 @@ async def handle_media_topic_spoiler(update, context):
     message = update.effective_message
     if not message or message.chat_id != MAIN_GROUP_ID:
         return
-    if getattr(message, "message_thread_id", None) != MEDIA_TOPIC_ID:
+    thread_id = getattr(message, "message_thread_id", None)
+    if thread_id == PASSPORT_TOPIC_ID:
+        # Passport & Adventures is an unrestricted sharing topic: leave media in place.
+        raise ApplicationHandlerStop
+    if thread_id != MEDIA_TOPIC_ID:
         return
     if not (message.photo or message.video):
         return
@@ -312,7 +317,7 @@ async def handle_photo(update, context):
     if not message:
         return
     # Event topic is owned exclusively by the independent OCR pipeline.
-    if getattr(message, "message_thread_id", None) == EVENT_TOPIC_ID:
+    if getattr(message, "message_thread_id", None) in {EVENT_TOPIC_ID, PASSPORT_TOPIC_ID}:
         return
     if message.has_media_spoiler:
         return
@@ -328,7 +333,7 @@ async def handle_video(update, context):
     if not message:
         return
     # Event topic is owned exclusively by the independent OCR pipeline.
-    if getattr(message, "message_thread_id", None) == EVENT_TOPIC_ID:
+    if getattr(message, "message_thread_id", None) in {EVENT_TOPIC_ID, PASSPORT_TOPIC_ID}:
         return
     if message.has_media_spoiler:
         return
