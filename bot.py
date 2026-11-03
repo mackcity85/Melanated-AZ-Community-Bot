@@ -1288,6 +1288,57 @@ async def ensure_human_verification_pin(context):
         logger.exception("Could not create/pin human verification help post | chat=%s | topic=%s", main, INTRO_TOPIC_ID)
 
 
+async def ensure_passport_topic_pin(context):
+    """Ensure the approved welcome post exists and remains pinned in topic 16271."""
+    marker = "/var/data/passport_adventures_topic_pin.txt" if os.path.isdir("/var/data") else "./passport_adventures_topic_pin.txt"
+    text = (
+        "🌍 <b>WELCOME TO MELANATED PASSPORT &amp; ADVENTURES!</b> ✈️\n\n"
+        "This is your space to share your travels, adventures, vacations, road trips, hidden gems, and experiences around the world!\n\n"
+        "📸 Share your pictures and videos.\n"
+        "🌎 Show us where you've been.\n"
+        "✈️ Share travel tips, recommendations, and bucket-list destinations.\n"
+        "❤️ Inspire others to get out, explore, and experience more.\n\n"
+        "<b>A quick reminder:</b> Please keep posts relevant to travel, adventures, and experiences. Respect the space and the other members who share here.\n\n"
+        "<b>Don't just tell us about it… SHOW US!</b> 😎\n\n"
+        "Let's explore the world through each other's experiences. 🌍❤️"
+    )
+    message_id = None
+    if os.path.isfile(marker):
+        try:
+            with open(marker, "r", encoding="utf-8") as fh:
+                message_id = int(fh.read().strip())
+        except (OSError, ValueError):
+            message_id = None
+    try:
+        if message_id:
+            try:
+                await context.bot.pin_chat_message(chat_id=MAIN_GROUP_ID, message_id=message_id, disable_notification=True)
+                logger.info("Passport topic pin confirmed | message_id=%s", message_id)
+                return
+            except TelegramError as exc:
+                if isinstance(exc, BadRequest) and "message to pin not found" in str(exc).lower():
+                    logger.warning("Saved Passport topic welcome post is missing; recreating.")
+                else:
+                    logger.exception("Could not restore Passport topic pin; avoiding duplicate.")
+                    return
+        post = await context.bot.send_message(
+            chat_id=MAIN_GROUP_ID, message_thread_id=PASSPORT_TOPIC_ID,
+            text=text, parse_mode=ParseMode.HTML,
+        )
+        try:
+            os.makedirs(os.path.dirname(marker) or ".", exist_ok=True)
+            with open(marker, "w", encoding="utf-8") as fh:
+                fh.write(str(post.message_id))
+        except OSError:
+            logger.exception("Could not persist Passport topic pin marker.")
+            return
+        await context.bot.pin_chat_message(chat_id=MAIN_GROUP_ID, message_id=post.message_id, disable_notification=True)
+        logger.info("Passport topic welcome post created and pinned | message_id=%s", post.message_id)
+    except TelegramError:
+        logger.exception("Could not create/pin Passport topic welcome post.")
+
+
+
 async def post_init(application):
     # Register the birthday scheduler from the actual application startup path.
     # Keep this isolated so a scheduler setup issue cannot block other startup tasks.
@@ -1321,6 +1372,20 @@ async def post_init(application):
             await ensure_human_verification_pin(_StartupContext())
     except Exception:
         logger.exception("Human verification pinned-button startup FAILED")
+    try:
+        if application.job_queue:
+            for job_name in ("passport-topic-pin-startup", "passport-topic-pin-recovery"):
+                for job in application.job_queue.get_jobs_by_name(job_name):
+                    job.schedule_removal()
+            application.job_queue.run_once(ensure_passport_topic_pin, when=7, name="passport-topic-pin-startup")
+            application.job_queue.run_repeating(ensure_passport_topic_pin, interval=300, first=300, name="passport-topic-pin-recovery")
+        else:
+            class _PassportPinContext:
+                bot = application.bot
+            await ensure_passport_topic_pin(_PassportPinContext())
+        logger.info("Passport topic pin recovery enabled | topic=%s", PASSPORT_TOPIC_ID)
+    except Exception:
+        logger.exception("Passport topic pin startup failed")
     # Introduction recovery must be registered from the actual bot post_init.
     # Application.builder().post_init(post_init) supplies this callback directly,
     # so wrapping ApplicationBuilder.build() cannot reliably replace it.
