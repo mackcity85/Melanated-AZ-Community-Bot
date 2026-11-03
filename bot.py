@@ -1372,20 +1372,8 @@ async def post_init(application):
             await ensure_human_verification_pin(_StartupContext())
     except Exception:
         logger.exception("Human verification pinned-button startup FAILED")
-    try:
-        if application.job_queue:
-            for job_name in ("passport-topic-pin-startup", "passport-topic-pin-recovery"):
-                for job in application.job_queue.get_jobs_by_name(job_name):
-                    job.schedule_removal()
-            application.job_queue.run_once(ensure_passport_topic_pin, when=7, name="passport-topic-pin-startup")
-            application.job_queue.run_repeating(ensure_passport_topic_pin, interval=300, first=300, name="passport-topic-pin-recovery")
-        else:
-            class _PassportPinContext:
-                bot = application.bot
-            await ensure_passport_topic_pin(_PassportPinContext())
-        logger.info("Passport topic pin recovery enabled | topic=%s", PASSPORT_TOPIC_ID)
-    except Exception:
-        logger.exception("Passport topic pin startup failed")
+    # Passport & Adventures welcome post is managed manually.
+    # Deliberately do not schedule automatic posting or re-pinning in topic 16271.
     # Introduction recovery must be registered from the actual bot post_init.
     # Application.builder().post_init(post_init) supplies this callback directly,
     # so wrapping ApplicationBuilder.build() cannot reliably replace it.
