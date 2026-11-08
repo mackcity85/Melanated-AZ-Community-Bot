@@ -81,8 +81,7 @@ async def send_member_spotlight(context):
         f"<b>{title}</b>\n\n"
         f"Hey {mention}! Today's question is for YOU! 👀\n\n"
         f"<b>{prompt}</b>\n\n"
-        f"<b>{_escape(name)}, what's your pick and why?</b>\n\n"
-        "Everyone else, jump in! Would you make the same choice, or recommend something different?\n\n"
+        "Everyone else is welcome to answer the same question, too!\n\n"
         "💬 Let's hear from the whole room!\n\n"
         "<i>Keep it respectful. Respect boundaries. PASS is always an option.</i>"
     )
