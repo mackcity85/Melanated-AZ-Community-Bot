@@ -1172,7 +1172,7 @@ def build_application():
         logger.exception("Unable to initialize After Dark scheduler.")
     for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("queueraffle",queue_raffle),("rafflequeue",raffle_queue),("removequeuedraffle",remove_queued_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command),("birthdayresend",birthday_resend_command),("holidayexchange",holiday_exchange_command),("createexchange",create_exchange_command),("mymatch",my_exchange_match_command)]: application.add_handler(CommandHandler(command,callback))
     application.add_handler(CallbackQueryHandler(raffle_callback_router,pattern=r"^(raffle_|approve_|deny_|enter_|pay_|payment_|paid_|draw_|reroll_|bonus_|remove_)"))
-    application.add_handler(CallbackQueryHandler(holiday_exchange_callback,pattern=r"^hx_(join|leave)_\\d+$"))
+    application.add_handler(CallbackQueryHandler(holiday_exchange_callback,pattern=r"^hx_(join|leave)_\d+$"))
     application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^admin_"))
     # Run before generic private-text handlers so birthday input is saved
     # by the admin birthday flow instead of being consumed by another feature.
