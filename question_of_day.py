@@ -224,8 +224,8 @@ async def ensure_qotd_submission_panel(application):
                     "💭 <b>QUESTION OF THE DAY</b>\n\n"
                     "Have a question for the community? Want to build a poll?\n\n"
                     "Use the buttons below to submit content to the QOTD bank. "
-                    "One item is posted each day at <b>11:00 AM Arizona time</b>.\n\n"
-                    "📚 Your submission is saved for a future day unless today's QOTD has not been posted yet."
+                    "The daily question is posted as a <b>Member Spotlight at 1:00 PM Arizona time</b>.\n\n"
+                    "📚 Submissions remain available in the admin bank for review."
                 ),
                 reply_markup=qotd_menu_markup(),
                 parse_mode="HTML",
@@ -292,8 +292,8 @@ async def ensure_qotd_submission_panel(application):
                         "💭 <b>QUESTION OF THE DAY</b>\n\n"
                         "Have a question for the community? Want to build a poll?\n\n"
                         "Use the buttons below to submit content to the QOTD bank. "
-                        "One item is posted each day at <b>11:00 AM Arizona time</b>.\n\n"
-                        "📚 Your submission is saved for a future day unless today's QOTD has not been posted yet."
+                        "The daily question is posted as a <b>Member Spotlight at 1:00 PM Arizona time</b>.\n\n"
+                        "📚 Submissions remain available in the admin bank for review."
                     ),
                     reply_markup=qotd_menu_markup(),
                     parse_mode="HTML",
@@ -319,8 +319,8 @@ async def ensure_qotd_submission_panel(application):
                 "💭 <b>QUESTION OF THE DAY</b>\n\n"
                 "Have a question for the community? Want to build a poll?\n\n"
                 "Use the buttons below to submit content to the QOTD bank. "
-                "One item is posted each day at <b>11:00 AM Arizona time</b>.\n\n"
-                "📚 Your submission is saved for a future day unless today's QOTD has not been posted yet."
+                "The daily question is posted as a <b>Member Spotlight at 1:00 PM Arizona time</b>.\n\n"
+                "📚 Submissions remain available in the admin bank for review."
             ),
             reply_markup=qotd_menu_markup(),
             parse_mode="HTML",
@@ -697,30 +697,30 @@ async def question_of_day_startup_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 def start_question_of_day_scheduler(application):
+    """Keep QOTD submission tools available without publishing a second daily post.
+
+    The daily question is delivered by the Member Spotlight scheduler, which
+    selects one member and one question for the entire community.
+    """
     initialize_question_of_day_database()
     if not application.job_queue:
-        logger.warning("QOTD disabled: JobQueue is not available.")
+        logger.warning("QOTD submission panel startup unavailable: JobQueue is not installed.")
         return
     if not qotd_enabled():
-        logger.info("QOTD scheduler waiting for QUESTION_OF_DAY_TOPIC_ID.")
+        logger.info("QOTD submission panel waiting for QUESTION_OF_DAY_TOPIC_ID.")
         return
-    scheduled_time = time(QUESTION_OF_DAY_HOUR, QUESTION_OF_DAY_MINUTE, tzinfo=QOTD_TZ)
-    application.job_queue.run_daily(
-        question_of_day_daily_job,
-        time=scheduled_time,
-        name="question-of-day-daily",
-    )
+    # Deliberately do not register question_of_day_daily_job here. The Member
+    # Spotlight scheduler is the single daily question publisher at 13:00
+    # America/Phoenix; scheduling this queue separately would create a second post.
     application.job_queue.run_once(
         question_of_day_startup_job,
         when=5,
         name="question-of-day-startup-check",
     )
     logger.info(
-        "QOTD scheduler enabled | chat=%s topic=%s | daily=%02d:%02d America/Phoenix | queued=%s",
+        "QOTD submissions enabled | daily publishing handled by Member Spotlight | chat=%s topic=%s | queued=%s",
         qotd_chat_id(),
         QUESTION_OF_DAY_TOPIC_ID,
-        QUESTION_OF_DAY_HOUR,
-        QUESTION_OF_DAY_MINUTE,
         queued_count(),
     )
 
