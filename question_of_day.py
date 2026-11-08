@@ -13,6 +13,7 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from qotd_question_bank import seed_default_question_bank
 from telegram.error import TelegramError
 from telegram.ext import (
     ApplicationHandlerStop,
@@ -100,6 +101,9 @@ def initialize_question_of_day_database():
         if "voice_file_id" not in columns:
             conn.execute("ALTER TABLE qotd_items ADD COLUMN voice_file_id TEXT")
         conn.commit()
+    seeded = seed_default_question_bank(QOTD_DB)
+    if seeded:
+        logger.info("Seeded %s default QOTD questions into the queue.", seeded)
 
 
 def phoenix_now():
