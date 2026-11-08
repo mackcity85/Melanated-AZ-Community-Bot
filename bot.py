@@ -54,6 +54,12 @@ from raffle import (
 )
 from raffle_database import get_database_stats, check_database_integrity, get_active_raffle, set_raffle_post
 from truth_dare import truth, dare, truth_dare_menu, truth_dare_callback
+from holiday_exchange import (
+    holiday_exchange_command,
+    create_exchange_command,
+    holiday_exchange_callback,
+    my_exchange_match_command,
+)
 from games.game_center import games_command, game_center_callback_router, initialize_game_database, ensure_pinned_game_center
 from games_reminder import start_weekly_game_center_reminder
 from daily_message_scheduler import start_daily_community_messages_reliable
@@ -1164,8 +1170,9 @@ def build_application():
             logger.error("After Dark scheduler NOT REGISTERED | JobQueue job missing during build_application.")
     except Exception:
         logger.exception("Unable to initialize After Dark scheduler.")
-    for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("queueraffle",queue_raffle),("rafflequeue",raffle_queue),("removequeuedraffle",remove_queued_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command),("birthdayresend",birthday_resend_command)]: application.add_handler(CommandHandler(command,callback))
+    for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("queueraffle",queue_raffle),("rafflequeue",raffle_queue),("removequeuedraffle",remove_queued_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command),("birthdayresend",birthday_resend_command),("holidayexchange",holiday_exchange_command),("createexchange",create_exchange_command),("mymatch",my_exchange_match_command)]: application.add_handler(CommandHandler(command,callback))
     application.add_handler(CallbackQueryHandler(raffle_callback_router,pattern=r"^(raffle_|approve_|deny_|enter_|pay_|payment_|paid_|draw_|reroll_|bonus_|remove_)"))
+    application.add_handler(CallbackQueryHandler(holiday_exchange_callback,pattern=r"^hx_(join|leave)_\\d+$"))
     application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^admin_"))
     # Run before generic private-text handlers so birthday input is saved
     # by the admin birthday flow instead of being consumed by another feature.
