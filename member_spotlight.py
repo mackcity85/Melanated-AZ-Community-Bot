@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
+from member_spotlight_question_bank import QUESTION_BANK
 
 logger = logging.getLogger("melanatedaz.member_spotlight")
 
@@ -18,28 +19,7 @@ ARIZONA_TZ = ZoneInfo("America/Phoenix")
 JOB_NAME = "melanated-member-spotlight"
 COMMUNITY_DB = "/var/data/community_security.db" if os.path.isdir("/var/data") else "./community_security.db"
 
-# Today's launch prompt is the exact sample approved by the group owner.
-TODAY_PROMPT = (
-    "If you were introducing someone to BDSM, which would you choose for their first experience?\n\n"
-    "1. ⛓️ Handcuffs and restraints\n"
-    "2. 🖤 Blindfolds and sensory play\n"
-    "3. 🔥 Being in control\n"
-    "4. 😈 Giving up control"
-)
-
-PROMPTS = [
-    ("😈 RESTRAINTS", "Which would you choose for a first experience: handcuffs, silk ties, or a blindfold? What makes that your pick?"),
-    ("🖤 SENSORY PLAY", "Would you rather explore blindfolds, music, temperature play, or a combination?"),
-    ("🔥 POWER DYNAMICS", "Do you naturally prefer taking control, giving up control, or switching roles?"),
-    ("💋 POSITIONS", "Comfort, connection, or trying something adventurous—which matters most when choosing what to try together?"),
-    ("🎲 TOY BOX", "If you were adding one beginner-friendly item to the toy box, what would you choose and why?"),
-    ("😈 FANTASY FILES", "What's a fantasy you would feel comfortable discussing with a trusted partner before deciding whether to explore it?"),
-    ("⛓️ BOUNDARIES", "What conversation should happen before anyone experiments with restraints or power play?"),
-    ("🌶️ AFTER DARK", "Do you prefer planning an adventurous night or letting the mood decide?"),
-    ("🖤 SAFE WORDS", "What makes it easier to communicate limits and use a safeword without feeling awkward?"),
-    ("🔥 SPICY DEBATE", "What's more exciting to you: anticipation, playful teasing, or being surprised?")
-]
-
+# Prompts are loaded from member_spotlight_question_bank.py (200 curated questions).
 
 def _connect():
     conn = sqlite3.connect(COMMUNITY_DB, timeout=20)
@@ -90,12 +70,10 @@ async def send_member_spotlight(context):
         logger.info("Member Spotlight skipped: no eligible verified, introduced members.")
         return
 
-    import datetime
-    today = datetime.datetime.now(ARIZONA_TZ).date()
-    if today.isoformat() == "2026-11-01":
-        title, prompt = "🔥 MEMBER SPOTLIGHT — YOU'RE IN THE HOT SEAT!", TODAY_PROMPT
-    else:
-        title, prompt = random.choice(PROMPTS)
+    selected_prompt = random.choice(QUESTION_BANK)
+    category = selected_prompt["category"]
+    prompt = selected_prompt["question"]
+    title = f"💭 MEMBER SPOTLIGHT — {category.upper()}"
 
     name = member.get("first_name") or member.get("username") or "you"
     mention = f'<a href="tg://user?id={int(member["user_id"])}">{_escape(name)}</a>'
