@@ -3,6 +3,7 @@
 This module never creates, updates, deletes, or republishes Event records.
 """
 
+import html
 import logging
 import os
 import sqlite3
@@ -101,24 +102,25 @@ def _diagnostic_text(data):
         return (
             "🧰 <b>EVENT DATABASE DIAGNOSTIC</b>\n\n"
             "🔴 <b>Database file not found</b>\n"
-            f"Path: <code>{data['path']}</code>\n\n"
+            f"Path: <code>{html.escape(str(data['path']))}</code>\n\n"
             "No database was created. Check the Render persistent-disk mount and deployment configuration."
         )
 
     statuses = data["statuses"]
     status_lines = [
-        f"• {name}: <b>{count}</b>"
+        f"• {html.escape(str(name))}: <b>{count}</b>"
         for name, count in sorted(statuses.items())
     ] or ["• No submissions found"]
 
     integrity_ok = data["integrity"].strip().lower() == "ok"
-    integrity_label = "🟢 OK" if integrity_ok else "🔴 " + data["integrity"]
+    integrity_label = "🟢 OK" if integrity_ok else "🔴 " + html.escape(str(data["integrity"]))
+    size_label = f"{data['size']:,} bytes" if isinstance(data["size"], int) else "Unavailable"
 
     lines = [
         "🧰 <b>EVENT DATABASE DIAGNOSTIC</b>",
         "",
-        f"Database: <code>{data['path']}</code>",
-        f"File size: <b>{data['size']:,} bytes</b>",
+        f"Database: <code>{html.escape(str(data['path']))}</code>",
+        f"File size: <b>{size_label}</b>",
         f"SQLite integrity: <b>{integrity_label}</b>",
         f"Submission table: <b>{'Present' if data['table_exists'] else 'Missing'}</b>",
         f"Total submissions: <b>{data['total']}</b>",
@@ -135,7 +137,7 @@ def _diagnostic_text(data):
         "Note: this checks saved message IDs, not whether Telegram still has each message.",
     ]
     if data["error"]:
-        lines.extend(["", "⚠️ <b>Additional detail:</b> " + str(data["error"])])
+        lines.extend(["", "⚠️ <b>Additional detail:</b> " + html.escape(str(data["error"]))])
     return "\n".join(lines)
 
 
