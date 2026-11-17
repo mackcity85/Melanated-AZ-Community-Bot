@@ -1813,7 +1813,7 @@ async def _saved_event_publications_exist(context, rows):
         if not message_id:
             return False
 
-        caption = "📅 <b>EVENT</b>\\n\\n" + _format_fields(_fields(row))
+        caption = "📅 <b>EVENT</b>\n\n" + _format_fields(_fields(row))
         try:
             # Editing a bot-authored media caption is an existence check that
             # does not create a second public post. Reapplying the canonical
