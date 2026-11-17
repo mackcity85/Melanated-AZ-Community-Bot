@@ -155,10 +155,77 @@ async def show_event_database_diagnostic(update, context):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🔄 Run Check Again", callback_data="admin_event_db_diagnostic")],
+            [InlineKeyboardButton("♻️ Restore Approved Flyers", callback_data="admin_event_restore_prompt")],
             [InlineKeyboardButton("📅 Events Controls", callback_data="admin_events")],
             [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
         ]),
     )
+
+
+async def show_restore_confirmation(update, context):
+    if not await admin.require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+    await query.edit_message_text(
+        "⚠️ <b>RESTORE APPROVED EVENT FLYERS</b>\\n\\n"
+        "This will rebuild the currently approved Event flyers in topic "
+        f"<code>{EVENT_TOPIC_ID}</code> using their saved Telegram file IDs.\\n\\n"
+        "The bot stages all replacement posts before removing previously tracked "
+        "posts. If a send fails, it keeps the existing tracked posts. "
+        "Past-dated approved events are marked expired by the existing publishing rules.\\n\\n"
+        "<b>No pending, denied, expired, or raffle records will be republished.</b>\\n\\n"
+        "Continue?",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ RESTORE APPROVED FLYERS", callback_data="admin_event_restore_confirm")],
+            [InlineKeyboardButton("↩️ Back to Diagnostic", callback_data="admin_event_db_diagnostic")],
+        ]),
+    )
+
+
+async def restore_approved_flyers(update, context):
+    if not await admin.require_admin(update, context):
+        return
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer("Restoring approved flyers...")
+    try:
+        # force=True bypasses the startup optimization that trusts saved message
+        # IDs and stages fresh Telegram posts from the preserved file IDs.
+        await event_ocr._republish_events_in_date_order(context, force=True)
+        data = collect_diagnostics()
+        await query.edit_message_text(
+            "✅ <b>APPROVED EVENT FLYER RESTORE FINISHED</b>\\n\\n"
+            f"Database submissions: <b>{data['total']}</b>\\n"
+            f"Approved remaining: <b>{data['statuses'].get('approved', 0)}</b>\\n"
+            f"Expired: <b>{data['statuses'].get('expired', 0)}</b>\\n"
+            f"Destination topic: <code>{EVENT_TOPIC_ID}</code>\\n\\n"
+            "Check the Party &amp; Events topic in Telegram. "
+            "The database diagnostic can confirm saved IDs, but only Telegram can confirm visibility.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🧰 Run Database Diagnostic", callback_data="admin_event_db_diagnostic")],
+                [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+            ]),
+        )
+        logger.info("Admin-triggered approved Event flyer restore completed | topic=%s", EVENT_TOPIC_ID)
+    except Exception:
+        logger.exception("Admin-triggered approved Event flyer restore failed | topic=%s", EVENT_TOPIC_ID)
+        await query.edit_message_text(
+            "❌ <b>RESTORE FAILED</b>\\n\\n"
+            "The publishing routine stopped before replacing the old tracked posts. "
+            "Check the Render logs for the Event rebuild staging error. "
+            "Your saved submission records were not deleted.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🧰 Run Database Diagnostic", callback_data="admin_event_db_diagnostic")],
+                [InlineKeyboardButton("🏠 Admin Panel", callback_data="admin_back")],
+            ]),
+        )
 
 
 def install():
@@ -189,6 +256,12 @@ def install():
         query = update.callback_query
         if query and query.data == "admin_event_db_diagnostic":
             await show_event_database_diagnostic(update, context)
+            return
+        if query and query.data == "admin_event_restore_prompt":
+            await show_restore_confirmation(update, context)
+            return
+        if query and query.data == "admin_event_restore_confirm":
+            await restore_approved_flyers(update, context)
             return
         await previous_handler(update, context)
 
