@@ -33,7 +33,7 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import TelegramError, RetryAfter
+from telegram.error import BadRequest, TelegramError, RetryAfter
 from telegram.ext import (
     ApplicationHandlerStop,
     CallbackQueryHandler,
@@ -1806,6 +1806,49 @@ def _approved_rows():
 _event_rebuild_lock = asyncio.Lock()
 
 
+async def _saved_event_publications_exist(context, rows):
+    """Verify saved Telegram posts before trusting their IDs during startup."""
+    for row in rows:
+        message_id = row["published_message_id"]
+        if not message_id:
+            return False
+
+        caption = "📅 <b>EVENT</b>\\n\\n" + _format_fields(_fields(row))
+        try:
+            # Editing a bot-authored media caption is an existence check that
+            # does not create a second public post. Reapplying the canonical
+            # caption also repairs stale text without changing the flyer.
+            await context.bot.edit_message_caption(
+                chat_id=EVENT_CHAT_ID,
+                message_id=int(message_id),
+                caption=caption,
+                parse_mode="HTML",
+            )
+        except BadRequest as exc:
+            error_text = str(exc).lower()
+            if "message is not modified" in error_text or "message not modified" in error_text:
+                # Telegram confirms the saved message exists and already has
+                # the expected caption.
+                continue
+            if (
+                "message to edit not found" in error_text
+                or "message not found" in error_text
+                or "message_id_invalid" in error_text
+            ):
+                logger.warning(
+                    "Saved Event publication is missing | submission=%s | message=%s",
+                    row["id"], message_id,
+                )
+                return False
+            # Permission, chat, and API errors are not evidence that a post
+            # was deleted. Abort rather than risking a duplicate rebuild.
+            raise
+        except TelegramError:
+            raise
+
+    return True
+
+
 async def _republish_events_in_date_order(context, force=False):
     """Rebuild approved Events nearest-first; skip startup rebuild when already ordered."""
     async with _event_rebuild_lock:
@@ -1863,12 +1906,28 @@ async def _republish_events_in_date_order(context, force=False):
             )
         )
         if rows and already_ordered and not force:
-            logger.info(
-                "Events already in chronological order; startup rebuild skipped | count=%s | topic=%s",
+            try:
+                publications_exist = await _saved_event_publications_exist(context, rows)
+            except TelegramError:
+                logger.exception(
+                    "Could not verify saved Event publications; aborting startup rebuild safely | topic=%s",
+                    EVENT_TOPIC_ID,
+                )
+                raise
+
+            if publications_exist:
+                logger.info(
+                    "Events already published and verified; startup rebuild skipped | count=%s | topic=%s",
+                    len(rows),
+                    EVENT_TOPIC_ID,
+                )
+                return
+
+            logger.warning(
+                "One or more saved Event publications are missing; starting atomic flyer recovery | count=%s | topic=%s",
                 len(rows),
                 EVENT_TOPIC_ID,
             )
-            return
 
         if expired_rows:
             logger.info(
