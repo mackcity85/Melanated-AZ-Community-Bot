@@ -71,6 +71,15 @@ def _install():
             except Exception:
                 logger.exception("Social admin manual-repost patch failed")
 
+            # Install the Events controls into the existing admin keyboard.
+            # Callback routing is handled explicitly by bot.admin_callback_router.
+            try:
+                import event_admin_panel
+                event_admin_panel.install()
+                logger.info("Events admin controls enabled")
+            except Exception:
+                logger.exception("Events admin controls installation failed")
+
             # Add the read-only Event database health check after other admin
             # panel extensions so its button and callback remain available.
             try:
