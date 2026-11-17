@@ -170,13 +170,13 @@ async def show_restore_confirmation(update, context):
         return
     await query.answer()
     await query.edit_message_text(
-        "⚠️ <b>RESTORE APPROVED EVENT FLYERS</b>\\n\\n"
+        "⚠️ <b>RESTORE APPROVED EVENT FLYERS</b>\n\n"
         "This will rebuild the currently approved Event flyers in topic "
-        f"<code>{EVENT_TOPIC_ID}</code> using their saved Telegram file IDs.\\n\\n"
+        f"<code>{EVENT_TOPIC_ID}</code> using their saved Telegram file IDs.\n\n"
         "The bot stages all replacement posts before removing previously tracked "
         "posts. If a send fails, it keeps the existing tracked posts. "
-        "Past-dated approved events are marked expired by the existing publishing rules.\\n\\n"
-        "<b>No pending, denied, expired, or raffle records will be republished.</b>\\n\\n"
+        "Past-dated approved events are marked expired by the existing publishing rules.\n\n"
+        "<b>No pending, denied, expired, or raffle records will be republished.</b>\n\n"
         "Continue?",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
@@ -199,11 +199,11 @@ async def restore_approved_flyers(update, context):
         await event_ocr._republish_events_in_date_order(context, force=True)
         data = collect_diagnostics()
         await query.edit_message_text(
-            "✅ <b>APPROVED EVENT FLYER RESTORE FINISHED</b>\\n\\n"
-            f"Database submissions: <b>{data['total']}</b>\\n"
-            f"Approved remaining: <b>{data['statuses'].get('approved', 0)}</b>\\n"
-            f"Expired: <b>{data['statuses'].get('expired', 0)}</b>\\n"
-            f"Destination topic: <code>{EVENT_TOPIC_ID}</code>\\n\\n"
+            "✅ <b>APPROVED EVENT FLYER RESTORE FINISHED</b>\n\n"
+            f"Database submissions: <b>{data['total']}</b>\n"
+            f"Approved remaining: <b>{data['statuses'].get('approved', 0)}</b>\n"
+            f"Expired: <b>{data['statuses'].get('expired', 0)}</b>\n"
+            f"Destination topic: <code>{EVENT_TOPIC_ID}</code>\n\n"
             "Check the Party &amp; Events topic in Telegram. "
             "The database diagnostic can confirm saved IDs, but only Telegram can confirm visibility.",
             parse_mode="HTML",
@@ -216,7 +216,7 @@ async def restore_approved_flyers(update, context):
     except Exception:
         logger.exception("Admin-triggered approved Event flyer restore failed | topic=%s", EVENT_TOPIC_ID)
         await query.edit_message_text(
-            "❌ <b>RESTORE FAILED</b>\\n\\n"
+            "❌ <b>RESTORE FAILED</b>\n\n"
             "The publishing routine stopped before replacing the old tracked posts. "
             "Check the Render logs for the Event rebuild staging error. "
             "Your saved submission records were not deleted.",
