@@ -5,6 +5,7 @@ This module never creates, updates, deletes, or republishes Event records.
 
 import html
 import logging
+from contextlib import closing
 import os
 import sqlite3
 import sys
@@ -47,7 +48,7 @@ def collect_diagnostics():
 
     try:
         result["size"] = os.path.getsize(DB_PATH)
-        with _readonly_connection() as conn:
+        with closing(_readonly_connection()) as conn:
             check = conn.execute("PRAGMA quick_check").fetchone()
             result["integrity"] = str(check[0]) if check else "NO RESULT"
 
