@@ -1075,6 +1075,26 @@ async def admin_command(update,context):
 async def admin_callback_router(update,context):
     query=update.callback_query
     data=(query.data or "") if query else ""
+
+    # The Events admin panel is a separate extension. Route its callbacks
+    # explicitly instead of sending them to the generic admin button handler.
+    if data in {"admin_events", "admin_events_pending", "admin_events_stats"} or data.startswith("event_admin_review_"):
+        try:
+            import event_admin_panel
+            if data == "admin_events":
+                await event_admin_panel.admin_events(update, context)
+            elif data == "admin_events_pending":
+                await event_admin_panel.admin_events_pending(update, context)
+            elif data == "admin_events_stats":
+                await event_admin_panel.admin_events_stats(update, context)
+            else:
+                await event_admin_panel.admin_events_review(
+                    update, context, data.rsplit("_", 1)[-1]
+                )
+        except Exception:
+            logger.exception("Events admin callback routing failed | callback=%s", data)
+        return
+
     if data.startswith("event_ocr_admin_"):
         try:
             from event_ocr import handle_event_admin_callback
@@ -1173,7 +1193,7 @@ def build_application():
     for command,callback in [("start",start_command),("startgames",startgames_command),("myintro",my_intro_command),("realgames",real_games_command),("admin",admin_command),("startraffle",start_raffle),("queueraffle",queue_raffle),("rafflequeue",raffle_queue),("removequeuedraffle",remove_queued_raffle),("rafflestatus",raffle_status),("entries",raffle_entries),("pending",pending_entries),("paid",paid_entry),("cancelraffle",cancel_raffle),("draw",draw_raffle),("games",games_command),("birthday",birthday),("mybirthday",my_birthday),("removebirthday",remove_my_birthday),("truthdare",truth_dare_menu),("truth",truth),("dare",dare),("postintro",post_intro_topic_command),("birthdayresend",birthday_resend_command),("holidayexchange",holiday_exchange_command),("createexchange",create_exchange_command),("mymatch",my_exchange_match_command)]: application.add_handler(CommandHandler(command,callback))
     application.add_handler(CallbackQueryHandler(raffle_callback_router,pattern=r"^(raffle_|approve_|deny_|enter_|pay_|payment_|paid_|draw_|reroll_|bonus_|remove_)"))
     application.add_handler(CallbackQueryHandler(holiday_exchange_callback,pattern=r"^hx_(join|leave)_\d+$"))
-    application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^admin_"))
+    application.add_handler(CallbackQueryHandler(admin_callback_router,pattern=r"^(admin_|event_admin_review_)"))
     # Run before generic private-text handlers so birthday input is saved
     # by the admin birthday flow instead of being consumed by another feature.
     application.add_handler(
