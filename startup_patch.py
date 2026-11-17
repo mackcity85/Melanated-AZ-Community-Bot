@@ -71,6 +71,15 @@ def _install():
             except Exception:
                 logger.exception("Social admin manual-repost patch failed")
 
+            # Add the read-only Event database health check after other admin
+            # panel extensions so its button and callback remain available.
+            try:
+                import event_database_diagnostic
+                event_database_diagnostic.install()
+                logger.info("Read-only Event database diagnostic enabled")
+            except Exception:
+                logger.exception("Event database diagnostic installation failed")
+
             try:
                 if app.job_queue:
                     for job in app.job_queue.get_jobs_by_name("games-topic-pins-startup"):
