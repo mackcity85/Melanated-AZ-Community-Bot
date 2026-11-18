@@ -165,13 +165,8 @@ def _extract_website(text):
 def _member_required_parse_fields(text):
     fields = event_router._parse_fields_original(text)
 
-    # Event Name must always be entered by the member.
-    fields["event"] = None
-
-    # Price must ALWAYS be entered by the member. Never let OCR skip the
-    # private Price prompt or reduce a multi-price table to one amount.
-    fields["price"] = None
-
+    # Preserve Event Name and Price extracted from the flyer. The member
+    # reviews the OCR results and only fills fields that are genuinely missing.
     website = _extract_website(text)
     if website:
         fields["website"] = website
