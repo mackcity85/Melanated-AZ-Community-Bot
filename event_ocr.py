@@ -495,11 +495,8 @@ def _parse_fields(text):
         "website": _extract_website(full),
     }
 
-    # Event Name and Price are intentionally member-confirmed fields.
-    # OCR can suggest them, but the member must confirm/fill them.
-    fields["event"] = None
-    fields["price"] = None
-
+    # Keep OCR-detected Event Name and Price. The member reviews and
+    # confirms these values, and only genuinely missing fields are requested.
     return fields
 
 
